@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width,            👆 <strong>点击</strong>：打开客服聊天nitial-scale=1.0">
     <title>本地测试页面 - 模拟朋友网站</title>
     <style>
         body {
@@ -142,12 +142,6 @@
     .viewport-nav .nav-box{background:rgba(0,0,0,.8);border-radius:100%;text-align:center;margin:15px 0;width:100px;height:100px;line-height:100px;box-shadow:0 0 5px 2px rgba(255,255,255,.5)}
     .viewport-nav .nav-box p{padding:0 1px;font-size:31px;color:#fff;white-space:normal;font-weight:700}
     .viewport-nav .nav-box#cb{position:relative;cursor:pointer}
-    .viewport-nav .nav-box .cbweixin{top:-320px;right:138px;position:absolute;width:500px;background-color:#eee;border-radius:10px;padding:10px;z-index:999;transform:scale(0);transform-origin:right center;transition:.3s linear;box-shadow:0 0 1px rgba(0,0,0)}
-    .viewport-nav .nav-box .cbweixin::before{content:'';width:50px;height:50px;position:absolute;background-color:#eee;right:-25px;top:calc(50% + (37px));transform:rotate(45deg);border-top:1px solid rgba(0,0,0,.1);border-right:1px solid rgba(0,0,0,.1)}
-    .viewport-nav .nav-box .cbweixin::after{content:'X';font-size:18px;width:30px;height:30px;line-height:30px;position:absolute;border-radius:100%;top:0;right:0;cursor:context-menu}
-    .viewport-nav .nav-box .cbweixin p{color:#000;font-size:20px}
-    .viewport-nav .nav-box .cbweixin-img{margin:0 auto;width:400px;height:400px}
-    .viewport-nav .nav-box .cbweixin img{width:100%}
     .viewport-nav .nav-box .nav-dabaowei,.viewport-nav .nav-box .nav-sxsx{font-size:24px}
 
     /* 新增客服聊天窗口样式 */
@@ -187,13 +181,6 @@
             <li>
                 <div class="nav-box animate__animated animate__backInLeft" id="cb">
                     <a><p class="animate__animated animate__infinite animate__heartBeat">客服</p></a>
-                    <div class="cbweixin">
-                        <p>客服微信</p>
-                        <div class="cbweixin-img">
-                            <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQwMCIgdmlld0JveD0iMCAwIDQwMCA0MDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iNDAwIiBmaWxsPSIjRjBGMEYwIi8+Cjx0ZXh0IHg9IjIwMCIgeT0iMjAwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiBmaWxsPSIjOTk5IiBmb250LXNpemU9IjE2cHgiPuW+ruS/oeS6jOe7tOegge+8iFRlc3Qg6LWE5paZKTwvdGV4dD4KPC9zdmc+">
-                        </div>
-                        <p>扫一扫添加微信</p>
-                    </div>
                 </div>
             </li>
             <li><div class="nav-box"><p>优惠</p></div></li>
@@ -415,33 +402,14 @@
             cs.open();
         };
         
-        // 原有的微信功能保持不变
+        // 客服按钮点击事件
         const cbBtn = document.querySelector('#cb');
-        const cbBtnWeixin = document.querySelector('.cbweixin');
         
-        if (cbBtn && cbBtnWeixin) {
-            // 鼠标悬停显示微信二维码
-            cbBtn.addEventListener('mouseenter', function() {
-                cbBtnWeixin.style.transform = 'scale(1)';
-            });
-            
-            cbBtn.addEventListener('mouseleave', function() {
-                setTimeout(() => {
-                    if (!cbBtnWeixin.matches(':hover')) {
-                        cbBtnWeixin.style.transform = 'scale(0)';
-                    }
-                }, 100);
-            });
-            
-            cbBtnWeixin.addEventListener('mouseleave', function() {
-                cbBtnWeixin.style.transform = 'scale(0)';
-            });
-            
+        if (cbBtn) {
             // 点击客服按钮打开聊天窗口
             cbBtn.addEventListener('click', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
-                cbBtnWeixin.style.transform = 'scale(0)'; // 隐藏微信二维码
                 cs.toggle(); // 打开聊天窗口
             });
         }

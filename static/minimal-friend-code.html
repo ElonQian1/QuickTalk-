@@ -3,12 +3,6 @@
 .viewport-nav .nav-box{background:rgba(0,0,0,.8);border-radius:100%;text-align:center;margin:15px 0;width:100px;height:100px;line-height:100px;box-shadow:0 0 5px 2px rgba(255,255,255,.5)}
 .viewport-nav .nav-box p{padding:0 1px;font-size:31px;color:#fff;white-space:normal;font-weight:700}
 .viewport-nav .nav-box#cb{position:relative;cursor:pointer}
-.viewport-nav .nav-box .cbweixin{top:-320px;right:138px;position:absolute;width:500px;background-color:#eee;border-radius:10px;padding:10px;z-index:999;transform:scale(0);transform-origin:right center;transition:.3s linear;box-shadow:0 0 1px rgba(0,0,0)}
-.viewport-nav .nav-box .cbweixin::before{content:'';width:50px;height:50px;position:absolute;background-color:#eee;right:-25px;top:calc(50% + (37px));transform:rotate(45deg);border-top:1px solid rgba(0,0,0,.1);border-right:1px solid rgba(0,0,0,.1)}
-.viewport-nav .nav-box .cbweixin::after{content:'X';font-size:18px;width:30px;height:30px;line-height:30px;position:absolute;border-radius:100%;top:0;right:0;cursor:context-menu}
-.viewport-nav .nav-box .cbweixin p{color:#000;font-size:20px}
-.viewport-nav .nav-box .cbweixin-img{margin:0 auto;width:400px;height:400px}
-.viewport-nav .nav-box .cbweixin img{width:100%}
 .viewport-nav .nav-box .nav-dabaowei,.viewport-nav .nav-box .nav-sxsx{font-size:24px}
 
 /* 新增客服聊天窗口样式 */
@@ -48,13 +42,6 @@
         <li>
             <div class="nav-box animate__animated animate__backInLeft" id="cb">
                 <a><p class="animate__animated animate__infinite animate__heartBeat">客服</p></a>
-                <div class="cbweixin">
-                    <p>客服微信</p>
-                    <div class="cbweixin-img">
-                        <img src="/wx.jpg">
-                    </div>
-                    <p>扫一扫添加微信</p>
-                </div>
             </div>
         </li>
         <li><div class="nav-box"><p>优惠</p></div></li>
@@ -251,33 +238,14 @@
     window.miniCS = () => cs.minimize();
     window.sendCS = () => cs.send();
     
-    // 原有的微信功能保持不变
+    // 客服按钮点击事件
     const cbBtn = document.querySelector('#cb');
-    const cbBtnWeixin = document.querySelector('.cbweixin');
     
-    if (cbBtn && cbBtnWeixin) {
-        // 鼠标悬停显示微信二维码
-        cbBtn.addEventListener('mouseenter', function() {
-            cbBtnWeixin.style.transform = 'scale(1)';
-        });
-        
-        cbBtn.addEventListener('mouseleave', function() {
-            setTimeout(() => {
-                if (!cbBtnWeixin.matches(':hover')) {
-                    cbBtnWeixin.style.transform = 'scale(0)';
-                }
-            }, 100);
-        });
-        
-        cbBtnWeixin.addEventListener('mouseleave', function() {
-            cbBtnWeixin.style.transform = 'scale(0)';
-        });
-        
+    if (cbBtn) {
         // 点击客服按钮打开聊天窗口
         cbBtn.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
-            cbBtnWeixin.style.transform = 'scale(0)'; // 隐藏微信二维码
             cs.toggle(); // 打开聊天窗口
         });
     }
@@ -304,7 +272,6 @@
 2. 保存并上传到朋友的网站
 
 3. 功能说明：
-   - 鼠标悬停客服按钮：显示微信二维码
    - 点击客服按钮：打开在线聊天窗口
    - 两个功能完美共存，互不干扰
 
