@@ -419,15 +419,8 @@
                     <input type="password" id="confirmPassword" name="confirmPassword" required minlength="6">
                 </div>
                 
-                <div class="form-group">
-                    <label for="role">角色类型</label>
-                    <select id="role" name="role" required>
-                        <option value="">请选择角色</option>
-                        <option value="owner">店主</option>
-                        <option value="manager">经理</option>
-                        <option value="employee">员工</option>
-                    </select>
-                </div>
+                <!-- 角色类型隐藏，默认为店主 -->
+                <input type="hidden" id="role" name="role" value="owner">
                 
                 <button type="submit" class="btn" id="registerBtn">注册</button>
             </form>
