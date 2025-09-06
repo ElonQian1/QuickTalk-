@@ -3,6 +3,10 @@ const WebSocket = require('ws');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 
+// 引入数据库和认证系统
+const Database = require('./database');
+const database = new Database();
+
 const app = express();
 const PORT = 3030;
 
@@ -14,7 +18,7 @@ app.use(express.static(path.join(__dirname, 'static')));
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, X-Session-Id');
     if (req.method === 'OPTIONS') {
         res.status(200).end();
         return;
@@ -31,10 +35,185 @@ app.get('/admin', (req, res) => {
     res.sendFile(path.join(__dirname, 'static', 'admin.html'));
 });
 
+// 新的多店铺管理后台
+app.get('/admin-new', (req, res) => {
+    res.sendFile(path.join(__dirname, 'static', 'admin-new.html'));
+});
+
 // SDK演示页面
 app.get('/sdk-demo', (req, res) => {
     res.sendFile(path.join(__dirname, 'static', 'sdk-demo.html'));
 });
+
+// ============ 用户认证系统 ============
+
+// 用户认证中间件
+function requireAuth(req, res, next) {
+    const sessionId = req.headers['x-session-id'] || req.body.sessionId;
+    if (!sessionId) {
+        return res.status(401).json({ error: '需要登录' });
+    }
+    
+    database.validateSession(sessionId).then(user => {
+        if (!user) {
+            return res.status(401).json({ error: '会话已过期，请重新登录' });
+        }
+        req.user = user;
+        req.sessionId = sessionId;
+        next();
+    }).catch(err => {
+        res.status(500).json({ error: '验证失败' });
+    });
+}
+
+// 超级管理员权限检查
+function requireSuperAdmin(req, res, next) {
+    if (req.user.role !== 'super_admin') {
+        return res.status(403).json({ error: '需要超级管理员权限' });
+    }
+    next();
+}
+
+// 用户注册
+app.post('/api/auth/register', async (req, res) => {
+    try {
+        const { username, password, email, role = 'employee' } = req.body;
+        
+        if (!username || !password || !email) {
+            return res.status(400).json({ error: '用户名、密码和邮箱为必填项' });
+        }
+        
+        if (password.length < 6) {
+            return res.status(400).json({ error: '密码长度至少6位' });
+        }
+        
+        const user = await database.registerUser({ username, password, email, role });
+        
+        console.log(`👤 新用户注册: ${username} (${role})`);
+        res.json({ 
+            success: true, 
+            message: '注册成功',
+            user 
+        });
+    } catch (error) {
+        console.error('注册失败:', error.message);
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// 用户登录
+app.post('/api/auth/login', async (req, res) => {
+    try {
+        const { username, password } = req.body;
+        
+        if (!username || !password) {
+            return res.status(400).json({ error: '用户名和密码为必填项' });
+        }
+        
+        const loginResult = await database.loginUser(username, password);
+        
+        console.log(`🔐 用户登录: ${username}`);
+        console.log(`🏪 拥有店铺数量: ${loginResult.shops.length}`);
+        
+        res.json({
+            success: true,
+            message: '登录成功',
+            ...loginResult
+        });
+    } catch (error) {
+        console.error('登录失败:', error.message);
+        res.status(401).json({ error: error.message });
+    }
+});
+
+// 获取当前用户信息
+app.get('/api/auth/me', requireAuth, async (req, res) => {
+    try {
+        const shops = await database.getUserShops(req.user.id);
+        res.json({
+            success: true,
+            user: req.user,
+            shops
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 创建店铺
+app.post('/api/shops', requireAuth, async (req, res) => {
+    try {
+        const { name, domain } = req.body;
+        
+        if (!name || !domain) {
+            return res.status(400).json({ error: '店铺名称和域名为必填项' });
+        }
+        
+        const shop = await database.createShop(req.user.id, { name, domain });
+        
+        console.log(`🏪 创建新店铺: ${name} by ${req.user.username}`);
+        res.json({
+            success: true,
+            message: '店铺创建成功',
+            shop
+        });
+    } catch (error) {
+        console.error('创建店铺失败:', error.message);
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// 获取用户的店铺列表
+app.get('/api/shops', requireAuth, async (req, res) => {
+    try {
+        const shops = await database.getUserShops(req.user.id);
+        res.json({
+            success: true,
+            shops
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 用户登出
+app.post('/api/auth/logout', requireAuth, (req, res) => {
+    try {
+        database.sessions.delete(req.sessionId);
+        console.log(`🚪 用户登出: ${req.user.username}`);
+        res.json({ success: true, message: '登出成功' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 超级管理员 - 获取所有用户
+app.get('/api/admin/users', requireAuth, requireSuperAdmin, async (req, res) => {
+    try {
+        const users = await database.getAllUsers();
+        res.json({
+            success: true,
+            users
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 超级管理员 - 获取所有店铺
+app.get('/api/admin/shops', requireAuth, requireSuperAdmin, async (req, res) => {
+    try {
+        const shops = await database.getAllShops();
+        res.json({
+            success: true,
+            shops
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ============ 客服消息API ============
 
 // HTTP API存储
 const httpUsers = new Map();
