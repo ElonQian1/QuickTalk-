@@ -76,7 +76,24 @@
             transition: border-color 0.3s;
         }
         
-        .form-group input:focus {
+        .form-group select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+            background: white;
+            appearance: none;
+            background-image: url('data:image/svg+xml;utf8,<svg fill="%23333" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/></svg>');
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 16px;
+            cursor: pointer;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus {
             outline: none;
             border-color: #667eea;
         }
@@ -365,6 +382,7 @@
             
             <div id="loginMessage"></div>
             
+            <!-- 登录表单 -->
             <form id="loginForm">
                 <div class="form-group">
                     <label for="username">用户名</label>
@@ -379,7 +397,50 @@
                 <button type="submit" class="btn" id="loginBtn">登录</button>
             </form>
             
-            <div style="margin-top: 20px; text-align: center; font-size: 14px; color: #666;">
+            <!-- 注册表单 -->
+            <form id="registerForm" style="display: none;">
+                <div class="form-group">
+                    <label for="regUsername">用户名</label>
+                    <input type="text" id="regUsername" name="username" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="regEmail">邮箱</label>
+                    <input type="email" id="regEmail" name="email" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="regPassword">密码</label>
+                    <input type="password" id="regPassword" name="password" required minlength="6">
+                </div>
+                
+                <div class="form-group">
+                    <label for="confirmPassword">确认密码</label>
+                    <input type="password" id="confirmPassword" name="confirmPassword" required minlength="6">
+                </div>
+                
+                <div class="form-group">
+                    <label for="role">角色类型</label>
+                    <select id="role" name="role" required>
+                        <option value="">请选择角色</option>
+                        <option value="owner">店主</option>
+                        <option value="manager">经理</option>
+                        <option value="employee">员工</option>
+                    </select>
+                </div>
+                
+                <button type="submit" class="btn" id="registerBtn">注册</button>
+            </form>
+            
+            <!-- 切换登录/注册 -->
+            <div style="margin-top: 20px; text-align: center;">
+                <p style="color: #666; font-size: 14px;">
+                    <span id="toggleText">还没有账号？</span>
+                    <a href="#" id="toggleLink" style="color: #007bff; text-decoration: none;">立即注册</a>
+                </p>
+            </div>
+            
+            <div id="testAccounts" style="margin-top: 20px; text-align: center; font-size: 14px; color: #666;">
                 <p><strong>测试账号：</strong></p>
                 <p>超级管理员: admin / admin123</p>
                 <p>店主账号: shop_owner / 123456</p>
@@ -541,6 +602,98 @@
                 loginBtn.disabled = false;
                 loginBtn.textContent = '登录';
             }
+        });
+
+        // 注册表单处理
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const username = document.getElementById('regUsername').value;
+            const email = document.getElementById('regEmail').value;
+            const password = document.getElementById('regPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            const role = document.getElementById('role').value;
+            const registerBtn = document.getElementById('registerBtn');
+            
+            // 验证密码匹配
+            if (password !== confirmPassword) {
+                showMessage('两次输入的密码不一致', 'error');
+                return;
+            }
+            
+            registerBtn.disabled = true;
+            registerBtn.textContent = '注册中...';
+            
+            try {
+                const response = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, email, password, role })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showMessage('注册成功！请登录', 'success');
+                    
+                    // 清空注册表单
+                    document.getElementById('registerForm').reset();
+                    
+                    // 3秒后切换到登录界面
+                    setTimeout(() => {
+                        toggleForms();
+                    }, 3000);
+                } else {
+                    showMessage(data.error || '注册失败', 'error');
+                }
+            } catch (error) {
+                showMessage('网络错误，请稍后重试', 'error');
+                console.error('注册错误:', error);
+            } finally {
+                registerBtn.disabled = false;
+                registerBtn.textContent = '注册';
+            }
+        });
+
+        // 切换登录/注册表单
+        function toggleForms() {
+            const loginForm = document.getElementById('loginForm');
+            const registerForm = document.getElementById('registerForm');
+            const toggleText = document.getElementById('toggleText');
+            const toggleLink = document.getElementById('toggleLink');
+            const testAccounts = document.getElementById('testAccounts');
+            
+            if (loginForm.style.display === 'none') {
+                // 切换到登录
+                loginForm.style.display = 'block';
+                registerForm.style.display = 'none';
+                toggleText.textContent = '还没有账号？';
+                toggleLink.textContent = '立即注册';
+                testAccounts.style.display = 'block';
+                document.querySelector('.login-header h1').textContent = '🏪 客服管理系统';
+                document.querySelector('.login-header p').textContent = '多店铺统一管理平台';
+            } else {
+                // 切换到注册
+                loginForm.style.display = 'none';
+                registerForm.style.display = 'block';
+                toggleText.textContent = '已有账号？';
+                toggleLink.textContent = '立即登录';
+                testAccounts.style.display = 'none';
+                document.querySelector('.login-header h1').textContent = '🆕 用户注册';
+                document.querySelector('.login-header p').textContent = '创建您的管理账户';
+            }
+            
+            // 清空消息
+            document.getElementById('loginMessage').textContent = '';
+            document.getElementById('loginMessage').className = '';
+        }
+
+        // 切换链接事件
+        document.getElementById('toggleLink').addEventListener('click', (e) => {
+            e.preventDefault();
+            toggleForms();
         });
 
         // 显示消息
