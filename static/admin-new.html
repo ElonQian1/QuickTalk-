@@ -423,6 +423,150 @@
             background: #5a6268;
         }
         
+        /* 店铺管理模态框样式 */
+        .manage-modal {
+            max-width: 800px;
+            width: 95%;
+        }
+        
+        .modal-body {
+            padding: 0;
+        }
+        
+        .tab-nav {
+            display: flex;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .tab-btn {
+            flex: 1;
+            padding: 15px 20px;
+            border: none;
+            background: #f8f9fa;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: #666;
+            transition: all 0.3s;
+        }
+        
+        .tab-btn.active {
+            background: white;
+            color: #333;
+            border-bottom: 2px solid #007bff;
+        }
+        
+        .tab-btn:hover {
+            background: #e9ecef;
+        }
+        
+        .tab-content {
+            display: none;
+            padding: 25px;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .section-header h4 {
+            margin: 0;
+            color: #333;
+        }
+        
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+        
+        .add-employee-form {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .add-employee-form h5 {
+            margin: 0 0 15px 0;
+            color: #333;
+        }
+        
+        .form-row {
+            display: flex;
+            gap: 15px;
+        }
+        
+        .form-row .form-group {
+            flex: 1;
+        }
+        
+        .form-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 15px;
+        }
+        
+        .form-buttons button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .form-buttons button[type="button"] {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .form-buttons button[type="submit"] {
+            background: #007bff;
+            color: white;
+        }
+        
+        .employees-list {
+            min-height: 200px;
+        }
+        
+        .employee-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+        
+        .employee-info h6 {
+            margin: 0 0 5px 0;
+            color: #333;
+        }
+        
+        .employee-info small {
+            color: #666;
+        }
+        
+        .employee-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+        
         .hidden {
             display: none !important;
         }
@@ -574,6 +718,77 @@
                     <button type="submit" class="btn">创建店铺</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- 店铺管理模态框 -->
+    <div id="manageShopModal" class="modal">
+        <div class="modal-content manage-modal">
+            <div class="modal-header">
+                <h3 id="manageShopTitle">🏪 管理店铺</h3>
+                <span class="close" onclick="hideManageShopModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <!-- 导航标签 -->
+                <div class="tab-nav">
+                    <button class="tab-btn active" onclick="showTab('employees')">👥 员工管理</button>
+                    <button class="tab-btn" onclick="showTab('settings')">⚙️ 店铺设置</button>
+                </div>
+
+                <!-- 员工管理标签页 -->
+                <div id="employeesTab" class="tab-content active">
+                    <div class="section-header">
+                        <h4>员工列表</h4>
+                        <button class="btn btn-small" onclick="showAddEmployeeForm()">➕ 添加员工</button>
+                    </div>
+                    
+                    <!-- 添加员工表单 -->
+                    <div id="addEmployeeForm" class="add-employee-form" style="display: none;">
+                        <h5>添加新员工</h5>
+                        <form id="addEmployeeFormData">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="employeeUsername">用户名</label>
+                                    <input type="text" id="employeeUsername" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="employeeRole">角色</label>
+                                    <select id="employeeRole" required>
+                                        <option value="employee">员工</option>
+                                        <option value="manager">经理</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-buttons">
+                                <button type="button" onclick="cancelAddEmployee()">取消</button>
+                                <button type="submit">添加员工</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- 员工列表 -->
+                    <div id="employeesList" class="employees-list">
+                        <div class="loading">正在加载员工信息...</div>
+                    </div>
+                </div>
+
+                <!-- 店铺设置标签页 -->
+                <div id="settingsTab" class="tab-content">
+                    <form id="shopSettingsForm">
+                        <div class="form-group">
+                            <label for="editShopName">店铺名称</label>
+                            <input type="text" id="editShopName" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="editShopDomain">店铺域名</label>
+                            <input type="text" id="editShopDomain" required>
+                        </div>
+                        <div class="form-buttons">
+                            <button type="submit" class="btn">保存设置</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -876,6 +1091,74 @@
             }
         });
 
+        // 添加员工表单处理
+        document.getElementById('addEmployeeFormData').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const username = document.getElementById('employeeUsername').value;
+            const role = document.getElementById('employeeRole').value;
+            
+            try {
+                const response = await fetch(`/api/shops/${currentManagedShop.id}/employees`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Session-Id': currentSession
+                    },
+                    body: JSON.stringify({ username, role })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('员工添加成功！');
+                    cancelAddEmployee();
+                    loadEmployees(currentManagedShop.id);
+                } else {
+                    alert(data.error || '添加失败');
+                }
+            } catch (error) {
+                alert('网络错误，请稍后重试');
+                console.error('添加员工错误:', error);
+            }
+        });
+
+        // 店铺设置表单处理
+        document.getElementById('shopSettingsForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const name = document.getElementById('editShopName').value;
+            const domain = document.getElementById('editShopDomain').value;
+            
+            try {
+                const response = await fetch(`/api/shops/${currentManagedShop.id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Session-Id': currentSession
+                    },
+                    body: JSON.stringify({ name, domain })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('店铺设置更新成功！');
+                    // 重新加载店铺列表
+                    await validateSession(currentSession);
+                    // 更新当前管理的店铺信息
+                    currentManagedShop.name = name;
+                    currentManagedShop.domain = domain;
+                    document.getElementById('manageShopTitle').textContent = `🏪 管理店铺 - ${name}`;
+                } else {
+                    alert(data.error || '更新失败');
+                }
+            } catch (error) {
+                alert('网络错误，请稍后重试');
+                console.error('更新店铺设置错误:', error);
+            }
+        });
+
         // 查看店铺消息
         function viewShopMessages(shopId) {
             const shop = currentShops.find(s => s.id === shopId);
@@ -903,8 +1186,141 @@
             const shop = currentShops.find(s => s.id === shopId);
             if (!shop) return;
             
-            alert(`管理店铺功能开发中...\n店铺: ${shop.name}\n您的角色: ${getRoleText(shop.userRole)}`);
+            currentManagedShop = shop;
+            document.getElementById('manageShopTitle').textContent = `🏪 管理店铺 - ${shop.name}`;
+            
+            // 填充店铺设置表单
+            document.getElementById('editShopName').value = shop.name;
+            document.getElementById('editShopDomain').value = shop.domain;
+            
+            // 加载员工列表
+            loadEmployees(shopId);
+            
+            // 显示模态框
+            document.getElementById('manageShopModal').style.display = 'block';
+            
+            // 默认显示员工管理标签
+            showTab('employees');
         }
+
+        // 隐藏店铺管理模态框
+        function hideManageShopModal() {
+            document.getElementById('manageShopModal').style.display = 'none';
+            currentManagedShop = null;
+        }
+
+        // 切换标签页
+        function showTab(tabName) {
+            // 隐藏所有标签内容
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // 移除所有标签按钮的激活状态
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // 显示指定标签内容
+            document.getElementById(tabName + 'Tab').classList.add('active');
+            
+            // 激活对应的标签按钮
+            event.target.classList.add('active');
+        }
+
+        // 显示添加员工表单
+        function showAddEmployeeForm() {
+            document.getElementById('addEmployeeForm').style.display = 'block';
+        }
+
+        // 取消添加员工
+        function cancelAddEmployee() {
+            document.getElementById('addEmployeeForm').style.display = 'none';
+            document.getElementById('addEmployeeFormData').reset();
+        }
+
+        // 加载员工列表
+        async function loadEmployees(shopId) {
+            const employeesList = document.getElementById('employeesList');
+            employeesList.innerHTML = '<div class="loading">正在加载员工信息...</div>';
+            
+            try {
+                const response = await fetch(`/api/shops/${shopId}/employees`, {
+                    headers: {
+                        'X-Session-Id': currentSession
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayEmployees(data.employees);
+                } else {
+                    employeesList.innerHTML = `<div class="error">加载失败: ${data.error}</div>`;
+                }
+            } catch (error) {
+                employeesList.innerHTML = '<div class="error">网络错误，请稍后重试</div>';
+                console.error('加载员工列表错误:', error);
+            }
+        }
+
+        // 显示员工列表
+        function displayEmployees(employees) {
+            const employeesList = document.getElementById('employeesList');
+            
+            if (employees.length === 0) {
+                employeesList.innerHTML = '<div class="empty-state">暂无员工</div>';
+                return;
+            }
+            
+            const html = employees.map(employee => `
+                <div class="employee-item">
+                    <div class="employee-info">
+                        <h6>${employee.username}</h6>
+                        <small>角色: ${getRoleText(employee.role)} | 加入时间: ${new Date(employee.joinedAt).toLocaleDateString()}</small>
+                    </div>
+                    <div class="employee-actions">
+                        <button class="btn btn-small" onclick="editEmployee('${employee.id}')">编辑</button>
+                        <button class="btn btn-small btn-danger" onclick="removeEmployee('${employee.id}')">移除</button>
+                    </div>
+                </div>
+            `).join('');
+            
+            employeesList.innerHTML = html;
+        }
+
+        // 编辑员工
+        function editEmployee(employeeId) {
+            alert('编辑员工功能开发中...');
+        }
+
+        // 移除员工
+        async function removeEmployee(employeeId) {
+            if (!confirm('确定要移除这个员工吗？')) return;
+            
+            try {
+                const response = await fetch(`/api/shops/${currentManagedShop.id}/employees/${employeeId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-Session-Id': currentSession
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    loadEmployees(currentManagedShop.id);
+                } else {
+                    alert('移除失败: ' + data.error);
+                }
+            } catch (error) {
+                alert('网络错误，请稍后重试');
+                console.error('移除员工错误:', error);
+            }
+        }
+
+        // 全局变量
+        let currentManagedShop = null;
 
         // 显示创建店铺模态框
         function showCreateShopModal() {
@@ -919,9 +1335,13 @@
 
         // 点击模态框外部关闭
         window.onclick = function(event) {
-            const modal = document.getElementById('createShopModal');
-            if (event.target === modal) {
+            const createModal = document.getElementById('createShopModal');
+            const manageModal = document.getElementById('manageShopModal');
+            
+            if (event.target === createModal) {
                 hideCreateShopModal();
+            } else if (event.target === manageModal) {
+                hideManageShopModal();
             }
         }
 
