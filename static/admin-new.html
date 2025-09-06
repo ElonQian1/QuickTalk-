@@ -185,6 +185,21 @@
             font-size: 14px;
         }
         
+        .create-shop-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+        }
+        
+        .create-shop-btn:hover {
+            background: #218838;
+        }
+        
         .shops-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -342,6 +357,72 @@
             color: #666;
         }
         
+        /* 模态框样式 */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        
+        .modal-content {
+            background-color: white;
+            margin: 10% auto;
+            padding: 0;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 25px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .modal-header h3 {
+            margin: 0;
+            color: #333;
+        }
+        
+        .close {
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            color: #aaa;
+        }
+        
+        .close:hover {
+            color: #333;
+        }
+        
+        .modal-form {
+            padding: 25px;
+        }
+        
+        .modal-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        
         .hidden {
             display: none !important;
         }
@@ -448,24 +529,9 @@
                 <h1>客服管理系统</h1>
                 <div class="user-info">
                     <span class="user-badge" id="userBadge">加载中...</span>
+                    <button class="create-shop-btn" onclick="showCreateShopModal()">🏪 创建店铺</button>
                     <button class="logout-btn" onclick="logout()">登出</button>
                 </div>
-            </div>
-
-            <!-- 创建店铺 -->
-            <div class="create-shop" id="createShopSection">
-                <h3>🏪 创建新店铺</h3>
-                <form id="createShopForm" class="create-shop-form">
-                    <div class="form-group">
-                        <label for="shopName">店铺名称</label>
-                        <input type="text" id="shopName" name="shopName" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="shopDomain">店铺域名</label>
-                        <input type="text" id="shopDomain" name="shopDomain" placeholder="example.com" required>
-                    </div>
-                    <button type="submit" class="btn">创建店铺</button>
-                </form>
             </div>
 
             <!-- 店铺列表 -->
@@ -484,6 +550,30 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- 创建店铺模态框 -->
+    <div id="createShopModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>🏪 创建新店铺</h3>
+                <span class="close" onclick="hideCreateShopModal()">&times;</span>
+            </div>
+            <form id="createShopForm" class="modal-form">
+                <div class="form-group">
+                    <label for="shopName">店铺名称</label>
+                    <input type="text" id="shopName" name="shopName" required>
+                </div>
+                <div class="form-group">
+                    <label for="shopDomain">店铺域名</label>
+                    <input type="text" id="shopDomain" name="shopDomain" placeholder="example.com" required>
+                </div>
+                <div class="modal-buttons">
+                    <button type="button" class="btn btn-secondary" onclick="hideCreateShopModal()">取消</button>
+                    <button type="submit" class="btn">创建店铺</button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -814,6 +904,25 @@
             if (!shop) return;
             
             alert(`管理店铺功能开发中...\n店铺: ${shop.name}\n您的角色: ${getRoleText(shop.userRole)}`);
+        }
+
+        // 显示创建店铺模态框
+        function showCreateShopModal() {
+            document.getElementById('createShopModal').style.display = 'block';
+        }
+
+        // 隐藏创建店铺模态框
+        function hideCreateShopModal() {
+            document.getElementById('createShopModal').style.display = 'none';
+            document.getElementById('createShopForm').reset();
+        }
+
+        // 点击模态框外部关闭
+        window.onclick = function(event) {
+            const modal = document.getElementById('createShopModal');
+            if (event.target === modal) {
+                hideCreateShopModal();
+            }
         }
 
         // 登出
