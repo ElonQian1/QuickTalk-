@@ -1,0 +1,325 @@
+<!-- 
+🔥 超简单测试版 - 只需修改一个地址即可使用
+请将 YOUR_NGROK_URL 替换为您的实际ngrok地址
+-->
+
+<style>
+/* 保持原有导航样式 */
+.viewport-nav{outline:#000;position:fixed;right:40px;bottom:40px;z-index:999999}
+.viewport-nav .nav-box{background:rgba(0,0,0,.8);border-radius:100%;text-align:center;margin:15px 0;width:100px;height:100px;line-height:100px;box-shadow:0 0 5px 2px rgba(255,255,255,.5)}
+.viewport-nav .nav-box p{padding:0 1px;font-size:31px;color:#fff;white-space:normal;font-weight:700}
+.viewport-nav .nav-box#cb{position:relative;cursor:pointer}
+.viewport-nav .nav-box .cbweixin{top:-320px;right:138px;position:absolute;width:500px;background-color:#eee;border-radius:10px;padding:10px;z-index:999;transform:scale(0);transform-origin:right center;transition:.3s linear;box-shadow:0 0 1px rgba(0,0,0)}
+.viewport-nav .nav-box .cbweixin::before{content:'';width:50px;height:50px;position:absolute;background-color:#eee;right:-25px;top:calc(50% + (37px));transform:rotate(45deg);border-top:1px solid rgba(0,0,0,.1);border-right:1px solid rgba(0,0,0,.1)}
+.viewport-nav .nav-box .cbweixin::after{content:'X';font-size:18px;width:30px;height:30px;line-height:30px;position:absolute;border-radius:100%;top:0;right:0;cursor:context-menu}
+.viewport-nav .nav-box .cbweixin p{color:#000;font-size:20px}
+.viewport-nav .nav-box .cbweixin-img{margin:0 auto;width:400px;height:400px}
+.viewport-nav .nav-box .cbweixin img{width:100%}
+.viewport-nav .nav-box .nav-dabaowei,.viewport-nav .nav-box .nav-sxsx{font-size:24px}
+
+/* 新客服窗口样式 */
+.new-customer-service{position:fixed;bottom:160px;right:40px;width:380px;height:520px;background:white;border-radius:15px;box-shadow:0 10px 30px rgba(0,0,0,0.3);display:none;flex-direction:column;z-index:999998;overflow:hidden;transform:scale(0);transform-origin:bottom right;transition:all 0.3s ease;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif}
+.new-customer-service.open{display:flex;transform:scale(1)}
+.new-customer-service.minimized{height:60px}
+.new-customer-service.minimized .ncs-body,.new-customer-service.minimized .ncs-input,.new-customer-service.minimized .ncs-status{display:none}
+.ncs-header{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;padding:15px 20px;display:flex;justify-content:space-between;align-items:center}
+.ncs-header h3{font-size:16px;font-weight:600;margin:0}
+.ncs-controls{display:flex;gap:10px}
+.ncs-controls button{background:rgba(255,255,255,0.2);border:none;color:white;width:24px;height:24px;border-radius:50%;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:background-color 0.3s}
+.ncs-controls button:hover{background:rgba(255,255,255,0.3)}
+.ncs-body{display:flex;flex-direction:column;flex:1;min-height:0}
+.ncs-messages{flex:1;padding:20px;overflow-y:auto;display:flex;flex-direction:column;gap:15px;background:#fafbfc}
+.ncs-message{display:flex;flex-direction:column;margin-bottom:10px}
+.ncs-message-text{padding:12px 16px;border-radius:18px;max-width:80%;word-wrap:break-word;line-height:1.4}
+.ncs-message-time{font-size:11px;color:#999;margin-top:5px;text-align:center}
+.ncs-system-message .ncs-message-text{background:#f0f0f0;color:#666;align-self:center;text-align:center;font-size:13px}
+.ncs-user-message{align-items:flex-end}
+.ncs-user-message .ncs-message-text{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;align-self:flex-end}
+.ncs-user-message .ncs-message-time{text-align:right}
+.ncs-staff-message{align-items:flex-start}
+.ncs-staff-message .ncs-message-text{background:#f8f9fa;color:#333;border:1px solid #e9ecef;align-self:flex-start}
+.ncs-staff-message .ncs-message-time{text-align:left}
+.ncs-input{padding:15px 20px;border-top:1px solid #eee;display:flex;gap:10px;background:white}
+.ncs-input input{flex:1;padding:10px 15px;border:1px solid #ddd;border-radius:20px;outline:none;font-size:14px;font-family:inherit}
+.ncs-input input:focus{border-color:#667eea;box-shadow:0 0 0 2px rgba(102,126,234,0.2)}
+.ncs-input button{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;border:none;padding:10px 20px;border-radius:20px;cursor:pointer;font-size:14px;font-weight:600;transition:all 0.3s ease}
+.ncs-input button:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(102,126,234,0.3)}
+.ncs-status{padding:8px 20px;background:#f8f9fa;border-top:1px solid #eee;display:flex;align-items:center;gap:8px;font-size:12px}
+.ncs-indicator{width:8px;height:8px;border-radius:50%;display:inline-block}
+.ncs-connected{background:#28a745;animation:pulse 2s infinite}
+.ncs-disconnected{background:#dc3545}
+@keyframes pulse{0%{opacity:1}50%{opacity:0.5}100%{opacity:1}}
+@media (max-width:768px){.new-customer-service{width:calc(100vw - 20px);right:10px;left:10px;bottom:160px}.viewport-nav{bottom:20px;right:20px}}
+</style>
+
+<div class="viewport-nav">
+    <ul>
+        <li><div class="nav-box"><p>登入</p></div></li>
+        <li><div class="nav-box"><p>注册</p></div></li>
+        <li>
+            <div class="nav-box animate__animated animate__backInLeft" id="cb">
+                <a><p class="animate__animated animate__infinite animate__heartBeat">客服</p></a>
+                <div class="cbweixin"><p>客服微信</p><div class="cbweixin-img"><img src="/wx.jpg"></div><p>扫一扫添加微信</p></div>
+            </div>
+        </li>
+        <li><div class="nav-box"><p>优惠</p></div></li>
+    </ul>
+</div>
+
+<div class="new-customer-service" id="new-customer-service">
+    <div class="ncs-header">
+        <h3>在线客服</h3>
+        <div class="ncs-controls">
+            <button onclick="minimizeCS()">−</button>
+            <button onclick="closeCS()">×</button>
+        </div>
+    </div>
+    <div class="ncs-body">
+        <div class="ncs-messages" id="ncs-messages">
+            <div class="ncs-message ncs-system-message">
+                <span class="ncs-message-text">欢迎使用在线客服，请问有什么可以帮助您的吗？</span>
+                <span class="ncs-message-time" id="ncs-welcome-time"></span>
+            </div>
+        </div>
+        <div class="ncs-input">
+            <input type="text" id="ncs-input" placeholder="请输入您的消息..." onkeypress="if(event.key==='Enter')sendCS()">
+            <button onclick="sendCS()">发送</button>
+        </div>
+    </div>
+    <div class="ncs-status">
+        <span class="ncs-indicator" id="ncs-indicator"></span>
+        <span id="ncs-status">连接中...</span>
+    </div>
+</div>
+
+<script>
+(function(){
+    'use strict';
+    
+    // 🔥 重要：请将下面的地址替换为您的 ngrok 地址
+    // 例如：'https://abc123.ngrok.io' 或 'https://你的域名.com'
+    const SERVER_URL = 'YOUR_NGROK_URL';
+    
+    let cs = {
+        isOpen: false,
+        isMinimized: false,
+        isConnected: false,
+        userId: 'user_' + Math.random().toString(36).substr(2,9) + '_' + Date.now(),
+        pollingInterval: null,
+        lastMessageId: 0,
+        
+        init: function() {
+            this.updateWelcomeTime();
+            setTimeout(() => this.connect(), 1000);
+        },
+        
+        async connect() {
+            try {
+                const response = await fetch(`${SERVER_URL}/api/connect`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({userId: this.userId, timestamp: Date.now()})
+                });
+                
+                if (response.ok) {
+                    this.isConnected = true;
+                    this.updateStatus('connected', '已连接');
+                    this.startPolling();
+                    console.log('✅ 客服连接成功');
+                } else {
+                    throw new Error('连接失败');
+                }
+            } catch (error) {
+                console.error('❌ 客服连接失败:', error);
+                this.updateStatus('disconnected', '连接失败');
+                setTimeout(() => this.connect(), 5000);
+            }
+        },
+        
+        startPolling() {
+            if (this.pollingInterval) clearInterval(this.pollingInterval);
+            this.pollingInterval = setInterval(() => this.checkMessages(), 2000);
+        },
+        
+        async checkMessages() {
+            if (!this.isConnected) return;
+            try {
+                const response = await fetch(`${SERVER_URL}/api/messages?userId=${this.userId}&lastId=${this.lastMessageId}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.messages && data.messages.length > 0) {
+                        data.messages.forEach(msg => {
+                            this.handleMessage(msg);
+                            this.lastMessageId = Math.max(this.lastMessageId, msg.id || 0);
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error('获取消息失败:', error);
+                this.isConnected = false;
+                this.updateStatus('disconnected', '连接断开');
+                setTimeout(() => this.connect(), 3000);
+            }
+        },
+        
+        handleMessage(msg) {
+            if (msg.type === 'staff_message') {
+                this.addMessage('staff', msg.message, msg.staffName);
+            } else if (msg.type === 'system_notification') {
+                this.addSystemMessage(msg.message);
+            }
+        },
+        
+        addMessage(type, message, staffName) {
+            const container = document.getElementById('ncs-messages');
+            const div = document.createElement('div');
+            div.className = `ncs-message ncs-${type}-message`;
+            div.innerHTML = `
+                ${staffName ? `<span style="font-size:12px;color:#666;margin-bottom:5px">客服 ${staffName}</span>` : ''}
+                <span class="ncs-message-text">${message}</span>
+                <span class="ncs-message-time">${this.formatTime(new Date())}</span>
+            `;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        },
+        
+        addSystemMessage(message) {
+            const container = document.getElementById('ncs-messages');
+            const div = document.createElement('div');
+            div.className = 'ncs-message ncs-system-message';
+            div.innerHTML = `
+                <span class="ncs-message-text">${message}</span>
+                <span class="ncs-message-time">${this.formatTime(new Date())}</span>
+            `;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        },
+        
+        async sendMessage() {
+            const input = document.getElementById('ncs-input');
+            const message = input.value.trim();
+            if (!message) return;
+            
+            if (!this.isConnected) {
+                this.addSystemMessage('连接断开，无法发送消息');
+                return;
+            }
+            
+            this.addMessage('user', message);
+            input.value = '';
+            
+            try {
+                await fetch(`${SERVER_URL}/api/send`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({userId: this.userId, message: message, timestamp: Date.now()})
+                });
+            } catch (error) {
+                this.addSystemMessage('消息发送失败，请重试');
+            }
+        },
+        
+        updateStatus(status, text) {
+            document.getElementById('ncs-indicator').className = `ncs-indicator ncs-${status}`;
+            document.getElementById('ncs-status').textContent = text;
+        },
+        
+        formatTime(date) {
+            return date.toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit'});
+        },
+        
+        updateWelcomeTime() {
+            const time = document.getElementById('ncs-welcome-time');
+            if (time) time.textContent = this.formatTime(new Date());
+        },
+        
+        toggle() {
+            if (this.isOpen) this.close(); else this.open();
+        },
+        
+        open() {
+            const win = document.getElementById('new-customer-service');
+            win.classList.add('open');
+            win.classList.remove('minimized');
+            this.isOpen = true;
+            this.isMinimized = false;
+            document.getElementById('ncs-input').focus();
+            if (this.isConnected && !this.pollingInterval) this.startPolling();
+        },
+        
+        close() {
+            const win = document.getElementById('new-customer-service');
+            win.classList.remove('open', 'minimized');
+            this.isOpen = false;
+            this.isMinimized = false;
+            if (this.pollingInterval) {
+                clearInterval(this.pollingInterval);
+                this.pollingInterval = null;
+            }
+        },
+        
+        minimize() {
+            const win = document.getElementById('new-customer-service');
+            if (this.isMinimized) {
+                win.classList.remove('minimized');
+                this.isMinimized = false;
+                document.getElementById('ncs-input').focus();
+            } else {
+                win.classList.add('minimized');
+                this.isMinimized = true;
+            }
+        }
+    };
+    
+    // 全局函数
+    window.toggleCS = () => cs.toggle();
+    window.closeCS = () => cs.close();
+    window.minimizeCS = () => cs.minimize();
+    window.sendCS = () => cs.sendMessage();
+    
+    // 绑定原有客服按钮
+    function bindButton() {
+        const btn = document.querySelector('#cb');
+        if (btn) {
+            const newBtn = btn.cloneNode(true);
+            btn.parentNode.replaceChild(newBtn, btn);
+            newBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                cs.toggle();
+            });
+        }
+    }
+    
+    // 初始化
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(() => {
+                cs.init();
+                bindButton();
+            }, 1000);
+        });
+    } else {
+        setTimeout(() => {
+            cs.init();
+            bindButton();
+        }, 1000);
+    }
+    
+    // 清理
+    window.addEventListener('beforeunload', () => {
+        if (cs.pollingInterval) clearInterval(cs.pollingInterval);
+    });
+})();
+</script>
+
+<!-- 
+🔥 使用说明：
+1. 将 YOUR_NGROK_URL 替换为您的实际地址
+2. 保存并上传到朋友的网站
+3. 确保您的本地服务器和 ngrok 正在运行
+4. 访问朋友的网站测试客服功能
+
+示例：
+const SERVER_URL = 'https://abc123.ngrok.io';
+-->

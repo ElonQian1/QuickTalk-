@@ -1,0 +1,41 @@
+# 依赖文件
+node_modules/
+npm-debug.log*
+
+# Rust编译文件
+target/
+Cargo.lock
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 编辑器配置
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 日志文件
+*.log
+logs/
+
+# 临时文件
+*.tmp
+*.temp
+
+# 环境配置
+.env
+.env.local
+.env.production
+
+# 缓存目录
+.cache/
+dist/
+
+# 备份文件
+*.bak
+*.backup
+
+# 参考文件夹（包含个人文档）
+参考/
