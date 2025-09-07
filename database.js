@@ -290,6 +290,16 @@ class Database {
         return updatedUser;
     }
     
+    // 根据用户名获取用户
+    async getUserByUsername(username) {
+        for (let user of this.users.values()) {
+            if (user.username === username) {
+                return user;
+            }
+        }
+        return null;
+    }
+    
     // 验证密码
     async validatePassword(plainPassword, hashedPassword) {
         // 在真实环境中，这里应该使用bcrypt等库进行密码验证
