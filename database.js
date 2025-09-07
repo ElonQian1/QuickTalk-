@@ -46,7 +46,9 @@ class Database {
             domain: 'test-shop.com',
             ownerId: shopOwnerId,
             status: 'active',
-            createdAt: new Date()
+            createdAt: new Date(),
+            api_key: 'sk_test_1234567890abcdef1234567890abcdef',
+            apiKeyCreatedAt: new Date()
         });
         
         // 建立用户-店铺关系
@@ -257,7 +259,64 @@ class Database {
     
     // 获取所有店铺 (仅超级管理员)
     async getAllShops() {
-        return Array.from(this.shops.values());
+        return Array.from(this.shops.values()).map(shop => ({
+            ...shop,
+            userCount: this.getShopUserCount(shop.id)
+        }));
+    }
+    
+    // 更新店铺API密钥
+    async updateShopApiKey(shopId, apiKey) {
+        const shop = this.shops.get(shopId);
+        if (!shop) {
+            throw new Error('店铺不存在');
+        }
+        
+        shop.api_key = apiKey;
+        shop.updatedAt = new Date();
+        
+        console.log(`🔑 店铺 "${shop.name}" API密钥已更新`);
+        return shop;
+    }
+    
+    // 通过API密钥查找店铺
+    async getShopByApiKey(apiKey) {
+        for (const shop of this.shops.values()) {
+            if (shop.api_key === apiKey) {
+                return shop;
+            }
+        }
+        return null;
+    }
+    
+    // 验证API密钥
+    async verifyApiKey(apiKey, domain = null) {
+        const shop = await this.getShopByApiKey(apiKey);
+        if (!shop) {
+            return { valid: false, reason: 'API密钥无效' };
+        }
+        
+        // 如果提供了域名，验证域名匹配
+        if (domain) {
+            const normalizedDomain = domain.toLowerCase().replace(/^www\./, '');
+            const shopDomain = shop.domain.toLowerCase().replace(/^www\./, '');
+            
+            if (normalizedDomain !== shopDomain && 
+                !normalizedDomain.endsWith('.' + shopDomain) &&
+                normalizedDomain !== 'localhost') {
+                return { 
+                    valid: false, 
+                    reason: '域名不匹配',
+                    shop: shop
+                };
+            }
+        }
+        
+        return { 
+            valid: true, 
+            shop: shop,
+            reason: '验证通过'
+        };
     }
     
     // 根据ID获取用户
@@ -474,6 +533,84 @@ class Database {
         }
         
         return user;
+    }
+
+    // ============ API密钥管理 ============
+    
+    // 为店铺生成API密钥
+    async generateApiKeyForShop(shopId) {
+        const shop = this.shops.get(shopId);
+        if (!shop) {
+            throw new Error('店铺不存在');
+        }
+        
+        const crypto = require('crypto');
+        const timestamp = Date.now();
+        const randomBytes = crypto.randomBytes(16).toString('hex');
+        const signature = crypto.createHash('sha256')
+            .update(`${shopId}-${shop.domain}-${timestamp}-${randomBytes}`)
+            .digest('hex');
+        
+        const apiKey = `sk_${shopId}_${signature.substring(0, 32)}`;
+        
+        // 更新店铺信息，添加API密钥
+        shop.apiKey = apiKey;
+        shop.apiKeyCreatedAt = new Date();
+        shop.updatedAt = new Date();
+        
+        this.shops.set(shopId, shop);
+        return apiKey;
+    }
+    
+    // 根据API密钥获取店铺信息
+    async getShopByApiKey(apiKey) {
+        for (const shop of this.shops.values()) {
+            if (shop.apiKey === apiKey && shop.status === 'active') {
+                return shop;
+            }
+        }
+        return null;
+    }
+    
+    // 更新店铺API密钥
+    async updateShopApiKey(shopId) {
+        return await this.generateApiKeyForShop(shopId);
+    }
+    
+    // 删除店铺API密钥
+    async deleteShopApiKey(shopId) {
+        const shop = this.shops.get(shopId);
+        if (!shop) {
+            throw new Error('店铺不存在');
+        }
+        
+        delete shop.apiKey;
+        delete shop.apiKeyCreatedAt;
+        shop.updatedAt = new Date();
+        
+        this.shops.set(shopId, shop);
+        return true;
+    }
+    
+    // 验证API密钥有效性
+    async validateApiKey(apiKey) {
+        const shop = await this.getShopByApiKey(apiKey);
+        return shop !== null;
+    }
+    
+    // 获取店铺的API密钥信息
+    async getShopApiKeyInfo(shopId) {
+        const shop = this.shops.get(shopId);
+        if (!shop) {
+            throw new Error('店铺不存在');
+        }
+        
+        return {
+            hasApiKey: !!shop.apiKey,
+            apiKey: shop.apiKey,
+            createdAt: shop.apiKeyCreatedAt,
+            maskedKey: shop.apiKey ? shop.apiKey.substring(0, 12) + '****' + shop.apiKey.substring(shop.apiKey.length - 4) : null
+        };
     }
 }
 

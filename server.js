@@ -7,12 +7,26 @@ const { v4: uuidv4 } = require('uuid');
 const Database = require('./database');
 const database = new Database();
 
+// 引入域名验证器
+const DomainValidator = require('./domain-validator');
+const domainValidator = new DomainValidator(database);
+
+// 引入集成代码生成器
+const IntegrationCodeGenerator = require('./integration-code-generator');
+const codeGenerator = new IntegrationCodeGenerator(database);
+
 const app = express();
 const PORT = 3030;
 
 // 中间件
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'static')));
+
+// 信任代理（用于获取真实IP）
+app.set('trust proxy', true);
+
+// 域名验证中间件（在CORS之前）
+app.use(domainValidator.createMiddleware());
 
 // CORS支持
 app.use((req, res, next) => {
@@ -46,6 +60,22 @@ app.get('/', (req, res) => {
 
 app.get('/admin', (req, res) => {
     res.sendFile(path.join(__dirname, 'static', 'admin.html'));
+});
+
+app.get('/domain-test', (req, res) => {
+    res.sendFile(path.join(__dirname, 'static', 'domain-validation-test.html'));
+});
+
+app.get('/integration-demo', (req, res) => {
+    res.sendFile(path.join(__dirname, 'static', 'third-party-integration-demo.html'));
+});
+
+app.get('/code-generator', (req, res) => {
+    res.sendFile(path.join(__dirname, 'static', 'integration-generator.html'));
+});
+
+app.get('/identity-demo', (req, res) => {
+    res.sendFile(path.join(__dirname, 'static', 'identity-demo.html'));
 });
 
 // 新的多店铺管理后台
@@ -226,6 +256,296 @@ app.get('/api/admin/shops', requireAuth, requireSuperAdmin, async (req, res) => 
     }
 });
 
+// 超级管理员 - 获取域名验证统计
+app.get('/api/admin/domain-stats', requireAuth, requireSuperAdmin, async (req, res) => {
+    try {
+        const stats = await securityValidator.getSecurityStats();
+        
+        // 获取当前在线用户的域名信息
+        const onlineUsers = Array.from(httpUsers.values()).map(user => ({
+            userId: user.userId,
+            domain: user.domain,
+            ip: user.ip,
+            shopInfo: user.shopInfo,
+            securityLevel: user.securityLevel,
+            apiKeyUsed: user.apiKeyUsed,
+            validationMethods: user.validationMethods,
+            connectedAt: user.connectedAt,
+            lastSeen: user.lastSeen
+        }));
+        
+        res.json({
+            success: true,
+            stats,
+            onlineUsers,
+            totalOnline: httpUsers.size
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// API密钥管理接口
+// 为店铺生成API密钥
+app.post('/api/admin/shops/:shopId/generate-api-key', requireAuth, requireSuperAdmin, async (req, res) => {
+    try {
+        const { shopId } = req.params;
+        const apiKey = await database.generateApiKeyForShop(shopId);
+        
+        res.json({
+            success: true,
+            message: 'API密钥生成成功',
+            apiKey,
+            maskedKey: apiKey.substring(0, 12) + '****' + apiKey.substring(apiKey.length - 4)
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 获取店铺API密钥信息
+app.get('/api/admin/shops/:shopId/api-key', requireAuth, requireSuperAdmin, async (req, res) => {
+    try {
+        const { shopId } = req.params;
+        const apiKeyInfo = await database.getShopApiKeyInfo(shopId);
+        
+        res.json({
+            success: true,
+            apiKeyInfo
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 删除店铺API密钥
+app.delete('/api/admin/shops/:shopId/api-key', requireAuth, requireSuperAdmin, async (req, res) => {
+    try {
+        const { shopId } = req.params;
+        await database.deleteShopApiKey(shopId);
+        
+        res.json({
+            success: true,
+            message: 'API密钥已删除'
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 超级管理员 - 测试域名验证
+app.post('/api/admin/test-domain', requireAuth, requireSuperAdmin, async (req, res) => {
+    try {
+        const { testDomain, testIP, testApiKey } = req.body;
+        
+        if (!testDomain) {
+            return res.status(400).json({ error: '请提供测试域名' });
+        }
+        
+        // 模拟客户端信息
+        const mockClientInfo = {
+            ip: testIP || '192.168.1.100',
+            referer: `https://${testDomain}/test-page`,
+            origin: `https://${testDomain}`,
+            refererDomain: testDomain,
+            originDomain: testDomain,
+            userAgent: 'Domain Validation Test Tool',
+            host: 'localhost:3030',
+            timestamp: new Date().toISOString()
+        };
+        
+        // 创建模拟请求对象
+        const mockReq = {
+            path: '/api/connect',
+            get: (header) => {
+                const headers = {
+                    'Referer': mockClientInfo.referer,
+                    'Origin': mockClientInfo.origin,
+                    'User-Agent': mockClientInfo.userAgent,
+                    'X-API-Key': testApiKey,
+                    'Authorization': testApiKey ? `Bearer ${testApiKey}` : undefined
+                };
+                return headers[header];
+            },
+            ip: mockClientInfo.ip,
+            connection: { remoteAddress: mockClientInfo.ip },
+            socket: { remoteAddress: mockClientInfo.ip },
+            headers: {
+                'x-forwarded-for': mockClientInfo.ip,
+                'referer': mockClientInfo.referer,
+                'origin': mockClientInfo.origin,
+                'user-agent': mockClientInfo.userAgent,
+                'x-api-key': testApiKey
+            }
+        };
+        
+        // 进行增强验证
+        const validation = await securityValidator.enhancedValidation(mockReq);
+        
+        res.json({
+            success: true,
+            testDomain,
+            testIP,
+            testApiKey: testApiKey ? testApiKey.substring(0, 12) + '****' : null,
+            validation: {
+                isValid: validation.isValid,
+                securityLevel: validation.securityLevel,
+                validationMethods: validation.validationMethods,
+                reason: validation.reason,
+                warnings: validation.warnings,
+                suspicionScore: validation.suspicionScore,
+                processingTime: validation.processingTime,
+                shopInfo: validation.shopInfo,
+                apiKeyUsed: validation.apiKeyUsed
+            },
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ============ 集成代码生成API ============
+
+// 为店铺生成集成代码
+app.post('/api/shop/:shopId/generate-code', requireAuth, async (req, res) => {
+    try {
+        const shopId = parseInt(req.params.shopId);
+        const options = req.body || {};
+        
+        // 检查权限
+        const userShops = await database.getUserShops(req.user.id);
+        const hasAccess = userShops.some(s => s.id === shopId) || req.user.role === 'super_admin';
+        
+        if (!hasAccess) {
+            return res.status(403).json({ error: '无权访问此店铺' });
+        }
+        
+        const result = await codeGenerator.generateIntegrationCode(shopId, options);
+        
+        res.json({
+            success: true,
+            ...result
+        });
+        
+    } catch (error) {
+        console.error('生成集成代码失败:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 重新生成店铺API密钥
+app.post('/api/shop/:shopId/regenerate-key', requireAuth, async (req, res) => {
+    try {
+        const shopId = parseInt(req.params.shopId);
+        
+        // 检查权限
+        const userShops = await database.getUserShops(req.user.id);
+        const hasAccess = userShops.some(s => s.id === shopId) || req.user.role === 'super_admin';
+        
+        if (!hasAccess) {
+            return res.status(403).json({ error: '无权访问此店铺' });
+        }
+        
+        const result = await codeGenerator.regenerateApiKey(shopId);
+        
+        res.json({
+            success: true,
+            ...result
+        });
+        
+    } catch (error) {
+        console.error('重新生成API密钥失败:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 安全连接API（带API密钥验证）
+app.post('/api/secure-connect', async (req, res) => {
+    try {
+        const { userId, timestamp, shopKey, shopId, domain, version } = req.body;
+        
+        if (!userId || !shopKey || !shopId) {
+            return res.status(400).json({ 
+                error: '缺少必要参数',
+                required: ['userId', 'shopKey', 'shopId']
+            });
+        }
+        
+        // 获取客户端信息
+        const clientInfo = domainValidator.extractClientInfo(req);
+        
+        // 验证API密钥
+        const keyValidation = await codeGenerator.verifyApiKey(shopKey, domain || clientInfo.refererDomain, clientInfo.ip);
+        
+        if (!keyValidation.valid) {
+            console.warn(`🚫 API密钥验证失败: ${keyValidation.reason}`);
+            return res.status(403).json({
+                error: 'API密钥验证失败',
+                reason: keyValidation.reason,
+                code: keyValidation.code || 'INVALID_CREDENTIALS'
+            });
+        }
+        
+        console.log(`🔑 API密钥验证成功: ${keyValidation.shop.name} (${domain || clientInfo.refererDomain})`);
+        
+        // 注册用户（包含API密钥信息）
+        httpUsers.set(userId, {
+            userId,
+            connectedAt: timestamp,
+            lastSeen: Date.now(),
+            domain: domain || clientInfo.refererDomain,
+            ip: clientInfo.ip,
+            shopInfo: keyValidation.shop,
+            shopKey: shopKey,
+            version: version,
+            userAgent: clientInfo.userAgent
+        });
+        
+        // 初始化消息队列
+        if (!messageQueue.has(userId)) {
+            messageQueue.set(userId, []);
+        }
+        
+        // 通知所有WebSocket客服
+        const connectMessage = {
+            type: 'user_connect',
+            userId: userId,
+            timestamp: timestamp,
+            connectionType: 'SECURE_HTTP',
+            domain: domain || clientInfo.refererDomain,
+            ip: clientInfo.ip,
+            shopInfo: keyValidation.shop,
+            shopKey: shopKey.substring(0, 8) + '****'
+        };
+        
+        staffs.forEach((staff, staffId) => {
+            if (staff.ws && staff.ws.readyState === WebSocket.OPEN) {
+                staff.ws.send(JSON.stringify(connectMessage));
+            }
+        });
+        
+        res.json({
+            success: true,
+            message: '安全连接建立成功',
+            shop: {
+                id: keyValidation.shop.id,
+                name: keyValidation.shop.name,
+                domain: keyValidation.shop.domain
+            },
+            userId: userId,
+            timestamp: Date.now()
+        });
+        
+    } catch (error) {
+        console.error('安全连接失败:', error);
+        res.status(500).json({ 
+            error: '服务器内部错误',
+            message: error.message 
+        });
+    }
+});
+
 // ============ 客服消息API ============
 
 // HTTP API存储
@@ -242,11 +562,22 @@ app.post('/api/connect', (req, res) => {
         return res.status(400).json({ error: '缺少用户ID' });
     }
     
-    // 注册用户
+    // 获取增强验证信息
+    const validation = req.securityValidation;
+    const clientInfo = req.clientInfo;
+    
+    // 注册用户（包含完整安全信息）
     httpUsers.set(userId, {
         userId,
         connectedAt: timestamp,
-        lastSeen: Date.now()
+        lastSeen: Date.now(),
+        domain: clientInfo.refererDomain || clientInfo.originDomain,
+        ip: clientInfo.ip,
+        shopInfo: validation.shopInfo,
+        userAgent: clientInfo.userAgent,
+        securityLevel: validation.securityLevel,
+        apiKeyUsed: validation.apiKeyUsed,
+        validationMethods: validation.validationMethods
     });
     
     // 初始化消息队列
@@ -254,14 +585,27 @@ app.post('/api/connect', (req, res) => {
         messageQueue.set(userId, []);
     }
     
-    console.log(`📱 HTTP用户连接: ${userId}`);
+    console.log(`📱 HTTP用户连接: ${userId} 来自 ${clientInfo.refererDomain || clientInfo.originDomain} (${clientInfo.ip})`);
+    if (validation.shopInfo) {
+        console.log(`🏪 匹配店铺: ${validation.shopInfo.name} (ID: ${validation.shopInfo.id})`);
+    }
+    console.log(`🔒 安全等级: ${validation.securityLevel} | 验证方式: ${validation.validationMethods.join(', ')}`);
     
     // 通知所有WebSocket客服
     const connectMessage = {
         type: 'user_connect',
         userId: userId,
         timestamp: timestamp,
-        connectionType: 'HTTP'
+        connectionType: 'HTTP',
+        domain: clientInfo.refererDomain || clientInfo.originDomain,
+        ip: clientInfo.ip,
+        shopInfo: validation.shopInfo,
+        securityInfo: {
+            level: validation.securityLevel,
+            methods: validation.validationMethods,
+            apiKeyUsed: validation.apiKeyUsed,
+            warnings: validation.warnings
+        }
     };
     
     staffs.forEach((staff, staffId) => {
@@ -270,7 +614,18 @@ app.post('/api/connect', (req, res) => {
         }
     });
     
-    res.json({ success: true, message: '连接成功' });
+    res.json({ 
+        success: true, 
+        message: '连接成功',
+        validation: {
+            domain: clientInfo.refererDomain || clientInfo.originDomain,
+            shopName: validation.shopInfo ? validation.shopInfo.name : null,
+            securityLevel: validation.securityLevel,
+            validationMethods: validation.validationMethods,
+            apiKeyUsed: validation.apiKeyUsed,
+            warnings: validation.warnings
+        }
+    });
 });
 
 // 获取新消息接口

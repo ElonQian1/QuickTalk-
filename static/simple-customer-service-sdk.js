@@ -272,14 +272,40 @@
         }
         
         // 连接到服务器
-        connect() {
+        async connect() {
             if (this.socket) return;
             
             try {
+                // 首先测试HTTP连接和域名验证
+                const response = await fetch(`${this.config.apiUrl}/connect`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        userId: this.userId,
+                        timestamp: Date.now()
+                    })
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    this.handleDomainValidationError(errorData);
+                    return;
+                }
+                
+                const data = await response.json();
+                console.log('✅ 域名验证通过:', data.validation);
+                
+                // 建立WebSocket连接
                 this.socket = new WebSocket(`${this.config.wsUrl}?userId=${this.userId}`);
                 
                 this.socket.onopen = () => {
                     console.log('客服连接已建立');
+                    // 添加欢迎消息
+                    setTimeout(() => {
+                        this.addMessage('staff', this.config.welcomeMessage, '客服助手');
+                    }, 1000);
                 };
                 
                 this.socket.onmessage = (event) => {
@@ -296,24 +322,128 @@
                 
             } catch (error) {
                 console.error('客服连接失败:', error);
+                this.handleConnectionError(error);
             }
+        }
+        
+        // 处理域名验证错误
+        handleDomainValidationError(errorData) {
+            console.error('域名验证失败:', errorData);
+            
+            // 创建错误消息
+            let errorMessage;
+            switch (errorData.code) {
+                case 'DOMAIN_NOT_ALLOWED':
+                    errorMessage = `
+                        <div style="text-align: center; padding: 20px; color: #e74c3c;">
+                            <h4 style="margin: 0 0 10px 0;">🚫 域名未授权</h4>
+                            <p style="margin: 0 0 10px 0;">当前网站域名未在客服系统白名单中</p>
+                            <small style="color: #7f8c8d;">请联系网站管理员将域名添加到客服系统</small>
+                        </div>
+                    `;
+                    break;
+                default:
+                    errorMessage = `
+                        <div style="text-align: center; padding: 20px; color: #e74c3c;">
+                            <h4 style="margin: 0 0 10px 0;">❌ 连接失败</h4>
+                            <p style="margin: 0;">${errorData.error || '未知错误'}</p>
+                        </div>
+                    `;
+            }
+            
+            // 如果聊天窗口存在，显示错误消息
+            if (this.chatWindow) {
+                const messagesContainer = this.chatWindow.querySelector('.cs-sdk-messages');
+                messagesContainer.innerHTML = errorMessage;
+            } else {
+                // 创建临时错误通知
+                this.createErrorNotification(errorMessage);
+            }
+        }
+        
+        // 处理一般连接错误
+        handleConnectionError(error) {
+            const errorMessage = `
+                <div style="text-align: center; padding: 20px; color: #e74c3c;">
+                    <h4 style="margin: 0 0 10px 0;">🔌 连接错误</h4>
+                    <p style="margin: 0;">${error.message}</p>
+                </div>
+            `;
+            
+            if (this.chatWindow) {
+                const messagesContainer = this.chatWindow.querySelector('.cs-sdk-messages');
+                messagesContainer.innerHTML = errorMessage;
+            }
+        }
+        
+        // 创建错误通知
+        createErrorNotification(message) {
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: white;
+                border: 2px solid #e74c3c;
+                border-radius: 8px;
+                padding: 15px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                z-index: ${this.config.zIndex + 1};
+                max-width: 300px;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            `;
+            
+            notification.innerHTML = `
+                ${message}
+                <button onclick="this.parentElement.remove()" style="
+                    position: absolute;
+                    top: 8px;
+                    right: 8px;
+                    background: none;
+                    border: none;
+                    font-size: 18px;
+                    cursor: pointer;
+                    color: #999;
+                    width: 24px;
+                    height: 24px;
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                ">&times;</button>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // 10秒后自动移除
+            setTimeout(() => {
+                if (notification.parentElement) {
+                    notification.remove();
+                }
+            }, 10000);
         }
         
         // 处理消息
         handleMessage(data) {
             if (data.type === 'staff_message') {
-                this.addMessage('staff', data.message);
+                this.addMessage('staff', data.message, data.staffName || '客服');
             } else if (data.type === 'system') {
-                this.addMessage('system', data.message);
+                this.addMessage('system', data.message, 'System');
             }
         }
         
         // 添加消息
-        addMessage(type, message) {
+        addMessage(type, message, sender = '') {
             const messagesContainer = this.chatWindow.querySelector('.cs-sdk-messages');
             const messageDiv = document.createElement('div');
             messageDiv.className = `cs-sdk-message ${type}`;
-            messageDiv.innerHTML = `<div class="cs-sdk-message-text">${message}</div>`;
+            
+            let messageContent = message;
+            if (sender && type === 'staff') {
+                messageContent = `<div class="sender">${sender}:</div>${message}`;
+            }
+            
+            messageDiv.innerHTML = `<div class="cs-sdk-message-text">${messageContent}</div>`;
             
             messagesContainer.appendChild(messageDiv);
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
