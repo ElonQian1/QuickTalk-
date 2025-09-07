@@ -104,18 +104,18 @@ app.get('/api/auth/me', requireAuth, async (req, res) => {
 // 创建店铺
 app.post('/api/shops', requireAuth, async (req, res) => {
     try {
-        const { name, domain } = req.body;
+        const { name, domain, description } = req.body;
         
-        if (!name || !domain) {
-            return res.status(400).json({ error: '店铺名称和域名为必填项' });
+        if (!name || !domain || !description) {
+            return res.status(400).json({ error: '店铺名称、域名和业务描述为必填项' });
         }
         
-        const shop = await database.createShop(req.user.id, { name, domain });
+        const shop = await database.createShop(req.user.id, { name, domain, description });
         
         console.log(`🏪 创建新店铺: ${name} by ${req.user.username}`);
         res.json({
             success: true,
-            message: '店铺创建成功',
+            message: '店铺创建成功，等待管理员审核',
             shop
         });
     } catch (error) {
@@ -591,6 +591,49 @@ app.delete('/api/admin/shop-owner/:ownerId', requireAuth, requireSuperAdmin, asy
     } catch (error) {
         console.error('删除店主错误:', error.message);
         res.status(500).json({ error: error.message });
+    }
+});
+
+// ============ 店铺审核管理 ============
+
+// 获取待审核店铺列表
+app.get('/api/admin/pending-shops', requireAuth, requireSuperAdmin, async (req, res) => {
+    try {
+        const pendingShops = await database.getPendingShops();
+        
+        console.log(`📋 超级管理员查看待审核店铺: ${req.user.username}, 数量: ${pendingShops.length}`);
+        res.json({
+            success: true,
+            shops: pendingShops,
+            total: pendingShops.length
+        });
+    } catch (error) {
+        console.error('获取待审核店铺错误:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 审核店铺（通过/拒绝）
+app.put('/api/admin/review-shop/:shopId', requireAuth, requireSuperAdmin, async (req, res) => {
+    try {
+        const { shopId } = req.params;
+        const { approved, note } = req.body;
+        
+        if (typeof approved !== 'boolean') {
+            return res.status(400).json({ error: '审核结果必须为布尔值' });
+        }
+        
+        const reviewedShop = await database.reviewShop(shopId, { approved, note }, req.user.id);
+        
+        console.log(`🔍 超级管理员审核店铺: ${reviewedShop.name} - ${approved ? '通过' : '拒绝'}`);
+        res.json({
+            success: true,
+            message: `店铺${approved ? '审核通过' : '审核拒绝'}`,
+            shop: reviewedShop
+        });
+    } catch (error) {
+        console.error('审核店铺错误:', error.message);
+        res.status(400).json({ error: error.message });
     }
 });
 

@@ -48,6 +48,10 @@ app.get('/admin', (req, res) => {
     res.sendFile(path.join(__dirname, 'static', 'admin.html'));
 });
 
+app.get('/admin-new', (req, res) => {
+    res.sendFile(path.join(__dirname, 'static', 'admin-new.html'));
+});
+
 // 新的多店铺管理后台
 app.get('/admin-new', (req, res) => {
     res.sendFile(path.join(__dirname, 'static', 'admin-new.html'));

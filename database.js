@@ -148,9 +148,9 @@ class Database {
         };
     }
     
-    // 创建店铺
+    // 创建店铺（需要审核）
     async createShop(ownerId, shopData) {
-        const { name, domain } = shopData;
+        const { name, domain, description = '' } = shopData;
         
         // 检查域名是否已存在
         for (const shop of this.shops.values()) {
@@ -164,23 +164,80 @@ class Database {
             id: shopId,
             name,
             domain,
+            description,
             ownerId,
-            status: 'active',
+            status: 'pending', // 改为待审核状态
+            approvalStatus: 'pending', // 新增审核状态字段
+            submittedAt: new Date(), // 提交时间
+            reviewedAt: null, // 审核时间
+            reviewedBy: null, // 审核人
+            reviewNote: '', // 审核备注
             createdAt: new Date()
         };
         
         this.shops.set(shopId, newShop);
         
-        // 为店主添加店铺权限
-        const userShops = this.userShops.get(ownerId) || [];
-        userShops.push({
-            shopId,
-            role: 'owner',
-            permissions: ['manage_staff', 'view_chats', 'handle_chats', 'manage_shop']
-        });
-        this.userShops.set(ownerId, userShops);
+        // 待审核的店铺暂不添加权限，审核通过后再添加
+        console.log(`🏪 新店铺申请: ${name} (${domain}) 等待审核`);
         
         return newShop;
+    }
+    
+    // 店铺审核方法
+    async reviewShop(shopId, reviewData, reviewerId) {
+        const { approved, note = '' } = reviewData;
+        const shop = this.shops.get(shopId);
+        
+        if (!shop) {
+            throw new Error('店铺不存在');
+        }
+        
+        if (shop.approvalStatus !== 'pending') {
+            throw new Error('该店铺已经审核过了');
+        }
+        
+        // 更新审核状态
+        shop.approvalStatus = approved ? 'approved' : 'rejected';
+        shop.status = approved ? 'active' : 'rejected';
+        shop.reviewedAt = new Date();
+        shop.reviewedBy = reviewerId;
+        shop.reviewNote = note;
+        
+        if (approved) {
+            // 审核通过，为店主添加店铺权限
+            const userShops = this.userShops.get(shop.ownerId) || [];
+            userShops.push({
+                shopId,
+                role: 'owner',
+                permissions: ['manage_staff', 'view_chats', 'handle_chats', 'manage_shop']
+            });
+            this.userShops.set(shop.ownerId, userShops);
+            
+            console.log(`✅ 店铺审核通过: ${shop.name} (${shop.domain})`);
+        } else {
+            console.log(`❌ 店铺审核拒绝: ${shop.name} (${shop.domain}) - ${note}`);
+        }
+        
+        return shop;
+    }
+    
+    // 获取待审核的店铺
+    async getPendingShops() {
+        const pendingShops = [];
+        for (const shop of this.shops.values()) {
+            if (shop.approvalStatus === 'pending') {
+                const owner = this.users.get(shop.ownerId);
+                pendingShops.push({
+                    ...shop,
+                    ownerInfo: {
+                        id: owner.id,
+                        username: owner.username,
+                        email: owner.email
+                    }
+                });
+            }
+        }
+        return pendingShops;
     }
     
     // 添加员工到店铺
