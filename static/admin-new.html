@@ -579,6 +579,186 @@
             font-size: 14px;
         }
         
+        /* 价格表样式 */
+        .price-table-container {
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .price-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        
+        .price-table thead {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+            color: white;
+        }
+        
+        .price-table th,
+        .price-table td {
+            padding: 12px 8px;
+            text-align: center;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .price-table th {
+            font-weight: 600;
+            font-size: 13px;
+        }
+        
+        .price-table tbody tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .price-table .total-price {
+            font-weight: bold;
+            color: #ff6b6b;
+        }
+        
+        .price-table .savings {
+            color: #28a745;
+            font-weight: 500;
+        }
+        
+        /* 价格计算器样式 */
+        .price-calculator {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .calculator-input {
+            margin-bottom: 20px;
+        }
+        
+        .calculator-input label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .input-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        #quantityInput {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            text-align: center;
+            max-width: 200px;
+        }
+        
+        #quantityInput:focus {
+            border-color: #ff6b6b;
+            outline: none;
+        }
+        
+        .input-unit {
+            color: #666;
+            font-weight: 500;
+        }
+        
+        .calculator-keypad {
+            margin-bottom: 20px;
+        }
+        
+        .keypad-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            max-width: 240px;
+            margin: 0 auto;
+        }
+        
+        .key-btn {
+            padding: 12px;
+            border: 2px solid #ddd;
+            background: white;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .key-btn:hover {
+            background: #f8f9fa;
+            border-color: #ff6b6b;
+        }
+        
+        .key-btn:active {
+            transform: scale(0.95);
+        }
+        
+        .key-clear {
+            background: #dc3545;
+            color: white;
+            border-color: #dc3545;
+        }
+        
+        .key-clear:hover {
+            background: #c82333;
+        }
+        
+        .key-backspace {
+            background: #ffc107;
+            border-color: #ffc107;
+        }
+        
+        .key-backspace:hover {
+            background: #e0a800;
+        }
+        
+        .calculator-result {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid #dee2e6;
+        }
+        
+        .result-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .result-item:last-child {
+            border-bottom: none;
+        }
+        
+        .result-label {
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .result-value {
+            font-weight: bold;
+            font-size: 16px;
+            color: #495057;
+        }
+        
+        .result-item.total-price .result-value {
+            color: #ff6b6b;
+            font-size: 20px;
+        }
+        
+        .result-item.savings .result-value {
+            color: #28a745;
+        }
+        
         .share-buttons {
             display: flex;
             gap: 10px;
@@ -1312,6 +1492,74 @@
                             <div class="stat-item">
                                 <div class="stat-number">￥0</div>
                                 <div class="stat-label">本月佣金</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 价格表部分 -->
+                    <div class="promotion-section">
+                        <h4>💰 套餐价格表</h4>
+                        <div class="price-table-container">
+                            <table class="price-table">
+                                <thead>
+                                    <tr>
+                                        <th>购买数量</th>
+                                        <th>总价</th>
+                                        <th>单价</th>
+                                        <th>节省金额</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="priceTableBody">
+                                    <!-- 价格数据将通过JavaScript生成 -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- 价格计算器部分 -->
+                    <div class="promotion-section">
+                        <h4>🧮 价格计算器</h4>
+                        <div class="price-calculator">
+                            <div class="calculator-input">
+                                <label for="quantityInput">请输入购买套数：</label>
+                                <div class="input-group">
+                                    <input type="number" id="quantityInput" min="1" max="999" placeholder="输入数量" oninput="calculatePrice()">
+                                    <span class="input-unit">套</span>
+                                </div>
+                            </div>
+                            <div class="calculator-keypad">
+                                <div class="keypad-grid">
+                                    <button class="key-btn" onclick="inputNumber('1')">1</button>
+                                    <button class="key-btn" onclick="inputNumber('2')">2</button>
+                                    <button class="key-btn" onclick="inputNumber('3')">3</button>
+                                    <button class="key-btn" onclick="inputNumber('4')">4</button>
+                                    <button class="key-btn" onclick="inputNumber('5')">5</button>
+                                    <button class="key-btn" onclick="inputNumber('6')">6</button>
+                                    <button class="key-btn" onclick="inputNumber('7')">7</button>
+                                    <button class="key-btn" onclick="inputNumber('8')">8</button>
+                                    <button class="key-btn" onclick="inputNumber('9')">9</button>
+                                    <button class="key-btn key-clear" onclick="clearInput()">清除</button>
+                                    <button class="key-btn" onclick="inputNumber('0')">0</button>
+                                    <button class="key-btn key-backspace" onclick="backspace()">←</button>
+                                </div>
+                            </div>
+                            <div class="calculator-result" id="calculatorResult">
+                                <div class="result-item">
+                                    <span class="result-label">购买数量：</span>
+                                    <span class="result-value" id="resultQuantity">-</span>
+                                </div>
+                                <div class="result-item total-price">
+                                    <span class="result-label">总价：</span>
+                                    <span class="result-value" id="resultPrice">¥-</span>
+                                </div>
+                                <div class="result-item">
+                                    <span class="result-label">平均单价：</span>
+                                    <span class="result-value" id="resultUnitPrice">¥-</span>
+                                </div>
+                                <div class="result-item savings">
+                                    <span class="result-label">节省金额：</span>
+                                    <span class="result-value" id="resultSavings">¥-</span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -2092,9 +2340,103 @@
                 document.querySelector('.stats-grid .stat-item:nth-child(2) .stat-number').textContent = `￥${stats.totalCommission}`;
                 document.querySelector('.stats-grid .stat-item:nth-child(3) .stat-number').textContent = `￥${stats.monthlyCommission}`;
                 
+                // 初始化价格表
+                initializePriceTable();
+                
             } catch (error) {
                 console.error('加载推广数据失败:', error);
             }
+        }
+
+        // ============ 价格计算功能 ============
+        
+        // 对数定价模型：y = 200x + 2600 * ln(x + 1)
+        function calculateTotalPrice(quantity) {
+            if (quantity <= 0) return 0;
+            return Math.round(200 * quantity + 2600 * Math.log(quantity + 1));
+        }
+        
+        // 初始化价格表（1-8套）
+        function initializePriceTable() {
+            const tableBody = document.getElementById('priceTableBody');
+            tableBody.innerHTML = '';
+            
+            for (let i = 1; i <= 8; i++) {
+                const totalPrice = calculateTotalPrice(i);
+                const unitPrice = Math.round(totalPrice / i);
+                const originalPrice = 2000 * i;
+                const savings = originalPrice - totalPrice;
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${i}套</td>
+                    <td class="total-price">¥${totalPrice.toLocaleString()}</td>
+                    <td>¥${unitPrice.toLocaleString()}</td>
+                    <td class="savings">${savings > 0 ? '¥' + savings.toLocaleString() : '¥0'}</td>
+                `;
+                tableBody.appendChild(row);
+            }
+        }
+        
+        // 计算器输入数字
+        function inputNumber(num) {
+            const input = document.getElementById('quantityInput');
+            const currentValue = input.value;
+            
+            if (currentValue === '0' || currentValue === '') {
+                input.value = num;
+            } else if (currentValue.length < 3) { // 限制最多3位数
+                input.value = currentValue + num;
+            }
+            
+            calculatePrice();
+        }
+        
+        // 清除输入
+        function clearInput() {
+            document.getElementById('quantityInput').value = '';
+            resetCalculatorResult();
+        }
+        
+        // 退格删除
+        function backspace() {
+            const input = document.getElementById('quantityInput');
+            const currentValue = input.value;
+            
+            if (currentValue.length > 0) {
+                input.value = currentValue.slice(0, -1);
+                calculatePrice();
+            }
+        }
+        
+        // 计算价格
+        function calculatePrice() {
+            const input = document.getElementById('quantityInput');
+            const quantity = parseInt(input.value) || 0;
+            
+            if (quantity <= 0 || quantity > 999) {
+                resetCalculatorResult();
+                return;
+            }
+            
+            const totalPrice = calculateTotalPrice(quantity);
+            const unitPrice = Math.round(totalPrice / quantity);
+            const originalPrice = 2000 * quantity;
+            const savings = originalPrice - totalPrice;
+            
+            // 更新结果显示
+            document.getElementById('resultQuantity').textContent = `${quantity}套`;
+            document.getElementById('resultPrice').textContent = `¥${totalPrice.toLocaleString()}`;
+            document.getElementById('resultUnitPrice').textContent = `¥${unitPrice.toLocaleString()}`;
+            document.getElementById('resultSavings').textContent = savings > 0 ? `¥${savings.toLocaleString()}` : '¥0';
+        }
+        
+        // 重置计算结果
+        function resetCalculatorResult() {
+            document.getElementById('resultQuantity').textContent = '-';
+            document.getElementById('resultPrice').textContent = '¥-';
+            document.getElementById('resultUnitPrice').textContent = '¥-';
+            document.getElementById('resultSavings').textContent = '¥-';
         }
 
         // 登录表单处理
