@@ -232,6 +232,73 @@ class Database {
         return shop;
     }
     
+    // 更新待审核店铺信息
+    async updatePendingShop(userId, shopId, updates) {
+        const shop = this.shops.get(shopId);
+        
+        if (!shop) {
+            throw new Error('店铺不存在');
+        }
+        
+        if (shop.ownerId !== userId) {
+            throw new Error('无权限修改此店铺');
+        }
+        
+        if (shop.approvalStatus !== 'pending') {
+            throw new Error('只能修改待审核的店铺');
+        }
+        
+        const { name, domain, description } = updates;
+        
+        // 验证域名唯一性（排除当前店铺）
+        if (domain && domain !== shop.domain) {
+            for (const [id, existingShop] of this.shops) {
+                if (id !== shopId && existingShop.domain === domain) {
+                    throw new Error('域名已存在');
+                }
+            }
+        }
+        
+        // 更新店铺信息
+        if (name) shop.name = name;
+        if (domain) shop.domain = domain;
+        if (description !== undefined) shop.description = description;
+        
+        shop.updatedAt = new Date();
+        
+        console.log(`✏️ 店铺信息更新: ${shop.name} by user ${userId}`);
+        
+        return shop;
+    }
+
+    // 重新提交店铺审核
+    async resubmitShopForReview(userId, shopId) {
+        const shop = this.shops.get(shopId);
+        
+        if (!shop) {
+            throw new Error('店铺不存在');
+        }
+        
+        if (shop.ownerId !== userId) {
+            throw new Error('无权限操作此店铺');
+        }
+        
+        if (shop.approvalStatus === 'pending') {
+            throw new Error('店铺已在审核中，无需重复提交');
+        }
+        
+        // 重置审核状态
+        shop.approvalStatus = 'pending';
+        shop.submittedAt = new Date();
+        shop.reviewedAt = null;
+        shop.reviewedBy = null;
+        shop.reviewNote = '';
+        
+        console.log(`🔄 店铺重新提交审核: ${shop.name} by user ${userId}`);
+        
+        return shop;
+    }
+    
     // 获取待审核的店铺
     async getPendingShops() {
         const pendingShops = [];

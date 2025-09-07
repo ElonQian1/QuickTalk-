@@ -58,8 +58,9 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'static', 'index.html'));
 });
 
+// 管理后台 (重定向到新版本)
 app.get('/admin', (req, res) => {
-    res.sendFile(path.join(__dirname, 'static', 'admin.html'));
+    res.redirect('/admin-new');
 });
 
 // 新的多店铺管理后台
@@ -205,6 +206,43 @@ app.get('/api/shops', requireAuth, async (req, res) => {
         });
     } catch (error) {
         res.status(500).json({ error: error.message });
+    }
+});
+
+// 更新待审核店铺信息
+app.put('/api/shops/:shopId', requireAuth, async (req, res) => {
+    try {
+        const { shopId } = req.params;
+        const { name, domain, description } = req.body;
+        
+        const shop = await database.updatePendingShop(req.user.id, shopId, { name, domain, description });
+        
+        res.json({
+            success: true,
+            message: '店铺信息更新成功',
+            shop
+        });
+    } catch (error) {
+        console.error('更新店铺失败:', error.message);
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// 重新提交店铺审核
+app.post('/api/shops/:shopId/resubmit', requireAuth, async (req, res) => {
+    try {
+        const { shopId } = req.params;
+        
+        const shop = await database.resubmitShopForReview(req.user.id, shopId);
+        
+        res.json({
+            success: true,
+            message: '店铺重新提交审核成功',
+            shop
+        });
+    } catch (error) {
+        console.error('重新提交审核失败:', error.message);
+        res.status(400).json({ error: error.message });
     }
 });
 

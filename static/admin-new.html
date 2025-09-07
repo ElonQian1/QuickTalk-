@@ -282,17 +282,24 @@
         }
 
         .status-pending {
-            background: #ffeaa7;
-            color: #d63031;
+            background: linear-gradient(135deg, #ff9800, #f57c00);
+            color: white;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.8; }
+            100% { opacity: 1; }
         }
 
         .status-approved {
-            background: #00b894;
+            background: linear-gradient(135deg, #4caf50, #2e7d32);
             color: white;
         }
 
         .status-rejected {
-            background: #d63031;
+            background: linear-gradient(135deg, #f44336, #c62828);
             color: white;
         }
 
@@ -492,6 +499,30 @@
         
         .btn-secondary:hover {
             background: #5a6268;
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #ff9800, #f57c00);
+            color: white;
+            border: none;
+            transition: all 0.3s ease;
+        }
+
+        .btn-warning:hover {
+            background: linear-gradient(135deg, #f57c00, #ef6c00);
+            transform: translateY(-2px);
+        }
+
+        .btn-info {
+            background: linear-gradient(135deg, #17a2b8, #138496);
+            color: white;
+            border: none;
+            transition: all 0.3s ease;
+        }
+
+        .btn-info:hover {
+            background: linear-gradient(135deg, #138496, #0f6674);
+            transform: translateY(-2px);
         }
         
         /* 推广模态框样式 */
@@ -2844,7 +2875,7 @@
                     <div class="shop-header">
                         <h3 class="shop-name">${shop.name}</h3>
                         <span class="shop-role">${getRoleText(shop.userRole)}</span>
-                        ${shop.status ? `<span class="shop-status status-${shop.status}">${getStatusText(shop.status)}</span>` : ''}
+                        ${shop.approvalStatus ? `<span class="shop-status status-${shop.approvalStatus}">${getStatusText(shop.approvalStatus)}</span>` : ''}
                     </div>
                     <div class="shop-domain">${shop.domain}</div>
                     ${shop.description ? `<div class="shop-description">${shop.description}</div>` : ''}
@@ -2863,12 +2894,21 @@
                         </div>
                     </div>
                     <div class="shop-actions">
-                        <button class="action-btn btn-primary" onclick="viewShopMessages('${shop.id}')">
-                            查看消息
-                        </button>
-                        <button class="action-btn btn-secondary" onclick="manageShop('${shop.id}')">
-                            管理店铺
-                        </button>
+                        ${shop.approvalStatus === 'pending' ? `
+                            <button class="action-btn btn-warning" onclick="editPendingShop('${shop.id}')">
+                                编辑店铺
+                            </button>
+                            <button class="action-btn btn-info" onclick="resubmitShop('${shop.id}')">
+                                重新提交审核
+                            </button>
+                        ` : `
+                            <button class="action-btn btn-primary" onclick="viewShopMessages('${shop.id}')">
+                                查看消息
+                            </button>
+                            <button class="action-btn btn-secondary" onclick="manageShop('${shop.id}')">
+                                管理店铺
+                            </button>
+                        `}
                     </div>
                 </div>
             `).join('');
@@ -2887,11 +2927,105 @@
         // 获取状态显示文本
         function getStatusText(status) {
             const statusTexts = {
-                'pending': '待审核',
-                'approved': '已通过',
-                'rejected': '已拒绝'
+                'pending': '⏳ 待审核',
+                'approved': '✅ 已通过',
+                'rejected': '❌ 已拒绝'
             };
             return statusTexts[status] || status;
+        }
+
+        // 编辑待审核店铺
+        function editPendingShop(shopId) {
+            const shop = currentShops.find(s => s.id === shopId);
+            if (!shop) {
+                alert('店铺信息不存在');
+                return;
+            }
+
+            // 预填充编辑表单
+            const form = document.getElementById('createShopForm');
+            form.querySelector('[name="name"]').value = shop.name;
+            form.querySelector('[name="domain"]').value = shop.domain;
+            form.querySelector('[name="description"]').value = shop.description || '';
+            
+            // 修改表单标题和按钮
+            document.querySelector('.form-section h4').textContent = '✏️ 编辑店铺信息';
+            const submitBtn = form.querySelector('.submit-btn');
+            submitBtn.textContent = '更新店铺';
+            submitBtn.onclick = () => updatePendingShop(shopId);
+            
+            // 显示表单
+            document.querySelector('.form-section').style.display = 'block';
+            document.querySelector('.form-section').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // 更新待审核店铺
+        async function updatePendingShop(shopId) {
+            const form = document.getElementById('createShopForm');
+            const formData = new FormData(form);
+            
+            try {
+                const response = await fetch(`/api/shops/${shopId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Session-Id': currentSession
+                    },
+                    body: JSON.stringify({
+                        name: formData.get('name'),
+                        domain: formData.get('domain'),
+                        description: formData.get('description')
+                    })
+                });
+
+                if (response.ok) {
+                    alert('✅ 店铺信息更新成功！\n\n您的店铺信息已更新，请等待管理员重新审核。');
+                    
+                    // 重置表单
+                    form.reset();
+                    document.querySelector('.form-section h4').textContent = '📝 创建新店铺';
+                    const submitBtn = form.querySelector('.submit-btn');
+                    submitBtn.textContent = '创建店铺';
+                    submitBtn.onclick = null;
+                    document.querySelector('.form-section').style.display = 'none';
+                    
+                    // 重新加载用户信息和店铺列表
+                    await loadUserInfo();
+                } else {
+                    const error = await response.json();
+                    alert('更新失败: ' + error.error);
+                }
+            } catch (error) {
+                console.error('更新店铺错误:', error);
+                alert('网络错误，请重试');
+            }
+        }
+
+        // 重新提交审核
+        async function resubmitShop(shopId) {
+            if (!confirm('确定要重新提交这个店铺进行审核吗？\n\n重新提交后，审核状态将重置为"待审核"。')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/shops/${shopId}/resubmit`, {
+                    method: 'POST',
+                    headers: {
+                        'X-Session-Id': currentSession
+                    }
+                });
+
+                if (response.ok) {
+                    alert('✅ 重新提交成功！\n\n您的店铺已重新提交审核，请等待管理员处理。');
+                    await loadUserInfo(); // 重新加载店铺列表
+                } else {
+                    const error = await response.json();
+                    alert('重新提交失败: ' + error.error);
+                }
+            } catch (error) {
+                console.error('重新提交错误:', error);
+                alert('网络错误，请重试');
+            }
         }
 
         // 创建店铺表单处理

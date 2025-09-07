@@ -46,7 +46,7 @@ QuickTalk服务器
 └── 前端界面
     ├── integration-generator.html (管理后台)
     ├── secure-customer-service-sdk.js (安全SDK)
-    └── admin.html (系统管理)
+    └── admin-new.html (系统管理)
 ```
 
 ## 💻 快速开始
@@ -114,7 +114,7 @@ window.QUICKTALK_CONFIG = {
 ### 前端
 - `secure-customer-service-sdk.js` - 安全客服SDK
 - `integration-generator.html` - 代码生成管理界面
-- `admin.html` - 系统管理界面
+- `admin-new.html` - 系统管理界面
 
 ### 配置
 - `package.json` - 项目依赖配置
