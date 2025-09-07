@@ -331,6 +331,11 @@ class Database {
         }));
     }
     
+    // 获取店铺用户数量
+    getShopUserCount(shopId) {
+        return Array.from(this.users.values()).filter(user => user.shopId === shopId).length;
+    }
+    
     // 更新店铺API密钥
     async updateShopApiKey(shopId, apiKey) {
         const shop = this.shops.get(shopId);

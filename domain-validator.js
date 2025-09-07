@@ -338,8 +338,13 @@ class DomainValidator {
      */
     createMiddleware() {
         return async (req, res, next) => {
-            // 只对API请求进行验证
-            if (!req.path.startsWith('/api/')) {
+            // 只对第三方客户端API请求进行验证，排除管理后台API
+            const shouldValidate = req.path.startsWith('/api/') && 
+                                 !req.path.startsWith('/api/auth/') &&
+                                 !req.path.startsWith('/api/admin/') &&
+                                 !req.path.startsWith('/api/shop/');
+            
+            if (!shouldValidate) {
                 return next();
             }
 
