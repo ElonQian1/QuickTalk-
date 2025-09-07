@@ -2923,6 +2923,9 @@
                             <button class="action-btn btn-secondary" onclick="manageShop('${shop.id}')">
                                 管理店铺
                             </button>
+                            <button class="action-btn btn-info" onclick="generateIntegrationCode('${shop.id}')">
+                                📋 生成代码
+                            </button>
                             <button class="action-btn btn-success" onclick="renewShop('${shop.id}')">
                                 💰 续费 (¥2000/年)
                             </button>
@@ -3571,6 +3574,139 @@
                 }
             } catch (error) {
                 console.error('模拟付费开通支付错误:', error);
+                alert('网络错误，请重试');
+            }
+        }
+
+        // ============ 集成代码生成功能 ============
+
+        // 生成店铺的集成代码
+        async function generateIntegrationCode(shopId) {
+            // 从当前店铺数据中查找店铺
+            let shop = null;
+            if (currentShops && currentShops.length > 0) {
+                shop = currentShops.find(s => s.id === shopId);
+            }
+
+            if (!shop) {
+                alert('店铺不存在或数据未加载');
+                return;
+            }
+
+            if (shop.approvalStatus !== 'approved') {
+                alert('只有已审核通过的店铺才能生成集成代码');
+                return;
+            }
+
+            console.log('🔑 开始生成集成代码:', shop.name);
+
+            try {
+                // 调用API生成集成代码
+                const response = await fetch(`/api/shop/${shopId}/generate-code`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Session-Id': currentSession
+                    },
+                    body: JSON.stringify({
+                        theme: 'default',
+                        position: 'bottom-right',
+                        welcomeMessage: `欢迎访问${shop.name}！有什么可以帮您的吗？`
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('✅ 集成代码生成成功:', data);
+                    showIntegrationCodeModal(data);
+                } else {
+                    const error = await response.json();
+                    alert('生成集成代码失败: ' + error.error);
+                }
+            } catch (error) {
+                console.error('❌ 生成集成代码错误:', error);
+                alert('网络错误，请重试');
+            }
+        }
+
+        // 显示集成代码模态框
+        function showIntegrationCodeModal(data) {
+            // 填充模态框内容
+            document.getElementById('integrationShopName').textContent = data.shop.name;
+            document.getElementById('integrationShopId').textContent = data.shop.id;
+            document.getElementById('integrationApiKey').textContent = data.shop.apiKey.substring(0, 8) + '...';
+            document.getElementById('integrationGeneratedAt').textContent = new Date(data.generatedAt).toLocaleString('zh-CN');
+            
+            // 显示集成代码
+            const codeArea = document.getElementById('integrationCode');
+            codeArea.value = data.code;
+            
+            // 显示模态框
+            document.getElementById('integrationModal').style.display = 'block';
+            
+            console.log('📋 显示集成代码模态框');
+        }
+
+        // 复制集成代码到剪贴板
+        function copyIntegrationCode() {
+            const codeArea = document.getElementById('integrationCode');
+            codeArea.select();
+            codeArea.setSelectionRange(0, 99999); // 适配移动设备
+
+            try {
+                document.execCommand('copy');
+                
+                // 显示复制成功提示
+                const copyBtn = document.querySelector('.copy-btn');
+                const originalText = copyBtn.textContent;
+                copyBtn.textContent = '✅ 已复制';
+                copyBtn.classList.add('copied');
+                
+                setTimeout(() => {
+                    copyBtn.textContent = originalText;
+                    copyBtn.classList.remove('copied');
+                }, 2000);
+                
+                console.log('📋 集成代码已复制到剪贴板');
+            } catch (err) {
+                console.error('复制失败:', err);
+                alert('复制失败，请手动选择复制');
+            }
+        }
+
+        // 关闭集成代码模态框
+        function closeIntegrationModal() {
+            document.getElementById('integrationModal').style.display = 'none';
+        }
+
+        // 重新生成API密钥
+        async function regenerateApiKey() {
+            const shopName = document.getElementById('integrationShopName').textContent;
+            const shopId = document.getElementById('integrationShopId').textContent;
+            
+            if (!confirm(`确定要重新生成店铺 "${shopName}" 的API密钥吗？\n\n注意：重新生成后，之前的集成代码将失效，需要更换为新的代码！`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/shop/${shopId}/regenerate-key`, {
+                    method: 'POST',
+                    headers: {
+                        'X-Session-Id': currentSession
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    alert('🔑 API密钥已重新生成！\n\n请重新生成集成代码以获取最新的密钥。');
+                    closeIntegrationModal();
+                    console.log('🔑 API密钥重新生成成功');
+                } else {
+                    const error = await response.json();
+                    alert('重新生成密钥失败: ' + error.error);
+                }
+            } catch (error) {
+                console.error('❌ 重新生成密钥错误:', error);
                 alert('网络错误，请重试');
             }
         }
@@ -4871,7 +5007,281 @@
         </div>
     </div>
 
+    <!-- 集成代码模态框 -->
+    <div id="integrationModal" class="integration-modal">
+        <div class="integration-modal-content">
+            <div class="integration-header">
+                <h3>🛍️ 店铺集成代码</h3>
+                <span class="integration-close" onclick="closeIntegrationModal()">&times;</span>
+            </div>
+            
+            <div class="integration-body">
+                <div class="integration-info">
+                    <div class="info-row">
+                        <span class="label">店铺名称:</span>
+                        <span class="value" id="integrationShopName"></span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">店铺ID:</span>
+                        <span class="value code-text" id="integrationShopId"></span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">API密钥:</span>
+                        <span class="value code-text" id="integrationApiKey"></span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">生成时间:</span>
+                        <span class="value" id="integrationGeneratedAt"></span>
+                    </div>
+                </div>
+
+                <div class="code-section">
+                    <div class="code-header">
+                        <h4>🔧 集成代码</h4>
+                        <div class="code-actions">
+                            <button class="btn btn-sm btn-outline copy-btn" onclick="copyIntegrationCode()">
+                                📋 复制代码
+                            </button>
+                            <button class="btn btn-sm btn-warning" onclick="regenerateApiKey()">
+                                🔑 重新生成密钥
+                            </button>
+                        </div>
+                    </div>
+                    <textarea id="integrationCode" class="code-textarea" readonly placeholder="正在生成集成代码..."></textarea>
+                </div>
+
+                <div class="integration-note">
+                    <h5>📝 使用说明：</h5>
+                    <ul>
+                        <li>将上方代码复制并粘贴到您网站的 HTML 页面中</li>
+                        <li>建议放在 <code>&lt;/body&gt;</code> 标签前</li>
+                        <li>代码将在右下角显示客服聊天按钮</li>
+                        <li>访客点击即可开始与您的客服对话</li>
+                        <li>如需更改样式或位置，请联系技术支持</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <style>
+        /* 集成代码模态框样式 */
+        .integration-modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(3px);
+        }
+
+        .integration-modal-content {
+            background-color: #ffffff;
+            margin: 3% auto;
+            border-radius: 16px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: slideInDown 0.3s ease-out;
+        }
+
+        @keyframes slideInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .integration-header {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+            padding: 20px 25px;
+            border-radius: 16px 16px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .integration-header h3 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .integration-close {
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            opacity: 0.8;
+            transition: opacity 0.2s;
+        }
+
+        .integration-close:hover {
+            opacity: 1;
+        }
+
+        .integration-body {
+            padding: 25px;
+        }
+
+        .integration-info {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 25px;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .info-row .label {
+            font-weight: 600;
+            color: #374151;
+            min-width: 100px;
+        }
+
+        .info-row .value {
+            color: #6b7280;
+            text-align: right;
+        }
+
+        .code-text {
+            font-family: 'Courier New', monospace;
+            background: #f3f4f6;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .code-section {
+            margin-bottom: 25px;
+        }
+
+        .code-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .code-header h4 {
+            margin: 0;
+            color: #374151;
+            font-size: 16px;
+        }
+
+        .code-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .code-textarea {
+            width: 100%;
+            height: 280px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            padding: 15px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            background: #f9fafb;
+            color: #374151;
+            resize: vertical;
+            transition: border-color 0.2s;
+        }
+
+        .code-textarea:focus {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        .copy-btn.copied {
+            background: #059669 !important;
+            color: white !important;
+            border-color: #059669 !important;
+        }
+
+        .integration-note {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border: 1px solid #f59e0b;
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .integration-note h5 {
+            margin: 0 0 15px 0;
+            color: #92400e;
+            font-size: 14px;
+        }
+
+        .integration-note ul {
+            margin: 0;
+            padding-left: 20px;
+            color: #92400e;
+        }
+
+        .integration-note li {
+            margin-bottom: 8px;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
+        .integration-note code {
+            background: #fbbf24;
+            color: #92400e;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .integration-modal-content {
+                width: 95%;
+                margin: 1% auto;
+            }
+
+            .integration-body {
+                padding: 15px;
+            }
+
+            .code-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+
+            .code-actions {
+                flex-wrap: wrap;
+            }
+
+            .info-row {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 5px;
+            }
+        }
+
         /* 付费开通模态框样式 */
         .activation-info {
             background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);

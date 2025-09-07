@@ -437,7 +437,7 @@ app.post('/api/admin/test-domain', requireAuth, requireSuperAdmin, async (req, r
 // 为店铺生成集成代码
 app.post('/api/shop/:shopId/generate-code', requireAuth, async (req, res) => {
     try {
-        const shopId = parseInt(req.params.shopId);
+        const shopId = req.params.shopId; // 保持字符串格式，不使用parseInt
         const options = req.body || {};
         
         // 检查权限
@@ -464,7 +464,7 @@ app.post('/api/shop/:shopId/generate-code', requireAuth, async (req, res) => {
 // 重新生成店铺API密钥
 app.post('/api/shop/:shopId/regenerate-key', requireAuth, async (req, res) => {
     try {
-        const shopId = parseInt(req.params.shopId);
+        const shopId = req.params.shopId; // 保持字符串格式，不使用parseInt
         
         // 检查权限
         const userShops = await database.getUserShops(req.user.id);
