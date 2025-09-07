@@ -251,9 +251,11 @@
         
         .shop-header {
             display: flex;
-            justify-content: between;
+            justify-content: space-between;
             align-items: center;
             margin-bottom: 15px;
+            flex-wrap: wrap;
+            gap: 10px;
         }
         
         .shop-name {
@@ -271,11 +273,40 @@
             font-size: 12px;
             font-weight: 600;
         }
-        
+
+        .shop-status {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-pending {
+            background: #ffeaa7;
+            color: #d63031;
+        }
+
+        .status-approved {
+            background: #00b894;
+            color: white;
+        }
+
+        .status-rejected {
+            background: #d63031;
+            color: white;
+        }
+
         .shop-domain {
             color: #666;
             font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        .shop-description {
+            color: #888;
+            font-size: 13px;
             margin-bottom: 15px;
+            line-height: 1.4;
         }
         
         .shop-stats {
@@ -855,6 +886,31 @@
             margin: 0 0 15px 0;
             color: #333;
         }
+
+        .employee-help-text {
+            background: #e3f2fd;
+            border: 1px solid #90caf9;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .employee-help-text p {
+            margin: 0 0 10px 0;
+            color: #1565c0;
+            font-size: 14px;
+        }
+
+        .employee-help-text ul {
+            margin: 0 0 10px 20px;
+            padding: 0;
+        }
+
+        .employee-help-text li {
+            margin-bottom: 5px;
+            color: #424242;
+            font-size: 13px;
+        }
         
         .form-row {
             display: flex;
@@ -908,7 +964,36 @@
             margin: 0 0 5px 0;
             color: #333;
         }
-        
+
+        .employee-role {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 5px;
+        }
+
+        .role-badge {
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .role-employee {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .role-manager {
+            background: #fff3e0;
+            color: #f57c00;
+        }
+
+        .role-permissions {
+            font-size: 11px;
+            color: #666;
+        }
+
         .employee-info small {
             color: #666;
         }
@@ -971,6 +1056,24 @@
         .admin-panel-btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
+        }
+
+        .review-panel-btn {
+            background: linear-gradient(135deg, #74b9ff, #0984e3);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-right: 10px;
+        }
+
+        .review-panel-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(116, 185, 255, 0.3);
         }
         
         .admin-modal {
@@ -1185,6 +1288,105 @@
             font-size: 12px;
             color: #666;
         }
+
+        /* ============ 审核管理面板样式 ============ */
+        
+        .pending-shops-container {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .pending-shop-item {
+            background: white;
+            border: 1px solid #e1e5e9;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .pending-shop-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 15px;
+        }
+
+        .pending-shop-info h5 {
+            margin: 0 0 5px 0;
+            color: #333;
+            font-size: 18px;
+        }
+
+        .pending-shop-info .domain {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        .pending-shop-info .description {
+            color: #888;
+            font-size: 13px;
+            line-height: 1.4;
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 6px;
+        }
+
+        .pending-shop-meta {
+            display: flex;
+            gap: 15px;
+            margin: 10px 0;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .pending-shop-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .review-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .review-approve {
+            background: #00b894;
+            color: white;
+        }
+
+        .review-approve:hover {
+            background: #00a085;
+            transform: translateY(-1px);
+        }
+
+        .review-reject {
+            background: #d63031;
+            color: white;
+        }
+
+        .review-reject:hover {
+            background: #c92a2a;
+            transform: translateY(-1px);
+        }
+
+        .empty-pending {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .empty-pending i {
+            font-size: 48px;
+            margin-bottom: 15px;
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -1270,6 +1472,9 @@
                     <button class="admin-panel-btn" id="adminPanelBtn" onclick="showAdminPanel()" style="display: none;">
                         🔧 管理面板
                     </button>
+                    <button class="review-panel-btn" id="reviewPanelBtn" onclick="showReviewPanel()" style="display: none;">
+                        📋 审核管理
+                    </button>
                     <button class="user-badge" id="userBadge" onclick="showProfileModal()">加载中...</button>
                     <button class="create-shop-btn" onclick="showCreateShopModal()">🏪 创建店铺</button>
                     <button class="logout-btn" onclick="logout()">登出</button>
@@ -1299,7 +1504,7 @@
     <div id="createShopModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>🏪 创建新店铺</h3>
+                <h3>🏪 申请新店铺</h3>
                 <span class="close" onclick="hideCreateShopModal()">&times;</span>
             </div>
             <form id="createShopForm" class="modal-form">
@@ -1311,9 +1516,13 @@
                     <label for="shopDomain">店铺域名</label>
                     <input type="text" id="shopDomain" name="shopDomain" placeholder="example.com" required>
                 </div>
+                <div class="form-group">
+                    <label for="shopDescription">域名描述（业务说明）</label>
+                    <textarea id="shopDescription" name="shopDescription" rows="3" placeholder="请描述您的网站业务内容，有助于审核通过" required></textarea>
+                </div>
                 <div class="modal-buttons">
                     <button type="button" class="btn btn-secondary" onclick="hideCreateShopModal()">取消</button>
-                    <button type="submit" class="btn">创建店铺</button>
+                    <button type="submit" class="btn">🏪 提交申请</button>
                 </div>
             </form>
         </div>
@@ -1343,23 +1552,31 @@
                     <!-- 添加员工表单 -->
                     <div id="addEmployeeForm" class="add-employee-form" style="display: none;">
                         <h5>添加新员工</h5>
+                        <div class="employee-help-text">
+                            <p>💡 <strong>员工权限说明：</strong></p>
+                            <ul>
+                                <li><strong>员工</strong>：可以回复客户消息，处理客服对话</li>
+                                <li><strong>经理</strong>：可以回复客户消息，查看统计报表，管理其他员工</li>
+                            </ul>
+                            <p>✅ 添加的员工将能够登录系统并处理本店铺的客服工作</p>
+                        </div>
                         <form id="addEmployeeFormData">
                             <div class="form-row">
                                 <div class="form-group">
                                     <label for="employeeUsername">用户名</label>
-                                    <input type="text" id="employeeUsername" required>
+                                    <input type="text" id="employeeUsername" placeholder="输入要添加的用户名" required>
                                 </div>
                                 <div class="form-group">
-                                    <label for="employeeRole">角色</label>
+                                    <label for="employeeRole">角色权限</label>
                                     <select id="employeeRole" required>
-                                        <option value="employee">员工</option>
-                                        <option value="manager">经理</option>
+                                        <option value="employee">员工 (客服权限)</option>
+                                        <option value="manager">经理 (管理权限)</option>
                                     </select>
                                 </div>
                             </div>
                             <div class="form-buttons">
                                 <button type="button" onclick="cancelAddEmployee()">取消</button>
-                                <button type="submit">添加员工</button>
+                                <button type="submit">➕ 添加员工</button>
                             </div>
                         </form>
                     </div>
@@ -1662,6 +1879,28 @@
         </div>
     </div>
 
+    <!-- 审核管理面板模态框 -->
+    <div id="reviewPanelModal" class="modal">
+        <div class="modal-content admin-modal">
+            <div class="modal-header">
+                <h3>📋 审核管理</h3>
+                <span class="close" onclick="hideReviewPanel()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="review-section">
+                    <h4>📝 待审核店铺列表</h4>
+                    <div class="pending-shops-container" id="pendingShopsContainer">
+                        <div class="loading">正在加载待审核店铺...</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-buttons">
+                <button type="button" class="btn btn-secondary" onclick="hideReviewPanel()">关闭</button>
+                <button type="button" class="btn" onclick="refreshPendingShops()">🔄 刷新列表</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let currentUser = null;
         let currentSession = null;
@@ -1720,6 +1959,7 @@
         function updateUserInfo() {
             const badge = document.getElementById('userBadge');
             const adminBtn = document.getElementById('adminPanelBtn');
+            const reviewBtn = document.getElementById('reviewPanelBtn');
             const roleText = {
                 'super_admin': '超级管理员',
                 'shop_owner': '店主',
@@ -1727,11 +1967,13 @@
             };
             badge.textContent = `${currentUser.username} (${roleText[currentUser.role] || currentUser.role})`;
             
-            // 只有超级管理员才显示管理面板按钮
+            // 只有超级管理员才显示管理面板按钮和审核管理按钮
             if (currentUser.role === 'super_admin') {
                 adminBtn.style.display = 'inline-block';
+                reviewBtn.style.display = 'inline-block';
             } else {
                 adminBtn.style.display = 'none';
+                reviewBtn.style.display = 'none';
             }
         }
 
@@ -2602,8 +2844,10 @@
                     <div class="shop-header">
                         <h3 class="shop-name">${shop.name}</h3>
                         <span class="shop-role">${getRoleText(shop.userRole)}</span>
+                        ${shop.status ? `<span class="shop-status status-${shop.status}">${getStatusText(shop.status)}</span>` : ''}
                     </div>
                     <div class="shop-domain">${shop.domain}</div>
+                    ${shop.description ? `<div class="shop-description">${shop.description}</div>` : ''}
                     <div class="shop-stats">
                         <div class="stat-item">
                             <div class="stat-number">0</div>
@@ -2640,12 +2884,23 @@
             return roleTexts[role] || role;
         }
 
+        // 获取状态显示文本
+        function getStatusText(status) {
+            const statusTexts = {
+                'pending': '待审核',
+                'approved': '已通过',
+                'rejected': '已拒绝'
+            };
+            return statusTexts[status] || status;
+        }
+
         // 创建店铺表单处理
         document.getElementById('createShopForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
             const name = document.getElementById('shopName').value;
             const domain = document.getElementById('shopDomain').value;
+            const description = document.getElementById('shopDescription').value;
             
             try {
                 const response = await fetch('/api/shops', {
@@ -2654,13 +2909,15 @@
                         'Content-Type': 'application/json',
                         'X-Session-Id': currentSession
                     },
-                    body: JSON.stringify({ name, domain })
+                    body: JSON.stringify({ name, domain, description })
                 });
                 
                 const data = await response.json();
                 
                 if (data.success) {
-                    alert('店铺创建成功！');
+                    alert('🎉 店铺申请已成功提交！\n\n您的店铺申请正在等待管理员审核，审核通过后即可开始使用客服功能。\n\n审核结果将在店铺列表中实时显示，请耐心等待。');
+                    // 关闭模态框
+                    hideCreateShopModal();
                     // 重新加载用户信息和店铺列表
                     await validateSession(currentSession);
                     document.getElementById('createShopForm').reset();
@@ -2693,7 +2950,7 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    alert('员工添加成功！');
+                    alert('✅ 员工添加成功！\n\n该员工现在可以登录系统并处理本店铺的客服工作。\n员工可使用原有账号登录管理后台查看和回复客户消息。');
                     cancelAddEmployee();
                     loadEmployees(currentManagedShop.id);
                 } else {
@@ -2851,7 +3108,7 @@
             const employeesList = document.getElementById('employeesList');
             
             if (employees.length === 0) {
-                employeesList.innerHTML = '<div class="empty-state">暂无员工</div>';
+                employeesList.innerHTML = '<div class="empty-state">暂无员工，点击"➕ 添加员工"开始招募客服团队</div>';
                 return;
             }
             
@@ -2859,7 +3116,15 @@
                 <div class="employee-item">
                     <div class="employee-info">
                         <h6>${employee.username}</h6>
-                        <small>角色: ${getRoleText(employee.role)} | 加入时间: ${new Date(employee.joinedAt).toLocaleDateString()}</small>
+                        <div class="employee-role">
+                            <span class="role-badge role-${employee.role}">
+                                ${getRoleText(employee.role)}
+                            </span>
+                            <span class="role-permissions">
+                                ${employee.role === 'manager' ? '💼 管理权限 + 客服权限' : '💬 客服权限'}
+                            </span>
+                        </div>
+                        <small>加入时间: ${new Date(employee.joinedAt).toLocaleDateString()}</small>
                     </div>
                     <div class="employee-actions">
                         <button class="btn btn-small" onclick="editEmployee('${employee.id}')">编辑</button>
@@ -3311,13 +3576,145 @@
             loadAdminData();
         }
 
+        // ============ 审核管理功能 ============
+
+        // 显示审核管理面板
+        function showReviewPanel() {
+            if (currentUser.role !== 'super_admin') {
+                alert('只有超级管理员才能访问审核功能');
+                return;
+            }
+            
+            document.getElementById('reviewPanelModal').style.display = 'block';
+            loadPendingShops();
+        }
+
+        // 隐藏审核管理面板
+        function hideReviewPanel() {
+            document.getElementById('reviewPanelModal').style.display = 'none';
+        }
+
+        // 加载待审核店铺
+        async function loadPendingShops() {
+            try {
+                const response = await fetch('/api/admin/pending-shops', {
+                    headers: {
+                        'X-Session-Id': currentSession
+                    }
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayPendingShops(data.shops);
+                } else {
+                    alert('加载失败: ' + data.error);
+                }
+            } catch (error) {
+                console.error('加载待审核店铺失败:', error);
+                alert('网络错误，请稍后重试');
+            }
+        }
+
+        // 显示待审核店铺列表
+        function displayPendingShops(shops) {
+            const container = document.getElementById('pendingShopsContainer');
+            
+            if (shops.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-pending">
+                        <i>✅</i>
+                        <h4>暂无待审核店铺</h4>
+                        <p>所有店铺都已审核完成</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = shops.map(shop => `
+                <div class="pending-shop-item">
+                    <div class="pending-shop-header">
+                        <div class="pending-shop-info">
+                            <h5>${shop.name}</h5>
+                            <div class="domain">🌐 ${shop.domain}</div>
+                            <div class="description">📝 ${shop.description}</div>
+                            <div class="pending-shop-meta">
+                                <span>👤 申请人：${shop.ownerName}</span>
+                                <span>📧 邮箱：${shop.ownerEmail}</span>
+                                <span>⏰ 提交时间：${new Date(shop.submittedAt).toLocaleString()}</span>
+                            </div>
+                        </div>
+                        <div class="pending-shop-actions">
+                            <button class="review-btn review-approve" onclick="reviewShop('${shop.id}', 'approve')">
+                                ✅ 通过
+                            </button>
+                            <button class="review-btn review-reject" onclick="reviewShop('${shop.id}', 'reject')">
+                                ❌ 拒绝
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 审核店铺
+        async function reviewShop(shopId, action) {
+            let note = '';
+            
+            if (action === 'reject') {
+                note = prompt('请输入拒绝原因：');
+                if (!note) return; // 用户取消
+            } else {
+                note = '审核通过，欢迎使用我们的客服系统！';
+            }
+
+            try {
+                const approved = action === 'approve';
+                const response = await fetch(`/api/admin/review-shop/${shopId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Session-Id': currentSession
+                    },
+                    body: JSON.stringify({ approved, note })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert(action === 'approve' ? '审核通过！' : '已拒绝申请');
+                    // 重新加载待审核列表
+                    loadPendingShops();
+                    // 刷新店铺列表（如果用户也是店主）
+                    if (currentUser.role === 'shop_owner' || currentUser.role === 'super_admin') {
+                        loadUserShops();
+                    }
+                } else {
+                    alert('操作失败: ' + data.error);
+                }
+            } catch (error) {
+                console.error('审核操作失败:', error);
+                alert('网络错误，请稍后重试');
+            }
+        }
+
+        // 刷新待审核列表
+        function refreshPendingShops() {
+            loadPendingShops();
+        }
+
         // 点击模态框外部关闭（扩展原有函数）
         const originalWindowClick = window.onclick;
         window.onclick = function(event) {
             const adminModal = document.getElementById('adminPanelModal');
+            const reviewModal = document.getElementById('reviewPanelModal');
             
             if (event.target === adminModal) {
                 hideAdminPanel();
+            }
+            
+            if (event.target === reviewModal) {
+                hideReviewPanel();
             }
             
             // 调用原有的点击处理
