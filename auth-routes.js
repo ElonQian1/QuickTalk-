@@ -476,4 +476,122 @@ app.put('/api/auth/profile', requireAuth, async (req, res) => {
     }
 });
 
+// ============ 超级管理员专用API ============
+
+// 获取所有店主及其店铺统计
+app.get('/api/admin/shop-owners-stats', requireAuth, requireSuperAdmin, async (req, res) => {
+    try {
+        const { keyword } = req.query;
+        const stats = await database.searchShopOwners(keyword);
+        
+        console.log(`📊 超级管理员查看店主统计: ${req.user.username}, 关键词: ${keyword || '全部'}`);
+        res.json({
+            success: true,
+            stats,
+            total: stats.length
+        });
+    } catch (error) {
+        console.error('获取店主统计错误:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 获取特定店主详细信息
+app.get('/api/admin/shop-owner/:ownerId', requireAuth, requireSuperAdmin, async (req, res) => {
+    try {
+        const { ownerId } = req.params;
+        const details = await database.getShopOwnerDetails(ownerId);
+        
+        console.log(`👤 超级管理员查看店主详情: ${details.owner.username}`);
+        res.json({
+            success: true,
+            ...details
+        });
+    } catch (error) {
+        console.error('获取店主详情错误:', error.message);
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// 获取系统整体统计
+app.get('/api/admin/system-stats', requireAuth, requireSuperAdmin, async (req, res) => {
+    try {
+        const stats = await database.getSystemStats();
+        
+        console.log(`📈 超级管理员查看系统统计: ${req.user.username}`);
+        res.json({
+            success: true,
+            stats
+        });
+    } catch (error) {
+        console.error('获取系统统计错误:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 切换店主账号状态（启用/禁用）
+app.put('/api/admin/shop-owner/:ownerId/status', requireAuth, requireSuperAdmin, async (req, res) => {
+    try {
+        const { ownerId } = req.params;
+        const { status } = req.body;
+        
+        if (!['active', 'suspended'].includes(status)) {
+            return res.status(400).json({ error: '无效的状态值' });
+        }
+        
+        const updatedUser = await database.toggleShopOwnerStatus(ownerId, status);
+        
+        console.log(`🔄 超级管理员${status === 'active' ? '启用' : '禁用'}店主: ${updatedUser.username}`);
+        res.json({
+            success: true,
+            message: `店主账号已${status === 'active' ? '启用' : '禁用'}`,
+            user: { ...updatedUser, password: undefined }
+        });
+    } catch (error) {
+        console.error('切换店主状态错误:', error.message);
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// 强制删除店主及其所有店铺（危险操作）
+app.delete('/api/admin/shop-owner/:ownerId', requireAuth, requireSuperAdmin, async (req, res) => {
+    try {
+        const { ownerId } = req.params;
+        const { confirm } = req.body;
+        
+        if (!confirm || confirm !== 'DELETE_ALL_DATA') {
+            return res.status(400).json({ error: '需要确认删除操作' });
+        }
+        
+        const user = await database.getUserById(ownerId);
+        if (!user || user.role !== 'shop_owner') {
+            return res.status(404).json({ error: '店主不存在' });
+        }
+        
+        // 获取店主的所有店铺
+        const userShops = database.userShops.get(ownerId) || [];
+        const ownedShops = userShops.filter(us => us.role === 'owner');
+        
+        // 删除所有店铺
+        for (const us of ownedShops) {
+            database.shops.delete(us.shopId);
+        }
+        
+        // 删除用户-店铺关系
+        database.userShops.delete(ownerId);
+        
+        // 删除用户
+        database.users.delete(ownerId);
+        
+        console.log(`🗑️ 超级管理员删除店主: ${user.username} 及其 ${ownedShops.length} 个店铺`);
+        res.json({
+            success: true,
+            message: `已删除店主 ${user.username} 及其 ${ownedShops.length} 个店铺`
+        });
+    } catch (error) {
+        console.error('删除店主错误:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 };

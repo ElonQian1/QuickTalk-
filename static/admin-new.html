@@ -772,6 +772,239 @@
                 justify-content: center;
             }
         }
+        
+        /* ============ 超级管理员面板样式 ============ */
+        
+        .admin-panel-btn {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-right: 10px;
+        }
+        
+        .admin-panel-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
+        }
+        
+        .admin-modal {
+            max-width: 1000px;
+            width: 95%;
+            max-height: 90vh;
+        }
+        
+        .admin-section {
+            margin-bottom: 30px;
+        }
+        
+        .admin-section h4 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 18px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        
+        .search-box {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .search-box input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        
+        .search-box input:focus {
+            border-color: #667eea;
+            outline: none;
+        }
+        
+        .owners-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .owner-item {
+            background: white;
+            border: 1px solid #e1e5e9;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+            transition: all 0.3s ease;
+        }
+        
+        .owner-item:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+        
+        .owner-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .owner-info h5 {
+            margin: 0;
+            color: #333;
+            font-size: 16px;
+        }
+        
+        .owner-info p {
+            margin: 5px 0;
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .owner-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .owner-actions .btn {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+        
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #c0392b;
+        }
+        
+        .btn-warning {
+            background: #f39c12;
+            color: white;
+        }
+        
+        .btn-warning:hover {
+            background: #e67e22;
+        }
+        
+        .btn-success {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #229954;
+        }
+        
+        .owner-shops {
+            margin-top: 15px;
+        }
+        
+        .owner-shops h6 {
+            margin: 0 0 10px 0;
+            color: #333;
+            font-size: 14px;
+        }
+        
+        .shops-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .shop-tag {
+            background: #667eea;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .shops-monitor {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .shop-monitor-item {
+            background: white;
+            border: 1px solid #e1e5e9;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .shop-monitor-info h6 {
+            margin: 0;
+            color: #333;
+        }
+        
+        .shop-monitor-info p {
+            margin: 5px 0;
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .shop-status {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .status-active {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-suspended {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .owner-details-modal {
+            max-width: 800px;
+        }
+        
+        .detail-section {
+            margin-bottom: 20px;
+        }
+        
+        .detail-section h5 {
+            margin: 0 0 10px 0;
+            color: #333;
+            border-bottom: 1px solid #e1e5e9;
+            padding-bottom: 5px;
+        }
+        
+        .member-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        
+        .member-tag {
+            background: #f8f9fa;
+            border: 1px solid #e1e5e9;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            color: #666;
+        }
     </style>
 </head>
 <body>
@@ -852,6 +1085,10 @@
                 <div class="user-info">
                     <button class="promotion-btn" onclick="showPromotionModal()">
                         🎁 推广赚钱
+                    </button>
+                    <!-- 超级管理员专用按钮 -->
+                    <button class="admin-panel-btn" id="adminPanelBtn" onclick="showAdminPanel()" style="display: none;">
+                        🔧 管理面板
                     </button>
                     <button class="user-badge" id="userBadge" onclick="showProfileModal()">加载中...</button>
                     <button class="create-shop-btn" onclick="showCreateShopModal()">🏪 创建店铺</button>
@@ -1102,6 +1339,81 @@
         </div>
     </div>
 
+    <!-- 超级管理员面板模态框 -->
+    <div id="adminPanelModal" class="modal">
+        <div class="modal-content admin-modal">
+            <div class="modal-header">
+                <h3>🔧 超级管理员面板</h3>
+                <span class="close" onclick="hideAdminPanel()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <!-- 管理员导航标签 -->
+                <div class="tab-nav">
+                    <button class="tab-btn active" onclick="showAdminTab('overview')">📊 系统概览</button>
+                    <button class="tab-btn" onclick="showAdminTab('owners')">👥 店主管理</button>
+                    <button class="tab-btn" onclick="showAdminTab('shops')">🏪 店铺监控</button>
+                </div>
+
+                <!-- 系统概览标签页 -->
+                <div id="overviewTab" class="tab-content active">
+                    <div class="admin-section">
+                        <h4>📈 系统统计</h4>
+                        <div class="stats-grid" id="systemStats">
+                            <div class="stat-item">
+                                <div class="stat-number" id="totalUsers">-</div>
+                                <div class="stat-label">总用户数</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-number" id="totalShops">-</div>
+                                <div class="stat-label">总店铺数</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-number" id="shopOwners">-</div>
+                                <div class="stat-label">店主数量</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-number" id="employees">-</div>
+                                <div class="stat-label">员工数量</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 店主管理标签页 -->
+                <div id="ownersTab" class="tab-content">
+                    <div class="admin-section">
+                        <div class="section-header">
+                            <h4>👥 店主管理</h4>
+                            <div class="search-box">
+                                <input type="text" id="ownerSearch" placeholder="搜索店主用户名、邮箱或店铺名..." 
+                                       onkeyup="searchShopOwners()">
+                                <button class="btn btn-small" onclick="searchShopOwners()">🔍 搜索</button>
+                            </div>
+                        </div>
+                        
+                        <div class="owners-list" id="ownersList">
+                            <div class="loading">正在加载店主数据...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 店铺监控标签页 -->
+                <div id="shopsTab" class="tab-content">
+                    <div class="admin-section">
+                        <h4>🏪 所有店铺监控</h4>
+                        <div class="shops-monitor" id="shopsMonitor">
+                            <div class="loading">正在加载店铺数据...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-buttons">
+                <button type="button" class="btn btn-secondary" onclick="hideAdminPanel()">关闭</button>
+                <button type="button" class="btn" onclick="refreshAdminData()">🔄 刷新数据</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let currentUser = null;
         let currentSession = null;
@@ -1159,12 +1471,20 @@
         // 更新用户信息显示
         function updateUserInfo() {
             const badge = document.getElementById('userBadge');
+            const adminBtn = document.getElementById('adminPanelBtn');
             const roleText = {
                 'super_admin': '超级管理员',
                 'shop_owner': '店主',
                 'employee': '员工'
             };
             badge.textContent = `${currentUser.username} (${roleText[currentUser.role] || currentUser.role})`;
+            
+            // 只有超级管理员才显示管理面板按钮
+            if (currentUser.role === 'super_admin') {
+                adminBtn.style.display = 'inline-block';
+            } else {
+                adminBtn.style.display = 'none';
+            }
         }
 
         // ============ 个人资料管理 ============
@@ -1376,6 +1696,374 @@
                     </body>
                 </html>
             `);
+        }
+
+        // ============ 超级管理员功能 ============
+
+        // 显示超级管理员面板
+        function showAdminPanel() {
+            if (currentUser.role !== 'super_admin') {
+                alert('只有超级管理员才能访问此功能');
+                return;
+            }
+            
+            document.getElementById('adminPanelModal').style.display = 'block';
+            
+            // 默认显示系统概览
+            showAdminTab('overview');
+            
+            // 加载初始数据
+            loadSystemStats();
+            loadShopOwnersStats();
+        }
+
+        // 隐藏超级管理员面板
+        function hideAdminPanel() {
+            document.getElementById('adminPanelModal').style.display = 'none';
+        }
+
+        // 切换管理员标签页
+        function showAdminTab(tabName) {
+            // 隐藏所有标签内容
+            document.querySelectorAll('#adminPanelModal .tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // 移除所有标签按钮的激活状态
+            document.querySelectorAll('#adminPanelModal .tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // 显示指定标签内容
+            document.getElementById(tabName + 'Tab').classList.add('active');
+            
+            // 激活对应的标签按钮 - 使用event.target如果可用，否则查找按钮
+            const targetBtn = event ? event.target : document.querySelector(`[onclick="showAdminTab('${tabName}')"]`);
+            if (targetBtn) {
+                targetBtn.classList.add('active');
+            }
+            
+            // 根据标签加载相应数据
+            if (tabName === 'overview') {
+                loadSystemStats();
+            } else if (tabName === 'owners') {
+                loadShopOwnersStats();
+            } else if (tabName === 'shops') {
+                loadAllShopsMonitor();
+            }
+        }
+
+        // 加载系统统计
+        async function loadSystemStats() {
+            try {
+                const response = await fetch('/api/admin/system-stats', {
+                    headers: {
+                        'X-Session-Id': currentSession
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const stats = data.stats;
+                    
+                    document.getElementById('totalUsers').textContent = stats.totalUsers;
+                    document.getElementById('totalShops').textContent = stats.totalShops;
+                    document.getElementById('shopOwners').textContent = stats.usersByRole.shop_owner || 0;
+                    document.getElementById('employees').textContent = stats.usersByRole.employee || 0;
+                } else {
+                    console.error('加载系统统计失败');
+                }
+            } catch (error) {
+                console.error('加载系统统计错误:', error);
+            }
+        }
+
+        // 加载店主统计
+        async function loadShopOwnersStats(keyword = '') {
+            try {
+                const url = keyword ? 
+                    `/api/admin/shop-owners-stats?keyword=${encodeURIComponent(keyword)}` : 
+                    '/api/admin/shop-owners-stats';
+
+                const response = await fetch(url, {
+                    headers: {
+                        'X-Session-Id': currentSession
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    renderOwnersList(data.stats);
+                } else {
+                    document.getElementById('ownersList').innerHTML = '<div class="error">加载店主数据失败</div>';
+                }
+            } catch (error) {
+                console.error('加载店主统计错误:', error);
+                document.getElementById('ownersList').innerHTML = '<div class="error">加载店主数据错误</div>';
+            }
+        }
+
+        // 渲染店主列表
+        function renderOwnersList(owners) {
+            const container = document.getElementById('ownersList');
+            
+            if (owners.length === 0) {
+                container.innerHTML = '<div class="empty-state">没有找到店主数据</div>';
+                return;
+            }
+            
+            container.innerHTML = owners.map(owner => `
+                <div class="owner-item">
+                    <div class="owner-header">
+                        <div class="owner-info">
+                            <h5>${owner.user.username}</h5>
+                            <p>📧 ${owner.user.email}</p>
+                            <p>🏪 管理 ${owner.shopsCount} 个店铺 | 👥 总员工 ${owner.totalMembers} 人</p>
+                            <p>🕒 注册时间: ${new Date(owner.user.createdAt).toLocaleDateString()}</p>
+                            ${owner.user.lastLoginAt ? `<p>🔐 最后登录: ${new Date(owner.user.lastLoginAt).toLocaleDateString()}</p>` : ''}
+                        </div>
+                        <div class="owner-actions">
+                            <button class="btn btn-primary" onclick="viewOwnerDetails('${owner.user.id}')">
+                                📊 详情
+                            </button>
+                            <button class="btn ${owner.user.status === 'suspended' ? 'btn-success' : 'btn-warning'}" 
+                                    onclick="toggleOwnerStatus('${owner.user.id}', '${owner.user.status === 'suspended' ? 'active' : 'suspended'}')">
+                                ${owner.user.status === 'suspended' ? '✅ 启用' : '⏸️ 禁用'}
+                            </button>
+                            <button class="btn btn-danger" onclick="deleteOwner('${owner.user.id}', '${owner.user.username}')">
+                                🗑️ 删除
+                            </button>
+                        </div>
+                    </div>
+                    ${owner.shops.length > 0 ? `
+                        <div class="owner-shops">
+                            <h6>管理的店铺:</h6>
+                            <div class="shops-list">
+                                ${owner.shops.map(shop => `
+                                    <span class="shop-tag">
+                                        ${shop.name} 
+                                        <span class="shop-status status-${shop.status}">${shop.status}</span>
+                                        (${shop.memberCount}人)
+                                    </span>
+                                `).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>
+            `).join('');
+        }
+
+        // 搜索店主
+        function searchShopOwners() {
+            const keyword = document.getElementById('ownerSearch').value.trim();
+            loadShopOwnersStats(keyword);
+        }
+
+        // 查看店主详情
+        async function viewOwnerDetails(ownerId) {
+            try {
+                const response = await fetch(`/api/admin/shop-owner/${ownerId}`, {
+                    headers: {
+                        'X-Session-Id': currentSession
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    showOwnerDetailsModal(data);
+                } else {
+                    alert('获取店主详情失败');
+                }
+            } catch (error) {
+                console.error('获取店主详情错误:', error);
+                alert('获取店主详情错误');
+            }
+        }
+
+        // 显示店主详情模态框
+        function showOwnerDetailsModal(data) {
+            const modal = document.createElement('div');
+            modal.className = 'modal';
+            modal.style.display = 'block';
+            modal.innerHTML = `
+                <div class="modal-content owner-details-modal">
+                    <div class="modal-header">
+                        <h3>👤 店主详情 - ${data.owner.username}</h3>
+                        <span class="close" onclick="this.closest('.modal').remove()">&times;</span>
+                    </div>
+                    <div class="modal-body">
+                        <div class="detail-section">
+                            <h5>📋 基本信息</h5>
+                            <p><strong>用户名:</strong> ${data.owner.username}</p>
+                            <p><strong>邮箱:</strong> ${data.owner.email}</p>
+                            <p><strong>角色:</strong> ${data.owner.role}</p>
+                            <p><strong>状态:</strong> <span class="shop-status status-${data.owner.status || 'active'}">${data.owner.status || 'active'}</span></p>
+                            <p><strong>注册时间:</strong> ${new Date(data.owner.createdAt).toLocaleString()}</p>
+                            ${data.owner.lastLoginAt ? `<p><strong>最后登录:</strong> ${new Date(data.owner.lastLoginAt).toLocaleString()}</p>` : ''}
+                        </div>
+                        
+                        <div class="detail-section">
+                            <h5>🏪 店铺详情 (${data.shopsCount}个)</h5>
+                            ${data.shops.map(shop => `
+                                <div class="shop-detail-item" style="border: 1px solid #e1e5e9; padding: 15px; margin: 10px 0; border-radius: 8px;">
+                                    <h6>${shop.name} <span class="shop-status status-${shop.status}">${shop.status}</span></h6>
+                                    <p><strong>域名:</strong> ${shop.domain}</p>
+                                    <p><strong>创建时间:</strong> ${new Date(shop.createdAt).toLocaleString()}</p>
+                                    <p><strong>成员数:</strong> ${shop.memberCount}人</p>
+                                    
+                                    ${shop.members.length > 0 ? `
+                                        <div style="margin-top: 10px;">
+                                            <strong>成员列表:</strong>
+                                            <div class="member-list">
+                                                ${shop.members.map(member => 
+                                                    `<span class="member-tag">${member.username} (${member.shopRole})</span>`
+                                                ).join('')}
+                                            </div>
+                                        </div>
+                                    ` : '<p>暂无其他成员</p>'}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    <div class="modal-buttons">
+                        <button type="button" class="btn btn-secondary" onclick="this.closest('.modal').remove()">关闭</button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+        }
+
+        // 切换店主状态
+        async function toggleOwnerStatus(ownerId, newStatus) {
+            const action = newStatus === 'active' ? '启用' : '禁用';
+            
+            if (!confirm(`确定要${action}该店主账号吗？这将同时影响其管理的所有店铺。`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/admin/shop-owner/${ownerId}/status`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Session-Id': currentSession
+                    },
+                    body: JSON.stringify({ status: newStatus })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    alert(data.message);
+                    loadShopOwnersStats(); // 刷新列表
+                } else {
+                    const error = await response.json();
+                    alert(`操作失败: ${error.error}`);
+                }
+            } catch (error) {
+                console.error('切换店主状态错误:', error);
+                alert('操作失败，请重试');
+            }
+        }
+
+        // 删除店主
+        async function deleteOwner(ownerId, username) {
+            const confirmText = 'DELETE_ALL_DATA';
+            const userInput = prompt(`警告：此操作将永久删除店主 "${username}" 及其所有店铺和数据，无法恢复！\n\n如果确定要删除，请输入: ${confirmText}`);
+            
+            if (userInput !== confirmText) {
+                alert('取消删除操作');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/admin/shop-owner/${ownerId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Session-Id': currentSession
+                    },
+                    body: JSON.stringify({ confirm: confirmText })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    alert(data.message);
+                    loadShopOwnersStats(); // 刷新列表
+                    loadSystemStats(); // 刷新系统统计
+                } else {
+                    const error = await response.json();
+                    alert(`删除失败: ${error.error}`);
+                }
+            } catch (error) {
+                console.error('删除店主错误:', error);
+                alert('删除失败，请重试');
+            }
+        }
+
+        // 加载所有店铺监控
+        async function loadAllShopsMonitor() {
+            try {
+                const response = await fetch('/api/admin/shops', {
+                    headers: {
+                        'X-Session-Id': currentSession
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    renderShopsMonitor(data.shops);
+                } else {
+                    document.getElementById('shopsMonitor').innerHTML = '<div class="error">加载店铺数据失败</div>';
+                }
+            } catch (error) {
+                console.error('加载店铺监控错误:', error);
+                document.getElementById('shopsMonitor').innerHTML = '<div class="error">加载店铺数据错误</div>';
+            }
+        }
+
+        // 渲染店铺监控列表
+        function renderShopsMonitor(shops) {
+            const container = document.getElementById('shopsMonitor');
+            
+            if (shops.length === 0) {
+                container.innerHTML = '<div class="empty-state">暂无店铺数据</div>';
+                return;
+            }
+            
+            container.innerHTML = shops.map(shop => `
+                <div class="shop-monitor-item">
+                    <div class="shop-monitor-info">
+                        <h6>${shop.name}</h6>
+                        <p>🌐 ${shop.domain}</p>
+                        <p>👤 店主ID: ${shop.ownerId}</p>
+                        <p>🕒 创建时间: ${new Date(shop.createdAt).toLocaleDateString()}</p>
+                    </div>
+                    <div class="shop-monitor-actions">
+                        <span class="shop-status status-${shop.status}">${shop.status}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 刷新管理员数据
+        function refreshAdminData() {
+            if (currentUser.role !== 'super_admin') return;
+            
+            loadSystemStats();
+            loadShopOwnersStats();
+            loadAllShopsMonitor();
+            
+            // 显示刷新成功提示
+            const btn = event.target;
+            const originalText = btn.textContent;
+            btn.textContent = '✅ 已刷新';
+            btn.disabled = true;
+            
+            setTimeout(() => {
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }, 1500);
         }
         
         // 查看推广指南
@@ -1914,6 +2602,385 @@
                 currentSession = null;
                 currentShops = [];
                 showLoginInterface();
+            }
+        }
+
+        // ============ 超级管理员面板功能 ============
+
+        let adminData = {
+            systemStats: null,
+            shopOwnersStats: [],
+            allShops: []
+        };
+
+        // 显示超级管理员面板
+        function showAdminPanel() {
+            if (currentUser.role !== 'super_admin') {
+                alert('权限不足');
+                return;
+            }
+            
+            document.getElementById('adminPanelModal').style.display = 'block';
+            loadAdminData();
+        }
+
+        // 隐藏超级管理员面板
+        function hideAdminPanel() {
+            document.getElementById('adminPanelModal').style.display = 'none';
+        }
+
+        // 显示管理员标签页
+        function showAdminTab(tabName) {
+            // 隐藏所有标签页
+            const tabs = document.querySelectorAll('#adminPanelModal .tab-content');
+            tabs.forEach(tab => tab.classList.remove('active'));
+            
+            // 移除所有按钮的active状态
+            const buttons = document.querySelectorAll('#adminPanelModal .tab-btn');
+            buttons.forEach(btn => btn.classList.remove('active'));
+            
+            // 显示选中的标签页
+            document.getElementById(tabName + 'Tab').classList.add('active');
+            
+            // 激活对应按钮
+            event.target.classList.add('active');
+            
+            // 根据标签页加载对应数据
+            if (tabName === 'overview') {
+                loadSystemStats();
+            } else if (tabName === 'owners') {
+                loadShopOwnersStats();
+            } else if (tabName === 'shops') {
+                loadAllShops();
+            }
+        }
+
+        // 加载管理员数据
+        async function loadAdminData() {
+            await loadSystemStats();
+            await loadShopOwnersStats();
+        }
+
+        // 加载系统统计
+        async function loadSystemStats() {
+            try {
+                const response = await fetch('/api/admin/system-stats', {
+                    headers: {
+                        'X-Session-Id': currentSession
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    adminData.systemStats = data.stats;
+                    updateSystemStatsUI();
+                } else {
+                    console.error('加载系统统计失败');
+                }
+            } catch (error) {
+                console.error('加载系统统计错误:', error);
+            }
+        }
+
+        // 更新系统统计UI
+        function updateSystemStatsUI() {
+            const stats = adminData.systemStats;
+            if (!stats) return;
+            
+            document.getElementById('totalUsers').textContent = stats.totalUsers;
+            document.getElementById('totalShops').textContent = stats.totalShops;
+            document.getElementById('shopOwners').textContent = stats.usersByRole.shop_owner || 0;
+            document.getElementById('employees').textContent = stats.usersByRole.employee || 0;
+        }
+
+        // 加载店主统计
+        async function loadShopOwnersStats(keyword = '') {
+            try {
+                const url = keyword ? 
+                    `/api/admin/shop-owners-stats?keyword=${encodeURIComponent(keyword)}` : 
+                    '/api/admin/shop-owners-stats';
+                
+                const response = await fetch(url, {
+                    headers: {
+                        'X-Session-Id': currentSession
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    adminData.shopOwnersStats = data.stats;
+                    updateShopOwnersUI();
+                } else {
+                    console.error('加载店主统计失败');
+                }
+            } catch (error) {
+                console.error('加载店主统计错误:', error);
+            }
+        }
+
+        // 更新店主列表UI
+        function updateShopOwnersUI() {
+            const ownersList = document.getElementById('ownersList');
+            const stats = adminData.shopOwnersStats;
+            
+            if (!stats || stats.length === 0) {
+                ownersList.innerHTML = '<div class="empty-state">暂无店主数据</div>';
+                return;
+            }
+            
+            const html = stats.map(stat => `
+                <div class="owner-item">
+                    <div class="owner-header">
+                        <div class="owner-info">
+                            <h5>${stat.user.username}</h5>
+                            <p>📧 ${stat.user.email}</p>
+                            <p>📅 注册时间: ${new Date(stat.user.createdAt).toLocaleDateString()}</p>
+                            <p>🕐 最后登录: ${stat.user.lastLoginAt ? new Date(stat.user.lastLoginAt).toLocaleString() : '从未登录'}</p>
+                        </div>
+                        <div class="owner-actions">
+                            <button class="btn btn-small" onclick="viewOwnerDetails('${stat.user.id}')">
+                                👁️ 详情
+                            </button>
+                            <button class="btn btn-small btn-warning" onclick="toggleOwnerStatus('${stat.user.id}', 'suspended')">
+                                🚫 禁用
+                            </button>
+                            <button class="btn btn-small btn-danger" onclick="deleteOwner('${stat.user.id}')">
+                                🗑️ 删除
+                            </button>
+                        </div>
+                    </div>
+                    <div class="owner-shops">
+                        <h6>📊 店铺统计: ${stat.shopsCount} 个店铺, ${stat.totalMembers} 名成员</h6>
+                        <div class="shops-list">
+                            ${stat.shops.map(shop => `
+                                <div class="shop-tag">
+                                    🏪 ${shop.name} (${shop.memberCount}人)
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+            
+            ownersList.innerHTML = html;
+        }
+
+        // 搜索店主
+        function searchShopOwners() {
+            const keyword = document.getElementById('ownerSearch').value.trim();
+            loadShopOwnersStats(keyword);
+        }
+
+        // 查看店主详情
+        async function viewOwnerDetails(ownerId) {
+            try {
+                const response = await fetch(`/api/admin/shop-owner/${ownerId}`, {
+                    headers: {
+                        'X-Session-Id': currentSession
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    showOwnerDetailsModal(data);
+                } else {
+                    alert('获取店主详情失败');
+                }
+            } catch (error) {
+                console.error('获取店主详情错误:', error);
+                alert('获取店主详情失败');
+            }
+        }
+
+        // 显示店主详情模态框
+        function showOwnerDetailsModal(data) {
+            const modal = document.createElement('div');
+            modal.className = 'modal';
+            modal.style.display = 'block';
+            
+            modal.innerHTML = `
+                <div class="modal-content owner-details-modal">
+                    <div class="modal-header">
+                        <h3>👤 店主详情: ${data.owner.username}</h3>
+                        <span class="close" onclick="this.closest('.modal').remove()">&times;</span>
+                    </div>
+                    <div class="modal-body">
+                        <div class="detail-section">
+                            <h5>基本信息</h5>
+                            <p><strong>用户名:</strong> ${data.owner.username}</p>
+                            <p><strong>邮箱:</strong> ${data.owner.email}</p>
+                            <p><strong>注册时间:</strong> ${new Date(data.owner.createdAt).toLocaleString()}</p>
+                            <p><strong>最后登录:</strong> ${data.owner.lastLoginAt ? new Date(data.owner.lastLoginAt).toLocaleString() : '从未登录'}</p>
+                        </div>
+                        
+                        <div class="detail-section">
+                            <h5>店铺统计</h5>
+                            <p><strong>拥有店铺:</strong> ${data.shopsCount} 个</p>
+                            <p><strong>总成员数:</strong> ${data.totalMembers} 人</p>
+                        </div>
+                        
+                        <div class="detail-section">
+                            <h5>店铺详情</h5>
+                            ${data.shops.map(shop => `
+                                <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 10px;">
+                                    <h6>${shop.name} (${shop.domain})</h6>
+                                    <p><strong>状态:</strong> <span class="shop-status status-${shop.status}">${shop.status === 'active' ? '正常' : '暂停'}</span></p>
+                                    <p><strong>创建时间:</strong> ${new Date(shop.createdAt).toLocaleDateString()}</p>
+                                    <p><strong>成员数:</strong> ${shop.memberCount} 人</p>
+                                    ${shop.members.length > 0 ? `
+                                        <p><strong>成员列表:</strong></p>
+                                        <div class="member-list">
+                                            ${shop.members.map(member => `
+                                                <span class="member-tag">${member.username} (${member.shopRole})</span>
+                                            `).join('')}
+                                        </div>
+                                    ` : '<p><strong>成员:</strong> 无</p>'}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    <div class="modal-buttons">
+                        <button type="button" class="btn btn-secondary" onclick="this.closest('.modal').remove()">关闭</button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+        }
+
+        // 切换店主状态
+        async function toggleOwnerStatus(ownerId, status) {
+            const action = status === 'suspended' ? '禁用' : '启用';
+            if (!confirm(`确定要${action}该店主吗？`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/admin/shop-owner/${ownerId}/status`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Session-Id': currentSession
+                    },
+                    body: JSON.stringify({ status })
+                });
+                
+                if (response.ok) {
+                    alert(`店主${action}成功`);
+                    loadShopOwnersStats();
+                } else {
+                    const error = await response.json();
+                    alert(`${action}失败: ${error.error}`);
+                }
+            } catch (error) {
+                console.error(`${action}店主错误:`, error);
+                alert(`${action}失败`);
+            }
+        }
+
+        // 删除店主
+        async function deleteOwner(ownerId) {
+            if (!confirm('⚠️ 警告：此操作将永久删除店主及其所有店铺数据，无法恢复！\n\n请输入 "DELETE_ALL_DATA" 确认删除：')) {
+                return;
+            }
+            
+            const confirmation = prompt('请输入 "DELETE_ALL_DATA" 确认删除：');
+            if (confirmation !== 'DELETE_ALL_DATA') {
+                alert('确认文本不正确，操作已取消');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/admin/shop-owner/${ownerId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Session-Id': currentSession
+                    },
+                    body: JSON.stringify({ confirm: 'DELETE_ALL_DATA' })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    alert(data.message);
+                    loadShopOwnersStats();
+                    loadSystemStats(); // 刷新系统统计
+                } else {
+                    const error = await response.json();
+                    alert(`删除失败: ${error.error}`);
+                }
+            } catch (error) {
+                console.error('删除店主错误:', error);
+                alert('删除失败');
+            }
+        }
+
+        // 加载所有店铺
+        async function loadAllShops() {
+            try {
+                const response = await fetch('/api/admin/shops', {
+                    headers: {
+                        'X-Session-Id': currentSession
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    adminData.allShops = data.shops;
+                    updateAllShopsUI();
+                } else {
+                    console.error('加载店铺列表失败');
+                }
+            } catch (error) {
+                console.error('加载店铺列表错误:', error);
+            }
+        }
+
+        // 更新所有店铺UI
+        function updateAllShopsUI() {
+            const shopsMonitor = document.getElementById('shopsMonitor');
+            const shops = adminData.allShops;
+            
+            if (!shops || shops.length === 0) {
+                shopsMonitor.innerHTML = '<div class="empty-state">暂无店铺数据</div>';
+                return;
+            }
+            
+            const html = shops.map(shop => `
+                <div class="shop-monitor-item">
+                    <div class="shop-monitor-info">
+                        <h6>${shop.name}</h6>
+                        <p>🌐 ${shop.domain}</p>
+                        <p>📅 创建时间: ${new Date(shop.createdAt).toLocaleDateString()}</p>
+                    </div>
+                    <div class="shop-monitor-status">
+                        <span class="shop-status status-${shop.status}">
+                            ${shop.status === 'active' ? '正常运行' : '已暂停'}
+                        </span>
+                    </div>
+                </div>
+            `).join('');
+            
+            shopsMonitor.innerHTML = html;
+        }
+
+        // 刷新管理员数据
+        function refreshAdminData() {
+            loadAdminData();
+        }
+
+        // 点击模态框外部关闭（扩展原有函数）
+        const originalWindowClick = window.onclick;
+        window.onclick = function(event) {
+            const adminModal = document.getElementById('adminPanelModal');
+            
+            if (event.target === adminModal) {
+                hideAdminPanel();
+            }
+            
+            // 调用原有的点击处理
+            if (originalWindowClick) {
+                originalWindowClick(event);
             }
         }
     </script>

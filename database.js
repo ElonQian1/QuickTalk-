@@ -20,6 +20,7 @@ class Database {
             password: this.hashPassword('admin123'),
             email: 'admin@system.com',
             role: 'super_admin',
+            status: 'active',
             createdAt: new Date(),
             lastLoginAt: null
         });
@@ -32,6 +33,7 @@ class Database {
             password: this.hashPassword('123456'),
             email: 'owner@shop.com',
             role: 'shop_owner',
+            status: 'active',
             createdAt: new Date(),
             lastLoginAt: null
         });
@@ -90,6 +92,7 @@ class Database {
             password: this.hashPassword(password),
             email,
             role,
+            status: 'active',
             createdAt: new Date(),
             lastLoginAt: null
         };
@@ -304,6 +307,173 @@ class Database {
     async validatePassword(plainPassword, hashedPassword) {
         // 在真实环境中，这里应该使用bcrypt等库进行密码验证
         return this.hashPassword(plainPassword) === hashedPassword;
+    }
+
+    // ============ 超级管理员专用方法 ============
+
+    // 获取所有店主及其店铺统计
+    async getShopOwnersStats() {
+        const stats = [];
+        
+        // 遍历所有用户，找出店主
+        for (const user of this.users.values()) {
+            if (user.role === 'shop_owner') {
+                const userShops = this.userShops.get(user.id) || [];
+                const ownedShops = userShops.filter(us => us.role === 'owner');
+                
+                const shopDetails = ownedShops.map(us => {
+                    const shop = this.shops.get(us.shopId);
+                    return {
+                        ...shop,
+                        memberCount: this.getShopMemberCount(us.shopId)
+                    };
+                });
+                
+                stats.push({
+                    user: {
+                        id: user.id,
+                        username: user.username,
+                        email: user.email,
+                        createdAt: user.createdAt,
+                        lastLoginAt: user.lastLoginAt
+                    },
+                    shopsCount: ownedShops.length,
+                    shops: shopDetails,
+                    totalMembers: shopDetails.reduce((sum, shop) => sum + shop.memberCount, 0)
+                });
+            }
+        }
+        
+        return stats;
+    }
+
+    // 获取店铺成员数量
+    getShopMemberCount(shopId) {
+        let count = 0;
+        for (const userShops of this.userShops.values()) {
+            if (userShops.some(us => us.shopId === shopId)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    // 获取系统整体统计
+    async getSystemStats() {
+        const totalUsers = this.users.size;
+        const totalShops = this.shops.size;
+        
+        // 按角色统计用户
+        const usersByRole = {};
+        for (const user of this.users.values()) {
+            usersByRole[user.role] = (usersByRole[user.role] || 0) + 1;
+        }
+        
+        // 按状态统计店铺
+        const shopsByStatus = {};
+        for (const shop of this.shops.values()) {
+            shopsByStatus[shop.status] = (shopsByStatus[shop.status] || 0) + 1;
+        }
+        
+        return {
+            totalUsers,
+            totalShops,
+            usersByRole,
+            shopsByStatus,
+            timestamp: new Date()
+        };
+    }
+
+    // 获取特定店主的详细信息
+    async getShopOwnerDetails(ownerId) {
+        const user = this.users.get(ownerId);
+        if (!user || user.role !== 'shop_owner') {
+            throw new Error('店主不存在');
+        }
+        
+        const userShops = this.userShops.get(ownerId) || [];
+        const ownedShops = userShops.filter(us => us.role === 'owner');
+        
+        const shopDetails = ownedShops.map(us => {
+            const shop = this.shops.get(us.shopId);
+            return {
+                ...shop,
+                memberCount: this.getShopMemberCount(us.shopId),
+                members: this.getShopMembers(us.shopId)
+            };
+        });
+        
+        const { password: _, ...ownerInfo } = user;
+        
+        return {
+            owner: ownerInfo,
+            shopsCount: ownedShops.length,
+            shops: shopDetails,
+            totalMembers: shopDetails.reduce((sum, shop) => sum + shop.memberCount, 0)
+        };
+    }
+
+    // 获取店铺成员详情
+    getShopMembers(shopId) {
+        const members = [];
+        for (const [userId, userShops] of this.userShops.entries()) {
+            const shopRole = userShops.find(us => us.shopId === shopId);
+            if (shopRole) {
+                const user = this.users.get(userId);
+                if (user) {
+                    const { password: _, ...memberInfo } = user;
+                    members.push({
+                        ...memberInfo,
+                        shopRole: shopRole.role,
+                        permissions: shopRole.permissions
+                    });
+                }
+            }
+        }
+        return members;
+    }
+
+    // 搜索店主
+    async searchShopOwners(keyword) {
+        const stats = await this.getShopOwnersStats();
+        
+        if (!keyword) {
+            return stats;
+        }
+        
+        return stats.filter(stat => 
+            stat.user.username.toLowerCase().includes(keyword.toLowerCase()) ||
+            stat.user.email.toLowerCase().includes(keyword.toLowerCase()) ||
+            stat.shops.some(shop => 
+                shop.name.toLowerCase().includes(keyword.toLowerCase()) ||
+                shop.domain.toLowerCase().includes(keyword.toLowerCase())
+            )
+        );
+    }
+
+    // 禁用/启用店主账号
+    async toggleShopOwnerStatus(ownerId, status) {
+        const user = this.users.get(ownerId);
+        if (!user || user.role !== 'shop_owner') {
+            throw new Error('店主不存在');
+        }
+        
+        user.status = status;
+        user.updatedAt = new Date();
+        
+        // 同时更新该店主的所有店铺状态
+        const userShops = this.userShops.get(ownerId) || [];
+        const ownedShops = userShops.filter(us => us.role === 'owner');
+        
+        for (const us of ownedShops) {
+            const shop = this.shops.get(us.shopId);
+            if (shop) {
+                shop.status = status === 'active' ? 'active' : 'suspended';
+                shop.updatedAt = new Date();
+            }
+        }
+        
+        return user;
     }
 }
 
