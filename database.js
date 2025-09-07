@@ -181,7 +181,16 @@ class Database {
         
         this.shops.set(shopId, newShop);
         
-        // 待审核的店铺暂不添加权限，审核通过后再添加
+        // 将店主添加到用户店铺关联中（即使是待审核状态也要显示）
+        const userShops = this.userShops.get(ownerId) || [];
+        userShops.push({
+            shopId: shopId,
+            role: 'owner',
+            joinedAt: new Date(),
+            permissions: ['view_shop'] // 待审核状态只有查看权限
+        });
+        this.userShops.set(ownerId, userShops);
+        
         console.log(`🏪 新店铺申请: ${name} (${domain}) 等待审核`);
         
         return newShop;
@@ -213,13 +222,22 @@ class Database {
             expiryDate.setDate(expiryDate.getDate() + 30);
             shop.expiryDate = expiryDate;
             
-            // 审核通过，为店主添加店铺权限
+            // 审核通过，更新店主的店铺权限
             const userShops = this.userShops.get(shop.ownerId) || [];
-            userShops.push({
-                shopId,
-                role: 'owner',
-                permissions: ['manage_staff', 'view_chats', 'handle_chats', 'manage_shop']
-            });
+            const existingShop = userShops.find(us => us.shopId === shopId);
+            
+            if (existingShop) {
+                // 更新现有权限
+                existingShop.permissions = ['manage_staff', 'view_chats', 'handle_chats', 'manage_shop'];
+            } else {
+                // 如果不存在则添加（兜底逻辑）
+                userShops.push({
+                    shopId,
+                    role: 'owner',
+                    joinedAt: new Date(),
+                    permissions: ['manage_staff', 'view_chats', 'handle_chats', 'manage_shop']
+                });
+            }
             this.userShops.set(shop.ownerId, userShops);
             
             // 将店主添加到店铺成员列表
