@@ -184,9 +184,25 @@
             box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
         }
         
-        .user-badge:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        .promotion-btn {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .promotion-btn:hover {
+            background: linear-gradient(135deg, #ff5252 0%, #e53935 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
         }
         
         .logout-btn {
@@ -447,6 +463,144 @@
             background: #5a6268;
         }
         
+        /* 推广模态框样式 */
+        .promotion-content {
+            max-width: 600px;
+        }
+        
+        .promotion-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border-left: 4px solid #ff6b6b;
+        }
+        
+        .promotion-section h4 {
+            margin: 0 0 15px 0;
+            color: #333;
+            font-size: 18px;
+        }
+        
+        .reward-info {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .reward-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .reward-icon {
+            font-size: 24px;
+            flex-shrink: 0;
+        }
+        
+        .reward-item strong {
+            color: #ff6b6b;
+            font-size: 16px;
+        }
+        
+        .reward-item p {
+            margin: 5px 0 0 0;
+            color: #666;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        
+        .link-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .promotion-link-input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-family: monospace;
+            background: white;
+            font-size: 14px;
+        }
+        
+        .copy-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 12px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            white-space: nowrap;
+        }
+        
+        .copy-btn:hover {
+            background: #218838;
+        }
+        
+        .link-tip {
+            color: #666;
+            font-size: 14px;
+            margin: 0;
+            font-style: italic;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 15px;
+        }
+        
+        .stat-item {
+            text-align: center;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #ff6b6b;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .share-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .share-btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            flex: 1;
+            min-width: 140px;
+        }
+        
+        .share-btn:hover {
+            background: #0056b3;
+        }
+        
         /* 店铺管理模态框样式 */
         .manage-modal {
             max-width: 800px;
@@ -696,6 +850,9 @@
             <div class="header">
                 <h1>客服管理系统</h1>
                 <div class="user-info">
+                    <button class="promotion-btn" onclick="showPromotionModal()">
+                        🎁 推广赚钱
+                    </button>
                     <button class="user-badge" id="userBadge" onclick="showProfileModal()">加载中...</button>
                     <button class="create-shop-btn" onclick="showCreateShopModal()">🏪 创建店铺</button>
                     <button class="logout-btn" onclick="logout()">登出</button>
@@ -853,6 +1010,94 @@
             <div class="modal-buttons">
                 <button type="button" class="btn btn-secondary" onclick="hideProfileModal()">取消</button>
                 <button type="button" class="btn" onclick="submitProfileForm()">保存修改</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 推广赚钱模态框 -->
+    <div id="promotionModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>🎁 推广赚钱 - 获得10%回报</h3>
+                <span class="close" onclick="hidePromotionModal()">&times;</span>
+            </div>
+            <div class="modal-form">
+                <div class="promotion-content">
+                    <div class="promotion-section">
+                        <h4>💰 推广奖励政策</h4>
+                        <div class="reward-info">
+                            <div class="reward-item">
+                                <span class="reward-icon">🎯</span>
+                                <div>
+                                    <strong>推广佣金：10%</strong>
+                                    <p>每成功推荐一位朋友注册并使用服务，您将获得他们消费金额的10%作为佣金回报</p>
+                                </div>
+                            </div>
+                            <div class="reward-item">
+                                <span class="reward-icon">⚡</span>
+                                <div>
+                                    <strong>实时结算</strong>
+                                    <p>朋友每次消费后，佣金立即到账，无需等待</p>
+                                </div>
+                            </div>
+                            <div class="reward-item">
+                                <span class="reward-icon">🔄</span>
+                                <div>
+                                    <strong>长期有效</strong>
+                                    <p>只要是通过您的推广链接注册的用户，终身享受佣金分成</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="promotion-section">
+                        <h4>🔗 您的专属推广链接</h4>
+                        <div class="link-container">
+                            <input type="text" id="promotionLink" readonly 
+                                   value="http://localhost:3030?ref=shop_owner" 
+                                   class="promotion-link-input">
+                            <button class="copy-btn" onclick="copyPromotionLink()">📋 复制</button>
+                        </div>
+                        <p class="link-tip">将此链接分享给朋友，他们通过此链接注册后，您就能获得佣金！</p>
+                    </div>
+                    
+                    <div class="promotion-section">
+                        <h4>📊 推广数据</h4>
+                        <div class="stats-grid">
+                            <div class="stat-item">
+                                <div class="stat-number">0</div>
+                                <div class="stat-label">推荐人数</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-number">￥0</div>
+                                <div class="stat-label">累计佣金</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-number">￥0</div>
+                                <div class="stat-label">本月佣金</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="promotion-section">
+                        <h4>📱 分享方式</h4>
+                        <div class="share-buttons">
+                            <button class="share-btn" onclick="shareToWeChat()">
+                                💬 分享到微信
+                            </button>
+                            <button class="share-btn" onclick="shareToQQ()">
+                                🐧 分享到QQ
+                            </button>
+                            <button class="share-btn" onclick="generateQRCode()">
+                                📱 生成二维码
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-buttons">
+                <button type="button" class="btn btn-secondary" onclick="hidePromotionModal()">关闭</button>
+                <button type="button" class="btn" onclick="openPromotionGuide()">查看推广指南</button>
             </div>
         </div>
     </div>
@@ -1031,8 +1276,136 @@
         // 点击模态框外部关闭
         window.onclick = function(event) {
             const profileModal = document.getElementById('profileModal');
+            const promotionModal = document.getElementById('promotionModal');
+            
             if (event.target === profileModal) {
                 hideProfileModal();
+            }
+            if (event.target === promotionModal) {
+                hidePromotionModal();
+            }
+        }
+
+        // ============ 推广赚钱功能 ============
+        
+        // 显示推广模态框
+        function showPromotionModal() {
+            const modal = document.getElementById('promotionModal');
+            
+            // 更新推广链接
+            const link = `http://localhost:3030?ref=${currentUser.username}`;
+            document.getElementById('promotionLink').value = link;
+            
+            // 这里可以加载推广数据
+            loadPromotionData();
+            
+            modal.style.display = 'block';
+        }
+        
+        // 隐藏推广模态框
+        function hidePromotionModal() {
+            document.getElementById('promotionModal').style.display = 'none';
+        }
+        
+        // 复制推广链接
+        function copyPromotionLink() {
+            const linkInput = document.getElementById('promotionLink');
+            linkInput.select();
+            linkInput.setSelectionRange(0, 99999); // 移动端兼容
+            
+            try {
+                document.execCommand('copy');
+                alert('推广链接已复制到剪贴板！');
+            } catch (err) {
+                // 使用现代API
+                navigator.clipboard.writeText(linkInput.value).then(() => {
+                    alert('推广链接已复制到剪贴板！');
+                }).catch(() => {
+                    alert('复制失败，请手动复制链接');
+                });
+            }
+        }
+        
+        // 分享到微信
+        function shareToWeChat() {
+            const link = document.getElementById('promotionLink').value;
+            const message = `🎁 邀请您免费体验我们的客服系统！通过我的专属链接注册，我们都能获得优惠哦！\\n\\n点击链接：${link}`;
+            
+            // 创建分享文本
+            if (navigator.share) {
+                navigator.share({
+                    title: '邀请您体验客服系统',
+                    text: message,
+                    url: link
+                });
+            } else {
+                // 复制到剪贴板
+                navigator.clipboard.writeText(message).then(() => {
+                    alert('分享内容已复制，请在微信中粘贴分享！');
+                });
+            }
+        }
+        
+        // 分享到QQ
+        function shareToQQ() {
+            const link = document.getElementById('promotionLink').value;
+            const title = encodeURIComponent('邀请您体验客服系统');
+            const summary = encodeURIComponent('免费体验专业客服系统，通过我的推广链接注册还有优惠！');
+            
+            const qqUrl = `https://connect.qq.com/widget/shareqq/index.html?url=${encodeURIComponent(link)}&title=${title}&summary=${summary}`;
+            window.open(qqUrl, '_blank');
+        }
+        
+        // 生成二维码
+        function generateQRCode() {
+            const link = document.getElementById('promotionLink').value;
+            const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(link)}`;
+            
+            // 创建二维码显示窗口
+            const qrWindow = window.open('', '_blank', 'width=300,height=350');
+            qrWindow.document.write(`
+                <html>
+                    <head><title>推广二维码</title></head>
+                    <body style="text-align: center; padding: 20px; font-family: Arial;">
+                        <h3>扫码注册获得优惠</h3>
+                        <img src="${qrUrl}" alt="推广二维码" style="border: 1px solid #ddd; padding: 10px;">
+                        <p style="font-size: 12px; color: #666; margin-top: 15px;">
+                            保存图片分享给朋友<br>
+                            或直接让朋友扫码注册
+                        </p>
+                    </body>
+                </html>
+            `);
+        }
+        
+        // 查看推广指南
+        function openPromotionGuide() {
+            alert('推广指南：\\n\\n1. 复制您的专属推广链接\\n2. 分享给朋友和同事\\n3. 朋友通过链接注册后，您获得10%佣金\\n4. 佣金实时到账，长期有效\\n\\n快去分享吧！');
+        }
+        
+        // 加载推广数据
+        async function loadPromotionData() {
+            try {
+                // 这里可以调用API获取推广数据
+                // const response = await fetch('/api/promotion/stats', {
+                //     headers: { 'X-Session-Id': currentSession }
+                // });
+                // const data = await response.json();
+                
+                // 暂时使用模拟数据
+                const stats = {
+                    referralCount: 0,
+                    totalCommission: 0,
+                    monthlyCommission: 0
+                };
+                
+                // 更新统计数据显示
+                document.querySelector('.stats-grid .stat-item:nth-child(1) .stat-number').textContent = stats.referralCount;
+                document.querySelector('.stats-grid .stat-item:nth-child(2) .stat-number').textContent = `￥${stats.totalCommission}`;
+                document.querySelector('.stats-grid .stat-item:nth-child(3) .stat-number').textContent = `￥${stats.monthlyCommission}`;
+                
+            } catch (error) {
+                console.error('加载推广数据失败:', error);
             }
         }
 
