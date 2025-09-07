@@ -256,6 +256,45 @@ class Database {
     async getAllShops() {
         return Array.from(this.shops.values());
     }
+    
+    // 根据ID获取用户
+    async getUserById(userId) {
+        return this.users.get(userId) || null;
+    }
+    
+    // 根据邮箱获取用户
+    async getUserByEmail(email) {
+        for (let user of this.users.values()) {
+            if (user.email === email) {
+                return user;
+            }
+        }
+        return null;
+    }
+    
+    // 更新用户信息
+    async updateUser(userId, updateData) {
+        const user = this.users.get(userId);
+        if (!user) {
+            throw new Error('用户不存在');
+        }
+        
+        // 更新用户数据
+        const updatedUser = {
+            ...user,
+            ...updateData,
+            updatedAt: new Date()
+        };
+        
+        this.users.set(userId, updatedUser);
+        return updatedUser;
+    }
+    
+    // 验证密码
+    async validatePassword(plainPassword, hashedPassword) {
+        // 在真实环境中，这里应该使用bcrypt等库进行密码验证
+        return this.hashPassword(plainPassword) === hashedPassword;
+    }
 }
 
 module.exports = Database;

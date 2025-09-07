@@ -1,3 +1,5 @@
+module.exports = function(app, database) {
+
 // 用户认证中间件
 function requireAuth(req, res, next) {
     const sessionId = req.headers['x-session-id'] || req.body.sessionId;
@@ -394,3 +396,84 @@ app.put('/api/shops/:shopId', requireAuth, async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+
+// ============ 个人资料管理 ============
+
+// 获取个人资料
+app.get('/api/auth/profile', requireAuth, async (req, res) => {
+    try {
+        const user = await database.getUserById(req.user.id);
+        if (!user) {
+            return res.status(404).json({ error: '用户不存在' });
+        }
+        
+        // 不返回密码
+        const { password, ...userProfile } = user;
+        res.json({ success: true, profile: userProfile });
+    } catch (error) {
+        console.error('获取个人资料错误:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 更新个人资料
+app.put('/api/auth/profile', requireAuth, async (req, res) => {
+    try {
+        const { username, email, currentPassword, newPassword } = req.body;
+        const userId = req.user.id;
+        
+        // 验证必填字段
+        if (!username || !email) {
+            return res.status(400).json({ error: '用户名和邮箱为必填项' });
+        }
+        
+        // 如果要修改密码，验证当前密码
+        if (newPassword) {
+            if (!currentPassword) {
+                return res.status(400).json({ error: '修改密码需要提供当前密码' });
+            }
+            
+            if (newPassword.length < 6) {
+                return res.status(400).json({ error: '新密码长度至少6位' });
+            }
+            
+            // 验证当前密码
+            const currentUser = await database.getUserById(userId);
+            const isValidPassword = await database.validatePassword(currentPassword, currentUser.password);
+            if (!isValidPassword) {
+                return res.status(400).json({ error: '当前密码不正确' });
+            }
+        }
+        
+        // 检查用户名是否被其他用户使用
+        const existingUser = await database.getUserByUsername(username);
+        if (existingUser && existingUser.id !== userId) {
+            return res.status(400).json({ error: '用户名已被使用' });
+        }
+        
+        // 检查邮箱是否被其他用户使用
+        const existingEmail = await database.getUserByEmail(email);
+        if (existingEmail && existingEmail.id !== userId) {
+            return res.status(400).json({ error: '邮箱已被使用' });
+        }
+        
+        // 更新用户信息
+        const updateData = { username, email };
+        if (newPassword) {
+            updateData.password = await database.hashPassword(newPassword);
+        }
+        
+        const updatedUser = await database.updateUser(userId, updateData);
+        
+        // 不返回密码
+        const { password, ...userProfile } = updatedUser;
+        
+        console.log(`👤 用户更新个人资料: ${username}`);
+        res.json({ success: true, message: '个人资料更新成功', profile: userProfile });
+    } catch (error) {
+        console.error('更新个人资料错误:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+};

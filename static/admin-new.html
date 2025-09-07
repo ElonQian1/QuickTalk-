@@ -173,6 +173,20 @@
             border-radius: 20px;
             font-size: 14px;
             font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: none;
+        }
+        
+        .user-badge:hover {
+            background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+        
+        .user-badge:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
         }
         
         .logout-btn {
@@ -672,7 +686,7 @@
             <div class="header">
                 <h1>客服管理系统</h1>
                 <div class="user-info">
-                    <span class="user-badge" id="userBadge">加载中...</span>
+                    <button class="user-badge" id="userBadge" onclick="showProfileModal()">加载中...</button>
                     <button class="create-shop-btn" onclick="showCreateShopModal()">🏪 创建店铺</button>
                     <button class="logout-btn" onclick="logout()">登出</button>
                 </div>
@@ -792,6 +806,48 @@
         </div>
     </div>
 
+    <!-- 个人资料编辑模态框 -->
+    <div id="profileModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>👤 个人资料</h3>
+                <span class="close" onclick="hideProfileModal()">&times;</span>
+            </div>
+            <form id="profileForm" class="modal-form">
+                <div class="form-group">
+                    <label for="profileUsername">用户名</label>
+                    <input type="text" id="profileUsername" name="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="profileEmail">邮箱</label>
+                    <input type="email" id="profileEmail" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="profileRole">角色</label>
+                    <input type="text" id="profileRole" name="role" readonly style="background-color: #f5f5f5;">
+                </div>
+                <hr style="margin: 20px 0; border: none; border-top: 1px solid #eee;">
+                <h4 style="margin-bottom: 15px; color: #333;">修改密码 (可选)</h4>
+                <div class="form-group">
+                    <label for="currentPassword">当前密码</label>
+                    <input type="password" id="currentPassword" name="currentPassword" placeholder="如需修改密码，请输入当前密码">
+                </div>
+                <div class="form-group">
+                    <label for="newPassword">新密码</label>
+                    <input type="password" id="newPassword" name="newPassword" placeholder="留空表示不修改密码">
+                </div>
+                <div class="form-group">
+                    <label for="confirmPassword">确认新密码</label>
+                    <input type="password" id="confirmPassword" name="confirmPassword" placeholder="再次输入新密码">
+                </div>
+                <div class="modal-buttons">
+                    <button type="button" class="btn btn-secondary" onclick="hideProfileModal()">取消</button>
+                    <button type="submit" class="btn">保存修改</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
         let currentUser = null;
         let currentSession = null;
@@ -855,6 +911,122 @@
                 'employee': '员工'
             };
             badge.textContent = `${currentUser.username} (${roleText[currentUser.role] || currentUser.role})`;
+        }
+
+        // ============ 个人资料管理 ============
+        
+        // 显示个人资料编辑模态框
+        function showProfileModal() {
+            const modal = document.getElementById('profileModal');
+            const form = document.getElementById('profileForm');
+            
+            // 填充当前用户信息
+            document.getElementById('profileUsername').value = currentUser.username;
+            document.getElementById('profileEmail').value = currentUser.email;
+            
+            const roleText = {
+                'super_admin': '超级管理员',
+                'shop_owner': '店主',
+                'employee': '员工'
+            };
+            document.getElementById('profileRole').value = roleText[currentUser.role] || currentUser.role;
+            
+            // 清空密码字段
+            document.getElementById('currentPassword').value = '';
+            document.getElementById('newPassword').value = '';
+            document.getElementById('confirmPassword').value = '';
+            
+            modal.style.display = 'block';
+        }
+        
+        // 隐藏个人资料编辑模态框
+        function hideProfileModal() {
+            document.getElementById('profileModal').style.display = 'none';
+        }
+        
+        // 个人资料表单处理
+        document.getElementById('profileForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const username = formData.get('username');
+            const email = formData.get('email');
+            const currentPassword = formData.get('currentPassword');
+            const newPassword = formData.get('newPassword');
+            const confirmPassword = formData.get('confirmPassword');
+            
+            // 验证表单
+            if (!username || !email) {
+                alert('用户名和邮箱为必填项');
+                return;
+            }
+            
+            // 如果要修改密码，验证密码字段
+            if (newPassword || currentPassword) {
+                if (!currentPassword) {
+                    alert('修改密码需要提供当前密码');
+                    return;
+                }
+                if (!newPassword) {
+                    alert('请输入新密码');
+                    return;
+                }
+                if (newPassword !== confirmPassword) {
+                    alert('两次输入的新密码不一致');
+                    return;
+                }
+                if (newPassword.length < 6) {
+                    alert('新密码长度至少6位');
+                    return;
+                }
+            }
+            
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.textContent = '保存中...';
+            
+            try {
+                const updateData = { username, email };
+                if (newPassword) {
+                    updateData.currentPassword = currentPassword;
+                    updateData.newPassword = newPassword;
+                }
+                
+                const response = await fetch('/api/auth/profile', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Session-Id': currentSession
+                    },
+                    body: JSON.stringify(updateData)
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // 更新当前用户信息
+                    currentUser = { ...currentUser, ...data.profile };
+                    updateUserInfo();
+                    hideProfileModal();
+                    alert('个人资料更新成功！');
+                } else {
+                    alert(data.error || '更新失败');
+                }
+            } catch (error) {
+                console.error('更新个人资料错误:', error);
+                alert('更新失败，请重试');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '保存修改';
+            }
+        });
+        
+        // 点击模态框外部关闭
+        window.onclick = function(event) {
+            const profileModal = document.getElementById('profileModal');
+            if (event.target === profileModal) {
+                hideProfileModal();
+            }
         }
 
         // 登录表单处理
