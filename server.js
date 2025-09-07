@@ -781,6 +781,195 @@ function sendToUser(userId, message) {
     }
 }
 
+// ============ 充值续费API ============
+
+// 创建续费订单
+app.post('/api/shops/:shopId/renew', requireAuth, async (req, res) => {
+    try {
+        const { shopId } = req.params;
+        
+        const order = await database.createRenewalOrder(shopId, req.user.id);
+        
+        res.json({
+            success: true,
+            message: '续费订单创建成功',
+            order
+        });
+    } catch (error) {
+        console.error('创建续费订单失败:', error.message);
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// 生成支付二维码
+app.post('/api/orders/:orderId/qrcode', requireAuth, async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        const { paymentMethod } = req.body; // 'alipay' 或 'wechat'
+        
+        if (!['alipay', 'wechat'].includes(paymentMethod)) {
+            return res.status(400).json({ error: '支付方式不支持' });
+        }
+        
+        const qrData = await database.generatePaymentQRCode(orderId, paymentMethod);
+        
+        res.json({
+            success: true,
+            qrData
+        });
+    } catch (error) {
+        console.error('生成支付二维码失败:', error.message);
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// 检查订单支付状态
+app.get('/api/orders/:orderId/status', requireAuth, async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        
+        const order = await database.checkOrderStatus(orderId);
+        
+        res.json({
+            success: true,
+            order
+        });
+    } catch (error) {
+        console.error('查询订单状态失败:', error.message);
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// 模拟支付成功（测试用）
+app.post('/api/orders/:orderId/mock-payment', requireAuth, async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        
+        const result = await database.mockPaymentSuccess(orderId);
+        
+        res.json({
+            success: true,
+            message: '支付成功',
+            result
+        });
+    } catch (error) {
+        console.error('模拟支付失败:', error.message);
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// 获取店铺续费历史
+app.get('/api/shops/:shopId/renewal-history', requireAuth, async (req, res) => {
+    try {
+        const { shopId } = req.params;
+        
+        const history = await database.getShopRenewalHistory(shopId);
+        
+        res.json({
+            success: true,
+            history
+        });
+    } catch (error) {
+        console.error('获取续费历史失败:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ============ 付费开通API ============
+
+// 创建付费开通订单
+app.post('/api/shops/:shopId/activate', requireAuth, async (req, res) => {
+    try {
+        const { shopId } = req.params;
+        
+        const order = await database.createActivationOrder(shopId, req.user.id);
+        
+        res.json({
+            success: true,
+            message: '付费开通订单创建成功',
+            order
+        });
+    } catch (error) {
+        console.error('创建付费开通订单失败:', error.message);
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// 生成付费开通支付二维码
+app.post('/api/activation-orders/:orderId/qrcode', requireAuth, async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        const { paymentMethod } = req.body;
+        
+        if (!['alipay', 'wechat'].includes(paymentMethod)) {
+            return res.status(400).json({ error: '不支持的支付方式' });
+        }
+        
+        const qrData = await database.generateActivationPaymentQRCode(orderId, paymentMethod);
+        
+        res.json({
+            success: true,
+            message: '支付二维码生成成功',
+            qrData
+        });
+    } catch (error) {
+        console.error('生成付费开通支付二维码失败:', error.message);
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// 查询付费开通订单状态
+app.get('/api/activation-orders/:orderId/status', requireAuth, async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        
+        const order = await database.getActivationOrderStatus(orderId);
+        
+        res.json({
+            success: true,
+            order
+        });
+    } catch (error) {
+        console.error('查询付费开通订单状态失败:', error.message);
+        res.status(404).json({ error: error.message });
+    }
+});
+
+// 模拟付费开通支付成功
+app.post('/api/activation-orders/:orderId/mock-success', requireAuth, async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        
+        const result = await database.mockActivationPaymentSuccess(orderId);
+        
+        res.json({
+            success: true,
+            message: '付费开通支付成功',
+            ...result
+        });
+    } catch (error) {
+        console.error('模拟付费开通支付失败:', error.message);
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// 获取店铺付费开通历史
+app.get('/api/shops/:shopId/activation-history', requireAuth, async (req, res) => {
+    try {
+        const { shopId } = req.params;
+        
+        const history = await database.getShopActivationHistory(shopId);
+        
+        res.json({
+            success: true,
+            history
+        });
+    } catch (error) {
+        console.error('获取付费开通历史失败:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // WebSocket 连接处理
 wss.on('connection', (ws, req) => {
     const connectionId = uuidv4(); // 仅用于连接管理

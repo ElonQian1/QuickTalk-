@@ -7,6 +7,14 @@ class Database {
         this.userShops = new Map(); // 用户-店铺关系表
         this.sessions = new Map(); // 会话表
         
+        // 充值续费相关
+        this.renewalOrders = new Map(); // 续费订单
+        this.paymentQRCodes = new Map(); // 支付二维码缓存
+        
+        // 付费开通相关
+        this.activationOrders = new Map(); // 付费开通订单
+        this.activationQRCodes = new Map(); // 付费开通二维码缓存
+        
         // 初始化一些测试数据
         this.initTestData();
     }
@@ -57,6 +65,34 @@ class Database {
             role: 'owner',
             permissions: ['manage_staff', 'view_chats', 'handle_chats', 'manage_shop']
         }]);
+
+        // 创建待审核测试店铺（用于测试付费开通）
+        const pendingShopId = 'pending_shop_' + Date.now();
+        this.shops.set(pendingShopId, {
+            id: pendingShopId,
+            name: '待审核测试店铺',
+            domain: 'pending-shop.com',
+            description: '这是一个待审核的测试店铺，可以用于测试付费开通功能',
+            ownerId: shopOwnerId,
+            status: 'pending', // 待审核状态
+            createdAt: new Date(),
+            api_key: null,
+            apiKeyCreatedAt: null
+        });
+
+        // 更新用户-店铺关系，包含待审核店铺
+        this.userShops.set(shopOwnerId, [
+            {
+                shopId: shopId,
+                role: 'owner',
+                permissions: ['manage_staff', 'view_chats', 'handle_chats', 'manage_shop']
+            },
+            {
+                shopId: pendingShopId,
+                role: 'owner',
+                permissions: ['manage_staff', 'view_chats', 'handle_chats', 'manage_shop']
+            }
+        ]);
         
         console.log('🎯 初始化测试数据完成');
         console.log('📋 超级管理员: admin / admin123');
@@ -773,6 +809,343 @@ class Database {
             createdAt: shop.apiKeyCreatedAt,
             maskedKey: shop.apiKey ? shop.apiKey.substring(0, 12) + '****' + shop.apiKey.substring(shop.apiKey.length - 4) : null
         };
+    }
+
+    // ============ 充值续费功能 ============
+
+    // 创建续费订单
+    async createRenewalOrder(shopId, userId) {
+        const shop = this.shops.get(shopId);
+        if (!shop) {
+            throw new Error('店铺不存在');
+        }
+
+        if (shop.ownerId !== userId) {
+            throw new Error('无权限为此店铺续费');
+        }
+
+        if (shop.approvalStatus !== 'approved') {
+            throw new Error('只有已审核通过的店铺才能续费');
+        }
+
+        const orderId = 'order_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        const renewalOrder = {
+            orderId,
+            shopId,
+            shopName: shop.name,
+            userId,
+            amount: 2000, // 2000元一年
+            status: 'pending', // pending, paid, expired
+            createdAt: new Date(),
+            expiresAt: new Date(Date.now() + 30 * 60 * 1000), // 30分钟过期
+            renewalPeriod: 365, // 续费365天
+        };
+
+        this.renewalOrders.set(orderId, renewalOrder);
+        
+        console.log(`💰 创建续费订单: ${shop.name} - ¥${renewalOrder.amount}`);
+        
+        return renewalOrder;
+    }
+
+    // 生成支付二维码（模拟）
+    async generatePaymentQRCode(orderId, paymentMethod) {
+        const order = this.renewalOrders.get(orderId);
+        if (!order) {
+            throw new Error('订单不存在');
+        }
+
+        if (order.status !== 'pending') {
+            throw new Error('订单状态不正确');
+        }
+
+        // 模拟生成二维码数据
+        const qrData = {
+            orderId,
+            paymentMethod, // 'alipay' 或 'wechat'
+            amount: order.amount,
+            qrCodeUrl: this.generateMockQRCode(orderId, paymentMethod, order.amount),
+            expiresAt: order.expiresAt
+        };
+
+        this.paymentQRCodes.set(orderId, qrData);
+        
+        console.log(`📱 生成${paymentMethod === 'alipay' ? '支付宝' : '微信'}支付二维码: 订单${orderId}`);
+        
+        return qrData;
+    }
+
+    // 模拟生成二维码URL
+    generateMockQRCode(orderId, paymentMethod, amount) {
+        // 实际项目中这里应该调用支付宝/微信的API生成真实二维码
+        // 现在使用在线二维码生成服务来模拟
+        
+        const paymentData = {
+            orderId,
+            paymentMethod,
+            amount,
+            merchant: 'QuickTalk客服系统',
+            timestamp: Date.now()
+        };
+        
+        // 模拟支付链接
+        const paymentUrl = paymentMethod === 'alipay' 
+            ? `alipays://platformapi/startapp?saId=10000007&qrcode=https://qr.alipay.com/tsx${orderId}${Date.now()}`
+            : `weixin://wxpay/bizpayurl?pr=${orderId}${Date.now()}`;
+        
+        // 使用免费二维码生成API
+        const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(paymentUrl)}`;
+        
+        console.log(`🎨 生成${paymentMethod === 'alipay' ? '支付宝' : '微信'}二维码:`, qrCodeUrl);
+        
+        return qrCodeUrl;
+    }
+
+    // 模拟支付成功回调
+    async processPaymentSuccess(orderId) {
+        const order = this.renewalOrders.get(orderId);
+        if (!order) {
+            throw new Error('订单不存在');
+        }
+
+        if (order.status !== 'pending') {
+            throw new Error('订单已处理');
+        }
+
+        // 更新订单状态
+        order.status = 'paid';
+        order.paidAt = new Date();
+
+        // 为店铺续费
+        const shop = this.shops.get(order.shopId);
+        if (shop) {
+            const currentExpiry = shop.expiryDate || new Date();
+            const newExpiry = new Date(Math.max(currentExpiry.getTime(), new Date().getTime()));
+            newExpiry.setDate(newExpiry.getDate() + order.renewalPeriod);
+            
+            shop.expiryDate = newExpiry;
+            shop.lastRenewalDate = new Date();
+            
+            console.log(`✅ 店铺续费成功: ${shop.name} 到期时间延长至 ${newExpiry.toLocaleDateString()}`);
+        }
+
+        // 清理二维码缓存
+        this.paymentQRCodes.delete(orderId);
+
+        return {
+            success: true,
+            orderId,
+            shop,
+            newExpiryDate: shop.expiryDate
+        };
+    }
+
+    // 检查订单状态
+    async checkOrderStatus(orderId) {
+        const order = this.renewalOrders.get(orderId);
+        if (!order) {
+            throw new Error('订单不存在');
+        }
+
+        // 检查订单是否过期
+        if (order.status === 'pending' && new Date() > order.expiresAt) {
+            order.status = 'expired';
+            this.paymentQRCodes.delete(orderId);
+        }
+
+        return order;
+    }
+
+    // 获取店铺续费历史
+    async getShopRenewalHistory(shopId) {
+        const renewalHistory = [];
+        for (const order of this.renewalOrders.values()) {
+            if (order.shopId === shopId) {
+                renewalHistory.push(order);
+            }
+        }
+
+        return renewalHistory.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    }
+
+    // 模拟支付成功（用于测试）
+    async mockPaymentSuccess(orderId) {
+        console.log(`🧪 模拟支付成功: 订单 ${orderId}`);
+        return await this.processPaymentSuccess(orderId);
+    }
+
+    // ==================== 付费开通功能 ====================
+    
+    // 创建付费开通订单
+    async createActivationOrder(shopId, userId) {
+        const shop = this.shops.get(shopId);
+        if (!shop) {
+            throw new Error('店铺不存在');
+        }
+
+        if (shop.status !== 'pending') {
+            throw new Error('只有未审核通过的店铺才能付费开通');
+        }
+
+        // 验证用户是否是店铺拥有者
+        const userShops = this.userShops.get(userId) || [];
+        const isOwner = userShops.some(us => us.shopId === shopId);
+        if (!isOwner) {
+            throw new Error('只有店铺拥有者才能付费开通');
+        }
+
+        const orderId = `activation_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30分钟后过期
+
+        const activationOrder = {
+            orderId,
+            shopId,
+            userId,
+            shopName: shop.name,
+            amount: 2000, // 付费开通价格: ¥2000
+            status: 'pending', // pending, paid, expired, cancelled
+            paymentMethod: null,
+            createdAt: new Date(),
+            expiresAt,
+            paidAt: null
+        };
+
+        this.activationOrders.set(orderId, activationOrder);
+        
+        console.log(`💎 创建付费开通订单: ${shop.name} (${shopId}) - ¥2000`);
+        
+        return activationOrder;
+    }
+
+    // 生成付费开通支付二维码
+    async generateActivationPaymentQRCode(orderId, paymentMethod) {
+        const order = this.activationOrders.get(orderId);
+        if (!order) {
+            throw new Error('开通订单不存在');
+        }
+
+        if (order.status !== 'pending') {
+            throw new Error('订单状态不正确');
+        }
+
+        // 模拟生成二维码数据
+        const qrData = {
+            orderId,
+            paymentMethod, // 'alipay' 或 'wechat'
+            amount: order.amount,
+            qrCodeUrl: this.generateActivationMockQRCode(orderId, paymentMethod, order.amount),
+            expiresAt: order.expiresAt
+        };
+
+        this.activationQRCodes.set(orderId, qrData);
+        
+        console.log(`📱 生成${paymentMethod === 'alipay' ? '支付宝' : '微信'}付费开通二维码: 订单${orderId}`);
+        
+        return qrData;
+    }
+
+    // 模拟生成付费开通二维码URL
+    generateActivationMockQRCode(orderId, paymentMethod, amount) {
+        const paymentData = {
+            orderId,
+            paymentMethod,
+            amount,
+            type: 'activation', // 标识为付费开通
+            merchant: 'QuickTalk客服系统-付费开通',
+            timestamp: Date.now()
+        };
+        
+        // 模拟支付链接
+        const paymentUrl = paymentMethod === 'alipay' 
+            ? `alipays://platformapi/startapp?saId=10000007&qrcode=https://qr.alipay.com/activation${orderId}${Date.now()}`
+            : `weixin://wxpay/bizpayurl?pr=activation${orderId}${Date.now()}`;
+        
+        // 使用免费二维码生成API
+        const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(paymentUrl)}`;
+        
+        console.log(`🎨 生成${paymentMethod === 'alipay' ? '支付宝' : '微信'}付费开通二维码:`, qrCodeUrl);
+        
+        return qrCodeUrl;
+    }
+
+    // 处理付费开通支付成功
+    async processActivationPaymentSuccess(orderId) {
+        const order = this.activationOrders.get(orderId);
+        if (!order) {
+            throw new Error('开通订单不存在');
+        }
+
+        if (order.status !== 'pending') {
+            throw new Error('订单状态不正确');
+        }
+
+        // 更新订单状态
+        order.status = 'paid';
+        order.paidAt = new Date();
+
+        // 自动审核通过店铺
+        const shop = this.shops.get(order.shopId);
+        if (shop) {
+            const oldStatus = shop.status;
+            shop.status = 'approved';
+            shop.approvedAt = new Date();
+            shop.approvedBy = 'system_auto'; // 系统自动审核
+            shop.approvalMethod = 'paid_activation'; // 付费开通方式
+            
+            // 设置店铺有效期为1年
+            const expiresAt = new Date();
+            expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+            shop.expiresAt = expiresAt;
+
+            console.log(`🎉 付费开通成功: ${shop.name} (${shop.id}) 已自动审核通过`);
+            console.log(`⏰ 店铺有效期至: ${expiresAt.toLocaleDateString()}`);
+        }
+
+        // 清理二维码缓存
+        this.activationQRCodes.delete(orderId);
+
+        console.log(`💰 付费开通支付成功: 订单 ${orderId}, 金额: ¥${order.amount}`);
+        
+        return {
+            success: true,
+            order,
+            shop,
+            message: '付费开通成功，店铺已自动审核通过！'
+        };
+    }
+
+    // 获取付费开通订单状态
+    async getActivationOrderStatus(orderId) {
+        const order = this.activationOrders.get(orderId);
+        if (!order) {
+            throw new Error('开通订单不存在');
+        }
+
+        // 检查订单是否过期
+        if (order.status === 'pending' && new Date() > order.expiresAt) {
+            order.status = 'expired';
+            this.activationQRCodes.delete(orderId);
+        }
+
+        return order;
+    }
+
+    // 获取店铺付费开通历史
+    async getShopActivationHistory(shopId) {
+        const activationHistory = [];
+        for (const order of this.activationOrders.values()) {
+            if (order.shopId === shopId) {
+                activationHistory.push(order);
+            }
+        }
+
+        return activationHistory.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    }
+
+    // 模拟付费开通支付成功（用于测试）
+    async mockActivationPaymentSuccess(orderId) {
+        console.log(`🧪 模拟付费开通支付成功: 订单 ${orderId}`);
+        return await this.processActivationPaymentSuccess(orderId);
     }
 }
 

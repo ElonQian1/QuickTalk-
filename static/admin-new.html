@@ -524,6 +524,18 @@
             background: linear-gradient(135deg, #138496, #0f6674);
             transform: translateY(-2px);
         }
+
+        .btn-success {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+            border: none;
+            transition: all 0.3s ease;
+        }
+
+        .btn-success:hover {
+            background: linear-gradient(135deg, #20c997, #17a2b8);
+            transform: translateY(-2px);
+        }
         
         /* 推广模态框样式 */
         .promotion-content {
@@ -2901,12 +2913,22 @@
                             <button class="action-btn btn-info" onclick="resubmitShop('${shop.id}')">
                                 重新提交审核
                             </button>
-                        ` : `
+                            <button class="action-btn btn-primary" onclick="debugActivateShop('${shop.id}')">
+                                💎 付费开通 (¥2000)
+                            </button>
+                        ` : shop.approvalStatus === 'approved' ? `
                             <button class="action-btn btn-primary" onclick="viewShopMessages('${shop.id}')">
                                 查看消息
                             </button>
                             <button class="action-btn btn-secondary" onclick="manageShop('${shop.id}')">
                                 管理店铺
+                            </button>
+                            <button class="action-btn btn-success" onclick="renewShop('${shop.id}')">
+                                💰 续费 (¥2000/年)
+                            </button>
+                        ` : `
+                            <button class="action-btn btn-secondary" onclick="viewShopMessages('${shop.id}')">
+                                查看消息
                             </button>
                         `}
                     </div>
@@ -3024,6 +3046,531 @@
                 }
             } catch (error) {
                 console.error('重新提交错误:', error);
+                alert('网络错误，请重试');
+            }
+        }
+
+        // ============ 店铺续费功能 ============
+
+        // 店铺续费
+        async function renewShop(shopId) {
+            const shop = currentShops.find(s => s.id === shopId);
+            if (!shop) {
+                alert('店铺信息不存在');
+                return;
+            }
+
+            const expiryDate = shop.expiryDate ? new Date(shop.expiryDate).toLocaleDateString() : '未设置';
+            
+            if (!confirm(`确定要为店铺 "${shop.name}" 续费吗？\n\n续费价格：¥2000/年\n当前到期时间：${expiryDate}\n续费后将延长1年有效期`)) {
+                return;
+            }
+
+            try {
+                // 创建续费订单
+                const response = await fetch(`/api/shops/${shopId}/renew`, {
+                    method: 'POST',
+                    headers: {
+                        'X-Session-Id': currentSession
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    showPaymentModal(data.order);
+                } else {
+                    const error = await response.json();
+                    alert('创建续费订单失败: ' + error.error);
+                }
+            } catch (error) {
+                console.error('续费错误:', error);
+                alert('网络错误，请重试');
+            }
+        }
+
+        // 显示支付模态框
+        function showPaymentModal(order) {
+            document.getElementById('renewalOrderId').textContent = order.orderId;
+            document.getElementById('renewalShopName').textContent = order.shopName;
+            document.getElementById('renewalAmount').textContent = `¥${order.amount}`;
+            
+            const expiresAt = new Date(order.expiresAt).toLocaleString();
+            document.getElementById('renewalExpiry').textContent = expiresAt;
+            
+            // 显示模态框
+            document.getElementById('renewalModal').style.display = 'block';
+            
+            // 存储当前订单ID
+            window.currentRenewalOrder = order;
+        }
+
+        // 选择支付方式并生成二维码
+        async function selectPaymentMethod(method) {
+            if (!window.currentRenewalOrder) {
+                alert('订单信息异常，请重新发起续费');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/orders/${window.currentRenewalOrder.orderId}/qrcode`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Session-Id': currentSession
+                    },
+                    body: JSON.stringify({
+                        paymentMethod: method
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    showQRCode(data.qrData, method);
+                } else {
+                    const error = await response.json();
+                    alert('生成支付二维码失败: ' + error.error);
+                }
+            } catch (error) {
+                console.error('生成二维码错误:', error);
+                alert('网络错误，请重试');
+            }
+        }
+
+        // 显示支付二维码
+        function showQRCode(qrData, method) {
+            const methodName = method === 'alipay' ? '支付宝' : '微信';
+            const appName = method === 'alipay' ? '支付宝' : '微信';
+            
+            // 更新界面显示
+            document.getElementById('paymentMethodName').textContent = methodName;
+            document.getElementById('paymentQRCode').src = qrData.qrCodeUrl;
+            document.getElementById('paymentAppName').textContent = appName;
+            
+            // 设置支付方式样式
+            const qrSection = document.getElementById('qrCodeSection');
+            const qrContainer = qrSection.querySelector('.qr-code-container');
+            
+            // 清除旧样式
+            qrContainer.classList.remove('alipay-style', 'wechat-style');
+            qrSection.removeAttribute('data-method');
+            
+            // 应用新样式
+            qrContainer.classList.add(method === 'alipay' ? 'alipay-style' : 'wechat-style');
+            qrSection.setAttribute('data-method', method);
+            
+            // 存储当前支付方式，用于刷新功能
+            window.currentPaymentMethod = method;
+            
+            // 添加二维码加载错误处理
+            const qrImg = document.getElementById('paymentQRCode');
+            qrImg.onerror = function() {
+                console.warn('二维码加载失败，使用备用方案');
+                // 备用方案：使用简单的文本二维码
+                this.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent('模拟' + methodName + '支付订单:' + qrData.orderId + ' 金额:¥' + qrData.amount)}`;
+            };
+            
+            // 隐藏支付方式选择，显示二维码
+            document.getElementById('paymentMethods').style.display = 'none';
+            document.getElementById('qrCodeSection').style.display = 'block';
+            
+            console.log(`💳 显示${methodName}支付二维码:`, qrData.qrCodeUrl);
+            
+            // 开始轮询订单状态
+            startPaymentPolling(qrData.orderId);
+        }
+
+        // 轮询支付状态
+        function startPaymentPolling(orderId) {
+            const interval = setInterval(async () => {
+                try {
+                    const response = await fetch(`/api/orders/${orderId}/status`, {
+                        headers: {
+                            'X-Session-Id': currentSession
+                        }
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        
+                        if (data.order.status === 'paid') {
+                            clearInterval(interval);
+                            showPaymentSuccess();
+                        } else if (data.order.status === 'expired') {
+                            clearInterval(interval);
+                            alert('支付超时，请重新发起续费');
+                            closeRenewalModal();
+                        }
+                    }
+                } catch (error) {
+                    console.error('查询支付状态错误:', error);
+                }
+            }, 3000); // 每3秒查询一次
+
+            // 存储定时器，以便清理
+            window.paymentPolling = interval;
+        }
+
+        // 显示支付成功
+        function showPaymentSuccess() {
+            document.getElementById('qrCodeSection').style.display = 'none';
+            document.getElementById('paymentSuccess').style.display = 'block';
+            
+            setTimeout(async () => {
+                closeRenewalModal();
+                await loadUserInfo(); // 重新加载用户信息和店铺列表
+                alert('🎉 续费成功！\n\n您的店铺有效期已延长1年，感谢您的支持！');
+            }, 2000);
+        }
+
+        // 刷新二维码
+        function refreshQRCode() {
+            if (!window.currentRenewalOrder || !window.currentPaymentMethod) {
+                alert('无法刷新二维码，请重新选择支付方式');
+                return;
+            }
+            
+            const refreshBtn = document.querySelector('.refresh-btn');
+            const originalText = refreshBtn.textContent;
+            
+            // 显示加载状态
+            refreshBtn.textContent = '🔄 刷新中...';
+            refreshBtn.disabled = true;
+            
+            // 重新生成二维码
+            selectPaymentMethod(window.currentPaymentMethod).finally(() => {
+                // 恢复按钮状态
+                setTimeout(() => {
+                    refreshBtn.textContent = originalText;
+                    refreshBtn.disabled = false;
+                }, 500);
+            });
+        }
+
+        // 关闭续费模态框
+        function closeRenewalModal() {
+            document.getElementById('renewalModal').style.display = 'none';
+            
+            // 重置模态框状态
+            document.getElementById('paymentMethods').style.display = 'block';
+            document.getElementById('qrCodeSection').style.display = 'none';
+            document.getElementById('paymentSuccess').style.display = 'none';
+            
+            // 清理轮询
+            if (window.paymentPolling) {
+                clearInterval(window.paymentPolling);
+                window.paymentPolling = null;
+            }
+            
+            window.currentRenewalOrder = null;
+        }
+
+        // 模拟支付成功（测试用）
+        async function mockPaymentSuccess() {
+            if (!window.currentRenewalOrder) {
+                alert('没有待支付的订单');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/orders/${window.currentRenewalOrder.orderId}/mock-payment`, {
+                    method: 'POST',
+                    headers: {
+                        'X-Session-Id': currentSession
+                    }
+                });
+
+                if (response.ok) {
+                    showPaymentSuccess();
+                } else {
+                    const error = await response.json();
+                    alert('模拟支付失败: ' + error.error);
+                }
+            } catch (error) {
+                console.error('模拟支付错误:', error);
+                alert('网络错误，请重试');
+            }
+        }
+
+        // ============ 店铺付费开通功能 ============
+
+        // 调试函数 - 测试按钮点击
+        function debugActivateShop(shopId) {
+            console.log('🔍 调试: 付费开通按钮被点击', shopId);
+            console.log('🔍 当前店铺数据:', currentShops);
+            activateShop(shopId);
+        }
+
+        // 店铺付费开通
+        async function activateShop(shopId) {
+            console.log('🎯 开始付费开通流程:', shopId);
+            
+            // 从当前加载的店铺数据中查找店铺
+            let shop = null;
+            if (currentShops && currentShops.length > 0) {
+                shop = currentShops.find(s => s.id === shopId);
+                console.log('🔍 找到的店铺:', shop);
+            } else {
+                console.error('❌ currentShops为空或未定义:', currentShops);
+            }
+
+            if (!shop) {
+                alert('店铺不存在或数据未加载，请刷新页面后重试');
+                console.error('❌ Shop not found:', shopId, 'Available shops:', currentShops);
+                return;
+            }
+
+            console.log('✅ 店铺验证通过，显示确认对话框');
+            if (!confirm(`确定要付费开通店铺 "${shop.name}" 吗？\n\n付费开通价格：¥2000\n付费成功后，店铺将立即审核通过并获得1年有效期`)) {
+                console.log('❌ 用户取消了付费开通');
+                return;
+            }
+
+            console.log('✅ 用户确认付费开通，创建订单...');
+            try {
+                // 创建付费开通订单
+                const response = await fetch(`/api/shops/${shopId}/activate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Session-Id': currentSession
+                    }
+                });
+
+                console.log('📡 API响应状态:', response.status);
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('✅ 订单创建成功:', data);
+                    showActivationPaymentModal(data.order);
+                } else {
+                    const error = await response.json();
+                    console.error('❌ API错误:', error);
+                    alert('创建付费开通订单失败: ' + error.error);
+                }
+            } catch (error) {
+                console.error('❌ 网络错误:', error);
+                alert('网络错误，请重试');
+            }
+        }
+
+        // 显示付费开通支付模态框
+        function showActivationPaymentModal(order) {
+            // 填充订单信息
+            document.getElementById('activationOrderId').textContent = order.orderId;
+            document.getElementById('activationShopName').textContent = order.shopName;
+            document.getElementById('activationExpiry').textContent = order.expiresAt ? 
+                new Date(order.expiresAt).toLocaleString() : '无';
+
+            // 显示模态框
+            document.getElementById('activationModal').style.display = 'block';
+            
+            // 存储当前订单ID
+            window.currentActivationOrder = order;
+        }
+
+        // 选择付费开通支付方式并生成二维码
+        async function selectActivationPaymentMethod(method) {
+            if (!window.currentActivationOrder) {
+                alert('订单信息异常，请重新发起付费开通');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/activation-orders/${window.currentActivationOrder.orderId}/qrcode`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Session-Id': currentSession
+                    },
+                    body: JSON.stringify({
+                        paymentMethod: method
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    showActivationQRCode(data.qrData, method);
+                } else {
+                    const error = await response.json();
+                    alert('生成支付二维码失败: ' + error.error);
+                }
+            } catch (error) {
+                console.error('生成付费开通二维码错误:', error);
+                alert('网络错误，请重试');
+            }
+        }
+
+        // 显示付费开通支付二维码
+        function showActivationQRCode(qrData, method) {
+            const methodName = method === 'alipay' ? '支付宝' : '微信';
+            const appName = method === 'alipay' ? '支付宝' : '微信';
+            
+            // 更新界面显示
+            document.getElementById('activationPaymentMethodName').textContent = methodName;
+            document.getElementById('activationPaymentQRCode').src = qrData.qrCodeUrl;
+            document.getElementById('activationPaymentAppName').textContent = appName;
+            
+            // 设置支付方式样式
+            const qrSection = document.getElementById('activationQrCodeSection');
+            const qrContainer = qrSection.querySelector('.qr-code-container');
+            
+            // 清除旧样式
+            qrContainer.classList.remove('alipay-style', 'wechat-style');
+            qrSection.removeAttribute('data-method');
+            
+            // 应用新样式
+            qrContainer.classList.add(method === 'alipay' ? 'alipay-style' : 'wechat-style');
+            qrSection.setAttribute('data-method', method);
+            
+            // 存储当前支付方式，用于刷新功能
+            window.currentActivationPaymentMethod = method;
+            
+            // 添加二维码加载错误处理
+            const qrImg = document.getElementById('activationPaymentQRCode');
+            qrImg.onerror = function() {
+                console.warn('付费开通二维码加载失败，使用备用方案');
+                this.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent('模拟' + methodName + '付费开通订单:' + qrData.orderId + ' 金额:¥' + qrData.amount)}`;
+            };
+            
+            // 隐藏支付方式选择，显示二维码
+            document.getElementById('activationPaymentMethods').style.display = 'none';
+            document.getElementById('activationQrCodeSection').style.display = 'block';
+            
+            console.log(`💎 显示${methodName}付费开通支付二维码:`, qrData.qrCodeUrl);
+            
+            // 开始轮询订单状态
+            startActivationPaymentPolling(qrData.orderId);
+        }
+
+        // 开始付费开通支付状态轮询
+        function startActivationPaymentPolling(orderId) {
+            // 清理之前的轮询
+            if (window.activationPaymentPolling) {
+                clearInterval(window.activationPaymentPolling);
+            }
+
+            console.log('🔄 开始付费开通支付状态轮询...');
+            
+            window.activationPaymentPolling = setInterval(async () => {
+                try {
+                    const response = await fetch(`/api/activation-orders/${orderId}/status`, {
+                        headers: {
+                            'X-Session-Id': currentSession
+                        }
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        const order = data.order;
+
+                        if (order.status === 'paid') {
+                            // 支付成功
+                            clearInterval(window.activationPaymentPolling);
+                            window.activationPaymentPolling = null;
+                            showActivationPaymentSuccess();
+                        } else if (order.status === 'expired') {
+                            // 订单过期
+                            clearInterval(window.activationPaymentPolling);
+                            window.activationPaymentPolling = null;
+                            alert('支付超时，请重新发起付费开通');
+                            closeActivationModal();
+                        }
+                    }
+                } catch (error) {
+                    console.error('付费开通轮询错误:', error);
+                }
+            }, 3000); // 每3秒检查一次
+
+            // 30分钟后停止轮询
+            setTimeout(() => {
+                if (window.activationPaymentPolling) {
+                    clearInterval(window.activationPaymentPolling);
+                    window.activationPaymentPolling = null;
+                }
+            }, 30 * 60 * 1000);
+        }
+
+        // 显示付费开通支付成功页面
+        function showActivationPaymentSuccess() {
+            document.getElementById('activationQrCodeSection').style.display = 'none';
+            document.getElementById('activationPaymentSuccess').style.display = 'block';
+            
+            console.log('🎉 付费开通支付成功');
+            
+            // 3秒后自动关闭并刷新店铺列表
+            setTimeout(() => {
+                alert('🎉 付费开通成功！\n\n您的店铺已自动审核通过并获得1年有效期，感谢您的支持！');
+                closeActivationModal();
+                loadMyShops(); // 刷新店铺列表
+            }, 1000);
+        }
+
+        // 刷新付费开通二维码
+        function refreshActivationQRCode() {
+            if (!window.currentActivationOrder || !window.currentActivationPaymentMethod) {
+                alert('无法刷新二维码，请重新选择支付方式');
+                return;
+            }
+            
+            const refreshBtn = document.querySelector('#activationQrCodeSection .refresh-btn');
+            const originalText = refreshBtn.textContent;
+            
+            // 显示加载状态
+            refreshBtn.textContent = '🔄 刷新中...';
+            refreshBtn.disabled = true;
+            
+            // 重新生成二维码
+            selectActivationPaymentMethod(window.currentActivationPaymentMethod).finally(() => {
+                // 恢复按钮状态
+                setTimeout(() => {
+                    refreshBtn.textContent = originalText;
+                    refreshBtn.disabled = false;
+                }, 500);
+            });
+        }
+
+        // 关闭付费开通模态框
+        function closeActivationModal() {
+            document.getElementById('activationModal').style.display = 'none';
+            
+            // 重置模态框状态
+            document.getElementById('activationPaymentMethods').style.display = 'block';
+            document.getElementById('activationQrCodeSection').style.display = 'none';
+            document.getElementById('activationPaymentSuccess').style.display = 'none';
+            
+            // 清理轮询
+            if (window.activationPaymentPolling) {
+                clearInterval(window.activationPaymentPolling);
+                window.activationPaymentPolling = null;
+            }
+            
+            window.currentActivationOrder = null;
+        }
+
+        // 模拟付费开通支付成功（测试用）
+        async function mockActivationPaymentSuccess() {
+            if (!window.currentActivationOrder) {
+                alert('没有待支付的开通订单');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/activation-orders/${window.currentActivationOrder.orderId}/mock-success`, {
+                    method: 'POST',
+                    headers: {
+                        'X-Session-Id': currentSession
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('🧪 模拟付费开通支付成功:', data);
+                    showActivationPaymentSuccess();
+                } else {
+                    const error = await response.json();
+                    alert('模拟支付失败: ' + error.error);
+                }
+            } catch (error) {
+                console.error('模拟付费开通支付错误:', error);
                 alert('网络错误，请重试');
             }
         }
@@ -3857,5 +4404,496 @@
             }
         }
     </script>
+    
+    <!-- 续费模态框 -->
+    <div id="renewalModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>💰 店铺续费</h3>
+                <button class="close-btn" onclick="closeRenewalModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <!-- 订单信息 -->
+                <div class="renewal-info">
+                    <div class="info-item">
+                        <strong>订单号：</strong>
+                        <span id="renewalOrderId"></span>
+                    </div>
+                    <div class="info-item">
+                        <strong>店铺名称：</strong>
+                        <span id="renewalShopName"></span>
+                    </div>
+                    <div class="info-item">
+                        <strong>续费金额：</strong>
+                        <span id="renewalAmount" class="amount">¥2000</span>
+                    </div>
+                    <div class="info-item">
+                        <strong>订单有效期：</strong>
+                        <span id="renewalExpiry"></span>
+                    </div>
+                </div>
+
+                <!-- 支付方式选择 -->
+                <div id="paymentMethods" class="payment-methods">
+                    <h4>请选择支付方式：</h4>
+                    <div class="payment-buttons">
+                        <button class="payment-btn alipay-btn" onclick="selectPaymentMethod('alipay')">
+                            <div class="payment-icon">💰</div>
+                            <div class="payment-text">支付宝支付</div>
+                        </button>
+                        <button class="payment-btn wechat-btn" onclick="selectPaymentMethod('wechat')">
+                            <div class="payment-icon">💚</div>
+                            <div class="payment-text">微信支付</div>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 二维码支付区域 -->
+                <div id="qrCodeSection" class="qr-code-section" style="display: none;">
+                    <h4 id="paymentMethodName">支付宝</h4>
+                    <div class="qr-code-container">
+                        <img id="paymentQRCode" src="" alt="支付二维码" />
+                        <div class="qr-tips">
+                            <p>请使用<span id="paymentAppName">支付宝</span>扫码支付 <span class="amount">¥2000</span></p>
+                            <p class="tip-text">支付完成后页面将自动跳转</p>
+                        </div>
+                        
+                        <!-- 刷新二维码按钮 -->
+                        <div class="qr-actions">
+                            <button class="refresh-btn" onclick="refreshQRCode()" title="刷新二维码">
+                                🔄 刷新二维码
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- 测试按钮 -->
+                    <div class="test-buttons">
+                        <button class="test-btn" onclick="mockPaymentSuccess()">
+                            🧪 模拟支付成功 (测试)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 支付成功 -->
+                <div id="paymentSuccess" class="payment-success" style="display: none;">
+                    <div class="success-icon">✅</div>
+                    <h4>支付成功！</h4>
+                    <p>您的店铺有效期已延长1年</p>
+                    <div class="success-actions">
+                        <button class="btn btn-primary" onclick="closeRenewalModal(); loadMyShops();">返回店铺列表</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        /* 续费模态框样式 */
+        .renewal-info {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .info-item {
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+        }
+
+        .info-item strong {
+            color: #333;
+        }
+
+        .amount {
+            color: #e74c3c;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .payment-methods {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .payment-methods h4 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .payment-buttons {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+        }
+
+        .payment-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 24px 20px;
+            border: 2px solid #ddd;
+            border-radius: 16px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 140px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .payment-btn::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            transition: left 0.5s;
+        }
+
+        .payment-btn:hover::before {
+            left: 100%;
+        }
+
+        .payment-btn:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+        }
+
+        .alipay-btn {
+            background: linear-gradient(135deg, #fff 0%, #f0f8ff 100%);
+        }
+
+        .alipay-btn:hover {
+            border-color: #1677ff;
+            background: linear-gradient(135deg, #f0f8ff 0%, #e6f7ff 100%);
+            box-shadow: 0 8px 20px rgba(22,119,255,0.25);
+        }
+
+        .wechat-btn {
+            background: linear-gradient(135deg, #fff 0%, #f0fff4 100%);
+        }
+
+        .wechat-btn:hover {
+            border-color: #07c160;
+            background: linear-gradient(135deg, #f0fff4 0%, #e6f7ec 100%);
+            box-shadow: 0 8px 20px rgba(7,193,96,0.25);
+        }
+
+        .payment-icon {
+            font-size: 32px;
+            margin-bottom: 12px;
+            transition: transform 0.3s ease;
+        }
+
+        .payment-btn:hover .payment-icon {
+            transform: scale(1.1) rotate(5deg);
+        }
+
+        .payment-text {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            transition: color 0.3s ease;
+        }
+
+        .alipay-btn:hover .payment-text {
+            color: #1677ff;
+        }
+
+        .wechat-btn:hover .payment-text {
+            color: #07c160;
+        }
+
+        .qr-code-section {
+            text-align: center;
+        }
+
+        .qr-code-section h4 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .qr-code-section h4::before {
+            content: "💰";
+            font-size: 20px;
+        }
+
+        .qr-code-section[data-method="wechat"] h4::before {
+            content: "💚";
+        }
+
+        .qr-code-container {
+            display: inline-block;
+            padding: 25px;
+            background: white;
+            border: 3px solid #eee;
+            border-radius: 16px;
+            margin: 20px 0;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .qr-code-container::before {
+            content: "";
+            position: absolute;
+            top: -3px;
+            left: -3px;
+            right: -3px;
+            bottom: -3px;
+            border-radius: 16px;
+            background: linear-gradient(45deg, #1677ff, #52c41a);
+            z-index: -1;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .qr-code-container:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+        }
+
+        .qr-code-container:hover::before {
+            opacity: 1;
+        }
+
+        .qr-code-container.alipay-style {
+            border-color: #1677ff;
+        }
+
+        .qr-code-container.alipay-style::before {
+            background: linear-gradient(45deg, #1677ff, #40a9ff);
+        }
+
+        .qr-code-container.wechat-style {
+            border-color: #07c160;
+        }
+
+        .qr-code-container.wechat-style::before {
+            background: linear-gradient(45deg, #07c160, #52c41a);
+        }
+
+        .qr-code-container img {
+            width: 200px;
+            height: 200px;
+            border: none;
+            display: block;
+            margin: 0 auto;
+            border-radius: 8px;
+            transition: transform 0.3s ease;
+        }
+
+        .qr-code-container:hover img {
+            transform: scale(1.02);
+        }
+
+        .qr-tips {
+            margin-top: 15px;
+        }
+
+        .qr-tips p {
+            margin: 8px 0;
+            color: #333;
+        }
+
+        .tip-text {
+            color: #666 !important;
+            font-size: 12px;
+        }
+
+        .test-buttons {
+            margin-top: 20px;
+        }
+
+        .test-btn {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background-color 0.3s;
+        }
+
+        .test-btn:hover {
+            background: #5a6268;
+        }
+
+        .payment-success {
+            text-align: center;
+            padding: 40px 20px;
+        }
+
+        .success-icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+
+        .payment-success h4 {
+            color: #28a745;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+
+        .payment-success p {
+            color: #666;
+            margin-bottom: 20px;
+        }
+
+        .success-actions {
+            margin-top: 20px;
+        }
+
+        .qr-actions {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #f0f0f0;
+        }
+
+        .refresh-btn {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            color: #495057;
+            border: 1px solid #ced4da;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .refresh-btn:hover {
+            background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+            color: #212529;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .refresh-btn:active {
+            transform: translateY(0);
+        }
+    </style>
+    
+    <!-- 付费开通模态框 -->
+    <div id="activationModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>💎 店铺付费开通</h3>
+                <button class="close-btn" onclick="closeActivationModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <!-- 订单信息 -->
+                <div class="activation-info">
+                    <div class="info-item">
+                        <strong>订单号：</strong>
+                        <span id="activationOrderId"></span>
+                    </div>
+                    <div class="info-item">
+                        <strong>店铺名称：</strong>
+                        <span id="activationShopName"></span>
+                    </div>
+                    <div class="info-item">
+                        <strong>开通费用：</strong>
+                        <span id="activationAmount" class="amount">¥2000</span>
+                    </div>
+                    <div class="info-item">
+                        <strong>订单有效期：</strong>
+                        <span id="activationExpiry"></span>
+                    </div>
+                    <div class="info-item activation-benefit">
+                        <strong>开通后享受：</strong>
+                        <span class="benefit-text">✅ 立即审核通过 + 1年服务期</span>
+                    </div>
+                </div>
+
+                <!-- 支付方式选择 -->
+                <div id="activationPaymentMethods" class="payment-methods">
+                    <h4>请选择支付方式：</h4>
+                    <div class="payment-buttons">
+                        <button class="payment-btn alipay-btn" onclick="selectActivationPaymentMethod('alipay')">
+                            <div class="payment-icon">💰</div>
+                            <div class="payment-text">支付宝支付</div>
+                        </button>
+                        <button class="payment-btn wechat-btn" onclick="selectActivationPaymentMethod('wechat')">
+                            <div class="payment-icon">💚</div>
+                            <div class="payment-text">微信支付</div>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 二维码支付区域 -->
+                <div id="activationQrCodeSection" class="qr-code-section" style="display: none;">
+                    <h4 id="activationPaymentMethodName">支付宝</h4>
+                    <div class="qr-code-container">
+                        <img id="activationPaymentQRCode" src="" alt="付费开通支付二维码" />
+                        <div class="qr-tips">
+                            <p>请使用<span id="activationPaymentAppName">支付宝</span>扫码支付 <span class="amount">¥2000</span></p>
+                            <p class="tip-text">付费成功后，店铺将立即审核通过</p>
+                        </div>
+                        
+                        <!-- 刷新二维码按钮 -->
+                        <div class="qr-actions">
+                            <button class="refresh-btn" onclick="refreshActivationQRCode()" title="刷新二维码">
+                                🔄 刷新二维码
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- 测试按钮 -->
+                    <div class="test-buttons">
+                        <button class="test-btn" onclick="mockActivationPaymentSuccess()">
+                            🧪 模拟支付成功 (测试)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 支付成功 -->
+                <div id="activationPaymentSuccess" class="payment-success" style="display: none;">
+                    <div class="success-icon">🎉</div>
+                    <h4>付费开通成功！</h4>
+                    <p>您的店铺已自动审核通过并获得1年有效期</p>
+                    <div class="success-actions">
+                        <button class="btn btn-primary" onclick="closeActivationModal(); loadMyShops();">返回店铺列表</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        /* 付费开通模态框样式 */
+        .activation-info {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            border: 1px solid #dee2e6;
+        }
+
+        .activation-benefit {
+            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+            padding: 12px;
+            margin: 15px -5px 5px -5px;
+            border-radius: 8px;
+            border: 1px solid #c3e6cb;
+        }
+
+        .benefit-text {
+            color: #155724;
+            font-weight: 600;
+            font-size: 14px;
+        }
+    </style>
 </body>
 </html>
