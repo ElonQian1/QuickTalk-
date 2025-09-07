@@ -225,3 +225,172 @@ app.post('/api/auth/logout', requireAuth, (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+
+// 获取店铺员工列表
+app.get('/api/shops/:shopId/employees', requireAuth, async (req, res) => {
+    try {
+        const { shopId } = req.params;
+        const shop = database.shops.get(shopId);
+        
+        if (!shop) {
+            return res.status(404).json({ error: '店铺不存在' });
+        }
+        
+        // 检查权限：只有店主和管理员可以查看员工列表
+        const userShop = shop.members.find(m => m.userId === req.user.id);
+        if (!userShop || !['owner', 'manager'].includes(userShop.role)) {
+            return res.status(403).json({ error: '无权限查看员工列表' });
+        }
+        
+        // 获取员工信息
+        const employees = shop.members
+            .filter(member => member.role !== 'owner')
+            .map(member => {
+                const user = database.users.get(member.userId);
+                return {
+                    id: member.userId,
+                    username: user.username,
+                    role: member.role,
+                    joinedAt: member.joinedAt
+                };
+            });
+        
+        res.json({ success: true, employees });
+    } catch (error) {
+        console.error('获取员工列表错误:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 添加员工到店铺
+app.post('/api/shops/:shopId/employees', requireAuth, async (req, res) => {
+    try {
+        const { shopId } = req.params;
+        const { username, role } = req.body;
+        
+        if (!username || !role) {
+            return res.status(400).json({ error: '用户名和角色为必填项' });
+        }
+        
+        if (!['employee', 'manager'].includes(role)) {
+            return res.status(400).json({ error: '无效的角色类型' });
+        }
+        
+        const shop = database.shops.get(shopId);
+        if (!shop) {
+            return res.status(404).json({ error: '店铺不存在' });
+        }
+        
+        // 检查权限：只有店主可以添加员工
+        const userShop = shop.members.find(m => m.userId === req.user.id);
+        if (!userShop || userShop.role !== 'owner') {
+            return res.status(403).json({ error: '只有店主可以添加员工' });
+        }
+        
+        // 查找要添加的用户
+        const targetUser = Array.from(database.users.values()).find(u => u.username === username);
+        if (!targetUser) {
+            return res.status(404).json({ error: '用户不存在' });
+        }
+        
+        // 检查用户是否已经是该店铺成员
+        const existingMember = shop.members.find(m => m.userId === targetUser.id);
+        if (existingMember) {
+            return res.status(400).json({ error: '用户已经是该店铺成员' });
+        }
+        
+        // 添加员工
+        shop.members.push({
+            userId: targetUser.id,
+            role: role,
+            joinedAt: new Date(),
+            permissions: role === 'manager' ? ['manage_chat', 'view_reports'] : ['manage_chat']
+        });
+        
+        console.log(`👥 添加员工: ${username} 加入店铺 ${shop.name} (角色: ${role})`);
+        res.json({ success: true, message: '员工添加成功' });
+    } catch (error) {
+        console.error('添加员工错误:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 移除店铺员工
+app.delete('/api/shops/:shopId/employees/:employeeId', requireAuth, async (req, res) => {
+    try {
+        const { shopId, employeeId } = req.params;
+        
+        const shop = database.shops.get(shopId);
+        if (!shop) {
+            return res.status(404).json({ error: '店铺不存在' });
+        }
+        
+        // 检查权限：只有店主可以移除员工
+        const userShop = shop.members.find(m => m.userId === req.user.id);
+        if (!userShop || userShop.role !== 'owner') {
+            return res.status(403).json({ error: '只有店主可以移除员工' });
+        }
+        
+        // 查找要移除的员工
+        const memberIndex = shop.members.findIndex(m => m.userId === employeeId);
+        if (memberIndex === -1) {
+            return res.status(404).json({ error: '员工不存在' });
+        }
+        
+        const member = shop.members[memberIndex];
+        if (member.role === 'owner') {
+            return res.status(400).json({ error: '不能移除店主' });
+        }
+        
+        // 移除员工
+        shop.members.splice(memberIndex, 1);
+        
+        const user = database.users.get(employeeId);
+        console.log(`👥 移除员工: ${user.username} 离开店铺 ${shop.name}`);
+        res.json({ success: true, message: '员工移除成功' });
+    } catch (error) {
+        console.error('移除员工错误:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 更新店铺信息
+app.put('/api/shops/:shopId', requireAuth, async (req, res) => {
+    try {
+        const { shopId } = req.params;
+        const { name, domain } = req.body;
+        
+        if (!name || !domain) {
+            return res.status(400).json({ error: '店铺名称和域名为必填项' });
+        }
+        
+        const shop = database.shops.get(shopId);
+        if (!shop) {
+            return res.status(404).json({ error: '店铺不存在' });
+        }
+        
+        // 检查权限：只有店主可以更新店铺信息
+        const userShop = shop.members.find(m => m.userId === req.user.id);
+        if (!userShop || userShop.role !== 'owner') {
+            return res.status(403).json({ error: '只有店主可以更新店铺信息' });
+        }
+        
+        // 检查域名是否重复（排除当前店铺）
+        for (const [id, existingShop] of database.shops) {
+            if (id !== shopId && existingShop.domain === domain) {
+                return res.status(400).json({ error: '域名已被使用' });
+            }
+        }
+        
+        // 更新店铺信息
+        shop.name = name;
+        shop.domain = domain;
+        shop.updatedAt = new Date();
+        
+        console.log(`🏪 更新店铺: ${name} (${domain})`);
+        res.json({ success: true, message: '店铺信息更新成功', shop });
+    } catch (error) {
+        console.error('更新店铺错误:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
