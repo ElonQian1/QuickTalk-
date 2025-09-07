@@ -175,6 +175,7 @@ class Database {
             reviewedBy: null, // 审核人
             reviewNote: '', // 审核备注
             createdAt: new Date(),
+            expiryDate: null, // 到期时间，审核通过后设置
             members: [] // 初始化成员列表
         };
         
@@ -207,6 +208,11 @@ class Database {
         shop.reviewNote = note;
         
         if (approved) {
+            // 设置到期时间（审核通过后30天）
+            const expiryDate = new Date();
+            expiryDate.setDate(expiryDate.getDate() + 30);
+            shop.expiryDate = expiryDate;
+            
             // 审核通过，为店主添加店铺权限
             const userShops = this.userShops.get(shop.ownerId) || [];
             userShops.push({
