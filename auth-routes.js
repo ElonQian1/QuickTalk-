@@ -38,7 +38,7 @@ function requireShopOwner(req, res, next) {
 // 用户注册
 app.post('/api/auth/register', async (req, res) => {
     try {
-        const { username, password, email, role = 'employee' } = req.body;
+        const { username, password, email, role = 'user' } = req.body;
         
         if (!username || !password || !email) {
             return res.status(400).json({ error: '用户名、密码和邮箱为必填项' });
@@ -48,12 +48,15 @@ app.post('/api/auth/register', async (req, res) => {
             return res.status(400).json({ error: '密码长度至少6位' });
         }
         
-        const user = await database.registerUser({ username, password, email, role });
+        // 确保只有超级管理员才能指定特殊角色，其他用户默认为普通用户
+        const finalRole = role === 'super_admin' ? 'user' : (role || 'user');
         
-        console.log(`👤 新用户注册: ${username} (${role})`);
+        const user = await database.registerUser({ username, password, email, role: finalRole });
+        
+        console.log(`👤 新用户注册: ${username} (${finalRole})`);
         res.json({ 
             success: true, 
-            message: '注册成功',
+            message: '注册成功，您可以创建店铺成为店主',
             user 
         });
     } catch (error) {
@@ -239,13 +242,14 @@ app.get('/api/shops/:shopId/employees', requireAuth, async (req, res) => {
         }
         
         // 检查权限：只有店主和管理员可以查看员工列表
-        const userShop = shop.members.find(m => m.userId === req.user.id);
+        const members = shop.members || [];
+        const userShop = members.find(m => m.userId === req.user.id);
         if (!userShop || !['owner', 'manager'].includes(userShop.role)) {
             return res.status(403).json({ error: '无权限查看员工列表' });
         }
         
         // 获取员工信息
-        const employees = shop.members
+        const employees = members
             .filter(member => member.role !== 'owner')
             .map(member => {
                 const user = database.users.get(member.userId);
@@ -284,7 +288,8 @@ app.post('/api/shops/:shopId/employees', requireAuth, async (req, res) => {
         }
         
         // 检查权限：只有店主可以添加员工
-        const userShop = shop.members.find(m => m.userId === req.user.id);
+        const members = shop.members || [];
+        const userShop = members.find(m => m.userId === req.user.id);
         if (!userShop || userShop.role !== 'owner') {
             return res.status(403).json({ error: '只有店主可以添加员工' });
         }
@@ -296,7 +301,7 @@ app.post('/api/shops/:shopId/employees', requireAuth, async (req, res) => {
         }
         
         // 检查用户是否已经是该店铺成员
-        const existingMember = shop.members.find(m => m.userId === targetUser.id);
+        const existingMember = members.find(m => m.userId === targetUser.id);
         if (existingMember) {
             return res.status(400).json({ error: '用户已经是该店铺成员' });
         }

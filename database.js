@@ -73,7 +73,7 @@ class Database {
     
     // 用户注册
     async registerUser(userData) {
-        const { username, password, email, role = 'employee' } = userData;
+        const { username, password, email, role = 'user' } = userData;
         
         // 检查用户名是否已存在
         for (const user of this.users.values()) {
@@ -172,7 +172,8 @@ class Database {
             reviewedAt: null, // 审核时间
             reviewedBy: null, // 审核人
             reviewNote: '', // 审核备注
-            createdAt: new Date()
+            createdAt: new Date(),
+            members: [] // 初始化成员列表
         };
         
         this.shops.set(shopId, newShop);
@@ -212,6 +213,14 @@ class Database {
                 permissions: ['manage_staff', 'view_chats', 'handle_chats', 'manage_shop']
             });
             this.userShops.set(shop.ownerId, userShops);
+            
+            // 将店主添加到店铺成员列表
+            shop.members.push({
+                userId: shop.ownerId,
+                role: 'owner',
+                joinedAt: new Date(),
+                permissions: ['manage_staff', 'view_chats', 'handle_chats', 'manage_shop']
+            });
             
             console.log(`✅ 店铺审核通过: ${shop.name} (${shop.domain})`);
         } else {

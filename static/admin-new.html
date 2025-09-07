@@ -886,6 +886,31 @@
             margin: 0 0 15px 0;
             color: #333;
         }
+
+        .employee-help-text {
+            background: #e3f2fd;
+            border: 1px solid #90caf9;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .employee-help-text p {
+            margin: 0 0 10px 0;
+            color: #1565c0;
+            font-size: 14px;
+        }
+
+        .employee-help-text ul {
+            margin: 0 0 10px 20px;
+            padding: 0;
+        }
+
+        .employee-help-text li {
+            margin-bottom: 5px;
+            color: #424242;
+            font-size: 13px;
+        }
         
         .form-row {
             display: flex;
@@ -939,7 +964,36 @@
             margin: 0 0 5px 0;
             color: #333;
         }
-        
+
+        .employee-role {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 5px;
+        }
+
+        .role-badge {
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .role-employee {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .role-manager {
+            background: #fff3e0;
+            color: #f57c00;
+        }
+
+        .role-permissions {
+            font-size: 11px;
+            color: #666;
+        }
+
         .employee-info small {
             color: #666;
         }
@@ -1450,7 +1504,7 @@
     <div id="createShopModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>🏪 创建新店铺</h3>
+                <h3>🏪 申请新店铺</h3>
                 <span class="close" onclick="hideCreateShopModal()">&times;</span>
             </div>
             <form id="createShopForm" class="modal-form">
@@ -1468,7 +1522,7 @@
                 </div>
                 <div class="modal-buttons">
                     <button type="button" class="btn btn-secondary" onclick="hideCreateShopModal()">取消</button>
-                    <button type="submit" class="btn">创建店铺</button>
+                    <button type="submit" class="btn">🏪 提交申请</button>
                 </div>
             </form>
         </div>
@@ -1498,23 +1552,31 @@
                     <!-- 添加员工表单 -->
                     <div id="addEmployeeForm" class="add-employee-form" style="display: none;">
                         <h5>添加新员工</h5>
+                        <div class="employee-help-text">
+                            <p>💡 <strong>员工权限说明：</strong></p>
+                            <ul>
+                                <li><strong>员工</strong>：可以回复客户消息，处理客服对话</li>
+                                <li><strong>经理</strong>：可以回复客户消息，查看统计报表，管理其他员工</li>
+                            </ul>
+                            <p>✅ 添加的员工将能够登录系统并处理本店铺的客服工作</p>
+                        </div>
                         <form id="addEmployeeFormData">
                             <div class="form-row">
                                 <div class="form-group">
                                     <label for="employeeUsername">用户名</label>
-                                    <input type="text" id="employeeUsername" required>
+                                    <input type="text" id="employeeUsername" placeholder="输入要添加的用户名" required>
                                 </div>
                                 <div class="form-group">
-                                    <label for="employeeRole">角色</label>
+                                    <label for="employeeRole">角色权限</label>
                                     <select id="employeeRole" required>
-                                        <option value="employee">员工</option>
-                                        <option value="manager">经理</option>
+                                        <option value="employee">员工 (客服权限)</option>
+                                        <option value="manager">经理 (管理权限)</option>
                                     </select>
                                 </div>
                             </div>
                             <div class="form-buttons">
                                 <button type="button" onclick="cancelAddEmployee()">取消</button>
-                                <button type="submit">添加员工</button>
+                                <button type="submit">➕ 添加员工</button>
                             </div>
                         </form>
                     </div>
@@ -2853,7 +2915,9 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    alert('店铺创建成功！');
+                    alert('🎉 店铺申请已成功提交！\n\n您的店铺申请正在等待管理员审核，审核通过后即可开始使用客服功能。\n\n审核结果将在店铺列表中实时显示，请耐心等待。');
+                    // 关闭模态框
+                    hideCreateShopModal();
                     // 重新加载用户信息和店铺列表
                     await validateSession(currentSession);
                     document.getElementById('createShopForm').reset();
@@ -2886,7 +2950,7 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    alert('员工添加成功！');
+                    alert('✅ 员工添加成功！\n\n该员工现在可以登录系统并处理本店铺的客服工作。\n员工可使用原有账号登录管理后台查看和回复客户消息。');
                     cancelAddEmployee();
                     loadEmployees(currentManagedShop.id);
                 } else {
@@ -3044,7 +3108,7 @@
             const employeesList = document.getElementById('employeesList');
             
             if (employees.length === 0) {
-                employeesList.innerHTML = '<div class="empty-state">暂无员工</div>';
+                employeesList.innerHTML = '<div class="empty-state">暂无员工，点击"➕ 添加员工"开始招募客服团队</div>';
                 return;
             }
             
@@ -3052,7 +3116,15 @@
                 <div class="employee-item">
                     <div class="employee-info">
                         <h6>${employee.username}</h6>
-                        <small>角色: ${getRoleText(employee.role)} | 加入时间: ${new Date(employee.joinedAt).toLocaleDateString()}</small>
+                        <div class="employee-role">
+                            <span class="role-badge role-${employee.role}">
+                                ${getRoleText(employee.role)}
+                            </span>
+                            <span class="role-permissions">
+                                ${employee.role === 'manager' ? '💼 管理权限 + 客服权限' : '💬 客服权限'}
+                            </span>
+                        </div>
+                        <small>加入时间: ${new Date(employee.joinedAt).toLocaleDateString()}</small>
                     </div>
                     <div class="employee-actions">
                         <button class="btn btn-small" onclick="editEmployee('${employee.id}')">编辑</button>
@@ -3597,13 +3669,14 @@
             }
 
             try {
+                const approved = action === 'approve';
                 const response = await fetch(`/api/admin/review-shop/${shopId}`, {
-                    method: 'POST',
+                    method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
                         'X-Session-Id': currentSession
                     },
-                    body: JSON.stringify({ action, note })
+                    body: JSON.stringify({ approved, note })
                 });
 
                 const data = await response.json();
