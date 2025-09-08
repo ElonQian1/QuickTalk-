@@ -94,9 +94,86 @@ class Database {
             }
         ]);
         
+        // 创建测试员工账号
+        const employeeId = 'emp-' + Date.now();
+        this.users.set(employeeId, {
+            id: employeeId,
+            username: 'test_employee',
+            email: 'employee@test.com',
+            password: this.hashPassword('123456'),
+            role: 'employee',
+            createdAt: new Date(),
+            lastLoginAt: null
+        });
+        
+        // 将员工添加到测试店铺
+        const testShop = this.shops.get(shopId);
+        if (testShop) {
+            if (!testShop.members) {
+                testShop.members = [];
+            }
+            testShop.members.push({
+                userId: employeeId,
+                role: 'employee',
+                joinedAt: new Date(),
+                permissions: ['view_chats', 'handle_chats']
+            });
+        }
+        
+        // 为员工添加店铺关系
+        this.userShops.set(employeeId, [
+            {
+                shopId: shopId,
+                role: 'employee',
+                permissions: ['view_chats', 'handle_chats']
+            }
+        ]);
+        
+        // 创建测试经理账号
+        const managerId = 'mgr-' + Date.now();
+        this.users.set(managerId, {
+            id: managerId,
+            username: 'test_manager',
+            email: 'manager@test.com',
+            password: this.hashPassword('123456'),
+            role: 'employee',
+            createdAt: new Date(),
+            lastLoginAt: null
+        });
+        
+        // 将经理添加到测试店铺
+        if (testShop) {
+            testShop.members.push({
+                userId: managerId,
+                role: 'manager',
+                joinedAt: new Date(),
+                permissions: ['view_chats', 'handle_chats', 'manage_staff']
+            });
+        }
+        
+        // 为经理添加店铺关系
+        this.userShops.set(managerId, [
+            {
+                shopId: shopId,
+                role: 'manager',
+                permissions: ['view_chats', 'handle_chats', 'manage_staff']
+            }
+        ]);
+        
+        // 为经理添加店铺关系
+        this.userShops.set(managerId, [
+            {
+                shopId: shopId,
+                role: 'manager',
+                permissions: ['view_chats', 'handle_chats', 'manage_staff']
+            }
+        ]);
+        
         console.log('🎯 初始化测试数据完成');
         console.log('📋 超级管理员: admin / admin123');
         console.log('🏪 店主账号: shop_owner / 123456');
+        console.log('👨‍💼 经理账号: test_manager / 123456');
+        console.log('👤 员工账号: test_employee / 123456');
     }
     
     // 简单密码哈希 (生产环境请使用 bcrypt)

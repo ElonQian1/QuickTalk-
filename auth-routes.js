@@ -314,6 +314,16 @@ app.post('/api/shops/:shopId/employees', requireAuth, async (req, res) => {
             permissions: role === 'manager' ? ['manage_chat', 'view_reports'] : ['manage_chat']
         });
         
+        // 同时在用户-店铺关联表中添加关系
+        const userShops = database.userShops.get(targetUser.id) || [];
+        userShops.push({
+            shopId: shopId,
+            role: role,
+            joinedAt: new Date(),
+            permissions: role === 'manager' ? ['manage_chat', 'view_reports'] : ['manage_chat']
+        });
+        database.userShops.set(targetUser.id, userShops);
+        
         console.log(`👥 添加员工: ${username} 加入店铺 ${shop.name} (角色: ${role})`);
         res.json({ success: true, message: '员工添加成功' });
     } catch (error) {
@@ -351,6 +361,14 @@ app.delete('/api/shops/:shopId/employees/:employeeId', requireAuth, async (req, 
         
         // 移除员工
         shop.members.splice(memberIndex, 1);
+        
+        // 同时从用户-店铺关联表中移除关系
+        const userShops = database.userShops.get(employeeId) || [];
+        const userShopIndex = userShops.findIndex(us => us.shopId === shopId);
+        if (userShopIndex !== -1) {
+            userShops.splice(userShopIndex, 1);
+            database.userShops.set(employeeId, userShops);
+        }
         
         const user = database.users.get(employeeId);
         console.log(`👥 移除员工: ${user.username} 离开店铺 ${shop.name}`);

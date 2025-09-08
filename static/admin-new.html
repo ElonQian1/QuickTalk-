@@ -266,12 +266,25 @@
         }
         
         .shop-role {
-            background: #667eea;
-            color: white;
             padding: 4px 8px;
             border-radius: 12px;
             font-size: 12px;
             font-weight: 600;
+        }
+        
+        .shop-role.role-owner {
+            background: #4caf50;
+            color: white;
+        }
+        
+        .shop-role.role-manager {
+            background: #ff9800;
+            color: white;
+        }
+        
+        .shop-role.role-employee {
+            background: #2196f3;
+            color: white;
         }
 
         .shop-status {
@@ -1031,10 +1044,28 @@
             background: #fff3e0;
             color: #f57c00;
         }
+        
+        .role-owner {
+            background: #e8f5e8;
+            color: #4caf50;
+        }
 
         .role-permissions {
             font-size: 11px;
             color: #666;
+        }
+        
+        .role-badge {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .employee-actions .role-badge {
+            background: #f5f5f5;
+            color: #666;
+            border: 1px solid #ddd;
         }
 
         .employee-info small {
@@ -1429,6 +1460,86 @@
             font-size: 48px;
             margin-bottom: 15px;
             display: block;
+        }
+
+        /* 滚动条样式 */
+        .modal-body::-webkit-scrollbar,
+        .tab-content::-webkit-scrollbar,
+        .modal-form::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .modal-body::-webkit-scrollbar-track,
+        .tab-content::-webkit-scrollbar-track,
+        .modal-form::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+        
+        .modal-body::-webkit-scrollbar-thumb,
+        .tab-content::-webkit-scrollbar-thumb,
+        .modal-form::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 3px;
+        }
+        
+        .modal-body::-webkit-scrollbar-thumb:hover,
+        .tab-content::-webkit-scrollbar-thumb:hover,
+        .modal-form::-webkit-scrollbar-thumb:hover {
+            background: #a1a1a1;
+        }
+        
+        /* 支付相关模态框样式 */
+        .payment-modal,
+        .qr-modal,
+        .activation-modal {
+            max-height: 85vh !important;
+            overflow-y: auto !important;
+        }
+        
+        .payment-modal .modal-content,
+        .qr-modal .modal-content,
+        .activation-modal .modal-content {
+            max-height: 85vh !important;
+            overflow: hidden !important;
+            display: flex !important;
+            flex-direction: column !important;
+        }
+        
+        .payment-modal .modal-body,
+        .qr-modal .modal-body,
+        .activation-modal .modal-body {
+            overflow-y: auto !important;
+            flex: 1 !important;
+            padding: 20px !important;
+        }
+        
+        /* 二维码容器滚动 */
+        .qr-container,
+        .payment-container,
+        .activation-container {
+            max-height: 60vh;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        /* 动态模态框通用滚动支持 */
+        .modal[id*="payment"] .modal-content,
+        .modal[id*="qr"] .modal-content,
+        .modal[id*="activation"] .modal-content,
+        .modal[id*="pay"] .modal-content {
+            max-height: 85vh !important;
+            overflow: hidden !important;
+            display: flex !important;
+            flex-direction: column !important;
+        }
+
+        .modal[id*="payment"] .modal-body,
+        .modal[id*="qr"] .modal-body,
+        .modal[id*="activation"] .modal-body,
+        .modal[id*="pay"] .modal-body {
+            overflow-y: auto !important;
+            flex: 1 !important;
         }
     </style>
 </head>
@@ -2899,7 +3010,7 @@
                 <div class="shop-card">
                     <div class="shop-header">
                         <h3 class="shop-name">${shop.name}</h3>
-                        <span class="shop-role">${getRoleText(shop.userRole)}</span>
+                        <span class="shop-role role-${shop.userRole}">${getRoleText(shop.userRole)}</span>
                         ${shop.approvalStatus ? `<span class="shop-status status-${shop.approvalStatus}">${getStatusText(shop.approvalStatus)}</span>` : ''}
                     </div>
                     <div class="shop-domain">${shop.domain}</div>
@@ -2920,28 +3031,40 @@
                     </div>
                     <div class="shop-actions">
                         ${isPending ? `
-                            <button class="action-btn btn-warning" onclick="editPendingShop('${shop.id}')">
-                                编辑店铺
-                            </button>
-                            <button class="action-btn btn-info" onclick="resubmitShop('${shop.id}')">
-                                重新提交审核
-                            </button>
-                            <button class="action-btn btn-primary" onclick="debugActivateShop('${shop.id}')">
-                                💎 付费开通 (¥2000)
-                            </button>
+                            ${shop.userRole === 'owner' ? `
+                                <button class="action-btn btn-warning" onclick="editPendingShop('${shop.id}')">
+                                    编辑店铺
+                                </button>
+                                <button class="action-btn btn-info" onclick="resubmitShop('${shop.id}')">
+                                    重新提交审核
+                                </button>
+                                <button class="action-btn btn-primary" onclick="debugActivateShop('${shop.id}')">
+                                    💎 付费开通 (¥2000)
+                                </button>
+                            ` : `
+                                <button class="action-btn btn-secondary" disabled>
+                                    ⏳ 等待店主审核
+                                </button>
+                            `}
                         ` : `
                             <button class="action-btn btn-primary" onclick="viewShopMessages('${shop.id}')">
                                 查看消息
                             </button>
-                            <button class="action-btn btn-secondary" onclick="manageShop('${shop.id}')">
-                                管理店铺
-                            </button>
-                            <button class="action-btn btn-info" onclick="generateIntegrationCode('${shop.id}')">
-                                📋 生成代码
-                            </button>
-                            <button class="action-btn btn-success" onclick="renewShop('${shop.id}')">
-                                💰 续费 (¥2000/年)
-                            </button>
+                            ${shop.userRole === 'owner' ? `
+                                <button class="action-btn btn-secondary" onclick="manageShop('${shop.id}')">
+                                    管理店铺
+                                </button>
+                                <button class="action-btn btn-info" onclick="generateIntegrationCode('${shop.id}')">
+                                    📋 生成代码
+                                </button>
+                                <button class="action-btn btn-success" onclick="renewShop('${shop.id}')">
+                                    💰 续费 (¥2000/年)
+                                </button>
+                            ` : shop.userRole === 'manager' ? `
+                                <button class="action-btn btn-secondary" onclick="manageShop('${shop.id}')">
+                                    管理店铺
+                                </button>
+                            ` : ''}
                         `}
                     </div>
                 </div>`;
@@ -3880,18 +4003,39 @@
             currentManagedShop = shop;
             document.getElementById('manageShopTitle').textContent = `🏪 管理店铺 - ${shop.name}`;
             
-            // 填充店铺设置表单
-            document.getElementById('editShopName').value = shop.name;
-            document.getElementById('editShopDomain').value = shop.domain;
+            // 根据用户角色显示不同的标签
+            const tabNav = document.querySelector('#manageShopModal .tab-nav');
+            const userRole = shop.userRole;
+            
+            if (userRole === 'owner') {
+                // 店主：显示所有标签
+                tabNav.innerHTML = `
+                    <button class="tab-btn active" onclick="showTab('employees')">👥 员工管理</button>
+                    <button class="tab-btn" onclick="showTab('settings')">⚙️ 店铺设置</button>
+                `;
+                // 填充店铺设置表单
+                document.getElementById('editShopName').value = shop.name;
+                document.getElementById('editShopDomain').value = shop.domain;
+                // 默认显示员工管理标签
+                showTab('employees');
+            } else if (userRole === 'manager') {
+                // 经理：只显示员工管理标签
+                tabNav.innerHTML = `
+                    <button class="tab-btn active" onclick="showTab('employees')">👥 员工管理</button>
+                `;
+                // 默认显示员工管理标签
+                showTab('employees');
+            } else {
+                // 普通员工：只显示客服消息功能，不应该进入管理界面
+                alert('您没有管理权限，只能查看和回复客服消息');
+                return;
+            }
             
             // 加载员工列表
             loadEmployees(shopId);
             
             // 显示模态框
             document.getElementById('manageShopModal').style.display = 'block';
-            
-            // 默认显示员工管理标签
-            showTab('employees');
         }
 
         // 隐藏店铺管理模态框
@@ -3921,6 +4065,11 @@
 
         // 显示添加员工表单
         function showAddEmployeeForm() {
+            const shop = currentManagedShop;
+            if (!shop || shop.userRole !== 'owner') {
+                alert('只有店主可以添加员工');
+                return;
+            }
             document.getElementById('addEmployeeForm').style.display = 'block';
         }
 
@@ -3958,6 +4107,8 @@
         // 显示员工列表
         function displayEmployees(employees) {
             const employeesList = document.getElementById('employeesList');
+            const shop = currentManagedShop;
+            const isOwner = shop && shop.userRole === 'owner';
             
             if (employees.length === 0) {
                 employeesList.innerHTML = '<div class="empty-state">暂无员工，点击"➕ 添加员工"开始招募客服团队</div>';
@@ -3978,14 +4129,30 @@
                         </div>
                         <small>加入时间: ${new Date(employee.joinedAt).toLocaleDateString()}</small>
                     </div>
-                    <div class="employee-actions">
-                        <button class="btn btn-small" onclick="editEmployee('${employee.id}')">编辑</button>
-                        <button class="btn btn-small btn-danger" onclick="removeEmployee('${employee.id}')">移除</button>
-                    </div>
+                    ${isOwner ? `
+                        <div class="employee-actions">
+                            <button class="btn btn-small" onclick="editEmployee('${employee.id}')">编辑</button>
+                            <button class="btn btn-small btn-danger" onclick="removeEmployee('${employee.id}')">移除</button>
+                        </div>
+                    ` : `
+                        <div class="employee-actions">
+                            <span class="role-badge">只读</span>
+                        </div>
+                    `}
                 </div>
             `).join('');
             
             employeesList.innerHTML = html;
+            
+            // 更新添加员工按钮的显示
+            const addEmployeeBtn = document.querySelector('.section-header .btn');
+            if (addEmployeeBtn) {
+                if (isOwner) {
+                    addEmployeeBtn.style.display = 'inline-block';
+                } else {
+                    addEmployeeBtn.style.display = 'none';
+                }
+            }
         }
 
         // 编辑员工
@@ -3995,6 +4162,12 @@
 
         // 移除员工
         async function removeEmployee(employeeId) {
+            const shop = currentManagedShop;
+            if (!shop || shop.userRole !== 'owner') {
+                alert('只有店主可以移除员工');
+                return;
+            }
+            
             if (!confirm('确定要移除这个员工吗？')) return;
             
             try {
@@ -4569,11 +4742,54 @@
                 hideReviewPanel();
             }
             
+            // 处理动态创建的支付模态框
+            if (event.target.classList && event.target.classList.contains('modal')) {
+                const modal = event.target;
+                if (modal.id.includes('payment') || modal.id.includes('qr') || modal.id.includes('activation') || modal.id.includes('pay')) {
+                    modal.style.display = 'none';
+                }
+            }
+            
             // 调用原有的点击处理
             if (originalWindowClick) {
                 originalWindowClick(event);
             }
         }
+
+        // 确保动态模态框有正确的滚动样式
+        function ensureModalScrollable(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                const modalContent = modal.querySelector('.modal-content');
+                const modalBody = modal.querySelector('.modal-body');
+                
+                if (modalContent) {
+                    modalContent.style.maxHeight = '85vh';
+                    modalContent.style.overflow = 'hidden';
+                    modalContent.style.display = 'flex';
+                    modalContent.style.flexDirection = 'column';
+                }
+                
+                if (modalBody) {
+                    modalBody.style.overflowY = 'auto';
+                    modalBody.style.flex = '1';
+                    modalBody.style.maxHeight = 'calc(85vh - 120px)';
+                }
+            }
+        }
+
+        // 监听DOM变化，自动应用滚动样式到新创建的模态框
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                mutation.addedNodes.forEach(function(node) {
+                    if (node.nodeType === 1 && node.classList && node.classList.contains('modal')) {
+                        setTimeout(() => ensureModalScrollable(node.id), 100);
+                    }
+                });
+            });
+        });
+        
+        observer.observe(document.body, { childList: true, subtree: true });
     </script>
     
     <!-- 续费模态框 -->
@@ -4637,10 +4853,10 @@
                         </div>
                     </div>
                     
-                    <!-- 测试按钮 -->
+                    <!-- 确认按钮 -->
                     <div class="test-buttons">
-                        <button class="test-btn" onclick="mockPaymentSuccess()">
-                            🧪 模拟支付成功 (测试)
+                        <button class="test-btn" onclick="closeRenewalModal()">
+                            确定
                         </button>
                     </div>
                 </div>
@@ -4888,18 +5104,20 @@
         }
 
         .test-btn {
-            background: #6c757d;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border: none;
-            padding: 10px 16px;
-            border-radius: 6px;
+            padding: 12px 24px;
+            border-radius: 8px;
             cursor: pointer;
-            font-size: 12px;
-            transition: background-color 0.3s;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
         }
 
         .test-btn:hover {
-            background: #5a6268;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
         }
 
         .payment-success {
@@ -5021,10 +5239,10 @@
                         </div>
                     </div>
                     
-                    <!-- 测试按钮 -->
+                    <!-- 确认按钮 -->
                     <div class="test-buttons">
-                        <button class="test-btn" onclick="mockActivationPaymentSuccess()">
-                            🧪 模拟支付成功 (测试)
+                        <button class="test-btn" onclick="closeActivationModal()">
+                            确定
                         </button>
                     </div>
                 </div>
