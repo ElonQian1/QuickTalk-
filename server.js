@@ -788,12 +788,42 @@ app.post('/api/shops/:shopId/renew', requireAuth, async (req, res) => {
     try {
         const { shopId } = req.params;
         
-        const order = await database.createRenewalOrder(shopId, req.user.id);
+        // 先获取店铺信息
+        const shop = await database.getShopById(shopId);
+        if (!shop) {
+            return res.status(404).json({ error: '店铺不存在' });
+        }
+        
+        // 检查用户是否有权限为此店铺续费
+        const userShops = await database.getUserShops(req.user.id);
+        const userShop = userShops.find(s => s.id === shopId);
+        if (!userShop || userShop.userRole !== 'owner') {
+            return res.status(403).json({ error: '只有店主可以为店铺续费' });
+        }
+        
+        // 构造订单数据
+        const orderData = {
+            shop_id: shopId,
+            user_id: req.user.id,
+            amount: 2000.00,
+            months: 12
+        };
+        
+        const order = await database.createRenewalOrder(orderData);
         
         res.json({
             success: true,
             message: '续费订单创建成功',
-            order
+            order: {
+                orderId: order.id,
+                shopId: order.shop_id,
+                shopName: shop.name,
+                amount: order.amount,
+                months: order.months,
+                status: order.status,
+                currentExpiry: shop.expiryDate || new Date().toISOString(),
+                newExpiry: new Date(Date.now() + 12 * 30 * 24 * 60 * 60 * 1000).toISOString()
+            }
         });
     } catch (error) {
         console.error('创建续费订单失败:', error.message);
@@ -882,12 +912,41 @@ app.post('/api/shops/:shopId/activate', requireAuth, async (req, res) => {
     try {
         const { shopId } = req.params;
         
-        const order = await database.createActivationOrder(shopId, req.user.id);
+        // 先获取店铺信息
+        const shop = await database.getShopById(shopId);
+        if (!shop) {
+            return res.status(404).json({ error: '店铺不存在' });
+        }
+        
+        // 检查用户是否有权限开通此店铺
+        const userShops = await database.getUserShops(req.user.id);
+        const userShop = userShops.find(s => s.id === shopId);
+        if (!userShop || userShop.userRole !== 'owner') {
+            return res.status(403).json({ error: '只有店主可以付费开通店铺' });
+        }
+        
+        // 构造订单数据
+        const orderData = {
+            user_id: req.user.id,
+            shop_name: shop.name,
+            domain: shop.domain,
+            amount: 2000.00,
+            months: 12
+        };
+        
+        const order = await database.createActivationOrder(orderData);
         
         res.json({
             success: true,
             message: '付费开通订单创建成功',
-            order
+            order: {
+                orderId: order.id,
+                shopName: order.shop_name,
+                amount: order.amount,
+                months: order.months,
+                status: order.status,
+                expiresAt: new Date(Date.now() + 12 * 30 * 24 * 60 * 60 * 1000).toISOString()
+            }
         });
     } catch (error) {
         console.error('创建付费开通订单失败:', error.message);
