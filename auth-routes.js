@@ -221,9 +221,9 @@ app.get('/api/messages', requireAuth, (req, res) => {
 });
 
 // 用户登出
-app.post('/api/auth/logout', requireAuth, (req, res) => {
+app.post('/api/auth/logout', requireAuth, async (req, res) => {
     try {
-        database.sessions.delete(req.sessionId);
+        await database.deleteSession(req.sessionId);
         console.log(`🚪 用户登出: ${req.user.username}`);
         res.json({ success: true, message: '登出成功' });
     } catch (error) {

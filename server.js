@@ -3,8 +3,8 @@ const WebSocket = require('ws');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 
-// 引入数据库和认证系统
-const Database = require('./database');
+// 引入数据库和认证系统 - SQLite版本
+const Database = require('./database-sqlite');
 const database = new Database();
 
 // 引入域名验证器

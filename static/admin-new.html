@@ -1995,7 +1995,7 @@
             document.getElementById('mainContainer').style.display = 'block';
             
             updateUserInfo();
-            loadShops();
+            loadMyShops(); // 先加载店铺数据，loadMyShops内部会调用loadShops()
         }
 
         // 更新用户信息显示
@@ -2882,7 +2882,20 @@
                 return;
             }
             
-            grid.innerHTML = currentShops.map(shop => `
+            // 调试：输出店铺数据
+            console.log('🔍 调试店铺数据:', currentShops.map(shop => ({
+                name: shop.name,
+                approvalStatus: shop.approvalStatus,
+                type: typeof shop.approvalStatus,
+                isPending: shop.approvalStatus === 'pending',
+                isApproved: shop.approvalStatus === 'approved'
+            })));
+            
+            grid.innerHTML = currentShops.map(shop => {
+                const isPending = shop.approvalStatus === 'pending';
+                console.log(`🏪 渲染店铺 ${shop.name}: approvalStatus="${shop.approvalStatus}", isPending=${isPending}`);
+                
+                return `
                 <div class="shop-card">
                     <div class="shop-header">
                         <h3 class="shop-name">${shop.name}</h3>
@@ -2906,7 +2919,7 @@
                         </div>
                     </div>
                     <div class="shop-actions">
-                        ${shop.approvalStatus === 'pending' ? `
+                        ${isPending ? `
                             <button class="action-btn btn-warning" onclick="editPendingShop('${shop.id}')">
                                 编辑店铺
                             </button>
@@ -2916,7 +2929,7 @@
                             <button class="action-btn btn-primary" onclick="debugActivateShop('${shop.id}')">
                                 💎 付费开通 (¥2000)
                             </button>
-                        ` : shop.approvalStatus === 'approved' ? `
+                        ` : `
                             <button class="action-btn btn-primary" onclick="viewShopMessages('${shop.id}')">
                                 查看消息
                             </button>
@@ -2929,14 +2942,36 @@
                             <button class="action-btn btn-success" onclick="renewShop('${shop.id}')">
                                 💰 续费 (¥2000/年)
                             </button>
-                        ` : `
-                            <button class="action-btn btn-secondary" onclick="viewShopMessages('${shop.id}')">
-                                查看消息
-                            </button>
                         `}
                     </div>
-                </div>
-            `).join('');
+                </div>`;
+            }).join('');
+        }
+
+        // 加载我的店铺信息
+        async function loadMyShops() {
+            try {
+                console.log('🔄 开始加载店铺数据...');
+                const response = await fetch('/api/auth/me', {
+                    headers: {
+                        'X-Session-Id': currentSession
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('📦 API返回数据:', data);
+                    if (data.success) {
+                        currentShops = data.shops || [];
+                        console.log('✅ 店铺数据加载完成:', currentShops.length, '个店铺');
+                        loadShops(); // 重新渲染店铺列表
+                    }
+                } else {
+                    console.error('❌ 加载店铺信息失败:', response.status);
+                }
+            } catch (error) {
+                console.error('❌ 加载店铺信息错误:', error);
+            }
         }
 
         // 获取角色显示文本
@@ -3015,7 +3050,7 @@
                     document.querySelector('.form-section').style.display = 'none';
                     
                     // 重新加载用户信息和店铺列表
-                    await loadUserInfo();
+                    await loadMyShops();
                 } else {
                     const error = await response.json();
                     alert('更新失败: ' + error.error);
@@ -3042,7 +3077,7 @@
 
                 if (response.ok) {
                     alert('✅ 重新提交成功！\n\n您的店铺已重新提交审核，请等待管理员处理。');
-                    await loadUserInfo(); // 重新加载店铺列表
+                    await loadMyShops(); // 重新加载店铺列表
                 } else {
                     const error = await response.json();
                     alert('重新提交失败: ' + error.error);
@@ -3220,7 +3255,7 @@
             
             setTimeout(async () => {
                 closeRenewalModal();
-                await loadUserInfo(); // 重新加载用户信息和店铺列表
+                await loadMyShops(); // 重新加载用户信息和店铺列表
                 alert('🎉 续费成功！\n\n您的店铺有效期已延长1年，感谢您的支持！');
             }, 2000);
         }
@@ -4504,7 +4539,7 @@
                     loadPendingShops();
                     // 刷新店铺列表（如果用户也是店主）
                     if (currentUser.role === 'shop_owner' || currentUser.role === 'super_admin') {
-                        loadUserShops();
+                        loadMyShops();
                     }
                 } else {
                     alert('操作失败: ' + data.error);
