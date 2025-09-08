@@ -160,6 +160,15 @@ class Database {
             }
         ]);
         
+        // 为经理添加店铺关系
+        this.userShops.set(managerId, [
+            {
+                shopId: shopId,
+                role: 'manager',
+                permissions: ['view_chats', 'handle_chats', 'manage_staff']
+            }
+        ]);
+        
         console.log('🎯 初始化测试数据完成');
         console.log('📋 超级管理员: admin / admin123');
         console.log('🏪 店主账号: shop_owner / 123456');
