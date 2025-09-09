@@ -452,6 +452,15 @@ class SQLiteDatabase {
         return await this.getShopById(id);
     }
 
+    async updateShopApiKey(shopId, apiKey) {
+        await this.runAsync(`
+            UPDATE shops 
+            SET api_key = ?, api_key_created_at = CURRENT_TIMESTAMP 
+            WHERE id = ?
+        `, [apiKey, shopId]);
+        return await this.getShopById(shopId);
+    }
+
     async deleteShop(id) {
         await this.runAsync('DELETE FROM shops WHERE id = ?', [id]);
         return true;
@@ -606,6 +615,214 @@ class SQLiteDatabase {
         ]);
         
         return await this.getAsync('SELECT * FROM activation_orders WHERE id = ?', [id]);
+    }
+
+    // 生成支付二维码（续费）
+    async generatePaymentQRCode(orderId, paymentMethod) {
+        // 检查订单是否存在
+        const order = await this.getAsync('SELECT * FROM renewal_orders WHERE id = ?', [orderId]);
+        if (!order) {
+            throw new Error('订单不存在');
+        }
+
+        if (order.status !== 'pending') {
+            throw new Error('订单状态异常，无法生成支付二维码');
+        }
+
+        // 生成模拟二维码数据
+        const qrData = {
+            orderId: orderId,
+            paymentMethod: paymentMethod,
+            amount: order.amount,
+            qrCodeUrl: `https://api.example.com/qr/${paymentMethod}/${orderId}`,
+            expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString() // 15分钟后过期
+        };
+
+        // 可以存储到缓存或数据库中
+        return qrData;
+    }
+
+    // 生成付费开通支付二维码
+    async generateActivationPaymentQRCode(orderId, paymentMethod) {
+        // 检查订单是否存在
+        const order = await this.getAsync('SELECT * FROM activation_orders WHERE id = ?', [orderId]);
+        if (!order) {
+            throw new Error('付费开通订单不存在');
+        }
+
+        if (order.status !== 'pending') {
+            throw new Error('订单状态异常，无法生成支付二维码');
+        }
+
+        // 生成模拟二维码数据
+        const qrData = {
+            orderId: orderId,
+            paymentMethod: paymentMethod,
+            amount: order.amount,
+            shopName: order.shop_name,
+            qrCodeUrl: `https://api.example.com/qr/${paymentMethod}/${orderId}`,
+            expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString() // 15分钟后过期
+        };
+
+        return qrData;
+    }
+
+    // 获取付费开通订单状态
+    async getActivationOrderStatus(orderId) {
+        const order = await this.getAsync('SELECT * FROM activation_orders WHERE id = ?', [orderId]);
+        if (!order) {
+            throw new Error('付费开通订单不存在');
+        }
+        return order;
+    }
+
+    // 模拟续费支付成功
+    async mockPaymentSuccess(orderId) {
+        const order = await this.getAsync('SELECT * FROM renewal_orders WHERE id = ?', [orderId]);
+        if (!order) {
+            throw new Error('续费订单不存在');
+        }
+
+        if (order.status !== 'pending') {
+            throw new Error('订单状态异常，无法完成支付');
+        }
+
+        // 更新订单状态
+        await this.runAsync(`
+            UPDATE renewal_orders 
+            SET status = 'completed', paid_at = CURRENT_TIMESTAMP 
+            WHERE id = ?
+        `, [orderId]);
+
+        // 更新店铺到期时间
+        const shop = await this.getAsync('SELECT * FROM shops WHERE id = ?', [order.shop_id]);
+        if (shop) {
+            const currentExpiry = shop.expires_at ? new Date(shop.expires_at) : new Date();
+            const newExpiry = new Date(currentExpiry.getTime() + order.months * 30 * 24 * 60 * 60 * 1000);
+            
+            await this.runAsync(`
+                UPDATE shops 
+                SET expires_at = ? 
+                WHERE id = ?
+            `, [newExpiry.toISOString(), order.shop_id]);
+        }
+
+        return {
+            orderId: orderId,
+            status: 'completed',
+            paidAt: new Date().toISOString(),
+            newExpiryDate: shop ? new Date(new Date(shop.expires_at || new Date()).getTime() + order.months * 30 * 24 * 60 * 60 * 1000).toISOString() : null
+        };
+    }
+
+    // 模拟付费开通支付成功
+    async mockActivationPaymentSuccess(orderId) {
+        const order = await this.getAsync('SELECT * FROM activation_orders WHERE id = ?', [orderId]);
+        if (!order) {
+            throw new Error('付费开通订单不存在');
+        }
+
+        if (order.status !== 'pending') {
+            throw new Error('订单状态异常，无法完成支付');
+        }
+
+        // 更新订单状态
+        await this.runAsync(`
+            UPDATE activation_orders 
+            SET status = 'completed', paid_at = CURRENT_TIMESTAMP 
+            WHERE id = ?
+        `, [orderId]);
+
+        // 查找对应的店铺并激活
+        const shop = await this.getAsync('SELECT * FROM shops WHERE domain = ?', [order.domain]);
+        if (shop) {
+            const expiryDate = new Date(Date.now() + order.months * 30 * 24 * 60 * 60 * 1000);
+            
+            await this.runAsync(`
+                UPDATE shops 
+                SET approval_status = 'approved', 
+                    reviewed_at = CURRENT_TIMESTAMP,
+                    expires_at = ?,
+                    review_note = '付费开通自动审核通过'
+                WHERE id = ?
+            `, [expiryDate.toISOString(), shop.id]);
+
+            return {
+                orderId: orderId,
+                shopId: shop.id,
+                shopName: order.shop_name,
+                status: 'completed',
+                approvalStatus: 'approved',
+                expiryDate: expiryDate.toISOString(),
+                paidAt: new Date().toISOString()
+            };
+        } else {
+            throw new Error('找不到对应的店铺');
+        }
+    }
+
+    // 获取店铺续费历史
+    async getShopRenewalHistory(shopId) {
+        const history = await this.allAsync(`
+            SELECT * FROM renewal_orders 
+            WHERE shop_id = ? 
+            ORDER BY created_at DESC
+        `, [shopId]);
+        
+        return history;
+    }
+
+    // 获取店铺付费开通历史  
+    async getShopActivationHistory(shopId) {
+        // 通过店铺信息查找激活历史
+        const shop = await this.getAsync('SELECT * FROM shops WHERE id = ?', [shopId]);
+        if (!shop) {
+            return [];
+        }
+
+        const history = await this.allAsync(`
+            SELECT * FROM activation_orders 
+            WHERE domain = ? 
+            ORDER BY created_at DESC
+        `, [shop.domain]);
+        
+        return history;
+    }
+
+    // =================== API密钥管理 ===================
+    
+    async generateApiKeyForShop(shopId) {
+        const shop = await this.getAsync('SELECT * FROM shops WHERE id = ?', [shopId]);
+        if (!shop) {
+            throw new Error('店铺不存在');
+        }
+
+        // 生成API密钥
+        const apiKey = 'sk_' + Date.now() + '_' + Math.random().toString(36).substr(2, 16);
+        
+        // 更新店铺的API密钥
+        await this.runAsync(`
+            UPDATE shops 
+            SET api_key = ?, api_key_created_at = CURRENT_TIMESTAMP 
+            WHERE id = ?
+        `, [apiKey, shopId]);
+
+        return apiKey;
+    }
+
+    async getShopApiKeyInfo(shopId) {
+        const shop = await this.getAsync('SELECT id, name, api_key, api_key_created_at FROM shops WHERE id = ?', [shopId]);
+        if (!shop) {
+            throw new Error('店铺不存在');
+        }
+
+        return {
+            shopId: shop.id,
+            shopName: shop.name,
+            hasApiKey: !!shop.api_key,
+            apiKeyCreatedAt: shop.api_key_created_at,
+            maskedKey: shop.api_key ? shop.api_key.substring(0, 12) + '****' + shop.api_key.substring(shop.api_key.length - 4) : null
+        };
     }
 
     // 关闭数据库连接
