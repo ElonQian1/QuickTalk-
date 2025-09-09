@@ -231,14 +231,20 @@ class DomainValidator {
     normalizeDomain(domain) {
         if (!domain) return '';
         
+        // 保留通配符前缀
+        const isWildcard = domain.startsWith('*.');
+        
         // 去除协议
         domain = domain.replace(/^https?:\/\//, '');
         // 去除端口
         domain = domain.replace(/:\d+$/, '');
         // 去除路径
         domain = domain.split('/')[0];
-        // 去除www前缀（可选）
-        domain = domain.replace(/^www\./, '');
+        
+        // 只对非通配符域名去除www前缀
+        if (!isWildcard) {
+            domain = domain.replace(/^www\./, '');
+        }
         
         return domain.toLowerCase();
     }
