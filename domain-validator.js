@@ -16,12 +16,22 @@ class DomainValidator {
      * 从请求中提取客户端信息
      */
     extractClientInfo(req) {
+        // 安全的获取请求头方法
+        const getHeader = (name) => {
+            if (req && typeof req.get === 'function') {
+                return req.get(name);
+            } else if (req && req.headers) {
+                return req.headers[name.toLowerCase()];
+            }
+            return null;
+        };
+
         const info = {
             ip: this.getClientIP(req),
-            referer: req.get('Referer'),
-            origin: req.get('Origin'),
-            userAgent: req.get('User-Agent'),
-            host: req.get('Host'),
+            referer: getHeader('Referer'),
+            origin: getHeader('Origin'),
+            userAgent: getHeader('User-Agent'),
+            host: getHeader('Host'),
             timestamp: new Date().toISOString()
         };
 
@@ -55,14 +65,16 @@ class DomainValidator {
      * 获取客户端真实IP
      */
     getClientIP(req) {
+        if (!req) return 'unknown';
+        
         return req.ip || 
-               req.connection.remoteAddress || 
-               req.socket.remoteAddress ||
-               (req.connection.socket ? req.connection.socket.remoteAddress : null) ||
-               req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
-               req.headers['x-real-ip'] ||
-               req.headers['cf-connecting-ip'] || // Cloudflare
-               req.headers['x-client-ip'] ||
+               (req.connection && req.connection.remoteAddress) || 
+               (req.socket && req.socket.remoteAddress) ||
+               (req.connection && req.connection.socket && req.connection.socket.remoteAddress) ||
+               (req.headers && req.headers['x-forwarded-for'] && req.headers['x-forwarded-for'].split(',')[0].trim()) ||
+               (req.headers && req.headers['x-real-ip']) ||
+               (req.headers && req.headers['cf-connecting-ip']) || // Cloudflare
+               (req.headers && req.headers['x-client-ip']) ||
                'unknown';
     }
 

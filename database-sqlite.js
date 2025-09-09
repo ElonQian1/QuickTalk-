@@ -40,6 +40,7 @@ class SQLiteDatabase {
                 role TEXT NOT NULL DEFAULT 'user',
                 status TEXT NOT NULL DEFAULT 'active',
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 last_login_at DATETIME
             )`,
             
@@ -59,6 +60,7 @@ class SQLiteDatabase {
                 review_note TEXT,
                 expires_at DATETIME,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (owner_id) REFERENCES users(id)
             )`,
             
@@ -316,6 +318,23 @@ class SQLiteDatabase {
         }));
     }
 
+    // 统一的用户完整信息获取函数
+    async getCompleteUserInfo(userId) {
+        // 获取用户基本信息（不包含密码）
+        const user = await this.getAsync('SELECT id, username, email, role, created_at, last_login_at FROM users WHERE id = ?', [userId]);
+        if (!user) {
+            throw new Error('用户不存在');
+        }
+        
+        // 获取用户的店铺权限
+        const userShops = await this.getUserShops(userId);
+        
+        return {
+            user,
+            shops: userShops
+        };
+    }
+    
     // 用户登录
     async loginUser(username, password) {
         const user = await this.getAsync('SELECT * FROM users WHERE username = ?', [username]);
@@ -330,15 +349,12 @@ class SQLiteDatabase {
         // 创建会话
         const sessionId = await this.createSession(user.id);
         
-        // 获取用户的店铺权限
-        const userShops = await this.getShopsByOwner(user.id);
+        // 使用统一的用户信息获取函数
+        const completeUserInfo = await this.getCompleteUserInfo(user.id);
         
-        // 返回不包含密码的用户信息和会话信息
-        const { password: _, ...userInfo } = user;
         return {
-            user: userInfo,
-            sessionId,
-            shops: userShops
+            ...completeUserInfo,
+            sessionId
         };
     }
 
@@ -445,8 +461,14 @@ class SQLiteDatabase {
     }
 
     async updateShop(id, updates) {
-        const setClause = Object.keys(updates).map(key => `${key} = ?`).join(', ');
-        const values = [...Object.values(updates), id];
+        // 自动添加updated_at字段
+        const updatesWithTimestamp = {
+            ...updates,
+            updated_at: new Date().toISOString()
+        };
+        
+        const setClause = Object.keys(updatesWithTimestamp).map(key => `${key} = ?`).join(', ');
+        const values = [...Object.values(updatesWithTimestamp), id];
         
         await this.runAsync(`UPDATE shops SET ${setClause} WHERE id = ?`, values);
         return await this.getShopById(id);
@@ -455,7 +477,7 @@ class SQLiteDatabase {
     async updateShopApiKey(shopId, apiKey) {
         await this.runAsync(`
             UPDATE shops 
-            SET api_key = ?, api_key_created_at = CURRENT_TIMESTAMP 
+            SET api_key = ?, api_key_created_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP 
             WHERE id = ?
         `, [apiKey, shopId]);
         return await this.getShopById(shopId);
@@ -551,7 +573,8 @@ class SQLiteDatabase {
                 approval_status = ?, 
                 reviewed_at = ?, 
                 reviewed_by = ?, 
-                review_note = ?
+                review_note = ?,
+                updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
         `, [approvalStatus, reviewedAt, reviewerId, note, shopId]);
         
@@ -563,7 +586,8 @@ class SQLiteDatabase {
             await this.runAsync(`
                 UPDATE shops SET 
                     expires_at = ?,
-                    service_status = 'active'
+                    service_status = 'active',
+                    updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
             `, [expiryDate.toISOString(), shopId]);
             
@@ -702,7 +726,7 @@ class SQLiteDatabase {
             
             await this.runAsync(`
                 UPDATE shops 
-                SET expires_at = ? 
+                SET expires_at = ?, updated_at = CURRENT_TIMESTAMP 
                 WHERE id = ?
             `, [newExpiry.toISOString(), order.shop_id]);
         }
@@ -743,7 +767,8 @@ class SQLiteDatabase {
                 SET approval_status = 'approved', 
                     reviewed_at = CURRENT_TIMESTAMP,
                     expires_at = ?,
-                    review_note = '付费开通自动审核通过'
+                    review_note = '付费开通自动审核通过',
+                    updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
             `, [expiryDate.toISOString(), shop.id]);
 
@@ -803,7 +828,7 @@ class SQLiteDatabase {
         // 更新店铺的API密钥
         await this.runAsync(`
             UPDATE shops 
-            SET api_key = ?, api_key_created_at = CURRENT_TIMESTAMP 
+            SET api_key = ?, api_key_created_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP 
             WHERE id = ?
         `, [apiKey, shopId]);
 

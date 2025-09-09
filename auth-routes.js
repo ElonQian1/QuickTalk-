@@ -93,11 +93,11 @@ app.post('/api/auth/login', async (req, res) => {
 // 获取当前用户信息
 app.get('/api/auth/me', requireAuth, async (req, res) => {
     try {
-        const shops = await database.getUserShops(req.user.id);
+        // 使用统一的用户信息获取函数
+        const completeUserInfo = await database.getCompleteUserInfo(req.user.id);
         res.json({
             success: true,
-            user: req.user,
-            shops
+            ...completeUserInfo
         });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -389,31 +389,34 @@ app.put('/api/shops/:shopId', requireAuth, async (req, res) => {
             return res.status(400).json({ error: '店铺名称和域名为必填项' });
         }
         
-        const shop = database.shops.get(shopId);
+        // 使用SQLite数据库方法获取店铺
+        const shop = await database.getShopById(shopId);
         if (!shop) {
             return res.status(404).json({ error: '店铺不存在' });
         }
         
         // 检查权限：只有店主可以更新店铺信息
-        const userShop = shop.members.find(m => m.userId === req.user.id);
-        if (!userShop || userShop.role !== 'owner') {
+        if (shop.owner_id !== req.user.id) {
             return res.status(403).json({ error: '只有店主可以更新店铺信息' });
         }
         
         // 检查域名是否重复（排除当前店铺）
-        for (const [id, existingShop] of database.shops) {
-            if (id !== shopId && existingShop.domain === domain) {
-                return res.status(400).json({ error: '域名已被使用' });
-            }
+        const existingShopWithDomain = await database.getShopByDomain(domain);
+        if (existingShopWithDomain && existingShopWithDomain.id !== shopId) {
+            return res.status(400).json({ error: '域名已被使用' });
         }
         
         // 更新店铺信息
-        shop.name = name;
-        shop.domain = domain;
-        shop.updatedAt = new Date();
+        await database.updateShop(shopId, {
+            name: name,
+            domain: domain
+        });
+        
+        // 重新获取更新后的店铺信息
+        const updatedShop = await database.getShopById(shopId);
         
         console.log(`🏪 更新店铺: ${name} (${domain})`);
-        res.json({ success: true, message: '店铺信息更新成功', shop });
+        res.json({ success: true, message: '店铺信息更新成功', shop: updatedShop });
     } catch (error) {
         console.error('更新店铺错误:', error.message);
         res.status(500).json({ error: error.message });

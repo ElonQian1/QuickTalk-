@@ -2603,6 +2603,7 @@
                                     <h6>${shop.name} <span class="shop-status status-${shop.status}">${shop.status}</span></h6>
                                     <p><strong>域名:</strong> ${shop.domain}</p>
                                     <p><strong>创建时间:</strong> ${new Date(shop.createdAt).toLocaleString()}</p>
+                                    ${shop.updatedAt ? `<p><strong>更新时间:</strong> ${new Date(shop.updatedAt).toLocaleString()}</p>` : ''}
                                     <p><strong>成员数:</strong> ${shop.memberCount}人</p>
                                     
                                     ${shop.members.length > 0 ? `
@@ -2732,6 +2733,7 @@
                         <p>🌐 ${shop.domain}</p>
                         <p>👤 店主ID: ${shop.ownerId}</p>
                         <p>🕒 创建时间: ${new Date(shop.createdAt).toLocaleDateString()}</p>
+                        ${shop.updatedAt ? `<p>✏️ 更新时间: ${new Date(shop.updatedAt).toLocaleDateString()}</p>` : ''}
                     </div>
                     <div class="shop-monitor-actions">
                         <span class="shop-status status-${shop.status}">${shop.status}</span>
@@ -3906,8 +3908,8 @@
                 }
             }
             
-            // 检查域名基本格式（简单检查）
-            const domainRegex = /^(\*\.)?[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.[a-zA-Z]{2,}$/;
+            // 检查域名基本格式（修复了数字域名的支持）
+            const domainRegex = /^(\*\.)?([a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\.)*[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\.[a-zA-Z]{2,}$/;
             if (!domainRegex.test(domain)) {
                 return { 
                     valid: false, 
@@ -4478,6 +4480,7 @@
                                     <h6>${shop.name} (${shop.domain})</h6>
                                     <p><strong>状态:</strong> <span class="shop-status status-${shop.status}">${shop.status === 'active' ? '正常' : '暂停'}</span></p>
                                     <p><strong>创建时间:</strong> ${new Date(shop.createdAt).toLocaleDateString()}</p>
+                                    ${shop.updatedAt ? `<p><strong>更新时间:</strong> ${new Date(shop.updatedAt).toLocaleDateString()}</p>` : ''}
                                     <p><strong>成员数:</strong> ${shop.memberCount} 人</p>
                                     ${shop.members.length > 0 ? `
                                         <p><strong>成员列表:</strong></p>
@@ -4604,6 +4607,7 @@
                         <h6>${shop.name}</h6>
                         <p>🌐 ${shop.domain}</p>
                         <p>📅 创建时间: ${new Date(shop.createdAt).toLocaleDateString()}</p>
+                        ${shop.updatedAt ? `<p>✏️ 更新时间: ${new Date(shop.updatedAt).toLocaleDateString()}</p>` : ''}
                     </div>
                     <div class="shop-monitor-status">
                         <span class="shop-status status-${shop.status}">
