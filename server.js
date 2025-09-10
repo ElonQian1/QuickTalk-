@@ -32,7 +32,7 @@ app.use(domainValidator.createMiddleware());
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, X-Session-Id');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, X-Session-Id, X-Shop-Key, X-Shop-Id');
     if (req.method === 'OPTIONS') {
         res.status(200).end();
         return;
@@ -42,16 +42,6 @@ app.use((req, res, next) => {
 
 // 引入认证路由
 require('./auth-routes')(app, database);
-app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, X-Session-Id');
-    if (req.method === 'OPTIONS') {
-        res.status(200).end();
-        return;
-    }
-    next();
-});
 
 // 静态页面路由
 app.get('/', (req, res) => {
@@ -447,6 +437,16 @@ app.post('/api/shop/:shopId/generate-code', requireAuth, async (req, res) => {
         if (!hasAccess) {
             return res.status(403).json({ error: '无权访问此店铺' });
         }
+        
+        // 自动检测服务器地址
+        const protocol = req.secure || req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http';
+        const host = req.headers['x-forwarded-host'] || req.headers.host || 'localhost:3030';
+        const serverUrl = `${protocol}://${host}`;
+        
+        console.log(`🌐 自动检测服务器地址: ${serverUrl}`);
+        
+        // 将服务器地址添加到选项中
+        options.serverUrl = serverUrl;
         
         const result = await codeGenerator.generateIntegrationCode(shopId, options);
         
