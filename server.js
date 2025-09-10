@@ -20,7 +20,11 @@ const PORT = 3030;
 
 // 中间件
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'static')));
+
+// 静态文件服务 - 新的目录结构
+app.use('/static', express.static(path.join(__dirname, 'static')));
+app.use('/src', express.static(path.join(__dirname, 'src')));
+app.use('/components', express.static(path.join(__dirname, 'src/components')));
 
 // 信任代理（用于获取真实IP）
 app.set('trust proxy', true);
@@ -32,7 +36,7 @@ app.use(domainValidator.createMiddleware());
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, X-Session-Id, X-Shop-Key, X-Shop-Id');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, X-Session-Id, X-Shop-Key, X-Shop-Id, Authorization');
     if (req.method === 'OPTIONS') {
         res.status(200).end();
         return;
@@ -43,27 +47,61 @@ app.use((req, res, next) => {
 // 引入认证路由
 require('./auth-routes')(app, database);
 
-// 静态页面路由
+// ====== 新的路由结构 ======
+
+// 主页路由
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'static', 'index.html'));
 });
 
-// 管理后台 (重定向到新版本)
+// 桌面端路由
 app.get('/admin', (req, res) => {
-    res.redirect('/admin-new');
+    res.sendFile(path.join(__dirname, 'src', 'desktop', 'admin', 'index.html'));
 });
 
-// 新的多店铺管理后台
+app.get('/desktop/admin', (req, res) => {
+    res.sendFile(path.join(__dirname, 'src', 'desktop', 'admin', 'index.html'));
+});
+
+app.get('/customer', (req, res) => {
+    res.sendFile(path.join(__dirname, 'src', 'desktop', 'customer', 'index.html'));
+});
+
+app.get('/desktop/customer', (req, res) => {
+    res.sendFile(path.join(__dirname, 'src', 'desktop', 'customer', 'index.html'));
+});
+
+// 移动端路由
+app.get('/mobile/admin', (req, res) => {
+    res.sendFile(path.join(__dirname, 'src', 'mobile', 'admin', 'index.html'));
+});
+
+app.get('/mobile/customer', (req, res) => {
+    res.sendFile(path.join(__dirname, 'src', 'mobile', 'customer', 'index.html'));
+});
+
+// ====== 兼容旧路由 ======
 app.get('/admin-new', (req, res) => {
-    res.sendFile(path.join(__dirname, 'static', 'admin-new.html'));
+    res.sendFile(path.join(__dirname, 'src', 'desktop', 'admin', 'index.html'));
 });
 
-// 代码生成器界面（集成功能）
+app.get('/admin-desktop', (req, res) => {
+    res.sendFile(path.join(__dirname, 'src', 'desktop', 'admin', 'index.html'));
+});
+
+app.get('/mobile-admin', (req, res) => {
+    res.sendFile(path.join(__dirname, 'src', 'mobile', 'admin', 'index.html'));
+});
+
+app.get('/admin-mobile', (req, res) => {
+    res.sendFile(path.join(__dirname, 'src', 'mobile', 'admin', 'index.html'));
+});
+
+// 代码生成器和其他工具（保持在static目录）
 app.get('/code-generator', (req, res) => {
     res.sendFile(path.join(__dirname, 'static', 'integration-generator.html'));
 });
 
-// SDK演示页面
 app.get('/sdk-demo', (req, res) => {
     res.sendFile(path.join(__dirname, 'static', 'sdk-demo.html'));
 });
@@ -72,7 +110,17 @@ app.get('/sdk-demo', (req, res) => {
 
 // 用户认证中间件
 function requireAuth(req, res, next) {
-    const sessionId = req.headers['x-session-id'] || req.body.sessionId;
+    // 支持两种认证方式：X-Session-Id 和 Authorization Bearer
+    let sessionId = req.headers['x-session-id'] || req.body.sessionId;
+    
+    // 如果没有 X-Session-Id，尝试从 Authorization 头部获取
+    if (!sessionId) {
+        const authHeader = req.headers['authorization'];
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+            sessionId = authHeader.substring(7); // 移除 "Bearer " 前缀
+        }
+    }
+    
     if (!sessionId) {
         return res.status(401).json({ error: '需要登录' });
     }
@@ -85,6 +133,7 @@ function requireAuth(req, res, next) {
         req.sessionId = sessionId;
         next();
     }).catch(err => {
+        console.error('认证验证失败:', err);
         res.status(500).json({ error: '验证失败' });
     });
 }
@@ -254,19 +303,6 @@ app.get('/api/admin/users', requireAuth, requireSuperAdmin, async (req, res) => 
         res.json({
             success: true,
             users
-        });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// 超级管理员 - 获取所有店铺
-app.get('/api/admin/shops', requireAuth, requireSuperAdmin, async (req, res) => {
-    try {
-        const shops = await database.getAllShops();
-        res.json({
-            success: true,
-            shops
         });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -826,11 +862,6 @@ function sendToUser(userId, message) {
 
 // ============ 移动端管理API ============
 
-// 移动端管理后台
-app.get('/mobile-admin', (req, res) => {
-    res.sendFile(path.join(__dirname, 'static', 'mobile-admin.html'));
-});
-
 // 获取管理员的所有店铺列表
 app.get('/api/admin/shops', requireAuth, async (req, res) => {
     try {
@@ -848,6 +879,17 @@ app.get('/api/admin/shops', requireAuth, async (req, res) => {
     } catch (error) {
         console.error('获取店铺列表失败:', error);
         res.status(500).json({ error: '获取店铺列表失败' });
+    }
+});
+
+// 获取管理员统计数据
+app.get('/api/admin/stats', requireAuth, async (req, res) => {
+    try {
+        const stats = await database.getOverallStats(req.user.role === 'super_admin' ? null : req.user.id);
+        res.json(stats);
+    } catch (error) {
+        console.error('获取统计数据失败:', error);
+        res.status(500).json({ error: '获取统计数据失败' });
     }
 });
 
@@ -1503,11 +1545,22 @@ wss.on('connection', (ws, req) => {
 
 // 启动服务器
 server.listen(PORT, () => {
-    console.log(`🚀 服务器启动成功！`);
-    console.log(`📁 用户界面: http://localhost:${PORT}`);
-    console.log(`👨‍💼 客服后台: http://localhost:${PORT}/admin`);
-    console.log(`🔌 WebSocket: ws://localhost:${PORT}/ws`);
+    console.log(`🚀 QuickTalk 客服系统启动成功！`);
+    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    console.log(`📱 项目主页: http://localhost:${PORT}`);
+    console.log(`�️  桌面端:`);
+    console.log(`   📊 管理后台: http://localhost:${PORT}/admin`);
+    console.log(`   � 客服聊天: http://localhost:${PORT}/customer`);
+    console.log(`📱 移动端:`);
+    console.log(`   📊 管理后台: http://localhost:${PORT}/mobile/admin`);
+    console.log(`   � 客服聊天: http://localhost:${PORT}/mobile/customer`);
+    console.log(`🔧 开发工具:`);
+    console.log(`   🎛️  代码生成器: http://localhost:${PORT}/code-generator`);
+    console.log(`   🧪 SDK 演示: http://localhost:${PORT}/sdk-demo`);
+    console.log(`�🔌 WebSocket: ws://localhost:${PORT}/ws`);
+    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
     console.log(`⏰ 启动时间: ${new Date().toLocaleString('zh-CN')}`);
+    console.log(`🎯 项目结构: 桌面端/移动端分离，文件组织清晰`);
 });
 
 // 优雅关闭

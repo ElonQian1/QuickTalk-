@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>移动客服聊天 - QuickTalk</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            width: 100%;
+            overflow: hidden;
+        }
+        
+        /* 顶部状态栏 */
+        .status-bar {
+            height: 20px;
+            background: #000;
+            opacity: 0.1;
+        }
+        
+        /* 头部导航 */
+        .chat-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: relative;
+            z-index: 100;
+        }
+        
+        .header-left {
+            display: flex;
+            align-items: center;
+        }
+        
+        .back-button {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 18px;
+            padding: 5px;
+            margin-right: 10px;
+            cursor: pointer;
+        }
+        
+        .chat-title {
+            font-size: 16px;
+            font-weight: 600;
+        }
+        
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .header-action {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 16px;
+            padding: 5px;
+            cursor: pointer;
+        }
+        
+        /* 主聊天区域 */
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #e5ddd5;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        /* 聊天背景 */
+        .chat-background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: 
+                radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.1) 0%, transparent 50%);
+            opacity: 0.3;
+        }
+        
+        /* 消息列表 */
+        .messages-container {
+            flex: 1;
+            padding: 20px 15px;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .message {
+            margin-bottom: 12px;
+            display: flex;
+            align-items: flex-end;
+        }
+        
+        .message.sent {
+            justify-content: flex-end;
+        }
+        
+        .message-bubble {
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            word-wrap: break-word;
+            position: relative;
+        }
+        
+        .message.received .message-bubble {
+            background: white;
+            color: #333;
+            border-bottom-left-radius: 4px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+        
+        .message.sent .message-bubble {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-bottom-right-radius: 4px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+        }
+        
+        .message-time {
+            font-size: 11px;
+            color: rgba(255,255,255,0.7);
+            margin-top: 4px;
+            text-align: right;
+        }
+        
+        .message.received .message-time {
+            color: #999;
+            text-align: left;
+        }
+        
+        /* 输入区域 */
+        .input-area {
+            background: #f0f0f0;
+            padding: 10px 15px;
+            padding-bottom: calc(10px + env(safe-area-inset-bottom));
+            border-top: 1px solid #ddd;
+            position: relative;
+            z-index: 100;
+        }
+        
+        .input-container {
+            display: flex;
+            align-items: flex-end;
+            gap: 10px;
+            background: white;
+            border-radius: 25px;
+            padding: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .message-input {
+            flex: 1;
+            border: none;
+            outline: none;
+            padding: 8px 12px;
+            font-size: 16px;
+            line-height: 1.4;
+            resize: none;
+            max-height: 100px;
+            min-height: 20px;
+            background: transparent;
+        }
+        
+        .send-button {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: none;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 18px;
+            transition: transform 0.2s;
+        }
+        
+        .send-button:active {
+            transform: scale(0.95);
+        }
+        
+        .send-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        /* 连接状态 */
+        .connection-status {
+            background: #4caf50;
+            color: white;
+            padding: 8px 15px;
+            text-align: center;
+            font-size: 12px;
+            transition: all 0.3s;
+        }
+        
+        .connection-status.disconnected {
+            background: #f44336;
+        }
+        
+        .connection-status.connecting {
+            background: #ff9800;
+        }
+        
+        /* 正在输入指示器 */
+        .typing-indicator {
+            padding: 15px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .typing-indicator.show {
+            opacity: 1;
+        }
+        
+        .typing-bubble {
+            background: white;
+            border-radius: 18px;
+            border-bottom-left-radius: 4px;
+            padding: 12px 16px;
+            max-width: 60px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+        
+        .typing-dots {
+            display: flex;
+            gap: 4px;
+        }
+        
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #999;
+            animation: typing 1.4s infinite ease-in-out;
+        }
+        
+        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+        
+        @keyframes typing {
+            0%, 80%, 100% {
+                transform: scale(0.8);
+                opacity: 0.5;
+            }
+            40% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+        
+        /* 快捷回复 */
+        .quick-replies {
+            padding: 10px 15px;
+            background: #f0f0f0;
+            border-top: 1px solid #ddd;
+            display: none;
+        }
+        
+        .quick-replies.show {
+            display: block;
+        }
+        
+        .quick-reply-list {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: 5px;
+        }
+        
+        .quick-reply-item {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 15px;
+            padding: 8px 12px;
+            font-size: 14px;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .quick-reply-item:active {
+            background: #e0e0e0;
+            transform: scale(0.95);
+        }
+        
+        /* 菜单栏 */
+        .menu-bar {
+            background: white;
+            border-top: 1px solid #eee;
+            padding: 10px;
+            padding-bottom: calc(10px + env(safe-area-inset-bottom));
+            display: none;
+        }
+        
+        .menu-items {
+            display: flex;
+            justify-content: space-around;
+        }
+        
+        .menu-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            padding: 10px;
+            cursor: pointer;
+            color: #666;
+            font-size: 12px;
+        }
+        
+        .menu-item.active {
+            color: #667eea;
+        }
+        
+        .menu-icon {
+            font-size: 20px;
+        }
+        
+        /* 加载动画 */
+        .loading {
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .loading-spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #ddd;
+            border-top: 2px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* 滚动条样式 */
+        .messages-container::-webkit-scrollbar {
+            width: 3px;
+        }
+        
+        .messages-container::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        .messages-container::-webkit-scrollbar-thumb {
+            background: rgba(0,0,0,0.2);
+            border-radius: 3px;
+        }
+        
+        /* 触摸反馈 */
+        .touch-feedback {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .touch-feedback::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.3);
+            transform: translate(-50%, -50%);
+            transition: width 0.3s, height 0.3s;
+        }
+        
+        .touch-feedback:active::after {
+            width: 200px;
+            height: 200px;
+        }
+    </style>
+</head>
+<body>
+    <!-- 状态栏占位 -->
+    <div class="status-bar"></div>
+    
+    <!-- 头部导航 -->
+    <header class="chat-header">
+        <div class="header-left">
+            <button class="back-button" onclick="goBack()">‹</button>
+            <div class="chat-title">在线客服</div>
+        </div>
+        <div class="header-right">
+            <button class="header-action" onclick="toggleMenu()">⋯</button>
+        </div>
+    </header>
+    
+    <!-- 连接状态 -->
+    <div class="connection-status" id="connectionStatus">
+        已连接 • 客服在线
+    </div>
+    
+    <!-- 主聊天区域 -->
+    <div class="chat-container">
+        <div class="chat-background"></div>
+        
+        <!-- 消息列表 -->
+        <div class="messages-container" id="messagesContainer">
+            <!-- 系统欢迎消息 -->
+            <div class="message received">
+                <div class="message-bubble">
+                    您好！欢迎咨询，我是您的专属客服，有什么可以帮助您的吗？
+                    <div class="message-time">14:30</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 正在输入指示器 -->
+        <div class="typing-indicator" id="typingIndicator">
+            <div class="typing-bubble">
+                <div class="typing-dots">
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 快捷回复 -->
+    <div class="quick-replies" id="quickReplies">
+        <div class="quick-reply-list">
+            <div class="quick-reply-item" onclick="sendQuickReply('产品咨询')">产品咨询</div>
+            <div class="quick-reply-item" onclick="sendQuickReply('价格问题')">价格问题</div>
+            <div class="quick-reply-item" onclick="sendQuickReply('售后服务')">售后服务</div>
+            <div class="quick-reply-item" onclick="sendQuickReply('投诉建议')">投诉建议</div>
+        </div>
+    </div>
+    
+    <!-- 输入区域 -->
+    <div class="input-area">
+        <div class="input-container">
+            <textarea 
+                class="message-input" 
+                id="messageInput" 
+                placeholder="输入消息..."
+                rows="1"></textarea>
+            <button class="send-button touch-feedback" id="sendButton" onclick="sendMessage()">
+                ➤
+            </button>
+        </div>
+    </div>
+    
+    <!-- 菜单栏 -->
+    <div class="menu-bar" id="menuBar">
+        <div class="menu-items">
+            <div class="menu-item active">
+                <div class="menu-icon">💬</div>
+                <div>聊天</div>
+            </div>
+            <div class="menu-item" onclick="showQuickReplies()">
+                <div class="menu-icon">⚡</div>
+                <div>快捷</div>
+            </div>
+            <div class="menu-item" onclick="showHistory()">
+                <div class="menu-icon">📝</div>
+                <div>历史</div>
+            </div>
+            <div class="menu-item" onclick="showSettings()">
+                <div class="menu-icon">⚙️</div>
+                <div>设置</div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // 全局变量
+        let messages = [];
+        let isConnected = true;
+        let isTyping = false;
+        let autoScrollEnabled = true;
+        
+        // 页面加载
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeChat();
+            setupEventListeners();
+            setupTouchEvents();
+        });
+        
+        // 初始化聊天
+        function initializeChat() {
+            // 模拟连接状态
+            updateConnectionStatus('connected');
+            
+            // 显示快捷回复
+            setTimeout(() => {
+                showQuickRepliesTemporary();
+            }, 1000);
+        }
+        
+        // 设置事件监听器
+        function setupEventListeners() {
+            const messageInput = document.getElementById('messageInput');
+            
+            // 输入框事件
+            messageInput.addEventListener('input', function() {
+                // 自动调整高度
+                this.style.height = 'auto';
+                this.style.height = Math.min(this.scrollHeight, 100) + 'px';
+                
+                // 模拟正在输入
+                simulateTyping();
+            });
+            
+            // 回车发送
+            messageInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+            
+            // 滚动监听
+            const messagesContainer = document.getElementById('messagesContainer');
+            messagesContainer.addEventListener('scroll', function() {
+                const { scrollTop, scrollHeight, clientHeight } = this;
+                autoScrollEnabled = scrollTop + clientHeight >= scrollHeight - 50;
+            });
+        }
+        
+        // 设置触摸事件
+        function setupTouchEvents() {
+            // 防止双击缩放
+            let lastTouchEnd = 0;
+            document.addEventListener('touchend', function(e) {
+                const now = (new Date()).getTime();
+                if (now - lastTouchEnd <= 300) {
+                    e.preventDefault();
+                }
+                lastTouchEnd = now;
+            }, false);
+            
+            // 长按菜单
+            let pressTimer = null;
+            const messageInput = document.getElementById('messageInput');
+            
+            messageInput.addEventListener('touchstart', function(e) {
+                pressTimer = setTimeout(() => {
+                    // 长按显示快捷回复
+                    showQuickRepliesTemporary();
+                }, 500);
+            });
+            
+            messageInput.addEventListener('touchend', function() {
+                clearTimeout(pressTimer);
+            });
+            
+            messageInput.addEventListener('touchmove', function() {
+                clearTimeout(pressTimer);
+            });
+        }
+        
+        // 发送消息
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const content = input.value.trim();
+            
+            if (!content) return;
+            
+            // 创建消息
+            const message = {
+                id: Date.now(),
+                type: 'sent',
+                content: content,
+                timestamp: new Date()
+            };
+            
+            // 添加到消息列表
+            addMessage(message);
+            
+            // 清空输入框
+            input.value = '';
+            input.style.height = 'auto';
+            
+            // 模拟客服回复
+            setTimeout(() => {
+                simulateReply();
+            }, 1000 + Math.random() * 2000);
+        }
+        
+        // 发送快捷回复
+        function sendQuickReply(content) {
+            const message = {
+                id: Date.now(),
+                type: 'sent',
+                content: content,
+                timestamp: new Date()
+            };
+            
+            addMessage(message);
+            hideQuickReplies();
+            
+            // 模拟客服回复
+            setTimeout(() => {
+                simulateReply();
+            }, 1500);
+        }
+        
+        // 添加消息
+        function addMessage(message) {
+            messages.push(message);
+            renderMessage(message);
+            
+            if (autoScrollEnabled) {
+                scrollToBottom();
+            }
+        }
+        
+        // 渲染单条消息
+        function renderMessage(message) {
+            const container = document.getElementById('messagesContainer');
+            const messageElement = document.createElement('div');
+            messageElement.className = `message ${message.type}`;
+            
+            messageElement.innerHTML = `
+                <div class="message-bubble">
+                    ${message.content}
+                    <div class="message-time">${formatTime(message.timestamp)}</div>
+                </div>
+            `;
+            
+            container.appendChild(messageElement);
+        }
+        
+        // 模拟客服回复
+        function simulateReply() {
+            if (!isConnected) return;
+            
+            // 显示正在输入
+            showTypingIndicator();
+            
+            setTimeout(() => {
+                hideTypingIndicator();
+                
+                const replies = [
+                    '好的，我明白您的问题了，请稍等片刻。',
+                    '感谢您的咨询，让我为您查询一下相关信息。',
+                    '这个问题我们需要核实一下，请您稍等。',
+                    '根据您的描述，我建议您这样操作...',
+                    '为了更好地帮助您，能否提供更多详细信息？',
+                    '您的问题我们很重视，正在为您处理。',
+                    '感谢您的耐心等待，问题已经解决了。'
+                ];
+                
+                const randomReply = replies[Math.floor(Math.random() * replies.length)];
+                
+                const replyMessage = {
+                    id: Date.now(),
+                    type: 'received',
+                    content: randomReply,
+                    timestamp: new Date()
+                };
+                
+                addMessage(replyMessage);
+            }, 2000 + Math.random() * 3000);
+        }
+        
+        // 显示正在输入指示器
+        function showTypingIndicator() {
+            const indicator = document.getElementById('typingIndicator');
+            indicator.classList.add('show');
+            scrollToBottom();
+        }
+        
+        // 隐藏正在输入指示器
+        function hideTypingIndicator() {
+            const indicator = document.getElementById('typingIndicator');
+            indicator.classList.remove('show');
+        }
+        
+        // 模拟输入状态
+        function simulateTyping() {
+            if (isTyping) return;
+            
+            isTyping = true;
+            
+            // 模拟客服看到用户正在输入
+            setTimeout(() => {
+                isTyping = false;
+            }, 3000);
+        }
+        
+        // 显示快捷回复
+        function showQuickReplies() {
+            const quickReplies = document.getElementById('quickReplies');
+            quickReplies.classList.add('show');
+        }
+        
+        // 隐藏快捷回复
+        function hideQuickReplies() {
+            const quickReplies = document.getElementById('quickReplies');
+            quickReplies.classList.remove('show');
+        }
+        
+        // 临时显示快捷回复
+        function showQuickRepliesTemporary() {
+            showQuickReplies();
+            setTimeout(() => {
+                hideQuickReplies();
+            }, 5000);
+        }
+        
+        // 滚动到底部
+        function scrollToBottom() {
+            const container = document.getElementById('messagesContainer');
+            setTimeout(() => {
+                container.scrollTop = container.scrollHeight;
+            }, 100);
+        }
+        
+        // 更新连接状态
+        function updateConnectionStatus(status) {
+            const statusElement = document.getElementById('connectionStatus');
+            
+            switch (status) {
+                case 'connected':
+                    statusElement.textContent = '已连接 • 客服在线';
+                    statusElement.className = 'connection-status';
+                    isConnected = true;
+                    break;
+                case 'connecting':
+                    statusElement.textContent = '连接中...';
+                    statusElement.className = 'connection-status connecting';
+                    isConnected = false;
+                    break;
+                case 'disconnected':
+                    statusElement.textContent = '连接断开 • 正在重连';
+                    statusElement.className = 'connection-status disconnected';
+                    isConnected = false;
+                    break;
+            }
+        }
+        
+        // 返回上一页
+        function goBack() {
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                window.close();
+            }
+        }
+        
+        // 切换菜单
+        function toggleMenu() {
+            const menuBar = document.getElementById('menuBar');
+            menuBar.style.display = menuBar.style.display === 'block' ? 'none' : 'block';
+        }
+        
+        // 显示历史记录
+        function showHistory() {
+            alert('历史记录功能开发中...');
+        }
+        
+        // 显示设置
+        function showSettings() {
+            alert('设置功能开发中...');
+        }
+        
+        // 格式化时间
+        function formatTime(date) {
+            return date.toLocaleTimeString('zh-CN', {
+                hour12: false,
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+        
+        // 网络状态监听
+        window.addEventListener('online', function() {
+            updateConnectionStatus('connected');
+        });
+        
+        window.addEventListener('offline', function() {
+            updateConnectionStatus('disconnected');
+        });
+        
+        // 页面可见性监听
+        document.addEventListener('visibilitychange', function() {
+            if (document.visibilityState === 'visible') {
+                // 页面重新可见时滚动到底部
+                if (autoScrollEnabled) {
+                    scrollToBottom();
+                }
+            }
+        });
+    </script>
+</body>
+</html>

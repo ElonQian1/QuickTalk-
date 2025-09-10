@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>桌面端客服聊天 - QuickTalk</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* 顶部导航 */
+        .chat-header {
+            background: white;
+            padding: 15px 20px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .chat-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .admin-link {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            text-decoration: none;
+            font-size: 14px;
+        }
+        
+        /* 主聊天区域 */
+        .chat-container {
+            flex: 1;
+            display: flex;
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+            background: white;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+        
+        /* 左侧客户列表 */
+        .customers-sidebar {
+            width: 300px;
+            border-right: 1px solid #eee;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .customers-header {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+            background: #f8f9fa;
+        }
+        
+        .customers-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        
+        .customers-search {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            font-size: 14px;
+        }
+        
+        .customers-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+        
+        .customer-item {
+            padding: 15px 20px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .customer-item:hover {
+            background: #f8f9fa;
+        }
+        
+        .customer-item.active {
+            background: #e3f2fd;
+            border-right: 3px solid #2196f3;
+        }
+        
+        .customer-name {
+            font-weight: 600;
+            margin-bottom: 3px;
+        }
+        
+        .customer-last-message {
+            font-size: 13px;
+            color: #666;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .customer-time {
+            font-size: 11px;
+            color: #999;
+            margin-top: 3px;
+        }
+        
+        .unread-badge {
+            background: #f44336;
+            color: white;
+            border-radius: 10px;
+            padding: 2px 6px;
+            font-size: 11px;
+            margin-left: 5px;
+        }
+        
+        /* 右侧聊天区域 */
+        .chat-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .chat-header-info {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+            background: #f8f9fa;
+        }
+        
+        .current-customer {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        
+        .customer-status {
+            font-size: 13px;
+            color: #666;
+        }
+        
+        .messages-container {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #f9f9f9;
+        }
+        
+        .message {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: flex-start;
+        }
+        
+        .message.sent {
+            justify-content: flex-end;
+        }
+        
+        .message-bubble {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            background: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .message.sent .message-bubble {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .message-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: #ddd;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #666;
+        }
+        
+        .message.sent .message-avatar {
+            order: 2;
+            margin-right: 0;
+            margin-left: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .message-time {
+            font-size: 11px;
+            color: #999;
+            margin-top: 5px;
+        }
+        
+        /* 输入区域 */
+        .message-input-area {
+            padding: 20px;
+            border-top: 1px solid #eee;
+            background: white;
+        }
+        
+        .input-container {
+            display: flex;
+            align-items: flex-end;
+            gap: 10px;
+        }
+        
+        .message-input {
+            flex: 1;
+            min-height: 40px;
+            max-height: 120px;
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            resize: none;
+            font-family: inherit;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        
+        .send-button {
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        
+        .send-button:hover {
+            opacity: 0.9;
+        }
+        
+        .send-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        /* 空状态 */
+        .empty-state {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            color: #666;
+        }
+        
+        .empty-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+        
+        .empty-title {
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+        
+        .empty-description {
+            font-size: 14px;
+            opacity: 0.8;
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .chat-container {
+                flex-direction: column;
+            }
+            
+            .customers-sidebar {
+                width: 100%;
+                height: 200px;
+            }
+            
+            .customers-list {
+                display: flex;
+                overflow-x: auto;
+                overflow-y: hidden;
+            }
+            
+            .customer-item {
+                min-width: 200px;
+                border-bottom: none;
+                border-right: 1px solid #f0f0f0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 顶部导航 -->
+    <header class="chat-header">
+        <div class="chat-title">🖥️ QuickTalk 桌面客服</div>
+        <a href="/admin" class="admin-link">⚙️ 管理后台</a>
+    </header>
+    
+    <div class="chat-container">
+        <!-- 左侧客户列表 -->
+        <aside class="customers-sidebar">
+            <div class="customers-header">
+                <div class="customers-title">客户列表</div>
+                <input type="text" class="customers-search" placeholder="搜索客户..." id="customerSearch">
+            </div>
+            
+            <div class="customers-list" id="customersList">
+                <!-- 客户项将在这里动态加载 -->
+                <div class="customer-item active">
+                    <div class="customer-name">
+                        访客 #001
+                        <span class="unread-badge">3</span>
+                    </div>
+                    <div class="customer-last-message">你好，我想咨询一下产品信息</div>
+                    <div class="customer-time">2分钟前</div>
+                </div>
+                
+                <div class="customer-item">
+                    <div class="customer-name">张三</div>
+                    <div class="customer-last-message">谢谢你的帮助</div>
+                    <div class="customer-time">10分钟前</div>
+                </div>
+                
+                <div class="customer-item">
+                    <div class="customer-name">
+                        访客 #002
+                        <span class="unread-badge">1</span>
+                    </div>
+                    <div class="customer-last-message">订单什么时候能发货？</div>
+                    <div class="customer-time">1小时前</div>
+                </div>
+            </div>
+        </aside>
+        
+        <!-- 右侧聊天区域 -->
+        <main class="chat-area">
+            <!-- 当前客户信息 -->
+            <div class="chat-header-info">
+                <div class="current-customer" id="currentCustomerName">访客 #001</div>
+                <div class="customer-status" id="customerStatus">在线 • 正在输入...</div>
+            </div>
+            
+            <!-- 消息列表 -->
+            <div class="messages-container" id="messagesContainer">
+                <!-- 示例消息 -->
+                <div class="message received">
+                    <div class="message-avatar">客</div>
+                    <div class="message-content">
+                        <div class="message-bubble">
+                            你好，我想咨询一下你们的产品信息
+                        </div>
+                        <div class="message-time">14:30</div>
+                    </div>
+                </div>
+                
+                <div class="message sent">
+                    <div class="message-content">
+                        <div class="message-bubble">
+                            您好！很高兴为您服务，请问您想了解哪方面的产品信息呢？
+                        </div>
+                        <div class="message-time">14:31</div>
+                    </div>
+                    <div class="message-avatar">服</div>
+                </div>
+                
+                <div class="message received">
+                    <div class="message-avatar">客</div>
+                    <div class="message-content">
+                        <div class="message-bubble">
+                            我想了解一下价格和功能特点
+                        </div>
+                        <div class="message-time">14:32</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 输入区域 -->
+            <div class="message-input-area">
+                <div class="input-container">
+                    <textarea 
+                        class="message-input" 
+                        id="messageInput" 
+                        placeholder="输入消息..."
+                        rows="1"></textarea>
+                    <button class="send-button" id="sendButton" onclick="sendMessage()">发送</button>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <script>
+        // 全局变量
+        let currentCustomerId = null;
+        let customers = [];
+        let messages = [];
+        
+        // 页面加载
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeChat();
+            setupEventListeners();
+        });
+        
+        // 初始化聊天界面
+        function initializeChat() {
+            // 加载客户列表
+            loadCustomers();
+            
+            // 选择第一个客户
+            selectCustomer('customer_001');
+        }
+        
+        // 设置事件监听器
+        function setupEventListeners() {
+            // 消息输入框回车发送
+            const messageInput = document.getElementById('messageInput');
+            messageInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+            
+            // 自动调整输入框高度
+            messageInput.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+            });
+            
+            // 客户搜索
+            const customerSearch = document.getElementById('customerSearch');
+            customerSearch.addEventListener('input', function() {
+                filterCustomers(this.value);
+            });
+        }
+        
+        // 加载客户列表
+        function loadCustomers() {
+            // 模拟客户数据
+            customers = [
+                {
+                    id: 'customer_001',
+                    name: '访客 #001',
+                    lastMessage: '你好，我想咨询一下产品信息',
+                    unreadCount: 3,
+                    lastMessageTime: new Date(Date.now() - 2 * 60 * 1000),
+                    status: 'online'
+                },
+                {
+                    id: 'customer_002',
+                    name: '张三',
+                    lastMessage: '谢谢你的帮助',
+                    unreadCount: 0,
+                    lastMessageTime: new Date(Date.now() - 10 * 60 * 1000),
+                    status: 'offline'
+                },
+                {
+                    id: 'customer_003',
+                    name: '访客 #002',
+                    lastMessage: '订单什么时候能发货？',
+                    unreadCount: 1,
+                    lastMessageTime: new Date(Date.now() - 60 * 60 * 1000),
+                    status: 'online'
+                }
+            ];
+            
+            renderCustomersList();
+        }
+        
+        // 渲染客户列表
+        function renderCustomersList() {
+            const container = document.getElementById('customersList');
+            const customersHTML = customers.map(customer => `
+                <div class="customer-item ${customer.id === currentCustomerId ? 'active' : ''}" 
+                     onclick="selectCustomer('${customer.id}')">
+                    <div class="customer-name">
+                        ${customer.name}
+                        ${customer.unreadCount > 0 ? `<span class="unread-badge">${customer.unreadCount}</span>` : ''}
+                    </div>
+                    <div class="customer-last-message">${customer.lastMessage}</div>
+                    <div class="customer-time">${formatTime(customer.lastMessageTime)}</div>
+                </div>
+            `).join('');
+            
+            container.innerHTML = customersHTML;
+        }
+        
+        // 选择客户
+        function selectCustomer(customerId) {
+            currentCustomerId = customerId;
+            const customer = customers.find(c => c.id === customerId);
+            
+            if (customer) {
+                // 更新当前客户信息
+                document.getElementById('currentCustomerName').textContent = customer.name;
+                document.getElementById('customerStatus').textContent = 
+                    customer.status === 'online' ? '在线' : '离线';
+                
+                // 标记消息为已读
+                customer.unreadCount = 0;
+                
+                // 重新渲染客户列表
+                renderCustomersList();
+                
+                // 加载消息历史
+                loadMessages(customerId);
+            }
+        }
+        
+        // 加载消息历史
+        function loadMessages(customerId) {
+            // 模拟消息数据
+            const messageData = {
+                'customer_001': [
+                    {
+                        id: 'msg_001',
+                        type: 'received',
+                        content: '你好，我想咨询一下你们的产品信息',
+                        timestamp: new Date(Date.now() - 5 * 60 * 1000),
+                        sender: 'customer'
+                    },
+                    {
+                        id: 'msg_002',
+                        type: 'sent',
+                        content: '您好！很高兴为您服务，请问您想了解哪方面的产品信息呢？',
+                        timestamp: new Date(Date.now() - 4 * 60 * 1000),
+                        sender: 'agent'
+                    },
+                    {
+                        id: 'msg_003',
+                        type: 'received',
+                        content: '我想了解一下价格和功能特点',
+                        timestamp: new Date(Date.now() - 3 * 60 * 1000),
+                        sender: 'customer'
+                    }
+                ],
+                'customer_002': [
+                    {
+                        id: 'msg_004',
+                        type: 'received',
+                        content: '请问有什么可以帮助您的吗？',
+                        timestamp: new Date(Date.now() - 20 * 60 * 1000),
+                        sender: 'customer'
+                    },
+                    {
+                        id: 'msg_005',
+                        type: 'sent',
+                        content: '您好，我是客服小王，很高兴为您服务！',
+                        timestamp: new Date(Date.now() - 19 * 60 * 1000),
+                        sender: 'agent'
+                    },
+                    {
+                        id: 'msg_006',
+                        type: 'received',
+                        content: '谢谢你的帮助',
+                        timestamp: new Date(Date.now() - 15 * 60 * 1000),
+                        sender: 'customer'
+                    }
+                ]
+            };
+            
+            messages = messageData[customerId] || [];
+            renderMessages();
+        }
+        
+        // 渲染消息列表
+        function renderMessages() {
+            const container = document.getElementById('messagesContainer');
+            const messagesHTML = messages.map(message => `
+                <div class="message ${message.type}">
+                    ${message.type === 'received' ? '<div class="message-avatar">客</div>' : ''}
+                    <div class="message-content">
+                        <div class="message-bubble">${message.content}</div>
+                        <div class="message-time">${formatTime(message.timestamp)}</div>
+                    </div>
+                    ${message.type === 'sent' ? '<div class="message-avatar">服</div>' : ''}
+                </div>
+            `).join('');
+            
+            container.innerHTML = messagesHTML;
+            
+            // 滚动到底部
+            container.scrollTop = container.scrollHeight;
+        }
+        
+        // 发送消息
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const content = input.value.trim();
+            
+            if (!content || !currentCustomerId) return;
+            
+            // 创建新消息
+            const newMessage = {
+                id: 'msg_' + Date.now(),
+                type: 'sent',
+                content: content,
+                timestamp: new Date(),
+                sender: 'agent'
+            };
+            
+            // 添加到消息列表
+            messages.push(newMessage);
+            
+            // 更新客户最后消息
+            const customer = customers.find(c => c.id === currentCustomerId);
+            if (customer) {
+                customer.lastMessage = content;
+                customer.lastMessageTime = new Date();
+            }
+            
+            // 清空输入框
+            input.value = '';
+            input.style.height = 'auto';
+            
+            // 重新渲染
+            renderMessages();
+            renderCustomersList();
+            
+            // 模拟客户回复（演示用）
+            setTimeout(() => {
+                simulateCustomerReply();
+            }, 2000);
+        }
+        
+        // 模拟客户回复
+        function simulateCustomerReply() {
+            const replies = [
+                '好的，谢谢！',
+                '明白了',
+                '还有其他问题吗？',
+                '价格怎么样？',
+                '什么时候能发货？',
+                '可以优惠吗？'
+            ];
+            
+            const randomReply = replies[Math.floor(Math.random() * replies.length)];
+            
+            const replyMessage = {
+                id: 'msg_' + Date.now(),
+                type: 'received',
+                content: randomReply,
+                timestamp: new Date(),
+                sender: 'customer'
+            };
+            
+            messages.push(replyMessage);
+            
+            // 更新客户信息
+            const customer = customers.find(c => c.id === currentCustomerId);
+            if (customer) {
+                customer.lastMessage = randomReply;
+                customer.lastMessageTime = new Date();
+                customer.unreadCount = 0; // 当前对话不增加未读数
+            }
+            
+            renderMessages();
+            renderCustomersList();
+        }
+        
+        // 过滤客户
+        function filterCustomers(keyword) {
+            const filtered = customers.filter(customer => 
+                customer.name.toLowerCase().includes(keyword.toLowerCase())
+            );
+            
+            const container = document.getElementById('customersList');
+            const filteredHTML = filtered.map(customer => `
+                <div class="customer-item ${customer.id === currentCustomerId ? 'active' : ''}" 
+                     onclick="selectCustomer('${customer.id}')">
+                    <div class="customer-name">
+                        ${customer.name}
+                        ${customer.unreadCount > 0 ? `<span class="unread-badge">${customer.unreadCount}</span>` : ''}
+                    </div>
+                    <div class="customer-last-message">${customer.lastMessage}</div>
+                    <div class="customer-time">${formatTime(customer.lastMessageTime)}</div>
+                </div>
+            `).join('');
+            
+            container.innerHTML = filteredHTML;
+        }
+        
+        // 格式化时间
+        function formatTime(date) {
+            const now = new Date();
+            const diff = now - date;
+            
+            if (diff < 60 * 1000) {
+                return '刚刚';
+            } else if (diff < 60 * 60 * 1000) {
+                return Math.floor(diff / (60 * 1000)) + '分钟前';
+            } else if (diff < 24 * 60 * 60 * 1000) {
+                return Math.floor(diff / (60 * 60 * 1000)) + '小时前';
+            } else {
+                return date.toLocaleDateString();
+            }
+        }
+    </script>
+</body>
+</html>

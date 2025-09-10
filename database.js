@@ -20,6 +20,49 @@ class Database {
     }
     
     initTestData() {
+        // 尝试加载完整的测试数据
+        try {
+            const fs = require('fs');
+            const path = require('path');
+            const testDataPath = path.join(__dirname, 'data', 'test-data.json');
+            
+            if (fs.existsSync(testDataPath)) {
+                const testData = JSON.parse(fs.readFileSync(testDataPath, 'utf8'));
+                
+                // 加载用户数据
+                testData.users.forEach(([id, user]) => {
+                    this.users.set(id, user);
+                });
+                
+                // 加载店铺数据
+                testData.shops.forEach(([id, shop]) => {
+                    this.shops.set(id, shop);
+                });
+                
+                // 加载用户-店铺关系
+                testData.userShops.forEach(([userId, shops]) => {
+                    this.userShops.set(userId, shops);
+                });
+                
+                // 加载会话数据
+                if (testData.sessions) {
+                    testData.sessions.forEach(([id, session]) => {
+                        this.sessions.set(id, session);
+                    });
+                }
+                
+                console.log(`✅ 已加载完整测试数据 - 用户: ${this.users.size}, 店铺: ${this.shops.size}`);
+                return;
+            }
+        } catch (error) {
+            console.log('⚠️ 无法加载完整测试数据，使用默认数据:', error.message);
+        }
+        
+        // 如果无法加载完整数据，使用原来的基础测试数据
+        this.createBasicTestData();
+    }
+    
+    createBasicTestData() {
         // 创建超级管理员
         const superAdminId = 'admin_' + Date.now();
         this.users.set(superAdminId, {

@@ -185,6 +185,99 @@
             padding: 0;
         }
 
+        .search-section {
+            padding: 15px 20px;
+            background: white;
+            border-bottom: 1px solid #f0f0f0;
+            position: sticky;
+            top: 60px;
+            z-index: 10;
+        }
+
+        .search-box {
+            position: relative;
+            width: 100%;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 12px 45px 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 25px;
+            font-size: 14px;
+            background: #f8f9fa;
+            transition: all 0.3s ease;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #007AFF;
+            background: white;
+            box-shadow: 0 0 10px rgba(0, 122, 255, 0.1);
+        }
+
+        .search-icon {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #666;
+        }
+
+        .shops-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+            padding: 15px 20px;
+            background: white;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .stats-item {
+            text-align: center;
+            padding: 15px 10px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 10px;
+        }
+
+        .stats-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007AFF;
+            margin-bottom: 5px;
+        }
+
+        .stats-label {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .shops-list {
+            padding: 0;
+        }
+
+        .shop-card {
+            background: white;
+            margin: 10px 20px;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border-left: 4px solid #007AFF;
+            transition: all 0.3s ease;
+        }
+
+        .shop-card:active {
+            transform: scale(0.98);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        }
+
+        .shop-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            position: relative;
+        }
+
         .shop-item {
             display: flex;
             align-items: center;
@@ -210,10 +303,12 @@
             font-weight: bold;
             font-size: 18px;
             margin-right: 15px;
+            flex-shrink: 0;
         }
 
         .shop-info {
             flex: 1;
+            min-width: 0;
         }
 
         .shop-name {
@@ -221,11 +316,314 @@
             font-weight: 600;
             color: #333;
             margin-bottom: 5px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         .shop-domain {
             font-size: 14px;
             color: #666;
+            margin-bottom: 3px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .shop-role {
+            font-size: 12px;
+            color: #007AFF;
+            font-weight: 500;
+        }
+
+        .shop-status-badge {
+            position: absolute;
+            top: 0;
+            right: 0;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+
+        .status-approved, .status-active {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-rejected {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status-suspended {
+            background: #e2e3e5;
+            color: #41464b;
+            border: 1px solid #d6d8db;
+        }
+
+        .shop-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+            margin: 15px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 20px;
+            font-weight: bold;
+            color: #007AFF;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: #666;
+        }
+
+        .shop-description {
+            font-size: 14px;
+            color: #666;
+            line-height: 1.4;
+            margin: 10px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .shop-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 15px;
+        }
+
+        .action-btn {
+            flex: 1;
+            min-width: calc(50% - 4px);
+            padding: 10px 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+
+        .btn-primary {
+            background: #007AFF;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #0056CC;
+        }
+
+        .btn-secondary {
+            background: #6C757D;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #545B62;
+        }
+
+        .btn-success {
+            background: #28A745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #1E7E34;
+        }
+
+        .btn-warning {
+            background: #FFC107;
+            color: #212529;
+        }
+
+        .btn-warning:hover {
+            background: #E0A800;
+        }
+
+        .btn-info {
+            background: #17A2B8;
+            color: white;
+        }
+
+        .btn-info:hover {
+            background: #117A8B;
+        }
+
+        .shop-meta {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #e9ecef;
+        }
+
+        .shop-created, .shop-updated {
+            font-size: 12px;
+            color: #868e96;
+            margin-bottom: 3px;
+        }
+
+        /* 加载和状态样式 */
+        .loading-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #007AFF;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            font-size: 14px;
+        }
+
+        .error-state, .empty-state, .no-results-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 20px;
+            text-align: center;
+        }
+
+        .error-icon, .empty-icon, .no-results-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+
+        .error-message, .empty-message, .no-results-message {
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+        .empty-description {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .retry-btn, .create-shop-btn {
+            background: #007AFF;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .create-shop-btn {
+            border-radius: 25px;
+            padding: 15px 30px;
+            font-size: 16px;
+        }
+
+        /* 悬浮按钮 */
+        .floating-action {
+            position: fixed;
+            bottom: 80px;
+            right: 20px;
+            z-index: 100;
+        }
+
+        .fab-btn {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #007AFF 0%, #0056CC 100%);
+            color: white;
+            border: none;
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(0, 122, 255, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .fab-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .refresh-btn {
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+
+        /* Toast 样式 */
+        .toast {
+            position: fixed;
+            top: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 25px;
+            font-size: 14px;
+            z-index: 1000;
+            animation: toastShow 0.3s ease;
+        }
+
+        .toast-success {
+            background: rgba(40, 167, 69, 0.9);
+        }
+
+        .toast-error {
+            background: rgba(220, 53, 69, 0.9);
+        }
+
+        @keyframes toastShow {
+            from {
+                opacity: 0;
+                transform: translateX(-50%) translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
         }
 
         .unread-badge {
@@ -538,9 +936,46 @@
             <div class="page" id="shopsPage">
                 <div class="page-header">
                     <div class="page-title">店铺管理</div>
+                    <button class="refresh-btn" onclick="mobileShopManager.refreshShops()">🔄</button>
                 </div>
-                <div class="page-content">
-                    <div class="loading">正在加载店铺...</div>
+                
+                <!-- 搜索栏 -->
+                <div class="search-section">
+                    <div class="search-box">
+                        <input type="text" id="shopSearchInput" class="search-input" placeholder="搜索店铺名称或域名...">
+                        <div class="search-icon">🔍</div>
+                    </div>
+                </div>
+
+                <!-- 统计信息 -->
+                <div class="shops-stats">
+                    <div class="stats-item">
+                        <div class="stats-number" id="totalShops">0</div>
+                        <div class="stats-label">总店铺数</div>
+                    </div>
+                    <div class="stats-item">
+                        <div class="stats-number" id="activeShops">0</div>
+                        <div class="stats-label">运行中</div>
+                    </div>
+                    <div class="stats-item">
+                        <div class="stats-number" id="pendingShops">0</div>
+                        <div class="stats-label">审核中</div>
+                    </div>
+                </div>
+
+                <!-- 店铺列表容器 -->
+                <div class="page-content" id="shopsListContainer">
+                    <div class="loading-state">
+                        <div class="loading-spinner"></div>
+                        <div class="loading-text">正在加载店铺...</div>
+                    </div>
+                </div>
+
+                <!-- 创建店铺按钮 -->
+                <div class="floating-action">
+                    <button class="fab-btn" onclick="mobileShopManager.createNewShop()" title="创建新店铺">
+                        ➕
+                    </button>
                 </div>
             </div>
 
@@ -635,6 +1070,10 @@
                         break;
                     case 'shops':
                         ShopManager.loadShops();
+                        // 如果存在新的店铺管理器，优先使用
+                        if (window.mobileShopManager) {
+                            window.mobileShopManager.init();
+                        }
                         break;
                     case 'settings':
                         SettingsManager.loadSettings();
@@ -959,11 +1398,19 @@
         // 店铺管理类
         class ShopManager {
             static async loadShops() {
+                // 使用新的 MobileShopManager
+                if (window.mobileShopManager) {
+                    await window.mobileShopManager.loadShops();
+                    return;
+                }
+                
+                // 后备方案
                 try {
                     const response = await fetch('/api/admin/shops');
                     if (response.ok) {
                         currentShops = await response.json();
                         this.updateShopStats();
+                        this.renderShopsPage();
                     }
                 } catch (error) {
                     console.error('加载店铺失败:', error);
@@ -977,11 +1424,108 @@
                         }
                     ];
                     this.updateShopStats();
+                    this.renderShopsPage();
                 }
             }
 
             static updateShopStats() {
+                // 更新首页统计
                 document.getElementById('totalShops').textContent = currentShops.length;
+                
+                // 更新店铺页面统计
+                const totalShopsElem = document.getElementById('totalShops');
+                const activeShopsElem = document.getElementById('activeShops');
+                const pendingShopsElem = document.getElementById('pendingShops');
+                
+                if (totalShopsElem) totalShopsElem.textContent = currentShops.length;
+                
+                const activeCount = currentShops.filter(shop => 
+                    shop.approvalStatus === 'approved' || shop.approvalStatus === 'active'
+                ).length;
+                if (activeShopsElem) activeShopsElem.textContent = activeCount;
+                
+                const pendingCount = currentShops.filter(shop => 
+                    shop.approvalStatus === 'pending'
+                ).length;
+                if (pendingShopsElem) pendingShopsElem.textContent = pendingCount;
+            }
+
+            static renderShopsPage() {
+                const container = document.getElementById('shopsListContainer');
+                if (!container) return;
+
+                if (currentShops.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon">🏪</div>
+                            <div class="empty-message">暂无店铺</div>
+                            <div class="empty-description">您还没有创建任何店铺</div>
+                            <button class="create-shop-btn" onclick="window.location.href='/admin'">
+                                创建第一个店铺
+                            </button>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const shopsHTML = currentShops.map(shop => `
+                    <div class="shop-card">
+                        <div class="shop-header">
+                            <div class="shop-avatar">
+                                ${shop.name ? shop.name.charAt(0).toUpperCase() : 'S'}
+                            </div>
+                            <div class="shop-info">
+                                <div class="shop-name">${shop.name || '未命名店铺'}</div>
+                                <div class="shop-domain">${shop.domain || '未设置域名'}</div>
+                                <div class="shop-role">店主</div>
+                            </div>
+                            <div class="shop-status-badge status-active">
+                                运行中
+                            </div>
+                        </div>
+                        
+                        <div class="shop-stats">
+                            <div class="stat-item">
+                                <div class="stat-number">0</div>
+                                <div class="stat-label">待回复</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-number">0</div>
+                                <div class="stat-label">今日对话</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-number">0</div>
+                                <div class="stat-label">在线客服</div>
+                            </div>
+                        </div>
+
+                        <div class="shop-actions">
+                            <button class="action-btn btn-primary" onclick="ShopManager.viewMessages('${shop.id}')">
+                                💬 查看消息
+                            </button>
+                            <button class="action-btn btn-secondary" onclick="ShopManager.manageShop('${shop.id}')">
+                                ⚙️ 管理店铺
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+
+                container.innerHTML = `
+                    <div class="shops-list">
+                        ${shopsHTML}
+                    </div>
+                `;
+            }
+
+            static viewMessages(shopId) {
+                window.currentChatShop = shopId;
+                window.switchPage('messages');
+            }
+
+            static manageShop(shopId) {
+                console.log('管理店铺:', shopId);
+                // 可以跳转到桌面版管理页面
+                window.location.href = '/admin';
             }
         }
 
@@ -1038,6 +1582,24 @@
         // 初始化应用
         document.addEventListener('DOMContentLoaded', function() {
             console.log('手机端客服管理系统启动');
+            
+            // 加载店铺管理器脚本
+            const script = document.createElement('script');
+            script.src = '/mobile-shop-manager.js';
+            script.onload = function() {
+                console.log('店铺管理器脚本加载完成');
+                if (window.mobileShopManager) {
+                    // 如果当前在店铺页面，初始化店铺管理器
+                    const currentPage = document.querySelector('.page.active');
+                    if (currentPage && currentPage.id === 'shopsPage') {
+                        window.mobileShopManager.init();
+                    }
+                }
+            };
+            script.onerror = function() {
+                console.warn('店铺管理器脚本加载失败，使用内置管理器');
+            };
+            document.head.appendChild(script);
             
             // 连接WebSocket
             SocketManager.connect();

@@ -1,0 +1,1594 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>客服管理系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* ============ 登录界面 ============ */
+        .login-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+
+        .login-box {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .login-header h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .login-header p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e1e5e9;
+            border-radius: 12px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 15px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .error-message {
+            background: #fee;
+            color: #c33;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #c33;
+        }
+
+        .success-message {
+            background: #efe;
+            color: #393;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #393;
+        }
+
+        #testAccounts {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 14px;
+            color: #666;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        /* ============ 主应用界面 ============ */
+        .app-container {
+            display: none;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* 顶部状态栏 */
+        .status-bar {
+            height: 60px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            color: white;
+            font-weight: 600;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .app-title {
+            font-size: 18px;
+        }
+
+        .user-menu {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .user-badge {
+            background: rgba(255,255,255,0.2);
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            border: none;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .user-badge:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        /* 主内容区域 */
+        .main-content {
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .page {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow-y: auto;
+            background: white;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+        }
+
+        .page.active {
+            transform: translateX(0);
+        }
+
+        /* 首页样式 */
+        .home-page {
+            padding: 20px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px 20px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .stat-number {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .quick-actions {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.08);
+            margin-bottom: 20px;
+        }
+
+        .quick-actions h3 {
+            margin-bottom: 15px;
+            color: #333;
+            font-size: 18px;
+        }
+
+        .action-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .action-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            background: #f8f9fa;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            color: #333;
+        }
+
+        .action-btn:hover {
+            background: #e9ecef;
+            transform: translateY(-2px);
+        }
+
+        .action-icon {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+
+        .action-text {
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        /* 页面头部 */
+        .page-header {
+            height: 60px;
+            background: white;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            border-bottom: 1px solid #e9ecef;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .back-btn {
+            background: none;
+            border: none;
+            font-size: 20px;
+            color: #007AFF;
+            cursor: pointer;
+            margin-right: 15px;
+        }
+
+        .page-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            flex: 1;
+        }
+
+        .page-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        /* 店铺列表 */
+        .shops-page {
+            padding: 0;
+        }
+
+        .shop-list {
+            padding: 0;
+        }
+
+        .shop-item {
+            display: flex;
+            align-items: center;
+            padding: 20px;
+            border-bottom: 1px solid #f0f0f0;
+            background: white;
+            transition: background 0.3s;
+        }
+
+        .shop-item:hover {
+            background: #f8f9fa;
+        }
+
+        .shop-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 20px;
+            margin-right: 15px;
+        }
+
+        .shop-info {
+            flex: 1;
+        }
+
+        .shop-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .shop-domain {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .shop-status {
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 12px;
+            color: white;
+        }
+
+        .shop-status.active { background: #34C759; }
+        .shop-status.pending { background: #FF9500; }
+        .shop-status.expired { background: #FF3B30; }
+
+        .shop-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .shop-btn {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .shop-btn.primary {
+            background: #007AFF;
+            color: white;
+        }
+
+        .shop-btn.success {
+            background: #34C759;
+            color: white;
+        }
+
+        .shop-btn.warning {
+            background: #FF9500;
+            color: white;
+        }
+
+        /* 消息列表样式 */
+        .conversation-item {
+            display: flex;
+            align-items: center;
+            padding: 15px 20px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .conversation-item:hover {
+            background: #f8f9fa;
+        }
+
+        .user-avatar {
+            width: 45px;
+            height: 45px;
+            border-radius: 22.5px;
+            background: #34C759;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            margin-right: 15px;
+        }
+
+        .conversation-info {
+            flex: 1;
+        }
+
+        .conversation-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .user-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .message-time {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .last-message {
+            font-size: 14px;
+            color: #666;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .unread-badge {
+            background: #FF3B30;
+            color: white;
+            border-radius: 12px;
+            min-width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        /* 聊天界面 */
+        .chat-page {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .message {
+            margin-bottom: 15px;
+        }
+
+        .message-content {
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            font-size: 16px;
+            line-height: 1.4;
+        }
+
+        .message.user .message-content {
+            background: #e9ecef;
+            color: #333;
+            margin-left: auto;
+            border-bottom-right-radius: 5px;
+        }
+
+        .message.admin .message-content {
+            background: #007AFF;
+            color: white;
+            margin-right: auto;
+            border-bottom-left-radius: 5px;
+        }
+
+        .chat-input {
+            background: white;
+            padding: 15px 20px;
+            border-top: 1px solid #e9ecef;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .message-input {
+            flex: 1;
+            border: 1px solid #ddd;
+            border-radius: 25px;
+            padding: 12px 16px;
+            font-size: 16px;
+            outline: none;
+        }
+
+        .send-btn {
+            background: #007AFF;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 18px;
+        }
+
+        /* 底部导航栏 */
+        .bottom-nav {
+            height: 80px;
+            background: white;
+            border-top: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            padding: 10px 0;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            transition: color 0.3s;
+            position: relative;
+            color: #666;
+        }
+
+        .nav-item.active {
+            color: #007AFF;
+        }
+
+        .nav-icon {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .nav-label {
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .nav-badge {
+            position: absolute;
+            top: -5px;
+            right: -10px;
+            background: #FF3B30;
+            color: white;
+            border-radius: 10px;
+            min-width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        /* 模态框样式 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 15px;
+            width: 100%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            color: #333;
+            font-size: 18px;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 28px;
+            cursor: pointer;
+            color: #666;
+            padding: 0;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .modal-footer {
+            padding: 20px;
+            border-top: 1px solid #eee;
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            flex: 1;
+        }
+
+        .btn-primary {
+            background: #007AFF;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            flex: 1;
+        }
+
+        /* 加载和空状态 */
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 200px;
+            color: #666;
+            font-size: 16px;
+        }
+
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 200px;
+            color: #666;
+            text-align: center;
+        }
+
+        .empty-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+            opacity: 0.3;
+        }
+
+        /* 管理员专用样式 */
+        .admin-actions {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+            color: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .admin-actions h3 {
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+
+        .admin-btn {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: none;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .admin-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        /* 响应式调整 */
+        @media (max-width: 480px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .action-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .shop-actions {
+                flex-direction: row;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 登录界面 -->
+    <div id="loginContainer" class="login-container">
+        <div class="login-box">
+            <div class="login-header">
+                <h1>客服管理系统</h1>
+                <p>统一管理多店铺客服服务</p>
+            </div>
+
+            <div id="errorMessage" class="error-message" style="display: none;"></div>
+            <div id="successMessage" class="success-message" style="display: none;"></div>
+
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="username">用户名</label>
+                    <input type="text" id="username" name="username" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">密码</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+
+                <button type="submit" class="btn" id="loginBtn">登录</button>
+            </form>
+
+            <div id="testAccounts">
+                <p><strong>测试账号：</strong></p>
+                <p>超级管理员: admin / admin123</p>
+                <p>店主账号: shop_owner / 123456</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 主应用界面 -->
+    <div id="appContainer" class="app-container">
+        <!-- 顶部状态栏 -->
+        <div class="status-bar">
+            <div class="app-title">客服管理系统</div>
+            <div class="user-menu">
+                <button class="user-badge" id="userInfo" onclick="showProfileModal()">加载中...</button>
+            </div>
+        </div>
+
+        <!-- 主内容区域 -->
+        <div class="main-content">
+            <!-- 首页 -->
+            <div class="page active" id="homePage">
+                <div class="home-page">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-number" id="totalShops">0</div>
+                            <div class="stat-label">管理店铺</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="totalMessages">0</div>
+                            <div class="stat-label">未读消息</div>
+                        </div>
+                    </div>
+                    
+                    <!-- 管理员专用功能 -->
+                    <div class="admin-actions" id="adminActions" style="display: none;">
+                        <h3>🔧 管理员功能</h3>
+                        <button class="admin-btn" onclick="showAdminPanel()">管理面板</button>
+                        <button class="admin-btn" onclick="showReviewPanel()">审核管理</button>
+                        <button class="admin-btn" onclick="showPromotionModal()">推广管理</button>
+                    </div>
+                    
+                    <div class="quick-actions">
+                        <h3>快捷操作</h3>
+                        <div class="action-grid">
+                            <button class="action-btn" onclick="switchPage('messages')">
+                                <div class="action-icon">💬</div>
+                                <div class="action-text">查看消息</div>
+                            </button>
+                            <button class="action-btn" onclick="switchPage('shops')">
+                                <div class="action-icon">🏪</div>
+                                <div class="action-text">管理店铺</div>
+                            </button>
+                            <button class="action-btn" onclick="showCreateShopModal()">
+                                <div class="action-icon">➕</div>
+                                <div class="action-text">创建店铺</div>
+                            </button>
+                            <button class="action-btn" onclick="switchPage('settings')">
+                                <div class="action-icon">⚙️</div>
+                                <div class="action-text">系统设置</div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 消息页面 -->
+            <div class="page" id="messagesPage">
+                <div class="page-header">
+                    <button class="back-btn" onclick="goBack()">‹</button>
+                    <div class="page-title" id="messagesTitle">消息</div>
+                </div>
+                <div id="messagesContent">
+                    <div class="loading">正在加载...</div>
+                </div>
+            </div>
+
+            <!-- 店铺页面 -->
+            <div class="page shops-page" id="shopsPage">
+                <div class="page-header">
+                    <button class="back-btn" onclick="goBack()">‹</button>
+                    <div class="page-title">店铺管理</div>
+                    <div class="page-actions">
+                        <button class="shop-btn primary" onclick="showCreateShopModal()">创建</button>
+                    </div>
+                </div>
+                <div id="shopsContent">
+                    <div class="loading">正在加载店铺...</div>
+                </div>
+            </div>
+
+            <!-- 聊天页面 -->
+            <div class="page chat-page" id="chatPage">
+                <div class="page-header">
+                    <button class="back-btn" onclick="goBack()">‹</button>
+                    <div class="page-title" id="chatTitle">聊天</div>
+                </div>
+                <div class="chat-messages" id="chatMessages">
+                    <div class="loading">正在加载消息...</div>
+                </div>
+                <div class="chat-input">
+                    <input type="text" class="message-input" id="messageInput" placeholder="输入消息...">
+                    <button class="send-btn" onclick="sendMessage()">➤</button>
+                </div>
+            </div>
+
+            <!-- 设置页面 -->
+            <div class="page" id="settingsPage">
+                <div class="page-header">
+                    <button class="back-btn" onclick="goBack()">‹</button>
+                    <div class="page-title">设置</div>
+                </div>
+                <div style="padding: 20px;">
+                    <div class="quick-actions">
+                        <h3>账户设置</h3>
+                        <button class="action-btn" onclick="showProfileModal()" style="margin-bottom: 10px;">
+                            <div class="action-icon">👤</div>
+                            <div class="action-text">个人资料</div>
+                        </button>
+                        <button class="action-btn" onclick="logout()" style="margin-bottom: 10px;">
+                            <div class="action-icon">🚪</div>
+                            <div class="action-text">退出登录</div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 底部导航栏 -->
+        <div class="bottom-nav">
+            <div class="nav-item active" data-page="home" onclick="switchPage('home')">
+                <div class="nav-icon">🏠</div>
+                <div class="nav-label">首页</div>
+            </div>
+            <div class="nav-item" data-page="messages" onclick="switchPage('messages')">
+                <div class="nav-icon">💬</div>
+                <div class="nav-label">消息</div>
+                <div class="nav-badge" id="messagesBadge" style="display: none;">0</div>
+            </div>
+            <div class="nav-item" data-page="shops" onclick="switchPage('shops')">
+                <div class="nav-icon">🏪</div>
+                <div class="nav-label">店铺</div>
+            </div>
+            <div class="nav-item" data-page="settings" onclick="switchPage('settings')">
+                <div class="nav-icon">⚙️</div>
+                <div class="nav-label">设置</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 创建店铺模态框 -->
+    <div id="createShopModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>🏪 创建店铺</h3>
+                <button class="close-btn" onclick="hideCreateShopModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="createShopForm">
+                    <div class="form-group">
+                        <label for="shopName">店铺名称</label>
+                        <input type="text" id="shopName" name="shopName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="shopDomain">店铺域名</label>
+                        <input type="text" id="shopDomain" name="shopDomain" placeholder="example.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="shopDescription">店铺描述</label>
+                        <textarea id="shopDescription" name="shopDescription" rows="3" placeholder="请描述您的网站业务内容" required></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="hideCreateShopModal()">取消</button>
+                <button class="btn-primary" onclick="createShop()">创建</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 个人资料模态框 -->
+    <div id="profileModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>👤 个人资料</h3>
+                <button class="close-btn" onclick="hideProfileModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="profileContent">
+                <div class="loading">正在加载...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 管理员面板模态框 -->
+    <div id="adminPanelModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>🔧 管理面板</h3>
+                <button class="close-btn" onclick="hideAdminPanel()">&times;</button>
+            </div>
+            <div class="modal-body" id="adminPanelContent">
+                <div class="loading">正在加载...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 审核管理模态框 -->
+    <div id="reviewPanelModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>📋 审核管理</h3>
+                <button class="close-btn" onclick="hideReviewPanel()">&times;</button>
+            </div>
+            <div class="modal-body" id="reviewPanelContent">
+                <div class="loading">正在加载...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let currentUser = null;
+        let currentShops = [];
+        let currentConversations = [];
+        let currentChatUser = null;
+        let currentChatShop = null;
+        let pageStack = ['home'];
+        let messageCounters = {};
+        let totalUnreadCount = 0;
+        let sessionId = null;
+
+        // 页面管理系统
+        class PageManager {
+            static switchPage(pageName, params = {}) {
+                // 隐藏当前页面
+                document.querySelectorAll('.page.active').forEach(page => {
+                    page.classList.remove('active');
+                });
+
+                // 显示目标页面
+                const targetPage = document.getElementById(pageName + 'Page');
+                if (targetPage) {
+                    targetPage.classList.add('active');
+                    
+                    // 更新导航栏状态
+                    document.querySelectorAll('.nav-item').forEach(item => {
+                        item.classList.remove('active');
+                    });
+                    document.querySelector(`[data-page="${pageName}"]`)?.classList.add('active');
+
+                    // 更新页面栈
+                    if (pageStack[pageStack.length - 1] !== pageName) {
+                        pageStack.push(pageName);
+                    }
+
+                    // 根据页面类型加载数据
+                    this.loadPageData(pageName, params);
+                }
+            }
+
+            static goBack() {
+                if (pageStack.length > 1) {
+                    pageStack.pop();
+                    const previousPage = pageStack[pageStack.length - 1];
+                    this.switchPage(previousPage);
+                }
+            }
+
+            static loadPageData(pageName, params) {
+                switch (pageName) {
+                    case 'home':
+                        HomeManager.loadData();
+                        break;
+                    case 'messages':
+                        MessageManager.loadShopList();
+                        break;
+                    case 'shops':
+                        ShopManager.loadShops();
+                        break;
+                    case 'chat':
+                        MessageManager.loadChatMessages(params.shopId, params.userId);
+                        break;
+                }
+            }
+        }
+
+        // 首页管理
+        class HomeManager {
+            static async loadData() {
+                try {
+                    // 加载统计数据
+                    const response = await fetch('/api/admin/stats', {
+                        headers: { 'X-Session-Id': sessionId }
+                    });
+                    
+                    if (response.ok) {
+                        const stats = await response.json();
+                        document.getElementById('totalShops').textContent = stats.totalShops || 0;
+                        document.getElementById('totalMessages').textContent = stats.unreadMessages || 0;
+                    }
+
+                    // 显示管理员功能（如果是超级管理员）
+                    if (currentUser && currentUser.role === 'super_admin') {
+                        document.getElementById('adminActions').style.display = 'block';
+                    }
+                } catch (error) {
+                    console.error('加载首页数据失败:', error);
+                }
+            }
+        }
+
+        // 消息管理系统 - 复用之前开发的代码
+        class MessageManager {
+            static loadShopList() {
+                const content = document.getElementById('messagesContent');
+                const title = document.getElementById('messagesTitle');
+                
+                title.textContent = '店铺列表';
+                content.innerHTML = '<div class="loading">正在加载店铺...</div>';
+
+                setTimeout(() => {
+                    if (currentShops.length === 0) {
+                        content.innerHTML = `
+                            <div class="empty-state">
+                                <div class="empty-icon">🏪</div>
+                                <div>暂无店铺</div>
+                                <small>请先创建店铺</small>
+                            </div>
+                        `;
+                        return;
+                    }
+
+                    const shopListHTML = currentShops.map(shop => {
+                        const unreadCount = messageCounters[shop.id] || 0;
+                        return `
+                            <div class="shop-item" onclick="MessageManager.viewShopConversations('${shop.id}')">
+                                <div class="shop-avatar">${shop.name.charAt(0)}</div>
+                                <div class="shop-info">
+                                    <div class="shop-name">${shop.name}</div>
+                                    <div class="shop-domain">${shop.domain}</div>
+                                </div>
+                                ${unreadCount > 0 ? `<div class="unread-badge">${unreadCount}</div>` : ''}
+                            </div>
+                        `;
+                    }).join('');
+
+                    content.innerHTML = `<div class="shop-list">${shopListHTML}</div>`;
+                }, 500);
+            }
+
+            static viewShopConversations(shopId) {
+                const shop = currentShops.find(s => s.id === shopId);
+                if (!shop) return;
+
+                const content = document.getElementById('messagesContent');
+                const title = document.getElementById('messagesTitle');
+                
+                title.textContent = shop.name;
+                content.innerHTML = '<div class="loading">正在加载对话...</div>';
+
+                // 模拟加载对话列表
+                setTimeout(() => {
+                    const mockConversations = [
+                        {
+                            userId: 'user_123',
+                            userName: '用户123',
+                            lastMessage: '你好，我想咨询一下产品信息',
+                            lastMessageTime: new Date(),
+                            unreadCount: 2
+                        }
+                    ];
+
+                    if (mockConversations.length === 0) {
+                        content.innerHTML = `
+                            <div class="empty-state">
+                                <div class="empty-icon">💬</div>
+                                <div>暂无对话</div>
+                                <small>等待用户发起对话</small>
+                            </div>
+                        `;
+                        return;
+                    }
+
+                    const conversationListHTML = mockConversations.map(conv => {
+                        return `
+                            <div class="conversation-item" onclick="MessageManager.openChat('${shopId}', '${conv.userId}')">
+                                <div class="user-avatar">${conv.userName.charAt(0)}</div>
+                                <div class="conversation-info">
+                                    <div class="conversation-meta">
+                                        <div class="user-name">${conv.userName}</div>
+                                        <div class="message-time">${this.formatTime(conv.lastMessageTime)}</div>
+                                    </div>
+                                    <div class="last-message">${conv.lastMessage}</div>
+                                </div>
+                                ${conv.unreadCount > 0 ? `<div class="unread-badge">${conv.unreadCount}</div>` : ''}
+                            </div>
+                        `;
+                    }).join('');
+
+                    content.innerHTML = conversationListHTML;
+                }, 500);
+            }
+
+            static openChat(shopId, userId) {
+                PageManager.switchPage('chat', { shopId, userId });
+            }
+
+            static loadChatMessages(shopId, userId) {
+                currentChatShop = shopId;
+                currentChatUser = userId;
+                
+                const shop = currentShops.find(s => s.id === shopId);
+                const title = document.getElementById('chatTitle');
+                const messagesContainer = document.getElementById('chatMessages');
+                
+                title.textContent = `${shop?.name || '店铺'} - 用户${userId}`;
+                messagesContainer.innerHTML = '<div class="loading">正在加载消息...</div>';
+
+                // 模拟加载聊天消息
+                setTimeout(() => {
+                    const mockMessages = [
+                        {
+                            id: '1',
+                            content: '你好，我想咨询一下产品信息',
+                            sender: 'user',
+                            timestamp: new Date(Date.now() - 60000)
+                        },
+                        {
+                            id: '2',
+                            content: '您好！请问您想了解哪方面的产品信息呢？',
+                            sender: 'admin',
+                            timestamp: new Date()
+                        }
+                    ];
+
+                    this.renderChatMessages(mockMessages);
+                }, 500);
+            }
+
+            static renderChatMessages(messages) {
+                const messagesContainer = document.getElementById('chatMessages');
+                
+                if (messages.length === 0) {
+                    messagesContainer.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon">💭</div>
+                            <div>暂无消息</div>
+                            <small>开始对话吧</small>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const messagesHTML = messages.map(message => {
+                    const senderClass = message.sender === 'user' ? 'user' : 'admin';
+                    return `
+                        <div class="message ${senderClass}">
+                            <div class="message-content">${message.content}</div>
+                            <div class="message-time">${this.formatTime(message.timestamp)}</div>
+                        </div>
+                    `;
+                }).join('');
+
+                messagesContainer.innerHTML = messagesHTML;
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+
+            static formatTime(timestamp) {
+                const date = new Date(timestamp);
+                const now = new Date();
+                const diff = now - date;
+
+                if (diff < 60000) {
+                    return '刚刚';
+                } else if (diff < 3600000) {
+                    return `${Math.floor(diff / 60000)}分钟前`;
+                } else if (date.toDateString() === now.toDateString()) {
+                    return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+                } else {
+                    return date.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' });
+                }
+            }
+        }
+
+        // 店铺管理
+        class ShopManager {
+            static async loadShops() {
+                const content = document.getElementById('shopsContent');
+                content.innerHTML = '<div class="loading">正在加载店铺...</div>';
+
+                console.log('开始加载店铺, sessionId:', sessionId);
+
+                try {
+                    const response = await fetch('/api/admin/shops', {
+                        headers: { 'X-Session-Id': sessionId }
+                    });
+
+                    console.log('API响应状态:', response.status, response.statusText);
+
+                    if (response.ok) {
+                        currentShops = await response.json();
+                        console.log('收到店铺数据:', currentShops.length, '个店铺');
+                        console.log('店铺数据预览:', currentShops.slice(0, 2));
+                        this.renderShops(currentShops);
+                    } else {
+                        const errorText = await response.text();
+                        console.error('API响应错误:', errorText);
+                        content.innerHTML = '<div class="empty-state"><div class="empty-icon">❌</div><div>加载失败: ' + response.status + '</div></div>';
+                    }
+                } catch (error) {
+                    console.error('加载店铺失败:', error);
+                    content.innerHTML = '<div class="empty-state"><div class="empty-icon">❌</div><div>网络错误</div></div>';
+                }
+            }
+
+            static renderShops(shops) {
+                const content = document.getElementById('shopsContent');
+
+                console.log('开始渲染店铺列表，店铺数量:', shops.length);
+
+                if (shops.length === 0) {
+                    content.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon">🏪</div>
+                            <div>暂无店铺</div>
+                            <small>点击创建按钮添加第一个店铺</small>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const shopsHTML = shops.map((shop, index) => {
+                    if (index < 3) {
+                        console.log(`店铺${index}:`, shop.name, shop.domain, shop.approvalStatus);
+                    }
+                    const statusClass = this.getStatusClass(shop.approvalStatus || shop.status);
+                    const statusText = this.getStatusText(shop.approvalStatus || shop.status);
+
+                    return `
+                        <div class="shop-item">
+                            <div class="shop-avatar">${shop.name.charAt(0)}</div>
+                            <div class="shop-info">
+                                <div class="shop-name">${shop.name}</div>
+                                <div class="shop-domain">${shop.domain}</div>
+                                <div class="shop-status ${statusClass}">${statusText}</div>
+                            </div>
+                            <div class="shop-actions">
+                                <button class="shop-btn primary" onclick="ShopManager.manageShop('${shop.id}')">管理</button>
+                                <button class="shop-btn success" onclick="MessageManager.viewShopConversations('${shop.id}')">消息</button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                content.innerHTML = `<div class="shop-list">${shopsHTML}</div>`;
+            }
+
+            static getStatusClass(status) {
+                const statusMap = {
+                    'approved': 'active',
+                    'active': 'active',
+                    'pending': 'pending', 
+                    'expired': 'expired',
+                    'inactive': 'expired',
+                    'rejected': 'expired'
+                };
+                return statusMap[status] || 'pending';
+            }
+
+            static getStatusText(status) {
+                const statusMap = {
+                    'approved': '✅ 已审核',
+                    'active': '✅ 正常',
+                    'pending': '⏳ 待审核',
+                    'expired': '❌ 已过期',
+                    'inactive': '⏸️ 未激活',
+                    'rejected': '❌ 已拒绝'
+                };
+                return statusMap[status] || '未知状态';
+            }
+
+            static manageShop(shopId) {
+                // 店铺管理功能 - 可以跳转到消息页面或显示管理选项
+                MessageManager.viewShopConversations(shopId);
+                PageManager.switchPage('messages');
+            }
+        }
+
+        // 认证管理
+        class AuthManager {
+            static async login(username, password) {
+                try {
+                    const response = await fetch('/api/auth/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password })
+                    });
+
+                    const data = await response.json();
+                    
+                    if (response.ok) {
+                        currentUser = data.user;
+                        sessionId = data.sessionId;
+                        
+                        document.getElementById('loginContainer').style.display = 'none';
+                        document.getElementById('appContainer').style.display = 'flex';
+                        
+                        // 更新用户信息显示
+                        document.getElementById('userInfo').textContent = `${currentUser.username} (${this.getRoleText(currentUser.role)})`;
+                        
+                        // 加载初始数据
+                        HomeManager.loadData();
+                        ShopManager.loadShops();
+                        
+                        return { success: true };
+                    } else {
+                        return { success: false, error: data.error };
+                    }
+                } catch (error) {
+                    return { success: false, error: '网络错误，请稍后重试' };
+                }
+            }
+
+            static getRoleText(role) {
+                const roleMap = {
+                    'super_admin': '超级管理员',
+                    'admin': '管理员',
+                    'user': '店主'
+                };
+                return roleMap[role] || '用户';
+            }
+
+            static logout() {
+                if (confirm('确定要退出登录吗？')) {
+                    currentUser = null;
+                    sessionId = null;
+                    currentShops = [];
+                    
+                    document.getElementById('loginContainer').style.display = 'flex';
+                    document.getElementById('appContainer').style.display = 'none';
+                    
+                    // 重置页面状态
+                    PageManager.switchPage('home');
+                    pageStack = ['home'];
+                }
+            }
+        }
+
+        // 店铺创建
+        async function createShop() {
+            const form = document.getElementById('createShopForm');
+            const formData = new FormData(form);
+            
+            try {
+                const response = await fetch('/api/shops/create', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-Session-Id': sessionId
+                    },
+                    body: JSON.stringify({
+                        name: formData.get('shopName'),
+                        domain: formData.get('shopDomain'),
+                        description: formData.get('shopDescription')
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    alert('店铺创建成功！请等待审核。');
+                    hideCreateShopModal();
+                    form.reset();
+                    ShopManager.loadShops(); // 重新加载店铺列表
+                } else {
+                    alert(data.error || '创建失败，请重试');
+                }
+            } catch (error) {
+                alert('网络错误，请稍后重试');
+            }
+        }
+
+        // 模态框管理
+        function showCreateShopModal() {
+            document.getElementById('createShopModal').style.display = 'flex';
+        }
+
+        function hideCreateShopModal() {
+            document.getElementById('createShopModal').style.display = 'none';
+        }
+
+        function showProfileModal() {
+            const modal = document.getElementById('profileModal');
+            const content = document.getElementById('profileContent');
+            
+            content.innerHTML = `
+                <div style="text-align: center;">
+                    <div style="font-size: 48px; margin-bottom: 15px;">👤</div>
+                    <h3>${currentUser?.username || '未知用户'}</h3>
+                    <p style="color: #666; margin: 10px 0;">${AuthManager.getRoleText(currentUser?.role)}</p>
+                    <p style="color: #666; font-size: 14px;">登录时间: ${new Date().toLocaleString()}</p>
+                </div>
+            `;
+            
+            modal.style.display = 'flex';
+        }
+
+        function hideProfileModal() {
+            document.getElementById('profileModal').style.display = 'none';
+        }
+
+        function showAdminPanel() {
+            document.getElementById('adminPanelModal').style.display = 'flex';
+        }
+
+        function hideAdminPanel() {
+            document.getElementById('adminPanelModal').style.display = 'none';
+        }
+
+        function showReviewPanel() {
+            document.getElementById('reviewPanelModal').style.display = 'flex';
+        }
+
+        function hideReviewPanel() {
+            document.getElementById('reviewPanelModal').style.display = 'none';
+        }
+
+        function showPromotionModal() {
+            alert('推广功能开发中...');
+        }
+
+        // 全局函数
+        function switchPage(pageName) {
+            PageManager.switchPage(pageName);
+        }
+
+        function goBack() {
+            PageManager.goBack();
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (!message || !currentChatShop || !currentChatUser) return;
+
+            // 在界面上显示消息
+            const messagesContainer = document.getElementById('chatMessages');
+            const messageHTML = `
+                <div class="message admin">
+                    <div class="message-content">${message}</div>
+                    <div class="message-time">刚刚</div>
+                </div>
+            `;
+            messagesContainer.insertAdjacentHTML('beforeend', messageHTML);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+            input.value = '';
+        }
+
+        function logout() {
+            AuthManager.logout();
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('客服管理系统启动');
+            
+            // 登录表单处理
+            document.getElementById('loginForm').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const username = document.getElementById('username').value;
+                const password = document.getElementById('password').value;
+                const loginBtn = document.getElementById('loginBtn');
+                
+                loginBtn.disabled = true;
+                loginBtn.textContent = '登录中...';
+                
+                const result = await AuthManager.login(username, password);
+                
+                if (!result.success) {
+                    document.getElementById('errorMessage').textContent = result.error;
+                    document.getElementById('errorMessage').style.display = 'block';
+                }
+                
+                loginBtn.disabled = false;
+                loginBtn.textContent = '登录';
+            });
+
+            // 消息输入框回车发送
+            document.getElementById('messageInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    sendMessage();
+                }
+            });
+
+            // 模态框点击外部关闭
+            document.querySelectorAll('.modal').forEach(modal => {
+                modal.addEventListener('click', function(e) {
+                    if (e.target === this) {
+                        this.style.display = 'none';
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

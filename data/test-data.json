@@ -1,0 +1,470 @@
+{
+  "users": [
+    [
+      "admin_1757521438446_001",
+      {
+        "id": "admin_1757521438446_001",
+        "username": "admin",
+        "password": "YWRtaW4xMjM=",
+        "email": "admin@quicktalk.com",
+        "role": "super_admin",
+        "status": "active",
+        "createdAt": "2025-09-10T16:23:58.447Z",
+        "lastLoginAt": null,
+        "permissions": [
+          "all"
+        ]
+      }
+    ],
+    [
+      "reviewer_1757521438447_001",
+      {
+        "id": "reviewer_1757521438447_001",
+        "username": "reviewer",
+        "password": "cmV2aWV3ZXIxMjM=",
+        "email": "reviewer@quicktalk.com",
+        "role": "reviewer",
+        "status": "active",
+        "createdAt": "2025-09-10T16:23:58.447Z",
+        "lastLoginAt": null,
+        "permissions": [
+          "review_shops",
+          "approve_shops",
+          "reject_shops"
+        ]
+      }
+    ],
+    [
+      "owner_1757521438448_001",
+      {
+        "id": "owner_1757521438448_001",
+        "username": "shop_owner",
+        "password": "MTIzNDU2",
+        "email": "owner@example.com",
+        "role": "shop_owner",
+        "status": "active",
+        "createdAt": "2025-09-10T16:23:58.448Z",
+        "lastLoginAt": null,
+        "permissions": [
+          "manage_own_shops",
+          "create_shops"
+        ]
+      }
+    ],
+    [
+      "owner_1757521438448_002",
+      {
+        "id": "owner_1757521438448_002",
+        "username": "shop_owner2",
+        "password": "MTIzNDU2",
+        "email": "owner2@example.com",
+        "role": "shop_owner",
+        "status": "active",
+        "createdAt": "2025-09-10T16:23:58.448Z",
+        "lastLoginAt": null,
+        "permissions": [
+          "manage_own_shops",
+          "create_shops"
+        ]
+      }
+    ],
+    [
+      "emp_1757521438451_001",
+      {
+        "id": "emp_1757521438451_001",
+        "username": "service001",
+        "password": "MTIzNDU2",
+        "email": "service001@quicktalk.com",
+        "name": "客服小张",
+        "role": "agent",
+        "status": "active",
+        "createdAt": "2025-09-10T16:23:58.451Z",
+        "lastLoginAt": null,
+        "permissions": [
+          "view_chats",
+          "handle_chats"
+        ]
+      }
+    ],
+    [
+      "emp_1757521438451_002",
+      {
+        "id": "emp_1757521438451_002",
+        "username": "service002",
+        "password": "MTIzNDU2",
+        "email": "service002@quicktalk.com",
+        "name": "客服小李",
+        "role": "agent",
+        "status": "active",
+        "createdAt": "2025-09-10T16:23:58.451Z",
+        "lastLoginAt": null,
+        "permissions": [
+          "view_chats",
+          "handle_chats"
+        ]
+      }
+    ],
+    [
+      "emp_1757521438452_003",
+      {
+        "id": "emp_1757521438452_003",
+        "username": "service003",
+        "password": "MTIzNDU2",
+        "email": "service003@quicktalk.com",
+        "name": "客服小王",
+        "role": "agent",
+        "status": "active",
+        "createdAt": "2025-09-10T16:23:58.452Z",
+        "lastLoginAt": null,
+        "permissions": [
+          "view_chats",
+          "handle_chats"
+        ]
+      }
+    ]
+  ],
+  "shops": [
+    [
+      "shop_1757521438449_001",
+      {
+        "id": "shop_1757521438449_001",
+        "name": "科技数码专营店",
+        "domain": "tech.quicktalk.com",
+        "description": "专业的科技数码产品销售店铺，提供优质的客服服务",
+        "ownerId": "owner_1757521438448_001",
+        "status": "approved",
+        "approvalStatus": "approved",
+        "category": "数码科技",
+        "createdAt": "2025-09-01T13:25:33.783Z",
+        "updatedAt": "2025-09-10T16:23:58.449Z",
+        "api_key": "sk_shop_1757521438449_001_3girmdfin75",
+        "apiKeyCreatedAt": "2025-09-10T16:23:58.449Z",
+        "expiresAt": "2026-09-10T16:23:58.449Z",
+        "members": [],
+        "settings": {
+          "autoReply": true,
+          "businessHours": {
+            "enabled": true,
+            "start": "09:00",
+            "end": "18:00",
+            "timezone": "Asia/Shanghai"
+          },
+          "notifications": {
+            "email": true,
+            "sms": false,
+            "webhook": false
+          }
+        }
+      }
+    ],
+    [
+      "shop_1757521438449_002",
+      {
+        "id": "shop_1757521438449_002",
+        "name": "时尚服饰旗舰店",
+        "domain": "fashion.quicktalk.com",
+        "description": "时尚潮流服饰，引领穿搭风尚",
+        "ownerId": "owner_1757521438448_001",
+        "status": "approved",
+        "approvalStatus": "approved",
+        "category": "服装服饰",
+        "createdAt": "2025-09-01T15:35:52.572Z",
+        "updatedAt": "2025-09-10T16:23:58.449Z",
+        "api_key": "sk_shop_1757521438449_002_lmav0wpohhb",
+        "apiKeyCreatedAt": "2025-09-10T16:23:58.449Z",
+        "expiresAt": "2026-09-10T16:23:58.449Z",
+        "members": [],
+        "settings": {
+          "autoReply": true,
+          "businessHours": {
+            "enabled": true,
+            "start": "09:00",
+            "end": "18:00",
+            "timezone": "Asia/Shanghai"
+          },
+          "notifications": {
+            "email": true,
+            "sms": false,
+            "webhook": false
+          }
+        }
+      }
+    ],
+    [
+      "shop_1757521438449_003",
+      {
+        "id": "shop_1757521438449_003",
+        "name": "美食生活馆",
+        "domain": "food.quicktalk.com",
+        "description": "精选美食，品质生活",
+        "ownerId": "owner_1757521438448_001",
+        "status": "pending",
+        "approvalStatus": "pending",
+        "category": "食品饮料",
+        "createdAt": "2025-08-21T03:13:01.790Z",
+        "updatedAt": "2025-09-10T16:23:58.449Z",
+        "api_key": null,
+        "apiKeyCreatedAt": null,
+        "expiresAt": null,
+        "members": [],
+        "settings": {
+          "autoReply": true,
+          "businessHours": {
+            "enabled": true,
+            "start": "09:00",
+            "end": "18:00",
+            "timezone": "Asia/Shanghai"
+          },
+          "notifications": {
+            "email": true,
+            "sms": false,
+            "webhook": false
+          }
+        }
+      }
+    ],
+    [
+      "shop_1757521438449_004",
+      {
+        "id": "shop_1757521438449_004",
+        "name": "家居装饰店",
+        "domain": "home.quicktalk.com",
+        "description": "温馨家居，装点生活",
+        "ownerId": "owner_1757521438448_001",
+        "status": "rejected",
+        "approvalStatus": "rejected",
+        "category": "家居生活",
+        "createdAt": "2025-09-07T02:23:31.093Z",
+        "updatedAt": "2025-09-10T16:23:58.450Z",
+        "api_key": null,
+        "apiKeyCreatedAt": null,
+        "expiresAt": null,
+        "members": [],
+        "settings": {
+          "autoReply": true,
+          "businessHours": {
+            "enabled": true,
+            "start": "09:00",
+            "end": "18:00",
+            "timezone": "Asia/Shanghai"
+          },
+          "notifications": {
+            "email": true,
+            "sms": false,
+            "webhook": false
+          }
+        },
+        "rejectionReason": "店铺信息不完整，请补充营业执照等相关资质文件",
+        "reviewedAt": "2025-09-10T16:23:58.450Z",
+        "reviewedBy": "reviewer_1757521438447_001"
+      }
+    ],
+    [
+      "shop_1757521438450_005",
+      {
+        "id": "shop_1757521438450_005",
+        "name": "运动健身专区",
+        "domain": "sports.quicktalk.com",
+        "description": "运动装备，健康生活",
+        "ownerId": "owner_1757521438448_001",
+        "status": "suspended",
+        "approvalStatus": "suspended",
+        "category": "运动户外",
+        "createdAt": "2025-08-30T04:27:36.053Z",
+        "updatedAt": "2025-09-10T16:23:58.450Z",
+        "api_key": null,
+        "apiKeyCreatedAt": null,
+        "expiresAt": null,
+        "members": [],
+        "settings": {
+          "autoReply": true,
+          "businessHours": {
+            "enabled": true,
+            "start": "09:00",
+            "end": "18:00",
+            "timezone": "Asia/Shanghai"
+          },
+          "notifications": {
+            "email": true,
+            "sms": false,
+            "webhook": false
+          }
+        },
+        "suspensionReason": "用户投诉较多，暂时停用待整改",
+        "suspendedAt": "2025-09-10T16:23:58.450Z",
+        "suspendedBy": "admin_1757521438446_001"
+      }
+    ],
+    [
+      "shop_1757521438450_006",
+      {
+        "id": "shop_1757521438450_006",
+        "name": "书籍文具店",
+        "domain": "books.quicktalk.com",
+        "description": "知识的海洋，学习的伙伴",
+        "ownerId": "owner_1757521438448_002",
+        "status": "approved",
+        "approvalStatus": "approved",
+        "category": "图书文具",
+        "createdAt": "2025-09-09T16:32:51.708Z",
+        "updatedAt": "2025-09-10T16:23:58.450Z",
+        "api_key": "sk_shop_1757521438450_006_7vxbaawnfwl",
+        "apiKeyCreatedAt": "2025-09-10T16:23:58.450Z",
+        "expiresAt": "2026-09-10T16:23:58.450Z",
+        "members": [],
+        "settings": {
+          "autoReply": true,
+          "businessHours": {
+            "enabled": true,
+            "start": "09:00",
+            "end": "18:00",
+            "timezone": "Asia/Shanghai"
+          },
+          "notifications": {
+            "email": true,
+            "sms": false,
+            "webhook": false
+          }
+        }
+      }
+    ],
+    [
+      "shop_1757521438450_007",
+      {
+        "id": "shop_1757521438450_007",
+        "name": "母婴用品店",
+        "domain": "baby.quicktalk.com",
+        "description": "专业母婴用品，呵护成长每一天",
+        "ownerId": "owner_1757521438448_002",
+        "status": "pending",
+        "approvalStatus": "pending",
+        "category": "母婴用品",
+        "createdAt": "2025-08-29T19:56:33.226Z",
+        "updatedAt": "2025-09-10T16:23:58.450Z",
+        "api_key": null,
+        "apiKeyCreatedAt": null,
+        "expiresAt": null,
+        "members": [],
+        "settings": {
+          "autoReply": true,
+          "businessHours": {
+            "enabled": true,
+            "start": "09:00",
+            "end": "18:00",
+            "timezone": "Asia/Shanghai"
+          },
+          "notifications": {
+            "email": true,
+            "sms": false,
+            "webhook": false
+          }
+        }
+      }
+    ]
+  ],
+  "userShops": [
+    [
+      "owner_1757521438448_001",
+      [
+        {
+          "shopId": "shop_1757521438449_001",
+          "role": "owner",
+          "userRole": "owner",
+          "permissions": [
+            "manage_staff",
+            "view_chats",
+            "handle_chats",
+            "manage_shop",
+            "view_analytics"
+          ],
+          "joinedAt": "2025-09-01T13:25:33.783Z"
+        },
+        {
+          "shopId": "shop_1757521438449_002",
+          "role": "owner",
+          "userRole": "owner",
+          "permissions": [
+            "manage_staff",
+            "view_chats",
+            "handle_chats",
+            "manage_shop",
+            "view_analytics"
+          ],
+          "joinedAt": "2025-09-01T15:35:52.572Z"
+        },
+        {
+          "shopId": "shop_1757521438449_003",
+          "role": "owner",
+          "userRole": "owner",
+          "permissions": [
+            "manage_staff",
+            "view_chats",
+            "handle_chats",
+            "manage_shop",
+            "view_analytics"
+          ],
+          "joinedAt": "2025-08-21T03:13:01.790Z"
+        },
+        {
+          "shopId": "shop_1757521438449_004",
+          "role": "owner",
+          "userRole": "owner",
+          "permissions": [
+            "manage_staff",
+            "view_chats",
+            "handle_chats",
+            "manage_shop",
+            "view_analytics"
+          ],
+          "joinedAt": "2025-09-07T02:23:31.093Z"
+        },
+        {
+          "shopId": "shop_1757521438450_005",
+          "role": "owner",
+          "userRole": "owner",
+          "permissions": [
+            "manage_staff",
+            "view_chats",
+            "handle_chats",
+            "manage_shop",
+            "view_analytics"
+          ],
+          "joinedAt": "2025-08-30T04:27:36.053Z"
+        }
+      ]
+    ],
+    [
+      "owner_1757521438448_002",
+      [
+        {
+          "shopId": "shop_1757521438450_006",
+          "role": "owner",
+          "userRole": "owner",
+          "permissions": [
+            "manage_staff",
+            "view_chats",
+            "handle_chats",
+            "manage_shop",
+            "view_analytics"
+          ],
+          "joinedAt": "2025-09-09T16:32:51.708Z"
+        },
+        {
+          "shopId": "shop_1757521438450_007",
+          "role": "owner",
+          "userRole": "owner",
+          "permissions": [
+            "manage_staff",
+            "view_chats",
+            "handle_chats",
+            "manage_shop",
+            "view_analytics"
+          ],
+          "joinedAt": "2025-08-29T19:56:33.226Z"
+        }
+      ]
+    ]
+  ],
+  "sessions": [],
+  "timestamp": "2025-09-10T16:23:58.455Z"
+}
