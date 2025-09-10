@@ -124,6 +124,37 @@ class SQLiteDatabase {
                 qr_code_url TEXT NOT NULL,
                 expires_at DATETIME NOT NULL,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )`,
+            
+            // 消息表
+            `CREATE TABLE IF NOT EXISTS messages (
+                id TEXT PRIMARY KEY,
+                shop_id TEXT NOT NULL,
+                user_id TEXT NOT NULL,
+                admin_id TEXT,
+                message TEXT NOT NULL,
+                sender TEXT NOT NULL CHECK (sender IN ('user', 'admin', 'system')),
+                is_read BOOLEAN DEFAULT FALSE,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                read_at DATETIME,
+                FOREIGN KEY (shop_id) REFERENCES shops(id),
+                FOREIGN KEY (admin_id) REFERENCES users(id)
+            )`,
+            
+            // 对话表 (用于管理用户会话)
+            `CREATE TABLE IF NOT EXISTS conversations (
+                id TEXT PRIMARY KEY,
+                shop_id TEXT NOT NULL,
+                user_id TEXT NOT NULL,
+                user_name TEXT,
+                last_message TEXT,
+                last_message_at DATETIME,
+                unread_count INTEGER DEFAULT 0,
+                status TEXT DEFAULT 'active',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (shop_id) REFERENCES shops(id),
+                UNIQUE(shop_id, user_id)
             )`
         ];
 
@@ -847,6 +878,161 @@ class SQLiteDatabase {
             hasApiKey: !!shop.api_key,
             apiKeyCreatedAt: shop.api_key_created_at,
             maskedKey: shop.api_key ? shop.api_key.substring(0, 12) + '****' + shop.api_key.substring(shop.api_key.length - 4) : null
+        };
+    }
+
+    // =================== 消息和对话管理 ===================
+    
+    // 保存消息
+    async saveMessage({ shopId, userId, message, sender, adminId = null, timestamp = new Date() }) {
+        const messageId = 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 8);
+        
+        await this.runAsync(`
+            INSERT INTO messages (id, shop_id, user_id, admin_id, message, sender, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        `, [messageId, shopId, userId, adminId, message, sender, timestamp.toISOString()]);
+
+        // 更新或创建对话记录
+        await this.updateConversation(shopId, userId, message, timestamp);
+        
+        return messageId;
+    }
+
+    // 更新对话记录
+    async updateConversation(shopId, userId, lastMessage, timestamp) {
+        // 先尝试更新现有对话
+        const result = await this.runAsync(`
+            UPDATE conversations 
+            SET last_message = ?, last_message_at = ?, unread_count = unread_count + 1, updated_at = CURRENT_TIMESTAMP
+            WHERE shop_id = ? AND user_id = ?
+        `, [lastMessage, timestamp.toISOString(), shopId, userId]);
+
+        // 如果没有更新任何记录，说明是新对话，需要创建
+        if (result.changes === 0) {
+            const conversationId = 'conv_' + Date.now() + '_' + Math.random().toString(36).substr(2, 8);
+            await this.runAsync(`
+                INSERT INTO conversations (id, shop_id, user_id, user_name, last_message, last_message_at, unread_count)
+                VALUES (?, ?, ?, ?, ?, ?, 1)
+            `, [conversationId, shopId, userId, `用户${userId}`, lastMessage, timestamp.toISOString()]);
+        }
+    }
+
+    // 获取店铺的所有对话
+    async getShopConversations(shopId) {
+        const conversations = await this.allAsync(`
+            SELECT * FROM conversations 
+            WHERE shop_id = ? AND status = 'active'
+            ORDER BY last_message_at DESC
+        `, [shopId]);
+
+        return conversations.map(conv => ({
+            userId: conv.user_id,
+            userName: conv.user_name || `用户${conv.user_id}`,
+            lastMessage: conv.last_message,
+            lastMessageTime: conv.last_message_at,
+            unreadCount: conv.unread_count,
+            status: conv.status,
+            createdAt: conv.created_at
+        }));
+    }
+
+    // 获取聊天消息
+    async getChatMessages(shopId, userId, page = 1, limit = 50) {
+        const offset = (page - 1) * limit;
+        
+        const messages = await this.allAsync(`
+            SELECT m.*, u.username as admin_name
+            FROM messages m
+            LEFT JOIN users u ON m.admin_id = u.id
+            WHERE m.shop_id = ? AND m.user_id = ?
+            ORDER BY m.created_at DESC
+            LIMIT ? OFFSET ?
+        `, [shopId, userId, limit, offset]);
+
+        return messages.reverse().map(msg => ({
+            id: msg.id,
+            content: msg.message,
+            sender: msg.sender,
+            adminName: msg.admin_name,
+            timestamp: msg.created_at,
+            isRead: msg.is_read
+        }));
+    }
+
+    // 标记消息为已读
+    async markMessagesAsRead(shopId, userId, adminId) {
+        await this.runAsync(`
+            UPDATE messages 
+            SET is_read = TRUE, read_at = CURRENT_TIMESTAMP
+            WHERE shop_id = ? AND user_id = ? AND sender = 'user' AND is_read = FALSE
+        `, [shopId, userId]);
+
+        // 重置对话的未读计数
+        await this.runAsync(`
+            UPDATE conversations 
+            SET unread_count = 0, updated_at = CURRENT_TIMESTAMP
+            WHERE shop_id = ? AND user_id = ?
+        `, [shopId, userId]);
+    }
+
+    // 获取店铺未读消息统计
+    async getShopUnreadStats(shopId) {
+        const result = await this.getAsync(`
+            SELECT COUNT(*) as unread_count
+            FROM messages 
+            WHERE shop_id = ? AND sender = 'user' AND is_read = FALSE
+        `, [shopId]);
+
+        return result ? result.unread_count : 0;
+    }
+
+    // 获取所有店铺未读消息统计
+    async getAllUnreadStats() {
+        const results = await this.allAsync(`
+            SELECT m.shop_id, s.name as shop_name, COUNT(*) as unread_count
+            FROM messages m
+            JOIN shops s ON m.shop_id = s.id
+            WHERE m.sender = 'user' AND m.is_read = FALSE
+            GROUP BY m.shop_id, s.name
+        `);
+
+        const stats = {};
+        results.forEach(row => {
+            stats[row.shop_id] = {
+                shopName: row.shop_name,
+                unreadCount: row.unread_count
+            };
+        });
+
+        return stats;
+    }
+
+    // 获取总体统计信息
+    async getOverallStats(userId = null) {
+        let shopCondition = '';
+        let params = [];
+        
+        if (userId) {
+            // 普通用户只能看自己的店铺统计
+            shopCondition = `AND s.owner_id = ?`;
+            params.push(userId);
+        }
+
+        const stats = await this.getAsync(`
+            SELECT 
+                COUNT(DISTINCT s.id) as total_shops,
+                COUNT(DISTINCT c.id) as total_conversations,
+                COUNT(DISTINCT CASE WHEN m.sender = 'user' AND m.is_read = FALSE THEN m.id END) as unread_messages
+            FROM shops s
+            LEFT JOIN conversations c ON s.id = c.shop_id
+            LEFT JOIN messages m ON s.id = m.shop_id
+            WHERE s.status = 'active' ${shopCondition}
+        `, params);
+
+        return {
+            totalShops: stats?.total_shops || 0,
+            totalConversations: stats?.total_conversations || 0,
+            unreadMessages: stats?.unread_messages || 0
         };
     }
 

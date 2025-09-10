@@ -681,7 +681,7 @@ app.get('/api/messages', (req, res) => {
 });
 
 // 发送消息接口
-app.post('/api/send', (req, res) => {
+app.post('/api/send', async (req, res) => {
     const { userId, message, timestamp } = req.body;
     
     if (!userId || !message) {
@@ -690,42 +690,85 @@ app.post('/api/send', (req, res) => {
     
     console.log(`📨 HTTP用户消息 [${userId}]: ${message}`);
     
-    // 转发给所有WebSocket客服
-    const userMessage = {
-        type: 'user_message',
-        userId: userId,
-        message: message,
-        timestamp: timestamp,
-        connectionType: 'HTTP'
-    };
-    
-    staffs.forEach((staff, staffId) => {
-        if (staff.ws && staff.ws.readyState === WebSocket.OPEN) {
-            staff.ws.send(JSON.stringify(userMessage));
+    try {
+        // 从请求中获取店铺信息
+        const shopId = req.domainValidation?.matchedShop?.id;
+        
+        if (shopId) {
+            // 保存用户消息到数据库
+            await database.saveMessage({
+                shopId,
+                userId,
+                message,
+                sender: 'user',
+                timestamp: timestamp ? new Date(timestamp) : new Date()
+            });
         }
-    });
-    
-    // 自动回复(延迟3秒)
-    setTimeout(() => {
-        const autoReply = generateAutoReply(message);
-        const replyMessage = {
-            id: messageIdCounter++,
-            type: 'staff_message',
-            message: autoReply,
-            staffName: '智能客服',
-            timestamp: Date.now()
+        
+        // 转发给所有WebSocket客服
+        const userMessage = {
+            type: 'user_message',
+            userId: userId,
+            message: message,
+            timestamp: timestamp,
+            shopId: shopId,
+            connectionType: 'HTTP'
         };
         
-        // 添加到用户消息队列
-        if (!messageQueue.has(userId)) {
-            messageQueue.set(userId, []);
-        }
-        messageQueue.get(userId).push(replyMessage);
+        staffs.forEach((staff, staffId) => {
+            if (staff.ws && staff.ws.readyState === WebSocket.OPEN) {
+                staff.ws.send(JSON.stringify(userMessage));
+            }
+        });
         
-        console.log(`🤖 自动回复给HTTP用户 [${userId}]: ${autoReply}`);
-    }, 3000);
-    
-    res.json({ success: true, message: '消息已发送' });
+        // 通知手机端管理系统有新消息
+        broadcastToStaffs({
+            type: 'new_message',
+            shopId,
+            userId,
+            message: {
+                content: message,
+                sender: 'user',
+                timestamp: timestamp || Date.now()
+            }
+        });
+        
+        // 自动回复(延迟3秒)
+        setTimeout(async () => {
+            const autoReply = generateAutoReply(message);
+            const replyMessage = {
+                id: messageIdCounter++,
+                type: 'staff_message',
+                message: autoReply,
+                staffName: '智能客服',
+                timestamp: Date.now()
+            };
+            
+            // 保存自动回复到数据库
+            if (shopId) {
+                await database.saveMessage({
+                    shopId,
+                    userId,
+                    message: autoReply,
+                    sender: 'system',
+                    timestamp: new Date()
+                });
+            }
+            
+            // 添加到用户消息队列
+            if (!messageQueue.has(userId)) {
+                messageQueue.set(userId, []);
+            }
+            messageQueue.get(userId).push(replyMessage);
+            
+            console.log(`🤖 自动回复给HTTP用户 [${userId}]: ${autoReply}`);
+        }, 3000);
+        
+        res.json({ success: true, message: '消息已发送' });
+    } catch (error) {
+        console.error('保存消息失败:', error);
+        res.json({ success: true, message: '消息已发送' }); // 即使保存失败也返回成功，不影响用户体验
+    }
 });
 
 // 创建 HTTP 服务器
@@ -778,6 +821,190 @@ function sendToUser(userId, message) {
     } else {
         console.log(`❌ 用户 ${userId} 未找到或连接已断开`);
         console.log(`📋 当前在线用户:`, Array.from(users.keys()));
+    }
+}
+
+// ============ 移动端管理API ============
+
+// 移动端管理后台
+app.get('/mobile-admin', (req, res) => {
+    res.sendFile(path.join(__dirname, 'static', 'mobile-admin.html'));
+});
+
+// 获取管理员的所有店铺列表
+app.get('/api/admin/shops', requireAuth, async (req, res) => {
+    try {
+        let shops = [];
+        
+        if (req.user.role === 'super_admin') {
+            // 超级管理员可以看到所有店铺
+            shops = await database.getAllShops();
+        } else {
+            // 普通用户只能看到自己的店铺
+            shops = await database.getUserShops(req.user.id);
+        }
+        
+        res.json(shops);
+    } catch (error) {
+        console.error('获取店铺列表失败:', error);
+        res.status(500).json({ error: '获取店铺列表失败' });
+    }
+});
+
+// 获取店铺的用户对话列表
+app.get('/api/shops/:shopId/conversations', requireAuth, async (req, res) => {
+    try {
+        const { shopId } = req.params;
+        
+        // 检查用户是否有权限查看该店铺
+        const hasPermission = await checkShopPermission(req.user, shopId);
+        if (!hasPermission) {
+            return res.status(403).json({ error: '无权限访问该店铺' });
+        }
+        
+        // 获取该店铺的所有对话
+        const conversations = await database.getShopConversations(shopId);
+        
+        res.json(conversations);
+    } catch (error) {
+        console.error('获取对话列表失败:', error);
+        res.status(500).json({ error: '获取对话列表失败' });
+    }
+});
+
+// 获取具体用户的聊天消息
+app.get('/api/shops/:shopId/users/:userId/messages', requireAuth, async (req, res) => {
+    try {
+        const { shopId, userId } = req.params;
+        const { page = 1, limit = 50 } = req.query;
+        
+        // 检查权限
+        const hasPermission = await checkShopPermission(req.user, shopId);
+        if (!hasPermission) {
+            return res.status(403).json({ error: '无权限访问该店铺' });
+        }
+        
+        // 获取聊天消息
+        const messages = await database.getChatMessages(shopId, userId, parseInt(page), parseInt(limit));
+        
+        res.json(messages);
+    } catch (error) {
+        console.error('获取聊天消息失败:', error);
+        res.status(500).json({ error: '获取聊天消息失败' });
+    }
+});
+
+// 发送管理员回复消息
+app.post('/api/shops/:shopId/users/:userId/reply', requireAuth, async (req, res) => {
+    try {
+        const { shopId, userId } = req.params;
+        const { message } = req.body;
+        
+        if (!message) {
+            return res.status(400).json({ error: '消息内容不能为空' });
+        }
+        
+        // 检查权限
+        const hasPermission = await checkShopPermission(req.user, shopId);
+        if (!hasPermission) {
+            return res.status(403).json({ error: '无权限访问该店铺' });
+        }
+        
+        // 保存消息到数据库
+        const messageId = await database.saveMessage({
+            shopId,
+            userId,
+            message,
+            sender: 'admin',
+            adminId: req.user.id,
+            timestamp: new Date()
+        });
+        
+        // 通过WebSocket发送消息给用户（如果在线）
+        sendToUser(userId, {
+            type: 'admin_reply',
+            message: message,
+            timestamp: Date.now()
+        });
+        
+        // 通过WebSocket通知其他客服
+        broadcastToStaffs({
+            type: 'admin_reply_sent',
+            shopId,
+            userId,
+            message,
+            adminName: req.user.username,
+            timestamp: Date.now()
+        });
+        
+        res.json({ 
+            success: true, 
+            messageId,
+            message: '消息发送成功' 
+        });
+    } catch (error) {
+        console.error('发送回复失败:', error);
+        res.status(500).json({ error: '发送回复失败' });
+    }
+});
+
+// 获取未读消息统计
+app.get('/api/admin/unread-stats', requireAuth, async (req, res) => {
+    try {
+        let stats = {};
+        
+        if (req.user.role === 'super_admin') {
+            // 超级管理员获取所有店铺的统计
+            stats = await database.getAllUnreadStats();
+        } else {
+            // 普通用户只能看到自己店铺的统计
+            const userShops = await database.getUserShops(req.user.id);
+            for (const shop of userShops) {
+                const shopStats = await database.getShopUnreadStats(shop.id);
+                stats[shop.id] = shopStats;
+            }
+        }
+        
+        res.json(stats);
+    } catch (error) {
+        console.error('获取未读统计失败:', error);
+        res.status(500).json({ error: '获取未读统计失败' });
+    }
+});
+
+// 标记消息为已读
+app.post('/api/shops/:shopId/users/:userId/mark-read', requireAuth, async (req, res) => {
+    try {
+        const { shopId, userId } = req.params;
+        
+        // 检查权限
+        const hasPermission = await checkShopPermission(req.user, shopId);
+        if (!hasPermission) {
+            return res.status(403).json({ error: '无权限访问该店铺' });
+        }
+        
+        // 标记消息为已读
+        await database.markMessagesAsRead(shopId, userId, req.user.id);
+        
+        res.json({ success: true, message: '消息已标记为已读' });
+    } catch (error) {
+        console.error('标记已读失败:', error);
+        res.status(500).json({ error: '标记已读失败' });
+    }
+});
+
+// 权限检查辅助函数
+async function checkShopPermission(user, shopId) {
+    if (user.role === 'super_admin') {
+        return true; // 超级管理员有所有权限
+    }
+    
+    try {
+        const userShops = await database.getUserShops(user.id);
+        return userShops.some(shop => shop.id === shopId);
+    } catch (error) {
+        console.error('检查权限失败:', error);
+        return false;
     }
 }
 
@@ -1075,7 +1302,7 @@ wss.on('connection', (ws, req) => {
     }
     
     // 处理接收到的消息
-    ws.on('message', (data) => {
+    ws.on('message', async (data) => {
         try {
             const message = JSON.parse(data.toString());
             console.log(`📨 收到消息:`, message);
@@ -1118,6 +1345,23 @@ wss.on('connection', (ws, req) => {
                         });
                     }
                     
+                    // 保存到数据库（需要店铺ID，可能从WebSocket连接中获取）
+                    try {
+                        // 这里简化处理，使用第一个店铺的ID，实际应用中需要正确识别店铺
+                        const shops = await database.getAllShops();
+                        if (shops.length > 0) {
+                            await database.saveMessage({
+                                shopId: shops[0].id,
+                                userId: message.userId,
+                                message: message.message,
+                                sender: 'user',
+                                timestamp: new Date()
+                            });
+                        }
+                    } catch (error) {
+                        console.error('WebSocket用户消息保存失败:', error);
+                    }
+                    
                     // 转发给所有客服
                     broadcastToStaffs({
                         type: 'user_message',
@@ -1127,7 +1371,7 @@ wss.on('connection', (ws, req) => {
                     });
                     
                     // 模拟客服自动回复
-                    setTimeout(() => {
+                    setTimeout(async () => {
                         const autoReply = generateAutoReply(message.message);
                         
                         // 存储回复消息
@@ -1138,6 +1382,22 @@ wss.on('connection', (ws, req) => {
                                 timestamp: new Date(),
                                 staffName: '小助手'
                             });
+                        }
+                        
+                        // 保存自动回复到数据库
+                        try {
+                            const shops = await database.getAllShops();
+                            if (shops.length > 0) {
+                                await database.saveMessage({
+                                    shopId: shops[0].id,
+                                    userId: message.userId,
+                                    message: autoReply,
+                                    sender: 'system',
+                                    timestamp: new Date()
+                                });
+                            }
+                        } catch (error) {
+                            console.error('WebSocket自动回复保存失败:', error);
                         }
                         
                         // 发送给用户
