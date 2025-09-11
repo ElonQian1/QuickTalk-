@@ -443,6 +443,9 @@ class MultiShopCustomerServiceManager {
             const content = document.getElementById('csContent');
             content.innerHTML = '<div class="loading">正在加载对话...</div>';
 
+            // 获取对话信息
+            const conversationInfo = await this.getConversationInfo(conversationId);
+            
             // 加载对话消息
             await this.loadConversationMessages(conversationId);
 
@@ -453,6 +456,36 @@ class MultiShopCustomerServiceManager {
 
         } catch (error) {
             console.error('❌ 显示对话失败:', error);
+            const content = document.getElementById('csContent');
+            content.innerHTML = '<div class="error">加载对话失败，请重试</div>';
+        }
+    }
+
+    /**
+     * 获取对话信息
+     */
+    async getConversationInfo(conversationId) {
+        try {
+            const sessionId = localStorage.getItem('sessionId');
+            const response = await fetch(`/api/conversations/${conversationId}`, {
+                headers: { 'X-Session-Id': sessionId }
+            });
+
+            if (response.ok) {
+                const conversationInfo = await response.json();
+                this.currentConversation = { ...this.currentConversation, ...conversationInfo };
+                return conversationInfo;
+            } else {
+                throw new Error('获取对话信息失败');
+            }
+        } catch (error) {
+            console.error('❌ 获取对话信息失败:', error);
+            // 返回默认信息
+            return {
+                customer_name: '客户',
+                customer_id: 'unknown',
+                shop_name: this.currentShop?.name || '店铺'
+            };
         }
     }
 
@@ -769,13 +802,29 @@ class MultiShopCustomerServiceManager {
     renderConversation(messages) {
         const content = document.getElementById('csContent');
         
+        // 获取客户信息
+        const customerName = this.currentConversation?.customer_name || '客户';
+        const shopName = this.currentConversation?.shop_name || this.currentShop?.name || '店铺';
+        
         const conversationHTML = `
             <div class="conversation-container">
+                <div class="chat-header">
+                    <button class="chat-back-btn" onclick="customerServiceManager.goBackToShopDetail()">
+                        ←
+                    </button>
+                    <div class="chat-user-info">
+                        <div class="chat-user-name">${customerName}</div>
+                        <div class="chat-user-status">
+                            <span class="online-indicator"></span>
+                            来自店铺：${shopName}
+                        </div>
+                    </div>
+                </div>
                 <div class="messages-list" id="messagesList">
-                    ${messages.map(msg => this.getMessageHTML(msg)).join('')}
+                    ${messages.length > 0 ? messages.map(msg => this.getMessageHTML(msg)).join('') : '<div class="no-messages">暂无消息</div>'}
                 </div>
                 <div class="message-input-container">
-                    <input type="text" id="messageInput" placeholder="输入消息..." class="message-input">
+                    <input type="text" id="messageInput" placeholder="输入回复消息..." class="message-input">
                     <button id="sendBtn" class="send-btn">发送</button>
                 </div>
             </div>
@@ -791,11 +840,34 @@ class MultiShopCustomerServiceManager {
             }
         });
 
+        // 自动聚焦输入框
+        setTimeout(() => {
+            const messageInput = document.getElementById('messageInput');
+            if (messageInput) {
+                messageInput.focus();
+            }
+        }, 100);
+
         // 滚动到底部
         setTimeout(() => {
             const messagesList = document.getElementById('messagesList');
-            messagesList.scrollTop = messagesList.scrollHeight;
+            if (messagesList) {
+                messagesList.scrollTop = messagesList.scrollHeight;
+            }
         }, 100);
+
+        console.log('💬 对话界面渲染完成，消息数量:', messages.length);
+    }
+
+    /**
+     * 返回店铺详情页面
+     */
+    goBackToShopDetail() {
+        if (this.currentShop) {
+            this.showShopDetail(this.currentShop.id);
+        } else {
+            this.showOverview();
+        }
     }
 
     /**
@@ -803,14 +875,51 @@ class MultiShopCustomerServiceManager {
      */
     getMessageHTML(message) {
         const isStaff = message.sender_type === 'staff';
-        const time = new Date(message.timestamp).toLocaleTimeString();
+        
+        // 处理时间戳
+        let time = '刚刚';
+        if (message.timestamp) {
+            try {
+                const date = new Date(message.timestamp);
+                time = date.toLocaleTimeString('zh-CN', { 
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    hour12: false 
+                });
+            } catch (e) {
+                console.warn('时间戳解析失败:', message.timestamp);
+            }
+        } else if (message.created_at) {
+            try {
+                const date = new Date(message.created_at);
+                time = date.toLocaleTimeString('zh-CN', { 
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    hour12: false 
+                });
+            } catch (e) {
+                console.warn('created_at解析失败:', message.created_at);
+            }
+        }
+        
+        // 处理消息内容
+        const content = message.content || message.message || '消息内容为空';
         
         return `
             <div class="message ${isStaff ? 'message-staff' : 'message-customer'}">
-                <div class="message-content">${message.content}</div>
+                <div class="message-content">${this.escapeHtml(content)}</div>
                 <div class="message-time">${time}</div>
             </div>
         `;
+    }
+
+    /**
+     * HTML转义，防止XSS攻击
+     */
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
     /**

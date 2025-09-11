@@ -483,6 +483,40 @@ app.get('/api/shops/:shopId/conversations', requireAuth, async (req, res) => {
     }
 });
 
+// 获取单个对话信息
+app.get('/api/conversations/:conversationId', requireAuth, async (req, res) => {
+    try {
+        const { conversationId } = req.params;
+
+        // 验证用户是否有权限访问该对话
+        const conversation = await database.getConversation(conversationId);
+        if (!conversation) {
+            return res.status(404).json({ error: '对话不存在' });
+        }
+
+        const shop = await database.getShop(conversation.shop_id);
+        if (!shop || shop.owner_id !== req.user.id) {
+            return res.status(403).json({ error: '无权限访问该对话' });
+        }
+
+        // 返回对话信息
+        res.json({
+            id: conversation.id,
+            customer_id: conversation.customer_id,
+            customer_name: conversation.customer_name || '客户',
+            shop_id: conversation.shop_id,
+            shop_name: shop.name,
+            created_at: conversation.created_at,
+            updated_at: conversation.updated_at,
+            unread_count: conversation.unread_count || 0
+        });
+
+    } catch (error) {
+        console.error('获取对话信息失败:', error);
+        res.status(500).json({ error: '获取对话信息失败' });
+    }
+});
+
 // 获取对话消息
 app.get('/api/conversations/:conversationId/messages', requireAuth, async (req, res) => {
     try {
