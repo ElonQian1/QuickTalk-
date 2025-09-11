@@ -15,33 +15,12 @@ const domainValidator = new DomainValidator(database);
 const IntegrationCodeGenerator = require('./integration-code-generator');
 const codeGenerator = new IntegrationCodeGenerator(database);
 
-// 引入文件管理器
-const FileManager = require('./src/file-manager');
-const fileManager = new FileManager();
-
-// 引入数据分析仪表板管理器
-const AnalyticsDashboardManager = require('./src/analytics-dashboard-manager');
-const analyticsManager = new AnalyticsDashboardManager(database.db);
-
-// 引入AI智能客服管理器
-const AIAssistantManager = require('./src/ai-assistant-manager');
-let aiManager = null; // 将在数据库初始化后创建
-
 const app = express();
 const PORT = 3030;
 
 // 中间件
 app.use(express.json());
-
-// 静态文件服务 - 新的目录结构
-app.use('/static', express.static(path.join(__dirname, 'static')));
-app.use('/src', express.static(path.join(__dirname, 'src')));
-app.use('/components', express.static(path.join(__dirname, 'src/components')));
-// 为模块化文件提供直接访问路径
-app.use('/js', express.static(path.join(__dirname, 'static/js')));
-app.use('/css', express.static(path.join(__dirname, 'static/css')));
-// 文件上传服务
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use(express.static(path.join(__dirname, 'static')));
 
 // 信任代理（用于获取真实IP）
 app.set('trust proxy', true);
@@ -53,7 +32,7 @@ app.use(domainValidator.createMiddleware());
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, X-Session-Id, X-Shop-Key, X-Shop-Id, Authorization');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, X-Session-Id, X-Shop-Key, X-Shop-Id');
     if (req.method === 'OPTIONS') {
         res.status(200).end();
         return;
@@ -64,66 +43,32 @@ app.use((req, res, next) => {
 // 引入认证路由
 require('./auth-routes')(app, database);
 
-// ====== 新的路由结构 ======
-
-// 主页路由
+// 静态页面路由
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'static', 'index.html'));
 });
 
-// 桌面端路由
+// 管理后台 (新版移动端设计)
 app.get('/admin', (req, res) => {
-    res.sendFile(path.join(__dirname, 'src', 'desktop', 'admin', 'index.html'));
-});
-
-app.get('/desktop/admin', (req, res) => {
-    res.sendFile(path.join(__dirname, 'src', 'desktop', 'admin', 'index.html'));
-});
-
-app.get('/customer', (req, res) => {
-    res.sendFile(path.join(__dirname, 'src', 'desktop', 'customer', 'index.html'));
-});
-
-app.get('/desktop/customer', (req, res) => {
-    res.sendFile(path.join(__dirname, 'src', 'desktop', 'customer', 'index.html'));
-});
-
-// 移动端路由
-app.get('/mobile/admin', (req, res) => {
     res.sendFile(path.join(__dirname, 'static', 'admin-mobile.html'));
 });
 
-app.get('/mobile/customer', (req, res) => {
-    res.sendFile(path.join(__dirname, 'src', 'mobile', 'customer', 'index.html'));
-});
-
-// 测试页面
-app.get('/message-test', (req, res) => {
-    res.sendFile(path.join(__dirname, 'static', 'message-test.html'));
-});
-
-// ====== 兼容旧路由 ======
+// 新的多店铺管理后台 (也使用移动端设计)
 app.get('/admin-new', (req, res) => {
-    res.sendFile(path.join(__dirname, 'src', 'desktop', 'admin', 'index.html'));
+    res.sendFile(path.join(__dirname, 'static', 'admin-mobile.html'));
 });
 
+// 旧版桌面端管理后台 (保留备用)
 app.get('/admin-desktop', (req, res) => {
-    res.sendFile(path.join(__dirname, 'src', 'desktop', 'admin', 'index.html'));
+    res.sendFile(path.join(__dirname, 'static', 'admin-new.html'));
 });
 
-app.get('/mobile-admin', (req, res) => {
-    res.sendFile(path.join(__dirname, 'static', 'admin-mobile.html'));
-});
-
-app.get('/admin-mobile', (req, res) => {
-    res.sendFile(path.join(__dirname, 'static', 'admin-mobile.html'));
-});
-
-// 代码生成器和其他工具（保持在static目录）
+// 代码生成器界面（集成功能）
 app.get('/code-generator', (req, res) => {
     res.sendFile(path.join(__dirname, 'static', 'integration-generator.html'));
 });
 
+// SDK演示页面
 app.get('/sdk-demo', (req, res) => {
     res.sendFile(path.join(__dirname, 'static', 'sdk-demo.html'));
 });
@@ -132,17 +77,7 @@ app.get('/sdk-demo', (req, res) => {
 
 // 用户认证中间件
 function requireAuth(req, res, next) {
-    // 支持两种认证方式：X-Session-Id 和 Authorization Bearer
-    let sessionId = req.headers['x-session-id'] || req.body.sessionId;
-    
-    // 如果没有 X-Session-Id，尝试从 Authorization 头部获取
-    if (!sessionId) {
-        const authHeader = req.headers['authorization'];
-        if (authHeader && authHeader.startsWith('Bearer ')) {
-            sessionId = authHeader.substring(7); // 移除 "Bearer " 前缀
-        }
-    }
-    
+    const sessionId = req.headers['x-session-id'] || req.body.sessionId;
     if (!sessionId) {
         return res.status(401).json({ error: '需要登录' });
     }
@@ -155,7 +90,6 @@ function requireAuth(req, res, next) {
         req.sessionId = sessionId;
         next();
     }).catch(err => {
-        console.error('认证验证失败:', err);
         res.status(500).json({ error: '验证失败' });
     });
 }
@@ -261,131 +195,11 @@ app.post('/api/shops', requireAuth, async (req, res) => {
 app.get('/api/shops', requireAuth, async (req, res) => {
     try {
         const shops = await database.getUserShops(req.user.id);
-        console.log(`📋 用户 ${req.user.username} 的店铺列表:`, shops ? shops.length : 'null', '个店铺');
-        
-        // 确保始终返回数组格式
-        const shopsArray = Array.isArray(shops) ? shops : [];
-        console.log(`📦 返回数据格式检查: 类型=${typeof shopsArray}, 是数组=${Array.isArray(shopsArray)}, 长度=${shopsArray.length}`);
-        
-        // 直接返回数组，与/api/admin/shops保持一致
-        res.json(shopsArray);
-    } catch (error) {
-        console.error('获取用户店铺失败:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// 获取单个店铺详情
-app.get('/api/shops/:shopId', requireAuth, async (req, res) => {
-    try {
-        const { shopId } = req.params;
-        console.log(`🏪 获取店铺详情: ${shopId}`);
-        
-        // 先检查用户是否有权限访问这个店铺
-        const userShops = await database.getUserShops(req.user.id);
-        const hasAccess = userShops.some(shop => shop.id === shopId);
-        
-        if (!hasAccess && req.user.role !== 'super_admin') {
-            return res.status(403).json({ error: '没有权限访问该店铺' });
-        }
-        
-        // 获取店铺详情
-        const shop = await database.getShopById(shopId);
-        if (!shop) {
-            return res.status(404).json({ error: '店铺不存在' });
-        }
-        
-        res.json(shop);
-    } catch (error) {
-        console.error('获取店铺详情失败:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// 获取店铺员工列表
-app.get('/api/shops/:shopId/employees', requireAuth, async (req, res) => {
-    try {
-        const { shopId } = req.params;
-        console.log(`👥 获取店铺员工列表: ${shopId}`);
-        
-        // 检查权限
-        const userShops = await database.getUserShops(req.user.id);
-        const hasAccess = userShops.some(shop => shop.id === shopId);
-        
-        if (!hasAccess && req.user.role !== 'super_admin') {
-            return res.status(403).json({ error: '没有权限访问该店铺' });
-        }
-        
-        // 获取员工列表
-        const employees = await database.getShopEmployees(shopId);
-        console.log(`📋 店铺 ${shopId} 的员工列表:`, employees.length, '个员工');
-        
-        res.json(employees);
-    } catch (error) {
-        console.error('获取店铺员工失败:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// 添加店铺员工
-app.post('/api/shops/:shopId/employees', requireAuth, async (req, res) => {
-    try {
-        const { shopId } = req.params;
-        const { username, email, password, role } = req.body;
-        console.log(`➕ 添加店铺员工: ${shopId} -> ${username}`);
-        
-        // 检查权限
-        const userShops = await database.getUserShops(req.user.id);
-        const hasAccess = userShops.some(shop => shop.id === shopId);
-        
-        if (!hasAccess && req.user.role !== 'super_admin') {
-            return res.status(403).json({ error: '没有权限管理该店铺' });
-        }
-        
-        // 添加员工
-        const employee = await database.addShopEmployee(shopId, {
-            username,
-            email,
-            password,
-            role: role || 'staff'
-        });
-        
-        console.log(`✅ 员工 ${username} 已添加到店铺 ${shopId}`);
         res.json({
             success: true,
-            message: '员工添加成功',
-            employee
+            shops
         });
     } catch (error) {
-        console.error('添加店铺员工失败:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// 删除店铺员工
-app.delete('/api/shops/:shopId/employees/:employeeId', requireAuth, async (req, res) => {
-    try {
-        const { shopId, employeeId } = req.params;
-        console.log(`🗑️ 删除店铺员工: ${shopId} -> ${employeeId}`);
-        
-        // 检查权限
-        const userShops = await database.getUserShops(req.user.id);
-        const hasAccess = userShops.some(shop => shop.id === shopId);
-        
-        if (!hasAccess && req.user.role !== 'super_admin') {
-            return res.status(403).json({ error: '没有权限管理该店铺' });
-        }
-        
-        // 删除员工
-        await database.removeShopEmployee(shopId, employeeId);
-        
-        console.log(`✅ 员工 ${employeeId} 已从店铺 ${shopId} 移除`);
-        res.json({
-            success: true,
-            message: '员工移除成功'
-        });
-    } catch (error) {
-        console.error('删除店铺员工失败:', error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -435,1042 +249,6 @@ app.post('/api/auth/logout', requireAuth, (req, res) => {
         res.json({ success: true, message: '登出成功' });
     } catch (error) {
         res.status(500).json({ error: error.message });
-    }
-});
-
-// =============== 消息API路由 ===============
-
-// 获取未读消息统计
-app.get('/api/messages/unread-counts', requireAuth, async (req, res) => {
-    try {
-        const unreadData = await database.getUnreadCounts(req.user.id);
-        res.json({
-            success: true,
-            counts: unreadData.counts,
-            details: unreadData.details
-        });
-    } catch (error) {
-        console.error('获取未读统计失败:', error);
-        res.status(500).json({ error: '获取未读统计失败' });
-    }
-});
-
-// 获取店铺对话列表
-app.get('/api/shops/:shopId/conversations', requireAuth, async (req, res) => {
-    try {
-        const { shopId } = req.params;
-        const { status = 'active', limit = 50, offset = 0 } = req.query;
-
-        // 验证用户是否有权限访问该店铺
-        const shop = await database.getShop(shopId);
-        if (!shop) {
-            return res.status(404).json({ error: '店铺不存在' });
-        }
-        
-        // 检查权限 - 兼容不同的属性名
-        const shopOwnerId = shop.owner_id || shop.ownerId;
-        if (shopOwnerId !== req.user.id) {
-            return res.status(403).json({ error: '无权限访问该店铺' });
-        }
-
-        const result = await database.getShopConversations(shopId, {
-            status,
-            limit: parseInt(limit),
-            offset: parseInt(offset)
-        });
-
-        res.json({
-            success: true,
-            ...result
-        });
-    } catch (error) {
-        console.error('获取对话列表失败:', error);
-        res.status(500).json({ error: '获取对话列表失败' });
-    }
-});
-
-// 获取单个对话信息
-app.get('/api/conversations/:conversationId', requireAuth, async (req, res) => {
-    try {
-        const { conversationId } = req.params;
-
-        // 验证用户是否有权限访问该对话
-        const conversation = await database.getConversation(conversationId);
-        if (!conversation) {
-            return res.status(404).json({ error: '对话不存在' });
-        }
-
-        const shop = await database.getShop(conversation.shop_id);
-        if (!shop) {
-            return res.status(404).json({ error: '对话关联的店铺不存在' });
-        }
-        
-        // 检查权限 - 兼容不同的属性名
-        const shopOwnerId = shop.owner_id || shop.ownerId;
-        if (shopOwnerId !== req.user.id) {
-            return res.status(403).json({ error: '无权限访问该对话' });
-        }
-
-        // 返回对话信息
-        res.json({
-            id: conversation.id,
-            customer_id: conversation.customer_id,
-            customer_name: conversation.customer_name || '客户',
-            shop_id: conversation.shop_id,
-            shop_name: shop.name,
-            created_at: conversation.created_at,
-            updated_at: conversation.updated_at,
-            unread_count: conversation.unread_count || 0
-        });
-
-    } catch (error) {
-        console.error('获取对话信息失败:', error);
-        res.status(500).json({ error: '获取对话信息失败' });
-    }
-});
-
-// 获取对话消息
-app.get('/api/conversations/:conversationId/messages', requireAuth, async (req, res) => {
-    try {
-        const { conversationId } = req.params;
-        const { limit = 50, offset = 0 } = req.query;
-
-        // 验证用户是否有权限访问该对话
-        const conversation = await database.getConversation(conversationId);
-        if (!conversation) {
-            return res.status(404).json({ error: '对话不存在' });
-        }
-
-        const shop = await database.getShop(conversation.shop_id);
-        if (!shop || shop.owner_id !== req.user.id) {
-            return res.status(403).json({ error: '无权限访问该对话' });
-        }
-
-        const result = await database.getConversationMessages(conversationId, {
-            limit: parseInt(limit),
-            offset: parseInt(offset)
-        });
-
-        res.json({
-            success: true,
-            ...result
-        });
-    } catch (error) {
-        console.error('获取对话消息失败:', error);
-        res.status(500).json({ error: '获取对话消息失败' });
-    }
-});
-
-// 发送消息
-app.post('/api/conversations/:conversationId/messages', requireAuth, async (req, res) => {
-    try {
-        const { conversationId } = req.params;
-        const { content, sender_type = 'staff' } = req.body;
-
-        if (!content || !content.trim()) {
-            return res.status(400).json({ error: '消息内容不能为空' });
-        }
-
-        // 验证用户是否有权限访问该对话
-        const conversation = await database.getConversation(conversationId);
-        if (!conversation) {
-            return res.status(404).json({ error: '对话不存在' });
-        }
-
-        const shop = await database.getShop(conversation.shop_id);
-        if (!shop || shop.owner_id !== req.user.id) {
-            return res.status(403).json({ error: '无权限访问该对话' });
-        }
-
-        const message = await database.addMessage({
-            conversationId,
-            senderType: sender_type,
-            senderId: req.user.id,
-            senderName: req.user.username,
-            content: content.trim()
-        });
-
-        // 通过WebSocket发送实时消息给客户
-        broadcastToCustomers({
-            type: 'new_message',
-            conversationId,
-            message: {
-                id: message.id,
-                content: message.content,
-                sender_type: message.senderType,
-                sender_name: message.senderName,
-                created_at: message.created_at
-            }
-        });
-
-        res.json({
-            success: true,
-            message
-        });
-    } catch (error) {
-        console.error('发送消息失败:', error);
-        res.status(500).json({ error: '发送消息失败' });
-    }
-});
-
-// 标记消息为已读
-app.post('/api/conversations/:conversationId/mark-read', requireAuth, async (req, res) => {
-    try {
-        const { conversationId } = req.params;
-
-        // 验证用户是否有权限访问该对话
-        const conversation = await database.getConversation(conversationId);
-        if (!conversation) {
-            return res.status(404).json({ error: '对话不存在' });
-        }
-
-        const shop = await database.getShop(conversation.shop_id);
-        if (!shop || shop.owner_id !== req.user.id) {
-            return res.status(403).json({ error: '无权限访问该对话' });
-        }
-
-        await database.markMessagesAsRead(conversationId, req.user.id);
-
-        res.json({
-            success: true,
-            message: '消息已标记为已读'
-        });
-    } catch (error) {
-        console.error('标记已读失败:', error);
-        res.status(500).json({ error: '标记已读失败' });
-    }
-});
-
-// =================== 搜索和历史管理API ===================
-
-// 全文搜索消息
-app.post('/api/search/messages', async (req, res) => {
-    try {
-        const {
-            query,
-            shopId = 'shop_1',
-            userId = 'user_1',
-            dateFrom,
-            dateTo,
-            senderType,
-            messageType,
-            conversationId,
-            limit = 50,
-            offset = 0
-        } = req.body;
-
-        const results = await db.messageDB.searchManager.searchMessages({
-            query,
-            shopId,
-            userId,
-            dateFrom,
-            dateTo,
-            senderType,
-            messageType,
-            conversationId,
-            limit,
-            offset
-        });
-
-        res.json({
-            success: true,
-            data: results
-        });
-
-    } catch (error) {
-        console.error('搜索消息失败:', error);
-        res.status(500).json({
-            success: false,
-            message: '搜索失败',
-            error: error.message
-        });
-    }
-});
-
-// 高级搜索对话
-app.post('/api/search/conversations', async (req, res) => {
-    try {
-        const {
-            query,
-            shopId = 'shop_1',
-            userId = 'user_1',
-            status,
-            priority,
-            assignedTo,
-            dateFrom,
-            dateTo,
-            hasUnread,
-            messageCountMin,
-            messageCountMax,
-            tags,
-            limit = 20,
-            offset = 0
-        } = req.body;
-
-        const results = await db.messageDB.searchManager.advancedSearchConversations({
-            query,
-            shopId,
-            userId,
-            status,
-            priority,
-            assignedTo,
-            dateFrom,
-            dateTo,
-            hasUnread,
-            messageCountMin,
-            messageCountMax,
-            tags,
-            limit,
-            offset
-        });
-
-        res.json({
-            success: true,
-            data: results
-        });
-
-    } catch (error) {
-        console.error('高级搜索对话失败:', error);
-        res.status(500).json({
-            success: false,
-            message: '搜索失败',
-            error: error.message
-        });
-    }
-});
-
-// 获取搜索历史
-app.get('/api/search/history/:userId/:shopId', async (req, res) => {
-    try {
-        const { userId, shopId } = req.params;
-        const { limit = 20 } = req.query;
-
-        const history = await db.messageDB.searchManager.getSearchHistory(userId, shopId, parseInt(limit));
-
-        res.json({
-            success: true,
-            data: history
-        });
-
-    } catch (error) {
-        console.error('获取搜索历史失败:', error);
-        res.status(500).json({
-            success: false,
-            message: '获取搜索历史失败',
-            error: error.message
-        });
-    }
-});
-
-// 清除搜索历史
-app.delete('/api/search/history/:userId/:shopId', async (req, res) => {
-    try {
-        const { userId, shopId } = req.params;
-        const { daysToKeep = 30 } = req.body;
-
-        const result = await db.messageDB.searchManager.clearSearchHistory(userId, shopId, daysToKeep);
-
-        res.json({
-            success: true,
-            data: result
-        });
-
-    } catch (error) {
-        console.error('清除搜索历史失败:', error);
-        res.status(500).json({
-            success: false,
-            message: '清除搜索历史失败',
-            error: error.message
-        });
-    }
-});
-
-// 归档对话
-app.post('/api/conversations/:id/archive', async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { userId = 'user_1', reason = '' } = req.body;
-
-        const result = await db.messageDB.searchManager.archiveConversation(id, userId, reason);
-
-        res.json({
-            success: true,
-            data: result
-        });
-
-    } catch (error) {
-        console.error('归档对话失败:', error);
-        res.status(500).json({
-            success: false,
-            message: '归档对话失败',
-            error: error.message
-        });
-    }
-});
-
-// 导出对话
-app.get('/api/conversations/:id/export', async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { format = 'json' } = req.query;
-
-        const result = await db.messageDB.searchManager.exportConversation(id, format);
-
-        res.setHeader('Content-Type', result.contentType);
-        res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`);
-        res.send(result.data);
-
-    } catch (error) {
-        console.error('导出对话失败:', error);
-        res.status(500).json({
-            success: false,
-            message: '导出对话失败',
-            error: error.message
-        });
-    }
-});
-
-// 获取搜索统计
-app.get('/api/search/statistics/:shopId', async (req, res) => {
-    try {
-        const { shopId } = req.params;
-        const { days = 30 } = req.query;
-
-        const stats = await db.messageDB.searchManager.getSearchStatistics(shopId, parseInt(days));
-
-        res.json({
-            success: true,
-            data: stats
-        });
-
-    } catch (error) {
-        console.error('获取搜索统计失败:', error);
-        res.status(500).json({
-            success: false,
-            message: '获取搜索统计失败',
-            error: error.message
-        });
-    }
-});
-
-// =============== 数据分析仪表板API ===============
-
-// 获取实时监控数据
-app.get('/api/analytics/realtime/:shopId', async (req, res) => {
-    try {
-        const { shopId } = req.params;
-        const { timeRange = '24h' } = req.query;
-
-        const metrics = await analyticsManager.getRealTimeMetrics(shopId, timeRange);
-
-        res.json({
-            success: true,
-            data: metrics
-        });
-
-    } catch (error) {
-        console.error('获取实时监控数据失败:', error);
-        res.status(500).json({
-            success: false,
-            message: '获取实时监控数据失败',
-            error: error.message
-        });
-    }
-});
-
-// 获取客服效率分析
-app.get('/api/analytics/staff-efficiency/:shopId', async (req, res) => {
-    try {
-        const { shopId } = req.params;
-        const { timeRange = '7d' } = req.query;
-
-        const analysis = await analyticsManager.getStaffEfficiencyAnalysis(shopId, timeRange);
-
-        res.json({
-            success: true,
-            data: analysis
-        });
-
-    } catch (error) {
-        console.error('获取客服效率分析失败:', error);
-        res.status(500).json({
-            success: false,
-            message: '获取客服效率分析失败',
-            error: error.message
-        });
-    }
-});
-
-// 获取客户满意度统计
-app.get('/api/analytics/customer-satisfaction/:shopId', async (req, res) => {
-    try {
-        const { shopId } = req.params;
-        const { timeRange = '30d' } = req.query;
-
-        const stats = await analyticsManager.getCustomerSatisfactionStats(shopId, timeRange);
-
-        res.json({
-            success: true,
-            data: stats
-        });
-
-    } catch (error) {
-        console.error('获取客户满意度统计失败:', error);
-        res.status(500).json({
-            success: false,
-            message: '获取客户满意度统计失败',
-            error: error.message
-        });
-    }
-});
-
-// 获取工作负载分析
-app.get('/api/analytics/workload/:shopId', async (req, res) => {
-    try {
-        const { shopId } = req.params;
-        const { timeRange = '7d' } = req.query;
-
-        const analysis = await analyticsManager.getWorkloadAnalysis(shopId, timeRange);
-
-        res.json({
-            success: true,
-            data: analysis
-        });
-
-    } catch (error) {
-        console.error('获取工作负载分析失败:', error);
-        res.status(500).json({
-            success: false,
-            message: '获取工作负载分析失败',
-            error: error.message
-        });
-    }
-});
-
-// 生成KPI报告
-app.get('/api/analytics/kpi-report/:shopId', async (req, res) => {
-    try {
-        const { shopId } = req.params;
-        const { reportType = 'weekly' } = req.query;
-
-        const report = await analyticsManager.generateKpiReport(shopId, reportType);
-
-        res.json({
-            success: true,
-            data: report
-        });
-
-    } catch (error) {
-        console.error('生成KPI报告失败:', error);
-        res.status(500).json({
-            success: false,
-            message: '生成KPI报告失败',
-            error: error.message
-        });
-    }
-});
-
-// 记录用户活动
-app.post('/api/analytics/log-activity', async (req, res) => {
-    try {
-        const activity = req.body;
-        
-        // 获取IP地址和User-Agent
-        activity.ipAddress = req.ip || req.connection.remoteAddress;
-        activity.userAgent = req.get('User-Agent');
-
-        await analyticsManager.logUserActivity(activity);
-
-        res.json({
-            success: true,
-            message: '用户活动记录成功'
-        });
-
-    } catch (error) {
-        console.error('记录用户活动失败:', error);
-        res.status(500).json({
-            success: false,
-            message: '记录用户活动失败',
-            error: error.message
-        });
-    }
-});
-
-// 记录性能指标
-app.post('/api/analytics/performance-metrics', async (req, res) => {
-    try {
-        const metrics = req.body;
-        
-        await analyticsManager.recordPerformanceMetrics(metrics);
-
-        res.json({
-            success: true,
-            message: '性能指标记录成功'
-        });
-
-    } catch (error) {
-        console.error('记录性能指标失败:', error);
-        res.status(500).json({
-            success: false,
-            message: '记录性能指标失败',
-            error: error.message
-        });
-    }
-});
-
-// 清除分析数据缓存
-app.post('/api/analytics/clear-cache', async (req, res) => {
-    try {
-        analyticsManager.clearCache();
-
-        res.json({
-            success: true,
-            message: '分析数据缓存已清除'
-        });
-
-    } catch (error) {
-        console.error('清除缓存失败:', error);
-        res.status(500).json({
-            success: false,
-            message: '清除缓存失败',
-            error: error.message
-        });
-    }
-});
-
-// =============== AI智能客服API ===============
-
-// AI消息处理
-app.post('/api/ai/process', async (req, res) => {
-    try {
-        if (!aiManager) {
-            return res.status(503).json({
-                success: false,
-                message: 'AI服务未启动'
-            });
-        }
-
-        const { message, conversationId, shopId } = req.body;
-
-        if (!message || !conversationId || !shopId) {
-            return res.status(400).json({
-                success: false,
-                message: '缺少必要参数：message, conversationId, shopId'
-            });
-        }
-
-        console.log(`🤖 AI处理消息 [${shopId}]: ${message}`);
-
-        const result = await aiManager.processAIResponse(message, conversationId, shopId);
-
-        res.json(result);
-
-    } catch (error) {
-        console.error('❌ AI消息处理失败:', error);
-        res.status(500).json({
-            success: false,
-            message: 'AI消息处理失败',
-            error: error.message
-        });
-    }
-});
-
-// 获取AI统计信息
-app.get('/api/ai/statistics/:shopId', async (req, res) => {
-    try {
-        if (!aiManager) {
-            return res.status(503).json({
-                success: false,
-                message: 'AI服务未启动'
-            });
-        }
-
-        const { shopId } = req.params;
-        const stats = await aiManager.getAIStatistics(shopId);
-
-        res.json({
-            success: true,
-            data: stats
-        });
-
-    } catch (error) {
-        console.error('❌ 获取AI统计信息失败:', error);
-        res.status(500).json({
-            success: false,
-            message: '获取AI统计信息失败',
-            error: error.message
-        });
-    }
-});
-
-// AI模型训练
-app.post('/api/ai/train', async (req, res) => {
-    try {
-        if (!aiManager) {
-            return res.status(503).json({
-                success: false,
-                message: 'AI服务未启动'
-            });
-        }
-
-        const { shopId, trainingData } = req.body;
-
-        if (!shopId || !trainingData || !Array.isArray(trainingData)) {
-            return res.status(400).json({
-                success: false,
-                message: '缺少必要参数：shopId, trainingData (数组)'
-            });
-        }
-
-        console.log(`🧠 开始AI模型训练 [${shopId}], 数据量: ${trainingData.length}`);
-
-        const result = await aiManager.trainAIModel(shopId, trainingData);
-
-        res.json(result);
-
-    } catch (error) {
-        console.error('❌ AI模型训练失败:', error);
-        res.status(500).json({
-            success: false,
-            message: 'AI模型训练失败',
-            error: error.message
-        });
-    }
-});
-
-// 获取AI配置
-app.get('/api/ai/config/:shopId', async (req, res) => {
-    try {
-        if (!aiManager) {
-            return res.status(503).json({
-                success: false,
-                message: 'AI服务未启动'
-            });
-        }
-
-        const { shopId } = req.params;
-        const config = await aiManager.exportAIConfig(shopId);
-
-        res.json(config);
-
-    } catch (error) {
-        console.error('❌ 获取AI配置失败:', error);
-        res.status(500).json({
-            success: false,
-            message: '获取AI配置失败',
-            error: error.message
-        });
-    }
-});
-
-// 意图识别测试
-app.post('/api/ai/test-intent', async (req, res) => {
-    try {
-        if (!aiManager) {
-            return res.status(503).json({
-                success: false,
-                message: 'AI服务未启动'
-            });
-        }
-
-        const { message } = req.body;
-
-        if (!message) {
-            return res.status(400).json({
-                success: false,
-                message: '缺少消息内容'
-            });
-        }
-
-        const intent = await aiManager.recognizeIntent(message);
-
-        res.json({
-            success: true,
-            intent: intent,
-            message: message
-        });
-
-    } catch (error) {
-        console.error('❌ 意图识别测试失败:', error);
-        res.status(500).json({
-            success: false,
-            message: '意图识别测试失败',
-            error: error.message
-        });
-    }
-});
-
-// 情感分析测试
-app.post('/api/ai/test-sentiment', async (req, res) => {
-    try {
-        if (!aiManager) {
-            return res.status(503).json({
-                success: false,
-                message: 'AI服务未启动'
-            });
-        }
-
-        const { message, conversationId = 'test', shopId = 'test' } = req.body;
-
-        if (!message) {
-            return res.status(400).json({
-                success: false,
-                message: '缺少消息内容'
-            });
-        }
-
-        const sentiment = await aiManager.analyzeSentiment(message, conversationId, shopId);
-
-        res.json({
-            success: true,
-            sentiment: sentiment,
-            message: message
-        });
-
-    } catch (error) {
-        console.error('❌ 情感分析测试失败:', error);
-        res.status(500).json({
-            success: false,
-            message: '情感分析测试失败',
-            error: error.message
-        });
-    }
-});
-
-// 知识库搜索
-app.post('/api/ai/search-knowledge', async (req, res) => {
-    try {
-        if (!aiManager) {
-            return res.status(503).json({
-                success: false,
-                message: 'AI服务未启动'
-            });
-        }
-
-        const { query, shopId } = req.body;
-
-        if (!query || !shopId) {
-            return res.status(400).json({
-                success: false,
-                message: '缺少必要参数：query, shopId'
-            });
-        }
-
-        const knowledge = await aiManager.matchKnowledge(query, shopId);
-
-        res.json({
-            success: true,
-            knowledge: knowledge,
-            query: query
-        });
-
-    } catch (error) {
-        console.error('❌ 知识库搜索失败:', error);
-        res.status(500).json({
-            success: false,
-            message: '知识库搜索失败',
-            error: error.message
-        });
-    }
-});
-
-// 清理过期对话上下文
-app.post('/api/ai/cleanup-contexts', async (req, res) => {
-    try {
-        if (!aiManager) {
-            return res.status(503).json({
-                success: false,
-                message: 'AI服务未启动'
-            });
-        }
-
-        aiManager.cleanupExpiredContexts();
-
-        res.json({
-            success: true,
-            message: '过期对话上下文清理完成'
-        });
-
-    } catch (error) {
-        console.error('❌ 清理对话上下文失败:', error);
-        res.status(500).json({
-            success: false,
-            message: '清理对话上下文失败',
-            error: error.message
-        });
-    }
-});
-
-// =============== 文件上传API ===============
-
-// 获取支持的文件类型信息
-app.get('/api/files/supported-types', (req, res) => {
-    try {
-        const supportedTypes = fileManager.getSupportedTypes();
-        res.json({
-            success: true,
-            ...supportedTypes
-        });
-    } catch (error) {
-        console.error('获取支持类型失败:', error);
-        res.status(500).json({ error: '获取支持类型失败' });
-    }
-});
-
-// 文件上传接口
-app.post('/api/files/upload', requireAuth, (req, res) => {
-    const upload = fileManager.createUploadMiddleware();
-    
-    upload.single('file')(req, res, async (err) => {
-        if (err) {
-            console.error('文件上传错误:', err.message);
-            return res.status(400).json({ error: err.message });
-        }
-
-        if (!req.file) {
-            return res.status(400).json({ error: '未选择文件' });
-        }
-
-        try {
-            // 验证文件
-            fileManager.validateFile(req.file);
-            
-            // 处理文件信息
-            const fileInfo = await fileManager.handleFileUpload(req.file, {
-                uploadedBy: req.user.id,
-                uploadedByName: req.user.username
-            });
-
-            res.json({
-                success: true,
-                message: '文件上传成功',
-                file: fileInfo
-            });
-        } catch (error) {
-            console.error('文件处理失败:', error);
-            // 清理上传的文件
-            if (req.file && req.file.path) {
-                await fileManager.deleteFile(req.file.path);
-            }
-            res.status(500).json({ error: error.message });
-        }
-    });
-});
-
-// 发送多媒体消息
-app.post('/api/conversations/:conversationId/messages/media', requireAuth, async (req, res) => {
-    try {
-        const { conversationId } = req.params;
-        const { fileId, content = '', messageType } = req.body;
-
-        if (!fileId || !messageType) {
-            return res.status(400).json({ error: '缺少文件ID或消息类型' });
-        }
-
-        // 验证用户是否有权限访问该对话
-        const conversation = await database.getConversation(conversationId);
-        if (!conversation) {
-            return res.status(404).json({ error: '对话不存在' });
-        }
-
-        const shop = await database.getShop(conversation.shop_id);
-        if (!shop || shop.owner_id !== req.user.id) {
-            return res.status(403).json({ error: '无权限访问该对话' });
-        }
-
-        // 构造文件消息数据
-        const messageData = {
-            conversationId,
-            senderType: 'staff',
-            senderId: req.user.id,
-            senderName: req.user.username,
-            content: content || '[多媒体消息]',
-            messageType,
-            // 这里实际项目中需要从fileId获取真实的文件信息
-            fileUrl: `/uploads/files/${fileId}`,
-            fileName: `file_${fileId}`,
-            fileSize: 0,
-            fileType: messageType
-        };
-
-        const message = await database.addMessage(messageData);
-
-        // 通过WebSocket发送实时消息给客户
-        broadcastToCustomers({
-            type: 'new_message',
-            conversationId,
-            message: {
-                id: message.id,
-                content: message.content,
-                sender_type: message.senderType,
-                sender_name: message.senderName,
-                message_type: messageType,
-                file_url: message.fileUrl,
-                file_name: message.fileName,
-                created_at: message.created_at
-            }
-        });
-
-        res.json({
-            success: true,
-            message
-        });
-    } catch (error) {
-        console.error('发送多媒体消息失败:', error);
-        res.status(500).json({ error: '发送消息失败' });
-    }
-});
-
-// =============== 测试API ===============
-
-// 模拟第三方系统发送消息（测试用）
-app.post('/api/test/send-customer-message', async (req, res) => {
-    try {
-        const { shopId, customerId, customerName, message } = req.body;
-
-        if (!shopId || !customerId || !message) {
-            return res.status(400).json({ error: '缺少必要参数' });
-        }
-
-        // 查找或创建对话
-        const conversation = await database.findOrCreateConversation(
-            shopId, 
-            customerId, 
-            customerName || `客户${customerId}`
-        );
-
-        // 添加消息
-        const newMessage = await database.addMessage({
-            conversationId: conversation.id,
-            senderType: 'customer',
-            senderId: customerId,
-            senderName: customerName || `客户${customerId}`,
-            content: message
-        });
-
-        // 通过WebSocket通知所有连接的客服
-        broadcastToStaffs({
-            type: 'new_message',
-            shopId,
-            conversationId: conversation.id,
-            message: {
-                id: newMessage.id,
-                content: newMessage.content,
-                sender_type: 'customer',
-                sender_name: newMessage.senderName,
-                created_at: newMessage.created_at
-            }
-        });
-
-        res.json({
-            success: true,
-            message: '消息发送成功',
-            conversationId: conversation.id,
-            messageId: newMessage.id
-        });
-    } catch (error) {
-        console.error('发送测试消息失败:', error);
-        res.status(500).json({ error: '发送消息失败' });
     }
 });
 
@@ -1803,20 +581,9 @@ app.post('/api/connect', (req, res) => {
         return res.status(400).json({ error: '缺少用户ID' });
     }
     
-    // 获取增强验证信息 - 如果没有则创建默认值
-    const validation = req.securityValidation || {
-        isValid: true,
-        shopInfo: null,
-        securityLevel: 'basic',
-        apiKeyUsed: false,
-        validationMethods: ['domain']
-    };
-    const clientInfo = req.clientInfo || {
-        ip: req.ip || '::1',
-        refererDomain: 'localhost',
-        originDomain: 'localhost',
-        userAgent: req.get('User-Agent') || 'Unknown'
-    };
+    // 获取增强验证信息
+    const validation = req.securityValidation;
+    const clientInfo = req.clientInfo;
     
     // 注册用户（包含完整安全信息）
     httpUsers.set(userId, {
@@ -1880,8 +647,8 @@ app.post('/api/connect', (req, res) => {
     });
 });
 
-// 获取新消息接口（客户端使用）
-app.get('/api/client/messages', (req, res) => {
+// 获取新消息接口
+app.get('/api/messages', (req, res) => {
     const { userId, lastId = 0 } = req.query;
     
     if (!userId) {
@@ -1915,39 +682,9 @@ app.post('/api/send', async (req, res) => {
     
     console.log(`📨 HTTP用户消息 [${userId}]: ${message}`);
     
-    // 调试：检查域名验证信息
-    console.log('🔍 调试域名验证信息:');
-    console.log('- req.domainValidation:', req.domainValidation ? 'exists' : 'null');
-    if (req.domainValidation) {
-        console.log('- shopInfo:', req.domainValidation.shopInfo ? 'exists' : 'null');
-        if (req.domainValidation.shopInfo) {
-            console.log('- shopInfo.id:', req.domainValidation.shopInfo.id);
-            console.log('- shopInfo.name:', req.domainValidation.shopInfo.name);
-        }
-    }
-
     try {
-        // 获取店铺ID - 优先从域名验证，备用方案从headers
-        let shopId = req.domainValidation?.shopInfo?.id;
-        
-        // 备用方案：从请求头获取shopId
-        if (!shopId) {
-            shopId = req.headers['x-shop-id'];
-            console.log('🔄 从请求头获取shopId:', shopId);
-        }
-        
-        // 再备用方案：从body获取shopKey，查找对应的店铺
-        if (!shopId && req.body.shopKey) {
-            console.log('🔄 通过shopKey查找店铺:', req.body.shopKey);
-            const shops = await database.getAllShops();
-            const shop = shops.find(s => s.api_key === req.body.shopKey);
-            if (shop) {
-                shopId = shop.id;
-                console.log('🎯 通过shopKey找到店铺:', shop.name, shop.id);
-            }
-        }
-        
-        console.log('🎯 最终获取到的shopId:', shopId);
+        // 从请求中获取店铺信息
+        const shopId = req.domainValidation?.matchedShop?.id;
         
         if (shopId) {
             // 保存用户消息到数据库
@@ -1958,11 +695,6 @@ app.post('/api/send', async (req, res) => {
                 sender: 'user',
                 timestamp: timestamp ? new Date(timestamp) : new Date()
             });
-            console.log(`💾 消息已保存到数据库 [店铺:${shopId}, 用户:${userId}]`);
-        } else {
-            console.warn(`⚠️ 无法获取店铺ID，消息未保存到数据库`);
-            console.warn(`⚠️ 调试信息 - headers:`, Object.keys(req.headers));
-            console.warn(`⚠️ 调试信息 - body:`, req.body);
         }
         
         // 转发给所有WebSocket客服
@@ -2071,30 +803,6 @@ function broadcastToStaffs(message) {
     });
 }
 
-// 广播消息到所有客户
-function broadcastToCustomers(message) {
-    users.forEach((user, userId) => {
-        if (user.ws && user.ws.readyState === WebSocket.OPEN) {
-            user.ws.send(JSON.stringify(message));
-        }
-    });
-    
-    // 也发送给HTTP用户
-    httpUsers.forEach((user, userId) => {
-        if (user && user.lastSeen && (Date.now() - user.lastSeen < 60000)) {
-            // 为HTTP用户添加到消息队列
-            if (!messageQueue.has(userId)) {
-                messageQueue.set(userId, []);
-            }
-            messageQueue.get(userId).push({
-                ...message,
-                id: messageIdCounter++,
-                timestamp: Date.now()
-            });
-        }
-    });
-}
-
 // 发送消息给特定用户
 function sendToUser(userId, message) {
     console.log(`🎯 尝试发送消息给用户 ${userId}:`, message);
@@ -2109,6 +817,11 @@ function sendToUser(userId, message) {
 }
 
 // ============ 移动端管理API ============
+
+// 移动端管理后台
+app.get('/mobile-admin', (req, res) => {
+    res.sendFile(path.join(__dirname, 'static', 'mobile-admin.html'));
+});
 
 // 获取管理员的所有店铺列表
 app.get('/api/admin/shops', requireAuth, async (req, res) => {
@@ -2142,7 +855,25 @@ app.get('/api/admin/stats', requireAuth, async (req, res) => {
 });
 
 // 获取店铺的用户对话列表
-
+app.get('/api/shops/:shopId/conversations', requireAuth, async (req, res) => {
+    try {
+        const { shopId } = req.params;
+        
+        // 检查用户是否有权限查看该店铺
+        const hasPermission = await checkShopPermission(req.user, shopId);
+        if (!hasPermission) {
+            return res.status(403).json({ error: '无权限访问该店铺' });
+        }
+        
+        // 获取该店铺的所有对话
+        const conversations = await database.getShopConversations(shopId);
+        
+        res.json(conversations);
+    } catch (error) {
+        console.error('获取对话列表失败:', error);
+        res.status(500).json({ error: '获取对话列表失败' });
+    }
+});
 
 // 获取具体用户的聊天消息
 app.get('/api/shops/:shopId/users/:userId/messages', requireAuth, async (req, res) => {
@@ -2241,6 +972,192 @@ app.get('/api/admin/unread-stats', requireAuth, async (req, res) => {
     } catch (error) {
         console.error('获取未读统计失败:', error);
         res.status(500).json({ error: '获取未读统计失败' });
+    }
+});
+
+// 获取未读消息统计 - 新的API路由（兼容前端代码）
+app.get('/api/messages/unread-counts', requireAuth, async (req, res) => {
+    try {
+        let stats = {};
+        
+        if (req.user.role === 'super_admin') {
+            // 超级管理员获取所有店铺的统计
+            stats = await database.getAllUnreadStats();
+        } else {
+            // 普通用户只能看到自己店铺的统计
+            const userShops = await database.getUserShops(req.user.id);
+            for (const shop of userShops) {
+                const shopStats = await database.getShopUnreadStats(shop.id);
+                stats[shop.id] = shopStats;
+            }
+        }
+        
+        res.json({
+            success: true,
+            counts: stats
+        });
+    } catch (error) {
+        console.error('获取未读消息统计失败:', error);
+        res.status(500).json({ error: '获取未读消息统计失败' });
+    }
+});
+
+// 获取用户搜索历史
+app.get('/api/search/history/:userId/:shopId', requireAuth, async (req, res) => {
+    try {
+        const { userId, shopId } = req.params;
+        
+        // 检查权限
+        const hasPermission = await checkShopPermission(req.user, shopId);
+        if (!hasPermission) {
+            return res.status(403).json({ error: '无权限访问该店铺' });
+        }
+        
+        // 获取搜索历史（暂时返回空数组，后续可以实现）
+        const searchHistory = [];
+        
+        res.json({
+            success: true,
+            data: searchHistory
+        });
+    } catch (error) {
+        console.error('获取搜索历史失败:', error);
+        res.status(500).json({ error: '获取搜索历史失败' });
+    }
+});
+
+// 保存搜索历史
+app.post('/api/search/history/:userId/:shopId', requireAuth, async (req, res) => {
+    try {
+        const { userId, shopId } = req.params;
+        const { query } = req.body;
+        
+        // 检查权限
+        const hasPermission = await checkShopPermission(req.user, shopId);
+        if (!hasPermission) {
+            return res.status(403).json({ error: '无权限访问该店铺' });
+        }
+        
+        // 保存搜索历史（暂时只返回成功，后续可以实现）
+        console.log(`保存搜索历史: 用户${userId} 在店铺${shopId} 搜索 "${query}"`);
+        
+        res.json({
+            success: true,
+            message: '搜索历史已保存'
+        });
+    } catch (error) {
+        console.error('保存搜索历史失败:', error);
+        res.status(500).json({ error: '保存搜索历史失败' });
+    }
+});
+
+// ============ 移动端消息API ============
+
+// API: 获取对话详情 - 移动端优化版
+app.get('/api/messages/conversation', requireAuth, async (req, res) => {
+    try {
+        const { shopId, userId } = req.query;
+        
+        if (!shopId || !userId) {
+            return res.status(400).json({ 
+                success: false, 
+                error: '缺少必需参数: shopId 和 userId' 
+            });
+        }
+
+        // 检查店铺权限
+        const hasPermission = await checkShopPermission(req.user.id, shopId, req.user.role);
+        if (!hasPermission) {
+            return res.status(403).json({ 
+                success: false, 
+                error: '无权限访问此店铺' 
+            });
+        }
+
+        // 获取对话消息
+        const messages = await database.getConversationMessages(shopId, userId);
+        
+        res.json({
+            success: true,
+            messages: messages || []
+        });
+
+    } catch (error) {
+        console.error('获取对话详情失败:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: '获取对话详情失败' 
+        });
+    }
+});
+
+// API: 发送消息 - 移动端优化版
+app.post('/api/messages/send', requireAuth, async (req, res) => {
+    try {
+        const { shopId, userId, content, senderType = 'admin' } = req.body;
+        
+        if (!shopId || !userId || !content) {
+            return res.status(400).json({ 
+                success: false, 
+                error: '缺少必需参数' 
+            });
+        }
+
+        // 检查店铺权限
+        const hasPermission = await checkShopPermission(req.user.id, shopId, req.user.role);
+        if (!hasPermission) {
+            return res.status(403).json({ 
+                success: false, 
+                error: '无权限访问此店铺' 
+            });
+        }
+
+        // 保存消息
+        const messageId = await database.saveMessage({
+            shopId: shopId,
+            userId: userId,
+            message: content,
+            sender: senderType,
+            adminId: req.user.id
+        });
+        
+        const message = {
+            id: messageId,
+            shop_id: shopId,
+            user_id: userId,
+            content: content,
+            sender_type: senderType,
+            sender_id: req.user.id,
+            created_at: new Date().toISOString()
+        };
+
+        // 通过WebSocket广播消息
+        if (global.wss) {
+            const wsMessage = {
+                type: 'new_message',
+                shopId: shopId,
+                userId: userId,
+                message: message
+            };
+            
+            global.wss.clients.forEach(client => {
+                if (client.readyState === 1) { // WebSocket.OPEN
+                    client.send(JSON.stringify(wsMessage));
+                }
+            });
+        }
+
+        res.json({
+            success: true,
+            message: message
+        });
+
+    } catch (error) {
+        console.error('发送消息失败:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: '发送消息失败' 
+        });
     }
 });
 
@@ -2736,120 +1653,6 @@ wss.on('connection', (ws, req) => {
                     
                     break;
                 
-                // AI智能客服相关消息处理
-                case 'ai_init':
-                    console.log(`🤖 AI客服初始化 [会话: ${message.conversationId}]`);
-                    // 可以在这里进行AI会话初始化
-                    break;
-                
-                case 'ai_message':
-                    console.log(`🤖 AI处理用户消息: ${message.message}`);
-                    
-                    try {
-                        if (aiManager) {
-                            // 使用AI处理消息
-                            const aiResult = await aiManager.processAIResponse(
-                                message.message, 
-                                message.conversationId, 
-                                message.shopId
-                            );
-                            
-                            if (aiResult.success) {
-                                // 发送AI回复给用户
-                                ws.send(JSON.stringify({
-                                    type: 'ai_response',
-                                    response: aiResult.response,
-                                    intent: aiResult.intent,
-                                    sentiment: aiResult.sentiment,
-                                    confidence: aiResult.confidence,
-                                    shouldEscalate: aiResult.shouldEscalate,
-                                    conversationId: message.conversationId,
-                                    timestamp: Date.now()
-                                }));
-                                
-                                // 如果需要转人工，发送建议
-                                if (aiResult.shouldEscalate) {
-                                    ws.send(JSON.stringify({
-                                        type: 'ai_escalation_suggestion',
-                                        reason: 'high_urgency_or_negative_sentiment',
-                                        sentiment: aiResult.sentiment,
-                                        conversationId: message.conversationId,
-                                        timestamp: Date.now()
-                                    }));
-                                }
-                                
-                                // 记录到数据库
-                                try {
-                                    await database.saveMessage({
-                                        shopId: message.shopId,
-                                        userId: message.conversationId,
-                                        message: message.message,
-                                        sender: 'user',
-                                        timestamp: new Date()
-                                    });
-                                    
-                                    await database.saveMessage({
-                                        shopId: message.shopId,
-                                        userId: message.conversationId,
-                                        message: aiResult.response.content,
-                                        sender: 'ai_assistant',
-                                        timestamp: new Date()
-                                    });
-                                } catch (dbError) {
-                                    console.error('AI消息数据库保存失败:', dbError);
-                                }
-                                
-                            } else {
-                                // AI处理失败，发送错误响应
-                                ws.send(JSON.stringify({
-                                    type: 'ai_error',
-                                    error: aiResult.error || 'AI处理失败',
-                                    conversationId: message.conversationId,
-                                    timestamp: Date.now()
-                                }));
-                            }
-                        } else {
-                            // AI服务未启动
-                            ws.send(JSON.stringify({
-                                type: 'ai_error',
-                                error: 'AI服务未启动',
-                                conversationId: message.conversationId,
-                                timestamp: Date.now()
-                            }));
-                        }
-                    } catch (aiError) {
-                        console.error('AI消息处理异常:', aiError);
-                        ws.send(JSON.stringify({
-                            type: 'ai_error',
-                            error: 'AI处理异常',
-                            conversationId: message.conversationId,
-                            timestamp: Date.now()
-                        }));
-                    }
-                    break;
-                
-                case 'request_human_handoff':
-                    console.log(`🆘 请求转接人工客服 [会话: ${message.conversationId}]`);
-                    
-                    // 通知客服有转接请求
-                    broadcastToStaffs({
-                        type: 'ai_handoff_request',
-                        conversationId: message.conversationId,
-                        shopId: message.shopId,
-                        reason: message.reason,
-                        context: message.context,
-                        timestamp: Date.now()
-                    });
-                    
-                    // 回复用户转接状态
-                    ws.send(JSON.stringify({
-                        type: 'handoff_initiated',
-                        message: '正在为您转接人工客服，请稍候...',
-                        conversationId: message.conversationId,
-                        timestamp: Date.now()
-                    }));
-                    break;
-                
                 default:
                     console.log(`🔄 未知消息类型: ${message.type}`);
             }
@@ -2887,79 +1690,13 @@ wss.on('connection', (ws, req) => {
     });
 });
 
-// =============== 数据分析仪表板路由 ===============
-
-// 分析仪表板主页
-app.get('/analytics', (req, res) => {
-    res.sendFile(path.join(__dirname, 'static', 'analytics-dashboard.html'));
-});
-
-app.get('/analytics-dashboard', (req, res) => {
-    res.sendFile(path.join(__dirname, 'static', 'analytics-dashboard.html'));
-});
-
-// AI智能客服演示页面
-app.get('/ai-chat-demo', (req, res) => {
-    res.sendFile(path.join(__dirname, 'static', 'ai-chat-demo.html'));
-});
-
-// AI意图识别测试页面 (后续创建)
-app.get('/ai-intent-test', (req, res) => {
-    res.sendFile(path.join(__dirname, 'static', 'ai-intent-test.html'));
-});
-
-// AI情感分析测试页面 (后续创建)
-app.get('/ai-sentiment-test', (req, res) => {
-    res.sendFile(path.join(__dirname, 'static', 'ai-sentiment-test.html'));
-});
-
 // 启动服务器
-server.listen(PORT, async () => {
-    console.log(`🚀 QuickTalk 客服系统启动成功！`);
-    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-    console.log(`📱 项目主页: http://localhost:${PORT}`);
-    console.log(`�️  桌面端:`);
-    console.log(`   📊 管理后台: http://localhost:${PORT}/admin`);
-    console.log(`   � 客服聊天: http://localhost:${PORT}/customer`);
-    console.log(`📱 移动端:`);
-    console.log(`   📊 管理后台: http://localhost:${PORT}/mobile/admin`);
-    console.log(`   � 客服聊天: http://localhost:${PORT}/mobile/customer`);
-    console.log(`🔧 开发工具:`);
-    console.log(`   🎛️  代码生成器: http://localhost:${PORT}/code-generator`);
-    console.log(`   🧪 SDK 演示: http://localhost:${PORT}/sdk-demo`);
-    console.log(`   🔍 搜索测试: http://localhost:${PORT}/test-search-history.html`);
-    console.log(`📊 数据分析:`);
-    console.log(`   🎯 分析仪表板: http://localhost:${PORT}/analytics`);
-    console.log(`   📈 实时监控: http://localhost:${PORT}/analytics-dashboard`);
-    console.log(`�🔌 WebSocket: ws://localhost:${PORT}/ws`);
-    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+server.listen(PORT, () => {
+    console.log(`🚀 服务器启动成功！`);
+    console.log(`📁 用户界面: http://localhost:${PORT}`);
+    console.log(`👨‍💼 客服后台: http://localhost:${PORT}/admin`);
+    console.log(`🔌 WebSocket: ws://localhost:${PORT}/ws`);
     console.log(`⏰ 启动时间: ${new Date().toLocaleString('zh-CN')}`);
-    console.log(`🎯 项目结构: 桌面端/移动端分离，文件组织清晰`);
-    
-    // 初始化数据分析模块
-    try {
-        console.log('📊 正在初始化数据分析仪表板...');
-        await analyticsManager.initializeTables();
-        console.log('✅ 数据分析仪表板初始化完成');
-        console.log(`📈 访问地址: http://localhost:${PORT}/analytics`);
-    } catch (error) {
-        console.error('❌ 数据分析模块初始化失败:', error);
-    }
-    
-    // 初始化AI智能客服模块
-    try {
-        console.log('🤖 正在初始化AI智能客服系统...');
-        aiManager = new AIAssistantManager(database.db);
-        await aiManager.initializeTables();
-        console.log('✅ AI智能客服系统初始化完成');
-        console.log(`🤖 AI助手已启动，支持智能问答、情感分析、意图识别`);
-        console.log(`💬 AI测试页面将在后续创建`);
-    } catch (error) {
-        console.error('❌ AI智能客服模块初始化失败:', error);
-    }
-    
-    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-    console.log(`🎉 第四阶段: AI智能客服系统 - 启动完成！`);
 });
 
 // 优雅关闭

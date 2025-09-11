@@ -1,7 +1,6 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const bcrypt = require('bcrypt');
-const MessageDatabase = require('./src/message-database');
 
 // SQLite数据库实现
 class SQLiteDatabase {
@@ -21,12 +20,7 @@ class SQLiteDatabase {
             }
 
             this.db = new sqlite3.Database(this.dbPath);
-            
-            // 初始化消息数据库模块
-            this.messageDB = new MessageDatabase(this.db);
-            
             await this.createTables();
-            await this.messageDB.initializeTables(); // 初始化消息表
             await this.initTestData();
             console.log('SQLite数据库初始化完成');
         } catch (error) {
@@ -324,55 +318,35 @@ class SQLiteDatabase {
 
     // 获取用户的店铺列表
     async getUserShops(userId) {
-        try {
-            console.log(`🔍 getUserShops: 查询用户 ${userId} 的店铺...`);
-            
-            const userShops = await this.allAsync(`
-                SELECT s.id, s.name, s.domain, s.description, s.created_at, s.expires_at,
-                       us.role as userRole, us.permissions,
-                       s.approval_status as approvalStatus,
-                       s.submitted_at as submittedAt,
-                       s.reviewed_at as reviewedAt,
-                       s.reviewed_by as reviewedBy,
-                       s.review_note as reviewNote
-                FROM shops s 
-                JOIN user_shops us ON s.id = us.shop_id 
-                WHERE us.user_id = ? 
-                ORDER BY us.joined_at DESC
-            `, [userId]);
-            
-            console.log(`📊 getUserShops: 查询结果 ${userShops ? userShops.length : 'null'} 条记录`);
-            
-            // 确保返回数组
-            if (!Array.isArray(userShops)) {
-                console.warn('⚠️ getUserShops: 查询结果不是数组，返回空数组');
-                return [];
-            }
-            
-            const mappedShops = userShops.map(shop => ({
-                id: shop.id,
-                name: shop.name,
-                domain: shop.domain,
-                description: shop.description,
-                userRole: shop.userRole,
-                approvalStatus: shop.approvalStatus,
-                submittedAt: shop.submittedAt,
-                reviewedAt: shop.reviewedAt,
-                reviewedBy: shop.reviewedBy,
-                reviewNote: shop.reviewNote,
-                expiryDate: shop.expires_at,
-                permissions: shop.permissions ? JSON.parse(shop.permissions) : [],
-                members: [] // 初始化成员列表
-            }));
-            
-            console.log(`✅ getUserShops: 返回 ${mappedShops.length} 个店铺`);
-            return mappedShops;
-            
-        } catch (error) {
-            console.error('❌ getUserShops 查询出错:', error);
-            // 发生错误时返回空数组，确保API不会崩溃
-            return [];
-        }
+        const userShops = await this.allAsync(`
+            SELECT s.id, s.name, s.domain, s.description, s.created_at, s.expires_at,
+                   us.role as userRole, us.permissions,
+                   s.approval_status as approvalStatus,
+                   s.submitted_at as submittedAt,
+                   s.reviewed_at as reviewedAt,
+                   s.reviewed_by as reviewedBy,
+                   s.review_note as reviewNote
+            FROM shops s 
+            JOIN user_shops us ON s.id = us.shop_id 
+            WHERE us.user_id = ? 
+            ORDER BY us.joined_at DESC
+        `, [userId]);
+        
+        return userShops.map(shop => ({
+            id: shop.id,
+            name: shop.name,
+            domain: shop.domain,
+            description: shop.description,
+            userRole: shop.userRole,
+            approvalStatus: shop.approvalStatus,
+            submittedAt: shop.submittedAt,
+            reviewedAt: shop.reviewedAt,
+            reviewedBy: shop.reviewedBy,
+            reviewNote: shop.reviewNote,
+            expiryDate: shop.expires_at,
+            permissions: shop.permissions ? JSON.parse(shop.permissions) : [],
+            members: [] // 初始化成员列表
+        }));
     }
 
     // 统一的用户完整信息获取函数
@@ -507,126 +481,6 @@ class SQLiteDatabase {
             };
         }
         return null;
-    }
-
-    // API兼容性别名
-    async getShop(id) {
-        return await this.getShopById(id);
-    }
-
-    async getShopEmployees(shopId) {
-        console.log(`👥 获取店铺员工: ${shopId}`);
-        const employees = await this.allAsync(`
-            SELECT u.id, u.username, u.email, u.role, u.created_at,
-                   us.role as shopRole, us.permissions, us.joined_at
-            FROM users u
-            JOIN user_shops us ON u.id = us.user_id
-            WHERE us.shop_id = ?
-            ORDER BY us.joined_at DESC
-        `, [shopId]);
-        
-        return employees.map(emp => ({
-            id: emp.id,
-            username: emp.username,
-            email: emp.email,
-            role: emp.shopRole || emp.role, // 优先使用店铺角色
-            permissions: emp.permissions ? JSON.parse(emp.permissions) : [],
-            joinedAt: emp.joined_at,
-            createdAt: emp.created_at
-        }));
-    }
-
-    async addShopEmployee(shopId, employeeData) {
-        const { username, email, password, role } = employeeData;
-        console.log(`➕ 添加员工到店铺: ${username} -> ${shopId}`);
-        
-        try {
-            // 先检查用户名是否已存在
-            const existingUser = await this.getUserByUsername(username);
-            let userId;
-            
-            if (existingUser) {
-                userId = existingUser.id;
-                console.log(`用户 ${username} 已存在，直接关联到店铺`);
-            } else {
-                // 创建新用户
-                console.log(`创建新用户: ${username}`);
-                const hashedPassword = require('crypto')
-                    .createHash('sha256')
-                    .update(password)
-                    .digest('hex');
-                
-                const result = await this.runAsync(`
-                    INSERT INTO users (username, email, password, role, created_at)
-                    VALUES (?, ?, ?, ?, datetime('now'))
-                `, [username, email, hashedPassword, 'staff']);
-                
-                userId = result.lastID;
-            }
-            
-            // 检查是否已经关联到这个店铺
-            const existingAssociation = await this.getAsync(`
-                SELECT * FROM user_shops WHERE user_id = ? AND shop_id = ?
-            `, [userId, shopId]);
-            
-            if (existingAssociation) {
-                throw new Error('用户已经是该店铺的员工');
-            }
-            
-            // 创建用户店铺关联
-            await this.runAsync(`
-                INSERT INTO user_shops (user_id, shop_id, role, permissions, joined_at)
-                VALUES (?, ?, ?, ?, datetime('now'))
-            `, [userId, shopId, role, JSON.stringify(['read', 'write'])]);
-            
-            // 返回员工信息
-            const employee = await this.getAsync(`
-                SELECT u.id, u.username, u.email, u.role, u.created_at,
-                       us.role as shopRole, us.permissions, us.joined_at
-                FROM users u
-                JOIN user_shops us ON u.id = us.user_id
-                WHERE u.id = ? AND us.shop_id = ?
-            `, [userId, shopId]);
-            
-            return {
-                id: employee.id,
-                username: employee.username,
-                email: employee.email,
-                role: employee.shopRole || employee.role,
-                permissions: employee.permissions ? JSON.parse(employee.permissions) : [],
-                joinedAt: employee.joined_at,
-                createdAt: employee.created_at
-            };
-        } catch (error) {
-            console.error('添加店铺员工失败:', error);
-            throw error;
-        }
-    }
-
-    async removeShopEmployee(shopId, employeeId) {
-        console.log(`🗑️ 从店铺 ${shopId} 移除员工 ${employeeId}`);
-        
-        try {
-            // 检查员工是否存在于该店铺
-            const association = await this.getAsync(`
-                SELECT * FROM user_shops WHERE user_id = ? AND shop_id = ?
-            `, [employeeId, shopId]);
-            
-            if (!association) {
-                throw new Error('员工不在该店铺中');
-            }
-            
-            // 删除关联
-            await this.runAsync(`
-                DELETE FROM user_shops WHERE user_id = ? AND shop_id = ?
-            `, [employeeId, shopId]);
-            
-            console.log(`✅ 员工 ${employeeId} 已从店铺 ${shopId} 移除`);
-            return true;
-        } catch (error) {
-            console.error('移除店铺员工失败:', error);
-            throw error;
-        }
     }
 
     async getShopByDomain(domain) {
@@ -1105,6 +959,35 @@ class SQLiteDatabase {
         }));
     }
 
+    // 获取对话消息 - 移动端API专用
+    async getConversationMessages(shopId, userId, limit = 100) {
+        try {
+            const messages = await this.allAsync(`
+                SELECT m.*, u.username as admin_name
+                FROM messages m
+                LEFT JOIN users u ON m.admin_id = u.id
+                WHERE m.shop_id = ? AND m.user_id = ?
+                ORDER BY m.created_at ASC
+                LIMIT ?
+            `, [shopId, userId, limit]);
+
+            return messages.map(msg => ({
+                id: msg.id,
+                shop_id: msg.shop_id,
+                user_id: msg.user_id,
+                content: msg.message,
+                sender_type: msg.sender,
+                sender_id: msg.admin_id,
+                admin_name: msg.admin_name,
+                created_at: msg.created_at,
+                is_read: msg.is_read
+            }));
+        } catch (error) {
+            console.error('获取对话消息失败:', error);
+            return [];
+        }
+    }
+
     // 标记消息为已读
     async markMessagesAsRead(shopId, userId, adminId) {
         await this.runAsync(`
@@ -1153,48 +1036,6 @@ class SQLiteDatabase {
         return stats;
     }
 
-    // =============== 消息相关方法 ===============
-
-    // 获取用户未读消息统计
-    async getUnreadCounts(userId) {
-        return await this.messageDB.getUnreadCounts(userId);
-    }
-
-    // 获取店铺对话列表
-    async getShopConversations(shopId, options = {}) {
-        return await this.messageDB.getShopConversations(shopId, options);
-    }
-
-    // 获取对话消息
-    async getConversationMessages(conversationId, options = {}) {
-        return await this.messageDB.getConversationMessages(conversationId, options);
-    }
-
-    // 创建新对话
-    async createConversation(data) {
-        return await this.messageDB.createConversation(data);
-    }
-
-    // 添加消息
-    async addMessage(data) {
-        return await this.messageDB.addMessage(data);
-    }
-
-    // 标记消息为已读
-    async markMessagesAsRead(conversationId, userId) {
-        return await this.messageDB.markMessagesAsRead(conversationId, userId);
-    }
-
-    // 查找或创建对话
-    async findOrCreateConversation(shopId, customerId, customerName) {
-        return await this.messageDB.findOrCreateConversation(shopId, customerId, customerName);
-    }
-
-    // 获取对话详情
-    async getConversation(conversationId) {
-        return await this.messageDB.getConversation(conversationId);
-    }
-
     // 获取总体统计信息
     async getOverallStats(userId = null) {
         let shopCondition = '';
@@ -1210,7 +1051,7 @@ class SQLiteDatabase {
             SELECT 
                 COUNT(DISTINCT s.id) as total_shops,
                 COUNT(DISTINCT c.id) as total_conversations,
-                COUNT(DISTINCT CASE WHEN m.sender_type = 'customer' AND m.is_read = FALSE THEN m.id END) as unread_messages
+                COUNT(DISTINCT CASE WHEN m.sender = 'user' AND m.is_read = FALSE THEN m.id END) as unread_messages
             FROM shops s
             LEFT JOIN conversations c ON s.id = c.shop_id
             LEFT JOIN messages m ON s.id = m.shop_id

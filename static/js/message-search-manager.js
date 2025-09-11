@@ -582,7 +582,15 @@ class MessageSearchManager {
      */
     async loadSearchHistory() {
         try {
-            const response = await fetch('/api/search/history/user_1/shop_1');
+            const sessionId = sessionStorage.getItem('sessionId') || localStorage.getItem('sessionId');
+            if (!sessionId) {
+                console.warn('未找到登录会话，跳过加载搜索历史');
+                return;
+            }
+
+            const response = await fetch('/api/search/history/user_1/shop_1', {
+                headers: { 'X-Session-Id': sessionId }
+            });
             const result = await response.json();
             
             if (result.success) {
