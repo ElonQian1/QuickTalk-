@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>客服管理系统</title>
+    
+    <!-- 引入店铺管理模块样式 -->
+    <link rel="stylesheet" href="/css/mobile-shop-manager.css">
+    
     <style>
         * {
             margin: 0;
@@ -1069,10 +1073,12 @@
                         MessageManager.loadChatMessages(params.shopId, params.userId);
                         break;
                     case 'shops':
-                        ShopManager.loadShops();
-                        // 如果存在新的店铺管理器，优先使用
+                        console.log('📱 切换到店铺页面，启动店铺管理模块');
+                        // 使用新的模块化店铺管理器
                         if (window.mobileShopManager) {
                             window.mobileShopManager.init();
+                        } else {
+                            console.error('❌ 店铺管理模块未加载');
                         }
                         break;
                     case 'settings':
@@ -1615,5 +1621,8 @@
             });
         });
     </script>
+    
+    <!-- 引入店铺管理模块 -->
+    <script src="/js/mobile-shop-manager.js"></script>
 </body>
 </html>

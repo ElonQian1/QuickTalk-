@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>手机端店铺列表功能测试</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .test-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+        }
+        .test-button {
+            background: #007AFF;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+        .test-result {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 13px;
+        }
+        .success {
+            color: #28a745;
+        }
+        .error {
+            color: #dc3545;
+        }
+        .mobile-frame {
+            width: 375px;
+            height: 667px;
+            border: 2px solid #333;
+            border-radius: 20px;
+            margin: 20px auto;
+            overflow: hidden;
+            background: white;
+        }
+        .mobile-frame iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🧪 手机端店铺列表功能测试</h1>
+        
+        <div class="test-section">
+            <div class="test-title">1. API 接口测试</div>
+            <button class="test-button" onclick="testAPI()">测试 /api/shops API</button>
+            <button class="test-button" onclick="testAuth()">测试身份验证</button>
+            <div id="api-result" class="test-result" style="display: none;"></div>
+        </div>
+        
+        <div class="test-section">
+            <div class="test-title">2. JavaScript 模块测试</div>
+            <button class="test-button" onclick="testMobileShopManager()">测试 MobileShopManager 模块</button>
+            <button class="test-button" onclick="testStaticFiles()">测试静态文件加载</button>
+            <div id="module-result" class="test-result" style="display: none;"></div>
+        </div>
+        
+        <div class="test-section">
+            <div class="test-title">3. 移动端界面测试</div>
+            <button class="test-button" onclick="openMobileAdmin()">打开手机端管理界面</button>
+            <button class="test-button" onclick="simulateMobile()">模拟手机浏览器</button>
+        </div>
+        
+        <div class="test-section">
+            <div class="test-title">4. 手机端预览</div>
+            <div class="mobile-frame">
+                <iframe id="mobile-preview" src="about:blank"></iframe>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 测试 API 接口
+        async function testAPI() {
+            const resultDiv = document.getElementById('api-result');
+            resultDiv.style.display = 'block';
+            resultDiv.textContent = '正在测试 API...';
+            
+            try {
+                // 测试获取店铺列表
+                const response = await fetch('/api/shops', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer test-token'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.className = 'test-result success';
+                    resultDiv.textContent = `✅ API 测试成功！\n` +
+                        `状态码: ${response.status}\n` +
+                        `店铺数量: ${data.shops ? data.shops.length : '未知'}\n` +
+                        `响应数据: ${JSON.stringify(data, null, 2)}`;
+                } else {
+                    resultDiv.className = 'test-result error';
+                    resultDiv.textContent = `❌ API 测试失败！\n` +
+                        `状态码: ${response.status}\n` +
+                        `错误信息: ${data.error || '未知错误'}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'test-result error';
+                resultDiv.textContent = `❌ API 请求失败: ${error.message}`;
+            }
+        }
+        
+        // 测试身份验证
+        async function testAuth() {
+            const resultDiv = document.getElementById('api-result');
+            resultDiv.style.display = 'block';
+            resultDiv.textContent = '正在测试身份验证...';
+            
+            try {
+                // 测试登录
+                const loginResponse = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username: 'shop_owner',
+                        password: 'password123'
+                    })
+                });
+                
+                const loginData = await loginResponse.json();
+                
+                if (loginResponse.ok && loginData.sessionId) {
+                    // 使用 sessionId 测试获取店铺
+                    const shopsResponse = await fetch(`/api/shops?sessionId=${loginData.sessionId}`);
+                    const shopsData = await shopsResponse.json();
+                    
+                    resultDiv.className = 'test-result success';
+                    resultDiv.textContent = `✅ 身份验证测试成功！\n` +
+                        `用户: ${loginData.user.username}\n` +
+                        `角色: ${loginData.user.role}\n` +
+                        `Session ID: ${loginData.sessionId}\n` +
+                        `店铺数量: ${shopsData.shops ? shopsData.shops.length : 0}`;
+                } else {
+                    resultDiv.className = 'test-result error';
+                    resultDiv.textContent = `❌ 登录失败: ${loginData.error || '未知错误'}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'test-result error';
+                resultDiv.textContent = `❌ 身份验证测试失败: ${error.message}`;
+            }
+        }
+        
+        // 测试 JavaScript 模块
+        async function testMobileShopManager() {
+            const resultDiv = document.getElementById('module-result');
+            resultDiv.style.display = 'block';
+            resultDiv.textContent = '正在测试 MobileShopManager 模块...';
+            
+            try {
+                // 测试加载 JavaScript 文件
+                const jsResponse = await fetch('/js/mobile-shop-manager.js');
+                const jsContent = await jsResponse.text();
+                
+                // 测试加载 CSS 文件
+                const cssResponse = await fetch('/css/mobile-shop-manager.css');
+                const cssContent = await cssResponse.text();
+                
+                resultDiv.className = 'test-result success';
+                resultDiv.textContent = `✅ 模块文件测试成功！\n` +
+                    `JavaScript 文件大小: ${jsContent.length} 字符\n` +
+                    `CSS 文件大小: ${cssContent.length} 字符\n` +
+                    `JavaScript 包含 MobileShopManager 类: ${jsContent.includes('class MobileShopManager') ? '是' : '否'}\n` +
+                    `CSS 包含响应式样式: ${cssContent.includes('@media') ? '是' : '否'}`;
+            } catch (error) {
+                resultDiv.className = 'test-result error';
+                resultDiv.textContent = `❌ 模块测试失败: ${error.message}`;
+            }
+        }
+        
+        // 测试静态文件
+        async function testStaticFiles() {
+            const resultDiv = document.getElementById('module-result');
+            resultDiv.style.display = 'block';
+            resultDiv.textContent = '正在测试静态文件服务...';
+            
+            const files = [
+                '/js/mobile-shop-manager.js',
+                '/css/mobile-shop-manager.css',
+                '/admin-mobile.html',
+                '/mobile/admin'
+            ];
+            
+            const results = [];
+            
+            for (const file of files) {
+                try {
+                    const response = await fetch(file);
+                    results.push({
+                        file,
+                        status: response.status,
+                        ok: response.ok,
+                        size: response.headers.get('content-length') || 'unknown'
+                    });
+                } catch (error) {
+                    results.push({
+                        file,
+                        error: error.message
+                    });
+                }
+            }
+            
+            resultDiv.className = 'test-result success';
+            resultDiv.textContent = '📁 静态文件服务测试结果:\n' +
+                results.map(r => r.error ? 
+                    `❌ ${r.file}: ${r.error}` : 
+                    `${r.ok ? '✅' : '❌'} ${r.file}: ${r.status} (${r.size} bytes)`
+                ).join('\n');
+        }
+        
+        // 打开手机端管理界面
+        function openMobileAdmin() {
+            window.open('/mobile/admin', '_blank');
+        }
+        
+        // 模拟手机浏览器
+        function simulateMobile() {
+            const iframe = document.getElementById('mobile-preview');
+            iframe.src = '/mobile/admin';
+        }
+        
+        // 页面加载时自动运行一些测试
+        window.addEventListener('load', () => {
+            console.log('🧪 手机端店铺列表功能测试页面已加载');
+        });
+    </script>
+</body>
+</html>
