@@ -216,8 +216,6 @@ class SQLiteDatabase {
             );
 
             if (!existingAdmin) {
-                console.log('🏗️ 正在创建测试数据...');
-                
                 // 创建超级管理员
                 const superAdminId = 'admin_' + Date.now();
                 await this.runAsync(`
@@ -246,158 +244,10 @@ class SQLiteDatabase {
                     'active'
                 ]);
 
-                console.log('👤 用户数据创建完成');
-
-                // 🏪 创建测试店铺数据
-                const shops = [
-                    {
-                        id: 'shop_' + Date.now() + '_1',
-                        name: '时尚服装店',
-                        domain: 'fashion.example.com',
-                        description: '专业时尚服装零售，提供最新潮流单品'
-                    },
-                    {
-                        id: 'shop_' + Date.now() + '_2',
-                        name: '数码电子商城',
-                        domain: 'electronics.example.com',
-                        description: '数码产品、电子设备专业销售平台'
-                    },
-                    {
-                        id: 'shop_' + Date.now() + '_3',
-                        name: '美妆护肤专营店',
-                        domain: 'beauty.example.com',
-                        description: '国际品牌美妆护肤产品正品保证'
-                    }
-                ];
-
-                // 插入店铺数据
-                for (const shop of shops) {
-                    await this.runAsync(`
-                        INSERT INTO shops (id, owner_id, name, domain, description, status, approval_status, service_status, expires_at) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    `, [
-                        shop.id,
-                        shopOwnerId,
-                        shop.name,
-                        shop.domain,
-                        shop.description,
-                        'active',
-                        'approved',
-                        'active',
-                        new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() // 一年后过期
-                    ]);
-
-                    // 创建用户-店铺关联关系
-                    await this.runAsync(`
-                        INSERT INTO user_shops (user_id, shop_id, role, permissions) 
-                        VALUES (?, ?, ?, ?)
-                    `, [
-                        shopOwnerId,
-                        shop.id,
-                        'owner',
-                        JSON.stringify(['manage_shop', 'view_analytics', 'manage_customer_service', 'export_data'])
-                    ]);
-
-                    console.log(`🏪 店铺创建完成: ${shop.name}`);
-                }
-
-                // 🧪 创建一些测试对话和消息
-                await this.createTestConversationsAndMessages(shopOwnerId, shops);
-
-                console.log('✅ 完整测试数据初始化完成');
-                console.log(`👤 shop_owner用户ID: ${shopOwnerId}`);
-                console.log(`🏪 创建了${shops.length}个测试店铺`);
+                console.log('测试数据初始化完成');
             }
         } catch (error) {
             console.error('初始化测试数据失败:', error);
-        }
-    }
-
-    // 🧪 创建测试对话和消息数据
-    async createTestConversationsAndMessages(shopOwnerId, shops) {
-        try {
-            console.log('💬 正在创建测试对话数据...');
-            
-            for (let i = 0; i < shops.length; i++) {
-                const shop = shops[i];
-                
-                // 为每个店铺创建2-3个测试对话
-                const customerCount = 2 + Math.floor(Math.random() * 2); // 2-3个客户
-                
-                for (let j = 0; j < customerCount; j++) {
-                    const conversationId = `conv_${Date.now()}_${i}_${j}`;
-                    const customerId = `customer_${Date.now()}_${i}_${j}`;
-                    const customerName = `客户${i + 1}-${j + 1}`;
-                    
-                    // 创建对话
-                    await this.runAsync(`
-                        INSERT INTO conversations (id, shop_id, customer_id, customer_name, customer_email, status, created_at, updated_at) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    `, [
-                        conversationId,
-                        shop.id,
-                        customerId,
-                        customerName,
-                        `${customerId}@customer.com`,
-                        'active',
-                        new Date(Date.now() - Math.floor(Math.random() * 7 * 24 * 60 * 60 * 1000)).toISOString(), // 最近7天内
-                        new Date().toISOString()
-                    ]);
-
-                    // 创建一些测试消息
-                    const messageCount = 3 + Math.floor(Math.random() * 5); // 3-7条消息
-                    const messageTopics = [
-                        '请问这个产品有什么颜色？',
-                        '什么时候可以发货？',
-                        '能否申请退换货？',
-                        '有没有优惠活动？',
-                        '产品质量怎么样？',
-                        '支持货到付款吗？',
-                        '包邮吗？'
-                    ];
-
-                    for (let k = 0; k < messageCount; k++) {
-                        const messageId = `msg_${Date.now()}_${i}_${j}_${k}`;
-                        const isCustomerMessage = k % 2 === 0; // 交替发送
-                        const messageTime = new Date(Date.now() - (messageCount - k) * 30 * 60 * 1000); // 每30分钟一条消息
-                        
-                        await this.runAsync(`
-                            INSERT INTO messages (id, conversation_id, sender_type, content, sender_name, timestamp, file_name, customer_id, customer_name, customer_email) 
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        `, [
-                            messageId,
-                            conversationId,
-                            isCustomerMessage ? 'customer' : 'service',
-                            isCustomerMessage ? 
-                                messageTopics[Math.floor(Math.random() * messageTopics.length)] : 
-                                '好的，我来为您查询一下，请稍等。',
-                            isCustomerMessage ? customerName : '客服小助手',
-                            messageTime.toISOString(),
-                            null,
-                            customerId,
-                            customerName,
-                            `${customerId}@customer.com`
-                        ]);
-                    }
-
-                    // 创建未读计数（部分对话有未读消息）
-                    const unreadCount = Math.floor(Math.random() * 3); // 0-2条未读
-                    if (unreadCount > 0) {
-                        await this.runAsync(`
-                            INSERT OR REPLACE INTO unread_counts (conversation_id, count, last_message_time) 
-                            VALUES (?, ?, ?)
-                        `, [
-                            conversationId,
-                            unreadCount,
-                            new Date().toISOString()
-                        ]);
-                    }
-                }
-            }
-            
-            console.log('💬 测试对话数据创建完成');
-        } catch (error) {
-            console.error('❌ 创建测试对话数据失败:', error);
         }
     }
 
@@ -657,6 +507,11 @@ class SQLiteDatabase {
             };
         }
         return null;
+    }
+
+    // API兼容性别名
+    async getShop(id) {
+        return await this.getShopById(id);
     }
 
     async getShopEmployees(shopId) {

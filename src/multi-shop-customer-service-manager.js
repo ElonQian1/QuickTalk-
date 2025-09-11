@@ -171,11 +171,11 @@ class MultiShopCustomerServiceManager {
                 <div class="cs-header">
                     <div class="cs-nav">
                         <button class="nav-btn ${this.currentView === 'overview' ? 'active' : ''}" 
-                                onclick="customerServiceManager.showOverview()">
+                                onclick="if(window.customerServiceManager) window.customerServiceManager.showOverview()">>
                             📊 消息总览
                         </button>
                         <button class="nav-btn" id="backBtn" style="display: none;" 
-                                onclick="customerServiceManager.goBack()">
+                                onclick="if(window.customerServiceManager) window.customerServiceManager.goBack()">>
                             ← 返回
                         </button>
                     </div>
@@ -198,11 +198,13 @@ class MultiShopCustomerServiceManager {
         this.currentShop = null;
         this.currentConversation = null;
         
-        document.getElementById('csTitle').textContent = '消息总览';
-        document.getElementById('backBtn').style.display = 'none';
+        const titleEl = document.getElementById('csTitle');
+        const backBtnEl = document.getElementById('backBtn');
+        const contentEl = document.getElementById('csContent');
         
-        const content = document.getElementById('csContent');
-        content.innerHTML = this.getOverviewHTML();
+        if (titleEl) titleEl.textContent = '消息总览';
+        if (backBtnEl) backBtnEl.style.display = 'none';
+        if (contentEl) contentEl.innerHTML = this.getOverviewHTML();
         
         this.loadOverviewData();
         this.updateBottomNavActive('overview');
@@ -244,10 +246,10 @@ class MultiShopCustomerServiceManager {
                 <div class="quick-actions">
                     <h3>⚡ 快速操作</h3>
                     <div class="action-buttons">
-                        <button class="action-btn" onclick="customerServiceManager.showAllUnread()">
+                        <button class="action-btn" onclick="if(window.customerServiceManager) window.customerServiceManager.showAllUnread()">>
                             📮 查看所有未读
                         </button>
-                        <button class="action-btn" onclick="customerServiceManager.showRecentChats()">
+                        <button class="action-btn" onclick="if(window.customerServiceManager) window.customerServiceManager.showRecentChats()">>
                             🕒 最近对话
                         </button>
                     </div>
@@ -274,15 +276,21 @@ class MultiShopCustomerServiceManager {
             }
 
             // 更新统计显示
-            document.getElementById('totalUnreadMessages').textContent = totalUnread;
-            document.getElementById('activeConversations').textContent = activeConversations;
-            document.getElementById('onlineShops').textContent = onlineShops;
+            const totalUnreadEl = document.getElementById('totalUnreadMessages');
+            const activeConversationsEl = document.getElementById('activeConversations');
+            const onlineShopsEl = document.getElementById('onlineShops');
+            
+            if (totalUnreadEl) totalUnreadEl.textContent = totalUnread;
+            if (activeConversationsEl) activeConversationsEl.textContent = activeConversations;
+            if (onlineShopsEl) onlineShopsEl.textContent = onlineShops;
 
             // 更新底部导航未读数
             this.updateBottomNavUnreadCount(totalUnread);
 
-            // 加载店铺列表
-            await this.loadShopsListForOverview();
+            // 加载店铺列表 - 添加延迟确保DOM就绪
+            setTimeout(async () => {
+                await this.loadShopsListForOverview();
+            }, 100);
 
         } catch (error) {
             console.error('❌ 加载总览数据失败:', error);
@@ -295,6 +303,12 @@ class MultiShopCustomerServiceManager {
     async loadShopsListForOverview() {
         const shopsList = document.getElementById('shopsList');
         
+        // 安全检查：确保DOM元素存在
+        if (!shopsList) {
+            console.error('❌ 找不到shopsList元素');
+            return;
+        }
+        
         if (this.shops.length === 0) {
             shopsList.innerHTML = '<div class="empty-state">暂无店铺</div>';
             return;
@@ -306,7 +320,7 @@ class MultiShopCustomerServiceManager {
             
             return `
                 <div class="shop-item ${hasUnread ? 'has-unread' : ''}" 
-                     onclick="customerServiceManager.showShopDetail(${shop.id})">
+                     onclick="if(window.customerServiceManager){window.customerServiceManager.showShopDetail('${shop.id}');}else{console.error('客服管理器未初始化');}">
                     <div class="shop-info">
                         <div class="shop-avatar">🏪</div>
                         <div class="shop-details">
@@ -323,12 +337,15 @@ class MultiShopCustomerServiceManager {
         }).join('');
 
         shopsList.innerHTML = shopsHTML;
+        console.log(`✅ 店铺列表已加载，共 ${this.shops.length} 个店铺`);
     }
 
     /**
      * 显示特定店铺的对话列表
      */
     async showShopDetail(shopId) {
+        console.log('🎯 显示店铺详情:', shopId);
+        
         const shop = this.shops.find(s => s.id === shopId);
         if (!shop) {
             console.error('❌ 店铺不存在:', shopId);
@@ -339,20 +356,28 @@ class MultiShopCustomerServiceManager {
         this.currentShop = shop;
         this.currentConversation = null;
 
-        document.getElementById('csTitle').textContent = shop.name;
-        document.getElementById('backBtn').style.display = 'block';
-
-        const content = document.getElementById('csContent');
-        content.innerHTML = '<div class="loading">正在加载对话列表...</div>';
+        const titleEl = document.getElementById('csTitle');
+        const backBtnEl = document.getElementById('backBtn');
+        const contentEl = document.getElementById('csContent');
+        
+        // 安全检查DOM元素
+        if (!titleEl || !backBtnEl || !contentEl) {
+            console.error('❌ 找不到必要的DOM元素');
+            return;
+        }
+        
+        titleEl.textContent = shop.name;
+        backBtnEl.style.display = 'block';
+        contentEl.innerHTML = '<div class="loading">正在加载对话列表...</div>';
 
         try {
             await this.loadShopConversations(shopId);
         } catch (error) {
             console.error('❌ 加载店铺对话失败:', error);
-            content.innerHTML = '<div class="error">加载对话列表失败</div>';
+            contentEl.innerHTML = '<div class="error">加载对话列表失败</div>';
         }
 
-        console.log('🏪 显示店铺详情:', shop.name);
+        console.log('🏪 显示店铺详情完成:', shop.name);
     }
 
     /**
@@ -366,7 +391,11 @@ class MultiShopCustomerServiceManager {
             });
 
             if (response.ok) {
-                const conversations = await response.json();
+                const data = await response.json();
+                console.log('📨 获取到对话数据:', data);
+                
+                // 处理API返回的数据格式
+                const conversations = data.conversations || data || [];
                 this.renderShopConversations(conversations);
             } else {
                 throw new Error('获取对话列表失败');
@@ -383,7 +412,13 @@ class MultiShopCustomerServiceManager {
     renderShopConversations(conversations) {
         const content = document.getElementById('csContent');
         
-        if (conversations.length === 0) {
+        // 安全检查DOM元素
+        if (!content) {
+            console.error('❌ 找不到csContent元素');
+            return;
+        }
+        
+        if (!Array.isArray(conversations) || conversations.length === 0) {
             content.innerHTML = `
                 <div class="empty-state">
                     <div class="empty-icon">💬</div>
@@ -391,6 +426,7 @@ class MultiShopCustomerServiceManager {
                     <div class="empty-desc">当前店铺还没有客户对话</div>
                 </div>
             `;
+            console.log('📝 显示空状态页面');
             return;
         }
 
@@ -406,6 +442,7 @@ class MultiShopCustomerServiceManager {
         `;
 
         content.innerHTML = conversationsHTML;
+        console.log(`✅ 渲染${conversations.length}个对话`);
     }
 
     /**
@@ -414,20 +451,27 @@ class MultiShopCustomerServiceManager {
     getConversationItemHTML(conversation) {
         const unreadCount = conversation.unread_count || 0;
         const hasUnread = unreadCount > 0;
-        const lastMessage = conversation.last_message || '';
-        const lastTime = conversation.last_message_time ? 
-                         new Date(conversation.last_message_time).toLocaleString() : '';
+        const lastMessage = conversation.last_message || '暂无消息';
+        const lastTime = conversation.last_message_at || conversation.updated_at;
+        const formattedTime = lastTime ? 
+                             new Date(lastTime).toLocaleString('zh-CN', {
+                                 month: '2-digit',
+                                 day: '2-digit',
+                                 hour: '2-digit',
+                                 minute: '2-digit'
+                             }) : '';
 
         return `
             <div class="conversation-item ${hasUnread ? 'has-unread' : ''}" 
-                 onclick="customerServiceManager.showConversation(${conversation.id})">
+                 onclick="if(window.customerServiceManager) window.customerServiceManager.showConversation('${conversation.id || conversation.customer_id}')">>
                 <div class="customer-avatar">👤</div>
                 <div class="conversation-info">
                     <div class="customer-name">${conversation.customer_name || '匿名客户'}</div>
                     <div class="last-message">${lastMessage}</div>
-                    <div class="last-time">${lastTime}</div>
+                    <div class="last-time">${formattedTime}</div>
                 </div>
                 ${hasUnread ? `<div class="unread-badge">${unreadCount}</div>` : ''}
+                <div class="arrow">→</div>
             </div>
         `;
     }
@@ -654,24 +698,7 @@ class MultiShopCustomerServiceManager {
                 <div class="error-icon">⚠️</div>
                 <div class="error-title">初始化失败</div>
                 <div class="error-message">${error.message}</div>
-                <button class="retry-btn" onclick="customerServiceManager.init()">重试</button>
-            </div>
-        `;
-    }
-
-    /**
-     * 初始化错误处理
-     */
-    handleInitializationError(error) {
-        console.error('❌ 初始化失败:', error);
-        
-        const content = document.getElementById('csContent') || document.body;
-        content.innerHTML = `
-            <div class="error-container">
-                <div class="error-icon">⚠️</div>
-                <div class="error-title">初始化失败</div>
-                <div class="error-message">${error.message}</div>
-                <button class="retry-btn" onclick="customerServiceManager.init()">重试</button>
+                <button class="retry-btn" onclick="if(window.customerServiceManager) window.customerServiceManager.init()">重试</button>
             </div>
         `;
     }
@@ -809,7 +836,7 @@ class MultiShopCustomerServiceManager {
         const conversationHTML = `
             <div class="conversation-container">
                 <div class="chat-header">
-                    <button class="chat-back-btn" onclick="customerServiceManager.goBackToShopDetail()">
+                    <button class="chat-back-btn" onclick="if(window.customerServiceManager) window.customerServiceManager.goBackToShopDetail()">>
                         ←
                     </button>
                     <div class="chat-user-info">

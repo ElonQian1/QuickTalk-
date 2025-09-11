@@ -1267,6 +1267,158 @@ class Database {
         console.log(`🧪 模拟付费开通支付成功: 订单 ${orderId}`);
         return await this.processActivationPaymentSuccess(orderId);
     }
+
+    // 🔧 消息和对话相关方法 - 临时修复
+    
+    /**
+     * 获取店铺的对话列表
+     */
+    async getShopConversations(shopId, options = {}) {
+        const { status = 'active', limit = 50, offset = 0 } = options;
+        
+        // 模拟对话数据
+        const mockConversations = [
+            {
+                id: `conv_${shopId}_${Date.now()}_1`,
+                customer_id: 'user_1757591780450_1',
+                customer_name: '客户A',
+                shop_id: shopId,
+                status: 'active',
+                created_at: new Date(Date.now() - 3600000).toISOString(),
+                updated_at: new Date().toISOString(),
+                unread_count: 2,
+                last_message: '你好，请问这个产品还有货吗？',
+                last_message_at: new Date().toISOString()
+            },
+            {
+                id: `conv_${shopId}_${Date.now()}_2`,
+                customer_id: 'user_1757591780450_2',
+                customer_name: '客户B',
+                shop_id: shopId,
+                status: 'active',
+                created_at: new Date(Date.now() - 7200000).toISOString(),
+                updated_at: new Date(Date.now() - 1800000).toISOString(),
+                unread_count: 0,
+                last_message: '谢谢，我已经下单了',
+                last_message_at: new Date(Date.now() - 1800000).toISOString()
+            }
+        ];
+
+        return {
+            conversations: mockConversations,
+            total: mockConversations.length,
+            hasMore: false
+        };
+    }
+
+    /**
+     * 获取对话信息
+     */
+    async getConversation(conversationId) {
+        // 模拟对话数据
+        return {
+            id: conversationId,
+            customer_id: 'user_1757591780450_1',
+            customer_name: '客户A',
+            shop_id: 'shop_1757591780450_1',
+            status: 'active',
+            created_at: new Date(Date.now() - 3600000).toISOString(),
+            updated_at: new Date().toISOString(),
+            unread_count: 2
+        };
+    }
+
+    /**
+     * 获取对话消息
+     */
+    async getConversationMessages(conversationId, options = {}) {
+        const { limit = 50, offset = 0 } = options;
+        
+        // 模拟消息数据
+        const mockMessages = [
+            {
+                id: 1,
+                conversation_id: conversationId,
+                sender_type: 'customer',
+                sender_name: '客户A',
+                content: '你好，请问这个产品还有货吗？',
+                created_at: new Date(Date.now() - 1800000).toISOString(),
+                is_read: false
+            },
+            {
+                id: 2,
+                conversation_id: conversationId,
+                sender_type: 'staff',
+                sender_name: '客服小王',
+                content: '您好！这个产品目前有库存，请问您需要什么规格的呢？',
+                created_at: new Date(Date.now() - 1200000).toISOString(),
+                is_read: true
+            },
+            {
+                id: 3,
+                conversation_id: conversationId,
+                sender_type: 'customer',
+                sender_name: '客户A',
+                content: '我需要红色的M码',
+                created_at: new Date(Date.now() - 600000).toISOString(),
+                is_read: false
+            }
+        ];
+
+        return {
+            messages: mockMessages,
+            total: mockMessages.length,
+            hasMore: false
+        };
+    }
+
+    /**
+     * 获取未读消息统计
+     */
+    async getUnreadCounts(userId) {
+        // 获取用户的店铺
+        const userShops = this.userShops.get(userId) || [];
+        const unreadCounts = {};
+        
+        userShops.forEach(shopRelation => {
+            // 模拟每个店铺的未读数
+            unreadCounts[shopRelation.shopId] = Math.floor(Math.random() * 5);
+        });
+
+        return {
+            counts: unreadCounts,
+            total: Object.values(unreadCounts).reduce((sum, count) => sum + count, 0),
+            details: unreadCounts
+        };
+    }
+
+    /**
+     * 获取店铺信息
+     */
+    async getShop(shopId) {
+        return this.shops.get(shopId) || null;
+    }
+
+    /**
+     * 获取用户店铺列表（兼容方法）
+     */
+    async getUserShops(userId) {
+        const userShops = this.userShops.get(userId) || [];
+        const shops = [];
+        
+        userShops.forEach(shopRelation => {
+            const shop = this.shops.get(shopRelation.shopId);
+            if (shop) {
+                shops.push({
+                    ...shop,
+                    owner_id: shop.ownerId || userId,
+                    role: shopRelation.role || 'owner'
+                });
+            }
+        });
+        
+        return shops;
+    }
 }
 
 module.exports = Database;

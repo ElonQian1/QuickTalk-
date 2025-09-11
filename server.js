@@ -463,7 +463,13 @@ app.get('/api/shops/:shopId/conversations', requireAuth, async (req, res) => {
 
         // 验证用户是否有权限访问该店铺
         const shop = await database.getShop(shopId);
-        if (!shop || shop.owner_id !== req.user.id) {
+        if (!shop) {
+            return res.status(404).json({ error: '店铺不存在' });
+        }
+        
+        // 检查权限 - 兼容不同的属性名
+        const shopOwnerId = shop.owner_id || shop.ownerId;
+        if (shopOwnerId !== req.user.id) {
             return res.status(403).json({ error: '无权限访问该店铺' });
         }
 
@@ -495,7 +501,13 @@ app.get('/api/conversations/:conversationId', requireAuth, async (req, res) => {
         }
 
         const shop = await database.getShop(conversation.shop_id);
-        if (!shop || shop.owner_id !== req.user.id) {
+        if (!shop) {
+            return res.status(404).json({ error: '对话关联的店铺不存在' });
+        }
+        
+        // 检查权限 - 兼容不同的属性名
+        const shopOwnerId = shop.owner_id || shop.ownerId;
+        if (shopOwnerId !== req.user.id) {
             return res.status(403).json({ error: '无权限访问该对话' });
         }
 
@@ -2130,25 +2142,7 @@ app.get('/api/admin/stats', requireAuth, async (req, res) => {
 });
 
 // 获取店铺的用户对话列表
-app.get('/api/shops/:shopId/conversations', requireAuth, async (req, res) => {
-    try {
-        const { shopId } = req.params;
-        
-        // 检查用户是否有权限查看该店铺
-        const hasPermission = await checkShopPermission(req.user, shopId);
-        if (!hasPermission) {
-            return res.status(403).json({ error: '无权限访问该店铺' });
-        }
-        
-        // 获取该店铺的所有对话
-        const conversations = await database.getShopConversations(shopId);
-        
-        res.json(conversations);
-    } catch (error) {
-        console.error('获取对话列表失败:', error);
-        res.status(500).json({ error: '获取对话列表失败' });
-    }
-});
+
 
 // 获取具体用户的聊天消息
 app.get('/api/shops/:shopId/users/:userId/messages', requireAuth, async (req, res) => {
