@@ -41,11 +41,37 @@ class MobileMessageManager {
             // 绑定事件监听器
             this.bindEvents();
             
+            // 🔍 在所有基础数据加载完成后，初始化搜索功能
+            await this.initSearchFunctionality();
+            
             console.log('✅ 消息管理器初始化完成');
             
         } catch (error) {
             console.error('❌ 消息管理器初始化失败:', error);
             throw error;
+        }
+    }
+
+    /**
+     * 初始化搜索功能 - 只有在用户登录且有数据后才启用
+     */
+    async initSearchFunctionality() {
+        try {
+            // 检查是否有店铺和消息数据
+            const hasData = this.shops.length > 0 || Object.keys(this.unreadCounts).length > 0;
+            
+            if (hasData && typeof initMessageSearch === 'function') {
+                const searchInitialized = initMessageSearch();
+                if (searchInitialized) {
+                    console.log('🔍 消息搜索功能已启用');
+                } else {
+                    console.log('⏰ 搜索功能启用失败，将在有消息数据时重试');
+                }
+            } else {
+                console.log('⏰ 暂无消息数据，搜索功能将稍后启用');
+            }
+        } catch (error) {
+            console.error('❌ 搜索功能初始化失败:', error);
         }
     }
 
@@ -584,6 +610,14 @@ class MobileMessageManager {
         // 如果当前在对话中，实时添加消息
         if (this.currentConversation && this.currentConversation.id === message.conversation_id) {
             this.addMessageToCurrentChat(message);
+        }
+        
+        // 🔍 如果搜索功能还未启用，现在有消息数据了，尝试启用
+        if (!window.messageSearchManager && typeof initMessageSearch === 'function') {
+            const searchInitialized = initMessageSearch();
+            if (searchInitialized) {
+                console.log('🔍 收到新消息后，搜索功能已启用');
+            }
         }
     }
 

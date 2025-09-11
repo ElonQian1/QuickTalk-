@@ -16,25 +16,56 @@ class MessageSearchManager {
             messageType: '',
             conversationId: ''
         };
-        this.init();
+        // ⚠️ 不再在构造函数中自动初始化
+        console.log('🔍 消息搜索管理器已创建，等待手动初始化');
     }
 
     /**
      * 初始化搜索管理器
      */
     init() {
-        this.createSearchInterface();
-        this.bindEvents();
-        this.loadSearchHistory();
-        console.log('🔍 消息搜索管理器初始化完成');
+        // 再次确认用户登录状态
+        const sessionId = localStorage.getItem('sessionId');
+        if (!sessionId) {
+            console.error('🔒 无法初始化搜索管理器：用户未登录');
+            return false;
+        }
+
+        try {
+            this.createSearchInterface();
+            this.bindEvents();
+            this.loadSearchHistory();
+            console.log('🔍 消息搜索管理器初始化完成');
+            return true;
+        } catch (error) {
+            console.error('❌ 搜索管理器初始化失败:', error);
+            return false;
+        }
     }
 
     /**
      * 创建搜索界面
      */
     createSearchInterface() {
+        // 检查用户登录状态
+        const sessionId = localStorage.getItem('sessionId');
+        if (!sessionId) {
+            console.warn('🔒 用户未登录，不创建搜索界面');
+            return;
+        }
+
         // 检查是否已存在搜索界面
         if (document.getElementById('searchPanel')) {
+            console.log('🔍 搜索界面已存在');
+            return;
+        }
+
+        // 检查是否在消息相关页面
+        const messageContainer = document.querySelector('.message-container');
+        const messageContent = document.getElementById('messageContent');
+        
+        if (!messageContainer && !messageContent) {
+            console.log('⏰ 当前页面不是消息页面，搜索界面将稍后创建');
             return;
         }
 
@@ -43,9 +74,11 @@ class MessageSearchManager {
         searchPanel.className = 'search-panel';
         searchPanel.innerHTML = this.getSearchPanelHTML();
 
-        // 插入到页面顶部
-        const container = document.querySelector('.message-container') || document.body;
+        // 优先插入到消息容器，否则插入到文档顶部
+        const container = messageContainer || messageContent || document.body;
         container.insertBefore(searchPanel, container.firstChild);
+        
+        console.log('✅ 搜索界面已创建');
     }
 
     /**
@@ -829,12 +862,40 @@ class MessageSearchManager {
 // 全局搜索管理器实例
 window.messageSearchManager = null;
 
-// 初始化搜索管理器
-document.addEventListener('DOMContentLoaded', () => {
-    if (!window.messageSearchManager) {
-        window.messageSearchManager = new MessageSearchManager();
+// ⚠️ 搜索管理器不再自动初始化
+// 需要通过 initMessageSearch() 手动初始化，确保用户已登录
+function initMessageSearch() {
+    // 检查用户登录状态
+    const sessionId = localStorage.getItem('sessionId');
+    if (!sessionId) {
+        console.warn('🔒 用户未登录，无法初始化消息搜索功能');
+        return false;
     }
-});
+
+    // 检查是否已经初始化
+    if (window.messageSearchManager) {
+        console.log('🔍 消息搜索管理器已存在');
+        return true;
+    }
+
+    try {
+        window.messageSearchManager = new MessageSearchManager();
+        const initialized = window.messageSearchManager.init();
+        
+        if (initialized) {
+            console.log('✅ 消息搜索管理器初始化成功');
+            return true;
+        } else {
+            console.warn('⚠️ 搜索管理器创建成功但初始化失败');
+            window.messageSearchManager = null;
+            return false;
+        }
+    } catch (error) {
+        console.error('❌ 消息搜索管理器初始化失败:', error);
+        window.messageSearchManager = null;
+        return false;
+    }
+}
 
 // 导出模块
 if (typeof module !== 'undefined' && module.exports) {

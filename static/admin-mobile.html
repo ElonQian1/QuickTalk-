@@ -11,6 +11,8 @@
     <link rel="stylesheet" href="/css/mobile-message.css">
     <!-- 引入搜索功能样式 -->
     <link rel="stylesheet" href="/css/message-search.css">
+    <!-- 引入多店铺客服系统样式 -->
+    <link rel="stylesheet" href="/css/multi-shop-customer-service.css">
     
     <style>
         * {
@@ -1991,10 +1993,12 @@
     <script src="/js/mobile-message-manager.js"></script>
     <!-- 引入搜索功能模块 -->
     <script src="/js/message-search-manager.js"></script>
+    <!-- 引入多店铺客服系统 -->
+    <script src="/src/multi-shop-customer-service-manager.js"></script>
     <script>
         // 初始化新的模块化系统
         window.addEventListener('DOMContentLoaded', async function() {
-            console.log('🚀🚀🚀 DOMContentLoaded 事件触发 - 版本3.0 🚀🚀🚀');
+            console.log('🚀🚀🚀 DOMContentLoaded 事件触发 - 版本4.0（多店铺客服） 🚀🚀🚀');
             
             // 初始化店铺管理器
             if (typeof MobileShopManager !== 'undefined') {
@@ -2002,10 +2006,16 @@
                 window.mobileShopManager = new MobileShopManager();
             }
             
-            // 初始化消息管理器
-            if (typeof MobileMessageManager !== 'undefined') {
-                console.log('💬 初始化模块化消息管理器');
-                window.messageManager = new MobileMessageManager();
+            // 🔄 优先使用新的多店铺客服系统
+            if (typeof MultiShopCustomerServiceManager !== 'undefined') {
+                console.log('🎯 初始化多店铺电商客服系统');
+                window.customerServiceManager = new MultiShopCustomerServiceManager();
+            } else {
+                // 备用：使用原有的消息管理器
+                if (typeof MobileMessageManager !== 'undefined') {
+                    console.log('💬 初始化模块化消息管理器（备用）');
+                    window.messageManager = new MobileMessageManager();
+                }
             }
                 
             // 确保用户已登录后再初始化所有模块
@@ -2022,11 +2032,16 @@
                             console.log('✅ 店铺管理器初始化完成');
                         }
                         
-                        // 初始化消息管理器
-                        if (window.messageManager) {
+                        // 🎯 优先初始化多店铺客服系统
+                        if (window.customerServiceManager) {
+                            await window.customerServiceManager.init();
+                            console.log('✅ 多店铺客服系统初始化完成');
+                        } else if (window.messageManager) {
+                            // 备用：初始化原有消息管理器
                             await window.messageManager.init();
-                            console.log('✅ 消息管理器初始化完成');
+                            console.log('✅ 消息管理器初始化完成（备用）');
                         }
+                        
                     } catch (error) {
                         console.error('❌ 模块初始化失败:', error);
                     }
