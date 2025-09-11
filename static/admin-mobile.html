@@ -1334,10 +1334,28 @@
                         break;
                     case 'messages':
                         console.log('💬 切换到消息页面');
-                        if (window.messageManager) {
+                        // 🎯 使用新版多店铺客服系统
+                        if (window.customerServiceManager) {
+                            console.log('🏪 使用多店铺客服系统');
+                            const messageContainer = document.getElementById('messageContent');
+                            if (messageContainer) {
+                                window.customerServiceManager.renderToContainer(messageContainer);
+                            }
+                        } else if (window.messageManager) {
+                            console.log('💬 使用备用消息管理器');
                             window.messageManager.showMessageOverview();
                         } else {
-                            console.error('❌ 消息管理器未初始化');
+                            console.error('❌ 没有可用的消息管理器');
+                            const messageContainer = document.getElementById('messageContent');
+                            if (messageContainer) {
+                                messageContainer.innerHTML = `
+                                    <div class="error-container">
+                                        <div class="error-icon">⚠️</div>
+                                        <div class="error-title">消息系统未初始化</div>
+                                        <div class="error-message">请稍后重试或刷新页面</div>
+                                    </div>
+                                `;
+                            }
                         }
                         break;
                     case 'shops':

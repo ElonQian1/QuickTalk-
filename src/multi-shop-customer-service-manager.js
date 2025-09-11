@@ -39,7 +39,7 @@ class MultiShopCustomerServiceManager {
         try {
             console.log('🚀 开始初始化多店铺客服系统...');
             
-            // 阶段1：身份验证和基础数据
+            // 阶段1：身份验证和基础数据（店铺数据在这一步同时加载）
             await this.authenticateUser();
             await this.loadShopsWithPermissions();
             
@@ -63,7 +63,8 @@ class MultiShopCustomerServiceManager {
     }
 
     /**
-     * 用户身份验证
+     * 用户身份验证并加载店铺数据
+     * 修复：使用与桌面版相同的接口，确保数据一致性
      */
     async authenticateUser() {
         const sessionId = localStorage.getItem('sessionId');
@@ -79,7 +80,10 @@ class MultiShopCustomerServiceManager {
             if (response.ok) {
                 const data = await response.json();
                 this.currentUser = data.user;
+                this.shops = data.shops || [];
                 console.log('👤 用户验证成功:', this.currentUser.username);
+                console.log('🏪 获取店铺数据:', this.shops.length, '个店铺');
+                return;
             } else {
                 throw new Error('用户身份验证失败');
             }
@@ -91,8 +95,16 @@ class MultiShopCustomerServiceManager {
 
     /**
      * 加载用户有权限访问的店铺
+     * 修复：此方法现在在authenticateUser中已经完成，这里只做验证
      */
     async loadShopsWithPermissions() {
+        // 如果在authenticateUser中已经加载了店铺数据，就不需要重复加载
+        if (this.shops && this.shops.length > 0) {
+            console.log('✅ 店铺数据已在身份验证时加载:', this.shops.length, '个店铺');
+            return;
+        }
+
+        // 备用方案：如果authenticateUser没有返回店铺数据，尝试单独获取
         try {
             const sessionId = localStorage.getItem('sessionId');
             const response = await fetch('/api/shops', {
@@ -118,30 +130,39 @@ class MultiShopCustomerServiceManager {
 
     /**
      * 创建多店铺客服界面
+     * 集成到现有的消息页面，而不是创建独立界面
      */
     createCustomerServiceInterface() {
-        const existingInterface = document.getElementById('multiShopCustomerService');
-        if (existingInterface) {
-            existingInterface.remove();
+        // 🎯 不再创建独立界面，而是等待被调用时渲染到消息页面
+        console.log('🎨 多店铺客服系统已准备就绪，等待渲染到消息页面');
+    }
+
+    /**
+     * 渲染到指定的消息容器中
+     * @param {HTMLElement} container - 消息页面的容器元素
+     */
+    renderToContainer(container) {
+        if (!container) {
+            console.error('❌ 无法找到消息页面容器');
+            return;
         }
 
+        // 清空容器内容
+        container.innerHTML = '';
+        
+        // 创建多店铺客服内容
         const interfaceHTML = this.getCustomerServiceInterfaceHTML();
-        const container = document.querySelector('.main-content') || document.body;
-        
-        const interfaceDiv = document.createElement('div');
-        interfaceDiv.id = 'multiShopCustomerService';
-        interfaceDiv.innerHTML = interfaceHTML;
-        
-        container.appendChild(interfaceDiv);
+        container.innerHTML = interfaceHTML;
         
         // 默认显示总览页面
         this.showOverview();
         
-        console.log('🎨 多店铺客服界面已创建');
+        console.log('🎨 多店铺客服界面已渲染到消息页面');
     }
 
     /**
      * 获取客服界面HTML
+     * 移除独立的底部导航栏，集成到现有系统中
      */
     getCustomerServiceInterfaceHTML() {
         return `
@@ -164,24 +185,6 @@ class MultiShopCustomerServiceManager {
                 <!-- 主要内容区域 -->
                 <div class="cs-content" id="csContent">
                     <!-- 内容将通过JavaScript动态加载 -->
-                </div>
-
-                <!-- 底部导航栏 -->
-                <div class="bottom-nav">
-                    <div class="nav-item ${this.currentView === 'overview' ? 'active' : ''}" 
-                         onclick="customerServiceManager.showOverview()">
-                        <div class="nav-icon">💬</div>
-                        <div class="nav-text">消息</div>
-                        <div class="nav-badge" id="totalUnreadBadge" style="display: none;">0</div>
-                    </div>
-                    <div class="nav-item" onclick="customerServiceManager.showAnalytics()">
-                        <div class="nav-icon">📊</div>
-                        <div class="nav-text">数据</div>
-                    </div>
-                    <div class="nav-item" onclick="customerServiceManager.showSettings()">
-                        <div class="nav-icon">⚙️</div>
-                        <div class="nav-text">设置</div>
-                    </div>
                 </div>
             </div>
         `;
@@ -516,14 +519,15 @@ class MultiShopCustomerServiceManager {
     }
 
     /**
-     * 更新底部导航未读数
+     * 更新底部导航未读数（使用原有系统的导航栏）
      */
     updateBottomNavUnreadCount(totalUnread = null) {
         if (totalUnread === null) {
             totalUnread = Object.values(this.unreadCounts).reduce((sum, count) => sum + count, 0);
         }
 
-        const badge = document.getElementById('totalUnreadBadge');
+        // 更新原有系统的未读消息徽章
+        const badge = document.getElementById('messagesBadge');
         if (badge) {
             if (totalUnread > 0) {
                 badge.textContent = totalUnread > 99 ? '99+' : totalUnread;
@@ -532,19 +536,25 @@ class MultiShopCustomerServiceManager {
                 badge.style.display = 'none';
             }
         }
+
+        // 也更新我们内部的徽章（如果存在）
+        const internalBadge = document.getElementById('totalUnreadBadge');
+        if (internalBadge) {
+            if (totalUnread > 0) {
+                internalBadge.textContent = totalUnread > 99 ? '99+' : totalUnread;
+                internalBadge.style.display = 'block';
+            } else {
+                internalBadge.style.display = 'none';
+            }
+        }
     }
 
     /**
-     * 更新底部导航活动状态
+     * 更新底部导航活动状态（使用原有系统的导航栏）
      */
     updateBottomNavActive(activeView) {
-        document.querySelectorAll('.bottom-nav .nav-item').forEach(item => {
-            item.classList.remove('active');
-        });
-        
-        if (activeView === 'overview') {
-            document.querySelector('.bottom-nav .nav-item').classList.add('active');
-        }
+        // 不需要更新，因为我们使用原有系统的导航栏
+        // 消息页面的活动状态由原有系统管理
     }
 
     /**

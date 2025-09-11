@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>客服系统路由测试</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .test-section {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .test-result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+        #messageHistory {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            background: white;
+        }
+        .message {
+            margin: 5px 0;
+            padding: 8px;
+            border-radius: 4px;
+        }
+        .user-message {
+            background: #e3f2fd;
+            text-align: right;
+        }
+        .staff-message {
+            background: #f1f8e9;
+        }
+    </style>
+</head>
+<body>
+    <h1>🚀 QuickTalk 客服系统路由测试</h1>
+    
+    <div class="test-section">
+        <h2>📝 测试信息</h2>
+        <div id="testInfo" class="test-result info">
+            <strong>用户ID:</strong> <span id="userId"></span><br>
+            <strong>API密钥:</strong> <span id="apiKey"></span><br>
+            <strong>测试时间:</strong> <span id="testTime"></span>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🔌 连接测试</h2>
+        <button onclick="testConnection()">测试连接</button>
+        <div id="connectionResult" class="test-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>📤 发送消息测试</h2>
+        <input type="text" id="messageInput" placeholder="输入测试消息" style="width: 300px; padding: 8px;">
+        <button onclick="sendMessage()">发送消息</button>
+        <div id="sendResult" class="test-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>📥 接收消息测试</h2>
+        <button onclick="receiveMessages()">检查新消息</button>
+        <button onclick="startPolling()">开始轮询</button>
+        <button onclick="stopPolling()">停止轮询</button>
+        <div id="receiveResult" class="test-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>💬 消息历史</h2>
+        <div id="messageHistory"></div>
+        <button onclick="clearHistory()">清空历史</button>
+    </div>
+
+    <script>
+        // 测试配置
+        const config = {
+            apiUrl: 'http://localhost:3030/api',
+            userId: 'test_user_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now(),
+            apiKey: 'sk_test123456789abcdef', // 测试用API密钥
+            lastId: 0
+        };
+
+        let pollingInterval = null;
+        let messageCount = 0;
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('userId').textContent = config.userId;
+            document.getElementById('apiKey').textContent = config.apiKey;
+            document.getElementById('testTime').textContent = new Date().toLocaleString('zh-CN');
+        });
+
+        // 添加消息到历史
+        function addMessageToHistory(type, content, sender = '') {
+            const messageHistory = document.getElementById('messageHistory');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}-message`;
+            
+            const time = new Date().toLocaleTimeString('zh-CN');
+            const senderText = sender ? `[${sender}] ` : '';
+            messageDiv.innerHTML = `<small>${time}</small><br>${senderText}${content}`;
+            
+            messageHistory.appendChild(messageDiv);
+            messageHistory.scrollTop = messageHistory.scrollHeight;
+        }
+
+        // 显示结果
+        function showResult(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.innerHTML = message;
+            element.className = `test-result ${type}`;
+        }
+
+        // 测试连接
+        async function testConnection() {
+            try {
+                showResult('connectionResult', '正在测试连接...', 'info');
+                
+                const response = await fetch(`${config.apiUrl}/connect`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        userId: config.userId,
+                        timestamp: Date.now(),
+                        apiKey: config.apiKey
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult('connectionResult', 
+                        `✅ 连接成功！<br><pre>${JSON.stringify(data, null, 2)}</pre>`, 
+                        'success');
+                } else {
+                    showResult('connectionResult', 
+                        `❌ 连接失败！<br><pre>${JSON.stringify(data, null, 2)}</pre>`, 
+                        'error');
+                }
+            } catch (error) {
+                showResult('connectionResult', `❌ 连接错误: ${error.message}`, 'error');
+            }
+        }
+
+        // 发送消息
+        async function sendMessage() {
+            const messageInput = document.getElementById('messageInput');
+            const message = messageInput.value.trim();
+            
+            if (!message) {
+                showResult('sendResult', '请输入消息内容', 'error');
+                return;
+            }
+
+            try {
+                showResult('sendResult', '正在发送消息...', 'info');
+                
+                const response = await fetch(`${config.apiUrl}/send`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        userId: config.userId,
+                        message: message,
+                        timestamp: Date.now(),
+                        apiKey: config.apiKey
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult('sendResult', 
+                        `✅ 消息发送成功！<br><pre>${JSON.stringify(data, null, 2)}</pre>`, 
+                        'success');
+                    addMessageToHistory('user', message);
+                    messageInput.value = '';
+                    
+                    // 发送成功后自动检查回复
+                    setTimeout(receiveMessages, 1000);
+                } else {
+                    showResult('sendResult', 
+                        `❌ 消息发送失败！<br><pre>${JSON.stringify(data, null, 2)}</pre>`, 
+                        'error');
+                }
+            } catch (error) {
+                showResult('sendResult', `❌ 发送错误: ${error.message}`, 'error');
+            }
+        }
+
+        // 接收消息
+        async function receiveMessages() {
+            try {
+                const response = await fetch(`${config.apiUrl}/client/messages?userId=${config.userId}&lastId=${config.lastId}`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    if (data.messages && data.messages.length > 0) {
+                        showResult('receiveResult', 
+                            `✅ 收到 ${data.messages.length} 条新消息！<br><pre>${JSON.stringify(data, null, 2)}</pre>`, 
+                            'success');
+                        
+                        // 添加消息到历史
+                        data.messages.forEach(msg => {
+                            addMessageToHistory('staff', msg.message || msg.content, msg.staffName || '客服');
+                            config.lastId = Math.max(config.lastId, msg.id || 0);
+                        });
+                    } else {
+                        showResult('receiveResult', 
+                            `ℹ️ 暂无新消息<br><pre>${JSON.stringify(data, null, 2)}</pre>`, 
+                            'info');
+                    }
+                } else {
+                    showResult('receiveResult', 
+                        `❌ 接收消息失败！<br><pre>${JSON.stringify(data, null, 2)}</pre>`, 
+                        'error');
+                }
+            } catch (error) {
+                showResult('receiveResult', `❌ 接收错误: ${error.message}`, 'error');
+            }
+        }
+
+        // 开始轮询
+        function startPolling() {
+            if (pollingInterval) {
+                clearInterval(pollingInterval);
+            }
+            
+            pollingInterval = setInterval(receiveMessages, 3000);
+            showResult('receiveResult', '🔄 已开始轮询检查新消息 (每3秒一次)', 'info');
+        }
+
+        // 停止轮询
+        function stopPolling() {
+            if (pollingInterval) {
+                clearInterval(pollingInterval);
+                pollingInterval = null;
+                showResult('receiveResult', '⏹️ 已停止轮询', 'info');
+            }
+        }
+
+        // 清空历史
+        function clearHistory() {
+            document.getElementById('messageHistory').innerHTML = '';
+            config.lastId = 0;
+        }
+
+        // 页面离开时清理
+        window.addEventListener('beforeunload', function() {
+            stopPolling();
+        });
+    </script>
+</body>
+</html>

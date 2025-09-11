@@ -1757,9 +1757,20 @@ app.post('/api/connect', (req, res) => {
         return res.status(400).json({ error: '缺少用户ID' });
     }
     
-    // 获取增强验证信息
-    const validation = req.securityValidation;
-    const clientInfo = req.clientInfo;
+    // 获取增强验证信息 - 如果没有则创建默认值
+    const validation = req.securityValidation || {
+        isValid: true,
+        shopInfo: null,
+        securityLevel: 'basic',
+        apiKeyUsed: false,
+        validationMethods: ['domain']
+    };
+    const clientInfo = req.clientInfo || {
+        ip: req.ip || '::1',
+        refererDomain: 'localhost',
+        originDomain: 'localhost',
+        userAgent: req.get('User-Agent') || 'Unknown'
+    };
     
     // 注册用户（包含完整安全信息）
     httpUsers.set(userId, {
@@ -1823,8 +1834,8 @@ app.post('/api/connect', (req, res) => {
     });
 });
 
-// 获取新消息接口
-app.get('/api/messages', (req, res) => {
+// 获取新消息接口（客户端使用）
+app.get('/api/client/messages', (req, res) => {
     const { userId, lastId = 0 } = req.query;
     
     if (!userId) {
@@ -1858,9 +1869,39 @@ app.post('/api/send', async (req, res) => {
     
     console.log(`📨 HTTP用户消息 [${userId}]: ${message}`);
     
+    // 调试：检查域名验证信息
+    console.log('🔍 调试域名验证信息:');
+    console.log('- req.domainValidation:', req.domainValidation ? 'exists' : 'null');
+    if (req.domainValidation) {
+        console.log('- shopInfo:', req.domainValidation.shopInfo ? 'exists' : 'null');
+        if (req.domainValidation.shopInfo) {
+            console.log('- shopInfo.id:', req.domainValidation.shopInfo.id);
+            console.log('- shopInfo.name:', req.domainValidation.shopInfo.name);
+        }
+    }
+
     try {
-        // 从请求中获取店铺信息
-        const shopId = req.domainValidation?.matchedShop?.id;
+        // 获取店铺ID - 优先从域名验证，备用方案从headers
+        let shopId = req.domainValidation?.shopInfo?.id;
+        
+        // 备用方案：从请求头获取shopId
+        if (!shopId) {
+            shopId = req.headers['x-shop-id'];
+            console.log('🔄 从请求头获取shopId:', shopId);
+        }
+        
+        // 再备用方案：从body获取shopKey，查找对应的店铺
+        if (!shopId && req.body.shopKey) {
+            console.log('🔄 通过shopKey查找店铺:', req.body.shopKey);
+            const shops = await database.getAllShops();
+            const shop = shops.find(s => s.api_key === req.body.shopKey);
+            if (shop) {
+                shopId = shop.id;
+                console.log('🎯 通过shopKey找到店铺:', shop.name, shop.id);
+            }
+        }
+        
+        console.log('🎯 最终获取到的shopId:', shopId);
         
         if (shopId) {
             // 保存用户消息到数据库
@@ -1871,6 +1912,11 @@ app.post('/api/send', async (req, res) => {
                 sender: 'user',
                 timestamp: timestamp ? new Date(timestamp) : new Date()
             });
+            console.log(`💾 消息已保存到数据库 [店铺:${shopId}, 用户:${userId}]`);
+        } else {
+            console.warn(`⚠️ 无法获取店铺ID，消息未保存到数据库`);
+            console.warn(`⚠️ 调试信息 - headers:`, Object.keys(req.headers));
+            console.warn(`⚠️ 调试信息 - body:`, req.body);
         }
         
         // 转发给所有WebSocket客服
