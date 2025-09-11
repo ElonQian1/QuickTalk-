@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>客服管理系统</title>
+    
+    <!-- 引入店铺管理模块样式 -->
+    <link rel="stylesheet" href="/css/mobile-shop-manager.css">
+    
     <style>
         * {
             margin: 0;
@@ -755,6 +759,194 @@
                 flex-direction: row;
             }
         }
+
+        /* 标签页样式 */
+        .tab-nav {
+            display: flex;
+            border-bottom: 2px solid #e9ecef;
+            margin-bottom: 20px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 12px 16px;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-size: 14px;
+            color: #6c757d;
+            transition: all 0.3s ease;
+        }
+
+        .tab-btn.active {
+            color: #007bff;
+            border-bottom-color: #007bff;
+            font-weight: 600;
+        }
+
+        .tab-btn:hover {
+            background-color: #f8f9fa;
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* 表单样式 */
+        .form-section {
+            background: #fff;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 15px 0;
+            border: 1px solid #e9ecef;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 600;
+            color: #495057;
+            font-size: 14px;
+        }
+
+        .form-group input, 
+        .form-group select, 
+        .form-group textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .form-actions .btn {
+            flex: 1;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #0056b3;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #545b62;
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 12px;
+            border-radius: 4px;
+            background: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn-small:hover {
+            background: #0056b3;
+        }
+
+        /* 员工列表样式 */
+        .employees-list {
+            background: #fff;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #e9ecef;
+        }
+
+        .employee-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .employee-item:last-child {
+            border-bottom: none;
+        }
+
+        .employee-info {
+            flex: 1;
+        }
+
+        .employee-name {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 4px;
+        }
+
+        .employee-role {
+            font-size: 12px;
+            color: #6c757d;
+            background: #f8f9fa;
+            padding: 2px 8px;
+            border-radius: 12px;
+            display: inline-block;
+        }
+
+        .employee-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .section-header h4 {
+            margin: 0;
+            color: #333;
+        }
     </style>
 </head>
 <body>
@@ -1002,6 +1194,88 @@
         </div>
     </div>
 
+    <!-- 店铺管理模态框 -->
+    <div id="shopManageModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="shopManageTitle">🏪 店铺管理</h3>
+                <button class="close-btn" onclick="closeShopManageModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- 导航标签 -->
+                <div class="tab-nav">
+                    <button class="tab-btn active" onclick="showShopTab('employees')">👥 员工管理</button>
+                    <button class="tab-btn" onclick="showShopTab('settings')">⚙️ 店铺设置</button>
+                </div>
+
+                <!-- 员工管理标签页 -->
+                <div id="employeesTab" class="tab-content active">
+                    <div class="section-header">
+                        <h4>员工列表</h4>
+                        <button class="btn btn-small" onclick="showAddEmployeeForm()">➕ 添加员工</button>
+                    </div>
+                    
+                    <!-- 员工列表 -->
+                    <div id="employeesList" class="employees-list">
+                        <div class="loading">正在加载员工列表...</div>
+                    </div>
+
+                    <!-- 添加员工表单（隐藏） -->
+                    <div id="addEmployeeForm" class="form-section" style="display: none;">
+                        <h4>添加新员工</h4>
+                        <form onsubmit="addEmployee(event)">
+                            <div class="form-group">
+                                <label for="employeeUsername">用户名</label>
+                                <input type="text" id="employeeUsername" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="employeeEmail">邮箱</label>
+                                <input type="email" id="employeeEmail" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="employeePassword">密码</label>
+                                <input type="password" id="employeePassword" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="employeeRole">角色</label>
+                                <select id="employeeRole" required>
+                                    <option value="staff">员工</option>
+                                    <option value="manager">经理</option>
+                                </select>
+                            </div>
+                            <div class="form-actions">
+                                <button type="button" onclick="hideAddEmployeeForm()" class="btn btn-secondary">取消</button>
+                                <button type="submit" class="btn btn-primary">添加员工</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- 店铺设置标签页 -->
+                <div id="settingsTab" class="tab-content" style="display: none;">
+                    <div class="form-section">
+                        <h4>基本设置</h4>
+                        <div class="form-group">
+                            <label for="shopName">店铺名称</label>
+                            <input type="text" id="shopName">
+                        </div>
+                        <div class="form-group">
+                            <label for="shopDomain">店铺域名</label>
+                            <input type="text" id="shopDomain">
+                        </div>
+                        <div class="form-group">
+                            <label for="shopDescription">店铺描述</label>
+                            <textarea id="shopDescription" rows="3"></textarea>
+                        </div>
+                        <div class="form-actions">
+                            <button onclick="saveShopSettings()" class="btn btn-primary">保存设置</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         // 全局变量
         let currentUser = null;
@@ -1060,6 +1334,13 @@
                         MessageManager.loadShopList();
                         break;
                     case 'shops':
+                        console.log('📱 切换到店铺页面');
+                        // 确保sessionId全局可访问
+                        window.sessionId = sessionId;
+                        console.log('🔍 使用sessionId:', sessionId);
+                        
+                        // 直接使用已测试过的旧版店铺管理系统
+                        console.log('🏪 调用 ShopManager.loadShops()');
                         ShopManager.loadShops();
                         break;
                     case 'chat':
@@ -1276,16 +1557,52 @@
                 console.log('开始加载店铺, sessionId:', sessionId);
 
                 try {
-                    const response = await fetch('/api/admin/shops', {
+                    // 根据用户角色选择正确的API端点
+                    const apiEndpoint = currentUser && currentUser.role === 'super_admin' 
+                        ? '/api/admin/shops'  // 超级管理员看所有店铺
+                        : '/api/shops';       // 普通用户看自己的店铺
+                    
+                    console.log(`📡 使用API端点: ${apiEndpoint} (用户角色: ${currentUser?.role || '未知'})`);
+                    
+                    const response = await fetch(apiEndpoint, {
                         headers: { 'X-Session-Id': sessionId }
                     });
 
                     console.log('API响应状态:', response.status, response.statusText);
 
                     if (response.ok) {
-                        currentShops = await response.json();
-                        console.log('收到店铺数据:', currentShops.length, '个店铺');
-                        console.log('店铺数据预览:', currentShops.slice(0, 2));
+                        const responseData = await response.json();
+                        console.log('📦 API返回的原始数据:', responseData);
+                        console.log('📦 数据类型:', typeof responseData);
+                        
+                        // 处理不同的响应格式
+                        let currentShops;
+                        if (Array.isArray(responseData)) {
+                            // 直接是数组格式 (来自 /api/shops)
+                            currentShops = responseData;
+                            console.log('📦 检测到数组格式响应');
+                        } else if (responseData && responseData.shops && Array.isArray(responseData.shops)) {
+                            // 包装对象格式 (来自 /api/auth/me 或其他端点)
+                            currentShops = responseData.shops;
+                            console.log('📦 检测到对象包装格式响应，提取 shops 数组');
+                        } else {
+                            console.error('❌ 无法识别的响应格式:', responseData);
+                            throw new Error(`API返回数据格式错误: 期望数组或包含shops的对象，实际收到 ${typeof responseData}`);
+                        }
+                        
+                        console.log('📦 是否为数组:', Array.isArray(currentShops));
+                        
+                        // 确保数据是数组格式
+                        if (!Array.isArray(currentShops)) {
+                            console.error('❌ 处理后的数据仍不是数组格式:', currentShops);
+                            content.innerHTML = '<div class="empty-state"><div class="empty-icon">❌</div><div>数据格式错误</div></div>';
+                            return;
+                        }
+                        
+                        console.log('✅ 收到店铺数据:', currentShops.length, '个店铺');
+                        if (currentShops.length > 0) {
+                            console.log('📄 店铺数据预览:', currentShops.slice(0, 2));
+                        }
                         this.renderShops(currentShops);
                     } else {
                         const errorText = await response.text();
@@ -1365,9 +1682,8 @@
             }
 
             static manageShop(shopId) {
-                // 店铺管理功能 - 可以跳转到消息页面或显示管理选项
-                MessageManager.viewShopConversations(shopId);
-                PageManager.switchPage('messages');
+                console.log('🏪 打开店铺管理:', shopId);
+                openShopManageModal(shopId);
             }
         }
 
@@ -1387,6 +1703,16 @@
                         currentUser = data.user;
                         sessionId = data.sessionId;
                         
+                        // 持久化sessionId到localStorage
+                        localStorage.setItem('sessionId', sessionId);
+                        localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                        
+                        // 全局设置sessionId供模块使用
+                        window.sessionId = sessionId;
+                        window.currentUser = currentUser;
+                        
+                        console.log('✅ 登录成功，用户:', currentUser.username, 'SessionId:', sessionId);
+                        
                         document.getElementById('loginContainer').style.display = 'none';
                         document.getElementById('appContainer').style.display = 'flex';
                         
@@ -1395,6 +1721,12 @@
                         
                         // 加载初始数据
                         HomeManager.loadData();
+                        
+                        // 预初始化店铺管理模块
+                        if (window.mobileShopManager) {
+                            console.log('🏪 预初始化店铺管理模块');
+                            // 先不加载数据，等切换到店铺页面时再加载
+                        }
                         ShopManager.loadShops();
                         
                         return { success: true };
@@ -1420,6 +1752,10 @@
                     currentUser = null;
                     sessionId = null;
                     currentShops = [];
+                    
+                    // 清除localStorage中的会话数据
+                    localStorage.removeItem('sessionId');
+                    localStorage.removeItem('currentUser');
                     
                     document.getElementById('loginContainer').style.display = 'flex';
                     document.getElementById('appContainer').style.display = 'none';
@@ -1523,6 +1859,56 @@
             PageManager.goBack();
         }
 
+        // 检查现有会话
+        async function checkExistingSession() {
+            const storedSessionId = localStorage.getItem('sessionId');
+            const storedUser = localStorage.getItem('currentUser');
+            
+            if (storedSessionId && storedUser) {
+                console.log('🔍 发现保存的会话，验证中...', storedSessionId);
+                
+                try {
+                    // 验证会话是否仍然有效
+                    const response = await fetch('/api/auth/me', {
+                        headers: { 'X-Session-Id': storedSessionId }
+                    });
+                    
+                    if (response.ok) {
+                        const user = await response.json();
+                        
+                        // 恢复会话
+                        sessionId = storedSessionId;
+                        currentUser = user;
+                        window.sessionId = sessionId;
+                        window.currentUser = currentUser;
+                        
+                        console.log('✅ 会话恢复成功:', user.username);
+                        
+                        // 直接进入应用
+                        document.getElementById('loginContainer').style.display = 'none';
+                        document.getElementById('appContainer').style.display = 'flex';
+                        document.getElementById('userInfo').textContent = `${user.username} (${AuthManager.getRoleText(user.role)})`;
+                        
+                        // 加载初始数据
+                        HomeManager.loadData();
+                        
+                        return true;
+                    } else {
+                        console.log('⚠️ 保存的会话已过期');
+                        // 清除过期的会话数据
+                        localStorage.removeItem('sessionId');
+                        localStorage.removeItem('currentUser');
+                    }
+                } catch (error) {
+                    console.error('验证会话失败:', error);
+                    localStorage.removeItem('sessionId');
+                    localStorage.removeItem('currentUser');
+                }
+            }
+            
+            return false;
+        }
+
         function sendMessage() {
             const input = document.getElementById('messageInput');
             const message = input.value.trim();
@@ -1550,6 +1936,9 @@
         // 初始化
         document.addEventListener('DOMContentLoaded', function() {
             console.log('客服管理系统启动');
+            
+            // 检查是否有保存的会话
+            checkExistingSession();
             
             // 登录表单处理
             document.getElementById('loginForm').addEventListener('submit', async function(e) {
@@ -1589,6 +1978,328 @@
                 });
             });
         });
+    </script>
+    
+    <!-- 引入店铺管理模块 -->
+    <script src="/js/mobile-shop-manager.js"></script>
+    <script>
+        // 初始化新的模块化店铺管理器
+        window.addEventListener('DOMContentLoaded', async function() {
+            console.log('🚀🚀🚀 DOMContentLoaded 事件触发 - 版本2.0 🚀🚀🚀');
+            
+            if (typeof MobileShopManager !== 'undefined') {
+                console.log('🏪 初始化模块化店铺管理器');
+                window.mobileShopManager = new MobileShopManager();
+                
+                // 确保用户已登录后再初始化
+                const checkAndInit = async () => {
+                    const sessionId = localStorage.getItem('sessionId');
+                    console.log('🔍 检查会话状态:', sessionId ? '有会话' : '无会话');
+                    
+                    if (sessionId) {
+                        console.log('🔄 用户已登录，开始初始化店铺管理器...');
+                        try {
+                            await window.mobileShopManager.init();
+                            console.log('✅ 店铺管理器初始化完成');
+                        } catch (error) {
+                            console.error('❌ 店铺管理器初始化失败:', error);
+                        }
+                    } else {
+                        console.log('⏰ 等待用户登录...');
+                        // 如果没有会话，等待一段时间后重试
+                        setTimeout(checkAndInit, 1000);
+                    }
+                };
+                
+                await checkAndInit();
+            } else {
+                console.error('❌ MobileShopManager 类未找到');
+            }
+        });
+
+        // 店铺管理相关函数
+        let currentManageShopId = null;
+
+        function openShopManageModal(shopId) {
+            console.log('🏪 打开店铺管理模态框:', shopId);
+            currentManageShopId = shopId;
+            
+            // 找到对应的店铺信息
+            const shop = currentShops.find(s => s.id == shopId);
+            if (shop) {
+                document.getElementById('shopManageTitle').textContent = `🏪 ${shop.name} - 店铺管理`;
+            }
+            
+            // 显示模态框
+            document.getElementById('shopManageModal').style.display = 'block';
+            
+            // 默认显示员工管理标签
+            showShopTab('employees');
+        }
+
+        function closeShopManageModal() {
+            document.getElementById('shopManageModal').style.display = 'none';
+            currentManageShopId = null;
+        }
+
+        function showShopTab(tabName) {
+            console.log('🔄 切换到标签页:', tabName);
+            
+            // 隐藏所有标签内容
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+                content.style.display = 'none';
+            });
+            
+            // 移除所有标签按钮的活动状态
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // 显示对应的标签内容
+            const targetTab = document.getElementById(tabName + 'Tab');
+            if (targetTab) {
+                targetTab.classList.add('active');
+                targetTab.style.display = 'block';
+            }
+            
+            // 激活对应的标签按钮
+            const targetBtn = document.querySelector(`[onclick="showShopTab('${tabName}')"]`);
+            if (targetBtn) {
+                targetBtn.classList.add('active');
+            }
+            
+            // 根据标签页加载对应的数据
+            if (tabName === 'employees' && currentManageShopId) {
+                loadEmployees(currentManageShopId);
+            } else if (tabName === 'settings' && currentManageShopId) {
+                loadShopSettings(currentManageShopId);
+            }
+        }
+
+        async function loadEmployees(shopId) {
+            console.log('👥 加载店铺员工列表:', shopId);
+            const employeesList = document.getElementById('employeesList');
+            employeesList.innerHTML = '<div class="loading">正在加载员工列表...</div>';
+
+            try {
+                const sessionId = localStorage.getItem('sessionId');
+                const response = await fetch(`/api/shops/${shopId}/employees`, {
+                    headers: { 'X-Session-Id': sessionId }
+                });
+
+                if (response.ok) {
+                    const employees = await response.json();
+                    console.log('📋 员工数据:', employees);
+                    renderEmployees(employees);
+                } else {
+                    throw new Error('获取员工列表失败: ' + response.status);
+                }
+            } catch (error) {
+                console.error('❌ 加载员工失败:', error);
+                employeesList.innerHTML = '<div class="error">加载员工列表失败</div>';
+            }
+        }
+
+        async function loadShopSettings(shopId) {
+            console.log('⚙️ 加载店铺设置:', shopId);
+            
+            try {
+                // 先从当前店铺列表中获取数据
+                const shop = currentShops.find(s => s.id == shopId);
+                if (shop) {
+                    console.log('📋 从缓存加载店铺数据:', shop);
+                    document.getElementById('shopName').value = shop.name || '';
+                    document.getElementById('shopDomain').value = shop.domain || '';
+                    document.getElementById('shopDescription').value = shop.description || '';
+                    return;
+                }
+                
+                // 如果缓存中没有，从服务器获取
+                const sessionId = localStorage.getItem('sessionId');
+                const response = await fetch(`/api/shops/${shopId}`, {
+                    headers: { 'X-Session-Id': sessionId }
+                });
+
+                if (response.ok) {
+                    const shopData = await response.json();
+                    console.log('📋 从服务器加载店铺数据:', shopData);
+                    document.getElementById('shopName').value = shopData.name || '';
+                    document.getElementById('shopDomain').value = shopData.domain || '';
+                    document.getElementById('shopDescription').value = shopData.description || '';
+                } else {
+                    throw new Error('获取店铺信息失败: ' + response.status);
+                }
+            } catch (error) {
+                console.error('❌ 加载店铺设置失败:', error);
+                alert('加载店铺设置失败: ' + error.message);
+            }
+        }
+
+        function renderEmployees(employees) {
+            const employeesList = document.getElementById('employeesList');
+            
+            if (employees.length === 0) {
+                employeesList.innerHTML = '<div class="empty-state">暂无员工</div>';
+                return;
+            }
+
+            const html = employees.map(employee => `
+                <div class="employee-item">
+                    <div class="employee-info">
+                        <div class="employee-name">${employee.username}</div>
+                        <div class="employee-role">${getRoleText(employee.role)}</div>
+                    </div>
+                    <div class="employee-actions">
+                        <button class="btn btn-small" onclick="editEmployee('${employee.id}')">编辑</button>
+                        <button class="btn btn-small btn-secondary" onclick="removeEmployee('${employee.id}')">移除</button>
+                    </div>
+                </div>
+            `).join('');
+
+            employeesList.innerHTML = html;
+        }
+
+        function getRoleText(role) {
+            const roleMap = {
+                'owner': '店主',
+                'manager': '经理',
+                'staff': '员工'
+            };
+            return roleMap[role] || role;
+        }
+
+        function showAddEmployeeForm() {
+            document.getElementById('addEmployeeForm').style.display = 'block';
+        }
+
+        function hideAddEmployeeForm() {
+            document.getElementById('addEmployeeForm').style.display = 'none';
+            // 清空表单
+            document.getElementById('addEmployeeForm').querySelector('form').reset();
+        }
+
+        async function addEmployee(event) {
+            event.preventDefault();
+            
+            const formData = new FormData(event.target);
+            const employeeData = {
+                username: formData.get('employeeUsername'),
+                email: formData.get('employeeEmail'),
+                password: formData.get('employeePassword'),
+                role: formData.get('employeeRole')
+            };
+
+            try {
+                const sessionId = localStorage.getItem('sessionId');
+                const response = await fetch(`/api/shops/${currentManageShopId}/employees`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Session-Id': sessionId
+                    },
+                    body: JSON.stringify(employeeData)
+                });
+
+                if (response.ok) {
+                    console.log('✅ 员工添加成功');
+                    hideAddEmployeeForm();
+                    loadEmployees(currentManageShopId); // 重新加载员工列表
+                } else {
+                    throw new Error('添加员工失败: ' + response.status);
+                }
+            } catch (error) {
+                console.error('❌ 添加员工失败:', error);
+                alert('添加员工失败: ' + error.message);
+            }
+        }
+
+        async function saveShopSettings() {
+            if (!currentManageShopId) return;
+
+            const shopData = {
+                name: document.getElementById('shopName').value,
+                domain: document.getElementById('shopDomain').value,
+                description: document.getElementById('shopDescription').value
+            };
+
+            try {
+                const sessionId = localStorage.getItem('sessionId');
+                const response = await fetch(`/api/shops/${currentManageShopId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Session-Id': sessionId
+                    },
+                    body: JSON.stringify(shopData)
+                });
+
+                if (response.ok) {
+                    console.log('✅ 店铺设置保存成功');
+                    
+                    // 更新本地缓存中的店铺信息
+                    const shopIndex = currentShops.findIndex(s => s.id == currentManageShopId);
+                    if (shopIndex >= 0) {
+                        currentShops[shopIndex] = { 
+                            ...currentShops[shopIndex], 
+                            ...shopData 
+                        };
+                        console.log('🔄 已更新本地店铺缓存');
+                    }
+                    
+                    // 更新模态框标题
+                    document.getElementById('shopManageTitle').textContent = `🏪 ${shopData.name} - 店铺管理`;
+                    
+                    alert('店铺设置保存成功！');
+                    
+                    // 重新加载店铺列表以确保数据同步
+                    if (window.mobileShopManager) {
+                        await window.mobileShopManager.loadShops();
+                    }
+                } else {
+                    throw new Error('保存设置失败: ' + response.status);
+                }
+            } catch (error) {
+                console.error('❌ 保存设置失败:', error);
+                alert('保存设置失败: ' + error.message);
+            }
+        }
+
+        async function editEmployee(employeeId) {
+            console.log('✏️ 编辑员工:', employeeId);
+            // TODO: 实现员工编辑功能
+            alert('员工编辑功能开发中...');
+        }
+
+        async function removeEmployee(employeeId) {
+            if (!confirm('确定要移除这个员工吗？')) return;
+
+            try {
+                const sessionId = localStorage.getItem('sessionId');
+                const response = await fetch(`/api/shops/${currentManageShopId}/employees/${employeeId}`, {
+                    method: 'DELETE',
+                    headers: { 'X-Session-Id': sessionId }
+                });
+
+                if (response.ok) {
+                    console.log('✅ 员工移除成功');
+                    loadEmployees(currentManageShopId); // 重新加载员工列表
+                } else {
+                    throw new Error('移除员工失败: ' + response.status);
+                }
+            } catch (error) {
+                console.error('❌ 移除员工失败:', error);
+                alert('移除员工失败: ' + error.message);
+            }
+        }
+
+        // 点击模态框外部关闭
+        window.onclick = function(event) {
+            const shopModal = document.getElementById('shopManageModal');
+            if (event.target === shopModal) {
+                closeShopManageModal();
+            }
+        };
     </script>
 </body>
 </html>

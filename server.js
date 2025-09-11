@@ -25,6 +25,9 @@ app.use(express.json());
 app.use('/static', express.static(path.join(__dirname, 'static')));
 app.use('/src', express.static(path.join(__dirname, 'src')));
 app.use('/components', express.static(path.join(__dirname, 'src/components')));
+// 为模块化文件提供直接访问路径
+app.use('/js', express.static(path.join(__dirname, 'static/js')));
+app.use('/css', express.static(path.join(__dirname, 'static/css')));
 
 // 信任代理（用于获取真实IP）
 app.set('trust proxy', true);
@@ -73,7 +76,7 @@ app.get('/desktop/customer', (req, res) => {
 
 // 移动端路由
 app.get('/mobile/admin', (req, res) => {
-    res.sendFile(path.join(__dirname, 'src', 'mobile', 'admin', 'index.html'));
+    res.sendFile(path.join(__dirname, 'static', 'admin-mobile.html'));
 });
 
 app.get('/mobile/customer', (req, res) => {
@@ -90,11 +93,11 @@ app.get('/admin-desktop', (req, res) => {
 });
 
 app.get('/mobile-admin', (req, res) => {
-    res.sendFile(path.join(__dirname, 'src', 'mobile', 'admin', 'index.html'));
+    res.sendFile(path.join(__dirname, 'static', 'admin-mobile.html'));
 });
 
 app.get('/admin-mobile', (req, res) => {
-    res.sendFile(path.join(__dirname, 'src', 'mobile', 'admin', 'index.html'));
+    res.sendFile(path.join(__dirname, 'static', 'admin-mobile.html'));
 });
 
 // 代码生成器和其他工具（保持在static目录）
@@ -239,11 +242,131 @@ app.post('/api/shops', requireAuth, async (req, res) => {
 app.get('/api/shops', requireAuth, async (req, res) => {
     try {
         const shops = await database.getUserShops(req.user.id);
+        console.log(`📋 用户 ${req.user.username} 的店铺列表:`, shops ? shops.length : 'null', '个店铺');
+        
+        // 确保始终返回数组格式
+        const shopsArray = Array.isArray(shops) ? shops : [];
+        console.log(`📦 返回数据格式检查: 类型=${typeof shopsArray}, 是数组=${Array.isArray(shopsArray)}, 长度=${shopsArray.length}`);
+        
+        // 直接返回数组，与/api/admin/shops保持一致
+        res.json(shopsArray);
+    } catch (error) {
+        console.error('获取用户店铺失败:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 获取单个店铺详情
+app.get('/api/shops/:shopId', requireAuth, async (req, res) => {
+    try {
+        const { shopId } = req.params;
+        console.log(`🏪 获取店铺详情: ${shopId}`);
+        
+        // 先检查用户是否有权限访问这个店铺
+        const userShops = await database.getUserShops(req.user.id);
+        const hasAccess = userShops.some(shop => shop.id === shopId);
+        
+        if (!hasAccess && req.user.role !== 'super_admin') {
+            return res.status(403).json({ error: '没有权限访问该店铺' });
+        }
+        
+        // 获取店铺详情
+        const shop = await database.getShopById(shopId);
+        if (!shop) {
+            return res.status(404).json({ error: '店铺不存在' });
+        }
+        
+        res.json(shop);
+    } catch (error) {
+        console.error('获取店铺详情失败:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 获取店铺员工列表
+app.get('/api/shops/:shopId/employees', requireAuth, async (req, res) => {
+    try {
+        const { shopId } = req.params;
+        console.log(`👥 获取店铺员工列表: ${shopId}`);
+        
+        // 检查权限
+        const userShops = await database.getUserShops(req.user.id);
+        const hasAccess = userShops.some(shop => shop.id === shopId);
+        
+        if (!hasAccess && req.user.role !== 'super_admin') {
+            return res.status(403).json({ error: '没有权限访问该店铺' });
+        }
+        
+        // 获取员工列表
+        const employees = await database.getShopEmployees(shopId);
+        console.log(`📋 店铺 ${shopId} 的员工列表:`, employees.length, '个员工');
+        
+        res.json(employees);
+    } catch (error) {
+        console.error('获取店铺员工失败:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 添加店铺员工
+app.post('/api/shops/:shopId/employees', requireAuth, async (req, res) => {
+    try {
+        const { shopId } = req.params;
+        const { username, email, password, role } = req.body;
+        console.log(`➕ 添加店铺员工: ${shopId} -> ${username}`);
+        
+        // 检查权限
+        const userShops = await database.getUserShops(req.user.id);
+        const hasAccess = userShops.some(shop => shop.id === shopId);
+        
+        if (!hasAccess && req.user.role !== 'super_admin') {
+            return res.status(403).json({ error: '没有权限管理该店铺' });
+        }
+        
+        // 添加员工
+        const employee = await database.addShopEmployee(shopId, {
+            username,
+            email,
+            password,
+            role: role || 'staff'
+        });
+        
+        console.log(`✅ 员工 ${username} 已添加到店铺 ${shopId}`);
         res.json({
             success: true,
-            shops
+            message: '员工添加成功',
+            employee
         });
     } catch (error) {
+        console.error('添加店铺员工失败:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 删除店铺员工
+app.delete('/api/shops/:shopId/employees/:employeeId', requireAuth, async (req, res) => {
+    try {
+        const { shopId, employeeId } = req.params;
+        console.log(`🗑️ 删除店铺员工: ${shopId} -> ${employeeId}`);
+        
+        // 检查权限
+        const userShops = await database.getUserShops(req.user.id);
+        const hasAccess = userShops.some(shop => shop.id === shopId);
+        
+        if (!hasAccess && req.user.role !== 'super_admin') {
+            return res.status(403).json({ error: '没有权限管理该店铺' });
+        }
+        
+        // 删除员工
+        await database.removeShopEmployee(shopId, employeeId);
+        
+        console.log(`✅ 员工 ${employeeId} 已从店铺 ${shopId} 移除`);
+        res.json({
+            success: true,
+            message: '员工移除成功'
+        });
+    } catch (error) {
+        console.error('删除店铺员工失败:', error);
         res.status(500).json({ error: error.message });
     }
 });
