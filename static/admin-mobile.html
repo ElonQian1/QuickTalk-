@@ -1324,6 +1324,130 @@
             min-width: 16px;
             text-align: center;
         }
+        
+        /* 支付相关样式 */
+        .shop-btn.warning {
+            background: linear-gradient(135deg, #ff9500 0%, #ff6b00 100%);
+            color: white;
+        }
+
+        .shop-btn.info {
+            background: linear-gradient(135deg, #5ac8fa 0%, #007aff 100%);
+            color: white;
+        }
+
+        .renewal-info,
+        .activation-info {
+            padding: 20px 0;
+        }
+
+        .shop-renewal-info,
+        .shop-activation-info {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .shop-renewal-info h4,
+        .shop-activation-info h4 {
+            margin: 0 0 15px 0;
+            color: #333;
+            font-size: 18px;
+        }
+
+        .shop-renewal-info p,
+        .shop-activation-info p {
+            margin: 8px 0;
+            color: #666;
+        }
+
+        .shop-activation-info ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+
+        .shop-activation-info li {
+            margin: 5px 0;
+            color: #666;
+        }
+
+        .payment-methods {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .payment-methods h4 {
+            margin: 0 0 15px 0;
+            color: #333;
+        }
+
+        .payment-options {
+            display: grid;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .payment-option {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .payment-option:hover {
+            border-color: #007AFF;
+            background: #f8f9fa;
+        }
+
+        .payment-option input[type="radio"] {
+            margin-right: 12px;
+        }
+
+        .payment-option input[type="radio"]:checked {
+            accent-color: #007AFF;
+        }
+
+        .payment-option input[type="radio"]:checked + .payment-icon + span {
+            color: #007AFF;
+            font-weight: 600;
+        }
+
+        .payment-icon {
+            font-size: 24px;
+            margin-right: 12px;
+        }
+
+        .payment-result {
+            text-align: center;
+            padding: 40px 20px;
+        }
+
+        .payment-success {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 30px;
+        }
+
+        .success-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+
+        .payment-success h4 {
+            color: #34c759;
+            margin: 0 0 10px 0;
+        }
+
+        .payment-success p {
+            color: #666;
+            margin: 0 0 20px 0;
+        }
 
         /* 审核管理样式 */
         .review-section {
@@ -2525,6 +2649,10 @@
                             <div class="shop-actions">
                                 <button class="shop-btn primary" onclick="ShopManager.manageShop('${shop.id}')">管理</button>
                                 <button class="shop-btn success" onclick="MessageManager.viewShopConversations('${shop.id}')">消息</button>
+                                ${shop.status === 'pending' ? 
+                                    `<button class="shop-btn warning" onclick="payToActivateShop('${shop.id}')">💰 付费开通</button>` : 
+                                    `<button class="shop-btn info" onclick="renewShop('${shop.id}')">🔄 续费</button>`
+                                }
                             </div>
                         </div>
                     `;
@@ -3648,6 +3776,129 @@
             alert(`打开与 ${customerName} 的聊天 (消息ID: ${messageId})`);
             // 这里可以切换到聊天页面
         }
+        
+        // 续费功能
+        let currentRenewalShop = null;
+        
+        function renewShop(shopId) {
+            const shop = currentShops.find(s => s.id === shopId);
+            if (!shop) {
+                alert('店铺信息不存在');
+                return;
+            }
+            
+            const expiryDate = shop.expiryDate ? new Date(shop.expiryDate).toLocaleDateString() : '未设置';
+            
+            if (!confirm(`确定要为店铺 "${shop.name}" 续费吗？\n\n续费价格：¥2000/年\n当前到期时间：${expiryDate}\n续费后将延长1年有效期`)) {
+                return;
+            }
+            
+            currentRenewalShop = shop;
+            
+            // 显示续费模态框
+            document.getElementById('renewalShopName').textContent = shop.name;
+            document.getElementById('renewalCurrentExpiry').textContent = expiryDate;
+            
+            // 创建续费订单 (模拟)
+            const order = {
+                id: 'renewal_' + Date.now(),
+                shopId: shopId,
+                amount: 2000,
+                type: 'renewal',
+                status: 'pending',
+                expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString() // 30分钟后过期
+            };
+            
+            const expiresAt = new Date(order.expiresAt).toLocaleString();
+            document.getElementById('renewalExpiry').textContent = expiresAt;
+            
+            document.getElementById('renewalModal').style.display = 'flex';
+        }
+        
+        function processRenewalPayment() {
+            const paymentMethod = document.querySelector('input[name="renewal_payment"]:checked').value;
+            
+            // 隐藏支付方式，显示加载状态
+            document.getElementById('renewalPaymentMethods').style.display = 'none';
+            
+            // 模拟支付处理
+            setTimeout(() => {
+                // 显示支付成功结果
+                document.getElementById('renewalPaymentResult').style.display = 'block';
+                
+                // 刷新店铺列表
+                setTimeout(() => {
+                    ShopManager.loadShops();
+                }, 1000);
+            }, 2000);
+        }
+        
+        function closeRenewalModal() {
+            document.getElementById('renewalModal').style.display = 'none';
+            document.getElementById('renewalPaymentMethods').style.display = 'block';
+            document.getElementById('renewalPaymentResult').style.display = 'none';
+            currentRenewalShop = null;
+        }
+        
+        // 付费开通功能
+        let currentActivationShop = null;
+        
+        function payToActivateShop(shopId) {
+            const shop = currentShops.find(s => s.id === shopId);
+            if (!shop) {
+                alert('店铺信息不存在');
+                return;
+            }
+            
+            if (!confirm(`确定要付费开通店铺 "${shop.name}" 吗？\n\n付费开通价格：¥2000\n付费成功后，店铺将立即审核通过并获得1年有效期`)) {
+                return;
+            }
+            
+            currentActivationShop = shop;
+            
+            // 显示付费开通模态框
+            document.getElementById('activationShopName').textContent = shop.name;
+            
+            // 创建付费开通订单 (模拟)
+            const order = {
+                id: 'activation_' + Date.now(),
+                shopId: shopId,
+                amount: 2000,
+                type: 'activation',
+                status: 'pending',
+                expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString() // 30分钟后过期
+            };
+            
+            const expiresAt = new Date(order.expiresAt).toLocaleString();
+            document.getElementById('activationExpiry').textContent = expiresAt;
+            
+            document.getElementById('activationModal').style.display = 'flex';
+        }
+        
+        function processActivationPayment() {
+            const paymentMethod = document.querySelector('input[name="activation_payment"]:checked').value;
+            
+            // 隐藏支付方式，显示加载状态
+            document.getElementById('activationPaymentMethods').style.display = 'none';
+            
+            // 模拟支付处理
+            setTimeout(() => {
+                // 显示支付成功结果
+                document.getElementById('activationPaymentResult').style.display = 'block';
+                
+                // 刷新店铺列表
+                setTimeout(() => {
+                    ShopManager.loadShops();
+                }, 1000);
+            }, 2000);
+        }
+        
+        function closeActivationModal() {
+            document.getElementById('activationModal').style.display = 'none';
+            document.getElementById('activationPaymentMethods').style.display = 'block';
+            document.getElementById('activationPaymentResult').style.display = 'none';
+            currentActivationShop = null;
+        }
 
         // 全局函数
         function switchPage(pageName) {
@@ -4188,5 +4439,107 @@
             registerBtn.textContent = '注册';
         });
     </script>
+
+    <!-- 续费模态框 -->
+    <div id="renewalModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>💰 店铺续费</h3>
+                <span class="close-btn" onclick="closeRenewalModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="renewal-info">
+                    <div class="shop-renewal-info">
+                        <h4 id="renewalShopName">店铺名称</h4>
+                        <p><strong>当前到期时间：</strong><span id="renewalCurrentExpiry">-</span></p>
+                        <p><strong>续费金额：</strong><span style="color: #007AFF; font-weight: bold;">¥2000/年</span></p>
+                        <p><strong>订单有效期：</strong><span id="renewalExpiry">-</span></p>
+                    </div>
+                    
+                    <!-- 支付方式选择 -->
+                    <div class="payment-methods" id="renewalPaymentMethods">
+                        <h4>选择支付方式</h4>
+                        <div class="payment-options">
+                            <label class="payment-option">
+                                <input type="radio" name="renewal_payment" value="alipay" checked>
+                                <span class="payment-icon">💰</span>
+                                <span>支付宝</span>
+                            </label>
+                            <label class="payment-option">
+                                <input type="radio" name="renewal_payment" value="wechat">
+                                <span class="payment-icon">💚</span>
+                                <span>微信支付</span>
+                            </label>
+                        </div>
+                        <button class="btn btn-primary" onclick="processRenewalPayment()">立即支付</button>
+                    </div>
+                    
+                    <!-- 支付结果 -->
+                    <div class="payment-result" id="renewalPaymentResult" style="display: none;">
+                        <div class="payment-success">
+                            <div class="success-icon">✅</div>
+                            <h4>续费成功！</h4>
+                            <p>您的店铺有效期已延长1年</p>
+                            <button class="btn btn-primary" onclick="closeRenewalModal()">确定</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 付费开通模态框 -->
+    <div id="activationModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>💳 付费开通店铺</h3>
+                <span class="close-btn" onclick="closeActivationModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="activation-info">
+                    <div class="shop-activation-info">
+                        <h4 id="activationShopName">店铺名称</h4>
+                        <p><strong>开通费用：</strong><span style="color: #007AFF; font-weight: bold;">¥2000</span></p>
+                        <p><strong>开通后权益：</strong></p>
+                        <ul>
+                            <li>✅ 店铺立即审核通过</li>
+                            <li>✅ 获得1年有效期</li>
+                            <li>✅ 解锁全部功能</li>
+                        </ul>
+                        <p><strong>订单有效期：</strong><span id="activationExpiry">-</span></p>
+                    </div>
+                    
+                    <!-- 支付方式选择 -->
+                    <div class="payment-methods" id="activationPaymentMethods">
+                        <h4>选择支付方式</h4>
+                        <div class="payment-options">
+                            <label class="payment-option">
+                                <input type="radio" name="activation_payment" value="alipay" checked>
+                                <span class="payment-icon">💰</span>
+                                <span>支付宝</span>
+                            </label>
+                            <label class="payment-option">
+                                <input type="radio" name="activation_payment" value="wechat">
+                                <span class="payment-icon">💚</span>
+                                <span>微信支付</span>
+                            </label>
+                        </div>
+                        <button class="btn btn-primary" onclick="processActivationPayment()">立即支付</button>
+                    </div>
+                    
+                    <!-- 支付结果 -->
+                    <div class="payment-result" id="activationPaymentResult" style="display: none;">
+                        <div class="payment-success">
+                            <div class="success-icon">✅</div>
+                            <h4>付费开通成功！</h4>
+                            <p>您的店铺已自动审核通过并获得1年有效期</p>
+                            <button class="btn btn-primary" onclick="closeActivationModal()">确定</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>
