@@ -1,6 +1,7 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const bcrypt = require('bcrypt');
+const MessageDatabase = require('./src/message-database');
 
 // SQLite数据库实现
 class SQLiteDatabase {
@@ -20,7 +21,12 @@ class SQLiteDatabase {
             }
 
             this.db = new sqlite3.Database(this.dbPath);
+            
+            // 初始化消息数据库模块
+            this.messageDB = new MessageDatabase(this.db);
+            
             await this.createTables();
+            await this.messageDB.initializeTables(); // 初始化消息表
             await this.initTestData();
             console.log('SQLite数据库初始化完成');
         } catch (error) {
@@ -1142,6 +1148,48 @@ class SQLiteDatabase {
         return stats;
     }
 
+    // =============== 消息相关方法 ===============
+
+    // 获取用户未读消息统计
+    async getUnreadCounts(userId) {
+        return await this.messageDB.getUnreadCounts(userId);
+    }
+
+    // 获取店铺对话列表
+    async getShopConversations(shopId, options = {}) {
+        return await this.messageDB.getShopConversations(shopId, options);
+    }
+
+    // 获取对话消息
+    async getConversationMessages(conversationId, options = {}) {
+        return await this.messageDB.getConversationMessages(conversationId, options);
+    }
+
+    // 创建新对话
+    async createConversation(data) {
+        return await this.messageDB.createConversation(data);
+    }
+
+    // 添加消息
+    async addMessage(data) {
+        return await this.messageDB.addMessage(data);
+    }
+
+    // 标记消息为已读
+    async markMessagesAsRead(conversationId, userId) {
+        return await this.messageDB.markMessagesAsRead(conversationId, userId);
+    }
+
+    // 查找或创建对话
+    async findOrCreateConversation(shopId, customerId, customerName) {
+        return await this.messageDB.findOrCreateConversation(shopId, customerId, customerName);
+    }
+
+    // 获取对话详情
+    async getConversation(conversationId) {
+        return await this.messageDB.getConversation(conversationId);
+    }
+
     // 获取总体统计信息
     async getOverallStats(userId = null) {
         let shopCondition = '';
@@ -1157,7 +1205,7 @@ class SQLiteDatabase {
             SELECT 
                 COUNT(DISTINCT s.id) as total_shops,
                 COUNT(DISTINCT c.id) as total_conversations,
-                COUNT(DISTINCT CASE WHEN m.sender = 'user' AND m.is_read = FALSE THEN m.id END) as unread_messages
+                COUNT(DISTINCT CASE WHEN m.sender_type = 'customer' AND m.is_read = FALSE THEN m.id END) as unread_messages
             FROM shops s
             LEFT JOIN conversations c ON s.id = c.shop_id
             LEFT JOIN messages m ON s.id = m.shop_id

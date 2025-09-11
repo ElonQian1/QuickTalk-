@@ -7,6 +7,10 @@
     
     <!-- 引入店铺管理模块样式 -->
     <link rel="stylesheet" href="/css/mobile-shop-manager.css">
+    <!-- 引入消息模块样式 -->
+    <link rel="stylesheet" href="/css/mobile-message.css">
+    <!-- 引入搜索功能样式 -->
+    <link rel="stylesheet" href="/css/message-search.css">
     
     <style>
         * {
@@ -1043,12 +1047,8 @@
 
             <!-- 消息页面 -->
             <div class="page" id="messagesPage">
-                <div class="page-header">
-                    <button class="back-btn" onclick="goBack()">‹</button>
-                    <div class="page-title" id="messagesTitle">消息</div>
-                </div>
-                <div id="messagesContent">
-                    <div class="loading">正在加载...</div>
+                <div id="messageContent">
+                    <div class="loading">正在加载消息...</div>
                 </div>
             </div>
 
@@ -1112,7 +1112,7 @@
             <div class="nav-item" data-page="messages" onclick="switchPage('messages')">
                 <div class="nav-icon">💬</div>
                 <div class="nav-label">消息</div>
-                <div class="nav-badge" id="messagesBadge" style="display: none;">0</div>
+                <div class="unread-badge" id="messagesBadge" style="display: none;">0</div>
             </div>
             <div class="nav-item" data-page="shops" onclick="switchPage('shops')">
                 <div class="nav-icon">🏪</div>
@@ -1331,7 +1331,12 @@
                         HomeManager.loadData();
                         break;
                     case 'messages':
-                        MessageManager.loadShopList();
+                        console.log('💬 切换到消息页面');
+                        if (window.messageManager) {
+                            window.messageManager.showMessageOverview();
+                        } else {
+                            console.error('❌ 消息管理器未初始化');
+                        }
                         break;
                     case 'shops':
                         console.log('📱 切换到店铺页面');
@@ -1982,39 +1987,57 @@
     
     <!-- 引入店铺管理模块 -->
     <script src="/js/mobile-shop-manager.js"></script>
+    <!-- 引入消息管理模块 -->
+    <script src="/js/mobile-message-manager.js"></script>
+    <!-- 引入搜索功能模块 -->
+    <script src="/js/message-search-manager.js"></script>
     <script>
-        // 初始化新的模块化店铺管理器
+        // 初始化新的模块化系统
         window.addEventListener('DOMContentLoaded', async function() {
-            console.log('🚀🚀🚀 DOMContentLoaded 事件触发 - 版本2.0 🚀🚀🚀');
+            console.log('🚀🚀🚀 DOMContentLoaded 事件触发 - 版本3.0 🚀🚀🚀');
             
+            // 初始化店铺管理器
             if (typeof MobileShopManager !== 'undefined') {
                 console.log('🏪 初始化模块化店铺管理器');
                 window.mobileShopManager = new MobileShopManager();
+            }
+            
+            // 初始化消息管理器
+            if (typeof MobileMessageManager !== 'undefined') {
+                console.log('💬 初始化模块化消息管理器');
+                window.messageManager = new MobileMessageManager();
+            }
                 
-                // 确保用户已登录后再初始化
-                const checkAndInit = async () => {
-                    const sessionId = localStorage.getItem('sessionId');
-                    console.log('🔍 检查会话状态:', sessionId ? '有会话' : '无会话');
-                    
-                    if (sessionId) {
-                        console.log('🔄 用户已登录，开始初始化店铺管理器...');
-                        try {
+            // 确保用户已登录后再初始化所有模块
+            const checkAndInitAll = async () => {
+                const sessionId = localStorage.getItem('sessionId');
+                console.log('🔍 检查会话状态:', sessionId ? '有会话' : '无会话');
+                
+                if (sessionId) {
+                    console.log('🔄 用户已登录，开始初始化所有模块...');
+                    try {
+                        // 初始化店铺管理器
+                        if (window.mobileShopManager) {
                             await window.mobileShopManager.init();
                             console.log('✅ 店铺管理器初始化完成');
-                        } catch (error) {
-                            console.error('❌ 店铺管理器初始化失败:', error);
                         }
-                    } else {
-                        console.log('⏰ 等待用户登录...');
-                        // 如果没有会话，等待一段时间后重试
-                        setTimeout(checkAndInit, 1000);
+                        
+                        // 初始化消息管理器
+                        if (window.messageManager) {
+                            await window.messageManager.init();
+                            console.log('✅ 消息管理器初始化完成');
+                        }
+                    } catch (error) {
+                        console.error('❌ 模块初始化失败:', error);
                     }
-                };
+                } else {
+                    console.log('⏰ 等待用户登录...');
+                    // 如果没有会话，等待一段时间后重试
+                    setTimeout(checkAndInitAll, 1000);
+                }
+            };
                 
-                await checkAndInit();
-            } else {
-                console.error('❌ MobileShopManager 类未找到');
-            }
+            await checkAndInitAll();
         });
 
         // 店铺管理相关函数

@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据分析功能测试 - QuickTalk客服系统</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f7fa;
+            color: #2c3e50;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 12px;
+            margin-bottom: 30px;
+        }
+
+        .test-section {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .test-section h2 {
+            color: #2c3e50;
+            margin-top: 0;
+            border-bottom: 2px solid #ecf0f1;
+            padding-bottom: 10px;
+        }
+
+        .test-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .test-item {
+            border: 1px solid #e3e8ef;
+            border-radius: 8px;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+
+        .test-item h3 {
+            margin-top: 0;
+            color: #3498db;
+        }
+
+        .btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            background: #2980b9;
+            transform: translateY(-1px);
+        }
+
+        .btn.success {
+            background: #2ecc71;
+        }
+
+        .btn.warning {
+            background: #f39c12;
+        }
+
+        .btn.danger {
+            background: #e74c3c;
+        }
+
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 6px;
+            font-size: 14px;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .result.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .result.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .result.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #3498db;
+        }
+
+        .stat-label {
+            color: #7f8c8d;
+            margin-top: 8px;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .nav-links {
+            text-align: center;
+            margin: 30px 0;
+        }
+
+        .nav-links a {
+            color: #3498db;
+            text-decoration: none;
+            margin: 0 15px;
+            font-weight: 500;
+        }
+
+        .nav-links a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 数据分析功能测试</h1>
+            <p>第三阶段: 数据分析仪表板功能测试页面</p>
+        </div>
+
+        <div class="nav-links">
+            <a href="/analytics">🎯 分析仪表板</a>
+            <a href="/mobile/admin">💼 客服管理</a>
+            <a href="/test-search-history.html">🔍 搜索测试</a>
+            <a href="/">🏠 返回首页</a>
+        </div>
+
+        <!-- API测试区域 -->
+        <div class="test-section">
+            <h2>🚀 API功能测试</h2>
+            <div class="test-grid">
+                <div class="test-item">
+                    <h3>实时监控数据</h3>
+                    <p>测试获取实时监控指标</p>
+                    <button class="btn" onclick="testRealtimeMetrics()">测试实时数据</button>
+                    <div id="realtime-result" class="result" style="display: none;"></div>
+                </div>
+
+                <div class="test-item">
+                    <h3>客服效率分析</h3>
+                    <p>测试客服效率分析API</p>
+                    <button class="btn" onclick="testStaffEfficiency()">测试效率分析</button>
+                    <div id="efficiency-result" class="result" style="display: none;"></div>
+                </div>
+
+                <div class="test-item">
+                    <h3>客户满意度统计</h3>
+                    <p>测试客户满意度统计API</p>
+                    <button class="btn" onclick="testCustomerSatisfaction()">测试满意度</button>
+                    <div id="satisfaction-result" class="result" style="display: none;"></div>
+                </div>
+
+                <div class="test-item">
+                    <h3>工作负载分析</h3>
+                    <p>测试工作负载分析API</p>
+                    <button class="btn" onclick="testWorkloadAnalysis()">测试负载分析</button>
+                    <div id="workload-result" class="result" style="display: none;"></div>
+                </div>
+
+                <div class="test-item">
+                    <h3>KPI报告生成</h3>
+                    <p>测试KPI报告生成API</p>
+                    <button class="btn" onclick="testKpiReport()">生成KPI报告</button>
+                    <div id="kpi-result" class="result" style="display: none;"></div>
+                </div>
+
+                <div class="test-item">
+                    <h3>用户活动记录</h3>
+                    <p>测试用户活动日志API</p>
+                    <button class="btn" onclick="testLogActivity()">记录活动</button>
+                    <div id="activity-result" class="result" style="display: none;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 数据库测试区域 -->
+        <div class="test-section">
+            <h2>🗄️ 数据库功能测试</h2>
+            <div class="test-grid">
+                <div class="test-item">
+                    <h3>表结构检查</h3>
+                    <p>检查分析相关表是否创建成功</p>
+                    <button class="btn" onclick="checkTables()">检查表结构</button>
+                    <div id="tables-result" class="result" style="display: none;"></div>
+                </div>
+
+                <div class="test-item">
+                    <h3>模拟数据插入</h3>
+                    <p>插入测试数据用于演示</p>
+                    <button class="btn warning" onclick="insertTestData()">插入测试数据</button>
+                    <div id="insert-result" class="result" style="display: none;"></div>
+                </div>
+
+                <div class="test-item">
+                    <h3>数据查询测试</h3>
+                    <p>测试数据查询和聚合</p>
+                    <button class="btn" onclick="testDataQuery()">查询测试</button>
+                    <div id="query-result" class="result" style="display: none;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 综合测试区域 -->
+        <div class="test-section">
+            <h2>🧪 综合功能测试</h2>
+            <div class="test-grid">
+                <div class="test-item">
+                    <h3>完整流程测试</h3>
+                    <p>测试从数据采集到报告生成的完整流程</p>
+                    <button class="btn success" onclick="runFullTest()">运行完整测试</button>
+                    <div id="full-result" class="result" style="display: none;"></div>
+                </div>
+
+                <div class="test-item">
+                    <h3>性能压力测试</h3>
+                    <p>测试API性能和响应时间</p>
+                    <button class="btn warning" onclick="runPerformanceTest()">性能测试</button>
+                    <div id="performance-result" class="result" style="display: none;"></div>
+                </div>
+
+                <div class="test-item">
+                    <h3>错误处理测试</h3>
+                    <p>测试异常情况和错误处理</p>
+                    <button class="btn danger" onclick="testErrorHandling()">错误测试</button>
+                    <div id="error-result" class="result" style="display: none;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 统计信息 -->
+        <div class="test-section">
+            <h2>📈 测试统计</h2>
+            <div class="stats" id="test-stats">
+                <div class="stat-card">
+                    <div class="stat-value" id="total-tests">0</div>
+                    <div class="stat-label">总测试数</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="passed-tests">0</div>
+                    <div class="stat-label">通过测试</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="failed-tests">0</div>
+                    <div class="stat-label">失败测试</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="avg-response">0ms</div>
+                    <div class="stat-label">平均响应</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 测试统计
+        let testStats = {
+            total: 0,
+            passed: 0,
+            failed: 0,
+            responseTimes: []
+        };
+
+        // 默认店铺ID
+        const DEFAULT_SHOP_ID = 'test_shop_001';
+
+        /**
+         * 显示加载状态
+         */
+        function showLoading(elementId) {
+            const element = document.getElementById(elementId);
+            element.style.display = 'block';
+            element.className = 'result info';
+            element.innerHTML = '<span class="loading"></span>正在测试...';
+        }
+
+        /**
+         * 显示结果
+         */
+        function showResult(elementId, success, message, data = null) {
+            const element = document.getElementById(elementId);
+            element.style.display = 'block';
+            element.className = success ? 'result success' : 'result error';
+            
+            let content = success ? '✅ ' + message : '❌ ' + message;
+            if (data) {
+                content += '\n\n' + JSON.stringify(data, null, 2);
+            }
+            
+            element.textContent = content;
+            
+            // 更新统计
+            testStats.total++;
+            if (success) {
+                testStats.passed++;
+            } else {
+                testStats.failed++;
+            }
+            updateStats();
+        }
+
+        /**
+         * 更新统计信息
+         */
+        function updateStats() {
+            document.getElementById('total-tests').textContent = testStats.total;
+            document.getElementById('passed-tests').textContent = testStats.passed;
+            document.getElementById('failed-tests').textContent = testStats.failed;
+            
+            if (testStats.responseTimes.length > 0) {
+                const avg = testStats.responseTimes.reduce((a, b) => a + b, 0) / testStats.responseTimes.length;
+                document.getElementById('avg-response').textContent = Math.round(avg) + 'ms';
+            }
+        }
+
+        /**
+         * API请求辅助函数
+         */
+        async function apiRequest(url, options = {}) {
+            const startTime = Date.now();
+            try {
+                const response = await fetch(url, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...options.headers
+                    },
+                    ...options
+                });
+                
+                const responseTime = Date.now() - startTime;
+                testStats.responseTimes.push(responseTime);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                return await response.json();
+            } catch (error) {
+                const responseTime = Date.now() - startTime;
+                testStats.responseTimes.push(responseTime);
+                throw error;
+            }
+        }
+
+        /**
+         * 测试实时监控数据
+         */
+        async function testRealtimeMetrics() {
+            showLoading('realtime-result');
+            
+            try {
+                const data = await apiRequest(`/api/analytics/realtime/${DEFAULT_SHOP_ID}?timeRange=24h`);
+                showResult('realtime-result', true, '实时监控数据获取成功', data);
+            } catch (error) {
+                showResult('realtime-result', false, '实时监控数据获取失败: ' + error.message);
+            }
+        }
+
+        /**
+         * 测试客服效率分析
+         */
+        async function testStaffEfficiency() {
+            showLoading('efficiency-result');
+            
+            try {
+                const data = await apiRequest(`/api/analytics/staff-efficiency/${DEFAULT_SHOP_ID}?timeRange=7d`);
+                showResult('efficiency-result', true, '客服效率分析获取成功', data);
+            } catch (error) {
+                showResult('efficiency-result', false, '客服效率分析获取失败: ' + error.message);
+            }
+        }
+
+        /**
+         * 测试客户满意度统计
+         */
+        async function testCustomerSatisfaction() {
+            showLoading('satisfaction-result');
+            
+            try {
+                const data = await apiRequest(`/api/analytics/customer-satisfaction/${DEFAULT_SHOP_ID}?timeRange=30d`);
+                showResult('satisfaction-result', true, '客户满意度统计获取成功', data);
+            } catch (error) {
+                showResult('satisfaction-result', false, '客户满意度统计获取失败: ' + error.message);
+            }
+        }
+
+        /**
+         * 测试工作负载分析
+         */
+        async function testWorkloadAnalysis() {
+            showLoading('workload-result');
+            
+            try {
+                const data = await apiRequest(`/api/analytics/workload/${DEFAULT_SHOP_ID}?timeRange=7d`);
+                showResult('workload-result', true, '工作负载分析获取成功', data);
+            } catch (error) {
+                showResult('workload-result', false, '工作负载分析获取失败: ' + error.message);
+            }
+        }
+
+        /**
+         * 测试KPI报告生成
+         */
+        async function testKpiReport() {
+            showLoading('kpi-result');
+            
+            try {
+                const data = await apiRequest(`/api/analytics/kpi-report/${DEFAULT_SHOP_ID}?reportType=weekly`);
+                showResult('kpi-result', true, 'KPI报告生成成功', data);
+            } catch (error) {
+                showResult('kpi-result', false, 'KPI报告生成失败: ' + error.message);
+            }
+        }
+
+        /**
+         * 测试用户活动记录
+         */
+        async function testLogActivity() {
+            showLoading('activity-result');
+            
+            try {
+                const activityData = {
+                    userId: 'test_user_001',
+                    shopId: DEFAULT_SHOP_ID,
+                    activityType: 'login',
+                    details: {
+                        testRun: true,
+                        timestamp: new Date().toISOString()
+                    },
+                    sessionDuration: 300
+                };
+                
+                const data = await apiRequest('/api/analytics/log-activity', {
+                    method: 'POST',
+                    body: JSON.stringify(activityData)
+                });
+                
+                showResult('activity-result', true, '用户活动记录成功', data);
+            } catch (error) {
+                showResult('activity-result', false, '用户活动记录失败: ' + error.message);
+            }
+        }
+
+        /**
+         * 检查数据库表结构
+         */
+        async function checkTables() {
+            showLoading('tables-result');
+            
+            try {
+                // 通过尝试查询来检查表是否存在
+                const results = await Promise.allSettled([
+                    apiRequest(`/api/analytics/realtime/${DEFAULT_SHOP_ID}`),
+                    apiRequest(`/api/analytics/staff-efficiency/${DEFAULT_SHOP_ID}`),
+                    apiRequest(`/api/analytics/customer-satisfaction/${DEFAULT_SHOP_ID}`),
+                    apiRequest(`/api/analytics/workload/${DEFAULT_SHOP_ID}`)
+                ]);
+                
+                const tableStatus = {
+                    analyticsAPIs: results.filter(r => r.status === 'fulfilled').length,
+                    totalAPIs: results.length,
+                    errors: results.filter(r => r.status === 'rejected').map(r => r.reason.message)
+                };
+                
+                const success = tableStatus.analyticsAPIs > 0;
+                showResult('tables-result', success, `数据库表检查完成 (${tableStatus.analyticsAPIs}/${tableStatus.totalAPIs} APIs可用)`, tableStatus);
+            } catch (error) {
+                showResult('tables-result', false, '数据库表检查失败: ' + error.message);
+            }
+        }
+
+        /**
+         * 插入测试数据
+         */
+        async function insertTestData() {
+            showLoading('insert-result');
+            
+            try {
+                // 模拟插入多条活动记录
+                const activities = [
+                    { userId: 'user_001', activityType: 'login', sessionDuration: 1800 },
+                    { userId: 'user_002', activityType: 'message_sent', sessionDuration: 900 },
+                    { userId: 'user_003', activityType: 'message_received', sessionDuration: 1200 },
+                    { userId: 'user_001', activityType: 'logout', sessionDuration: 1800 }
+                ];
+                
+                const results = [];
+                for (const activity of activities) {
+                    try {
+                        const data = await apiRequest('/api/analytics/log-activity', {
+                            method: 'POST',
+                            body: JSON.stringify({
+                                ...activity,
+                                shopId: DEFAULT_SHOP_ID,
+                                details: { testData: true }
+                            })
+                        });
+                        results.push({ success: true, data });
+                    } catch (error) {
+                        results.push({ success: false, error: error.message });
+                    }
+                }
+                
+                const successCount = results.filter(r => r.success).length;
+                const success = successCount > 0;
+                
+                showResult('insert-result', success, `测试数据插入完成 (${successCount}/${activities.length} 成功)`, {
+                    insertedRecords: successCount,
+                    totalRecords: activities.length,
+                    results
+                });
+            } catch (error) {
+                showResult('insert-result', false, '测试数据插入失败: ' + error.message);
+            }
+        }
+
+        /**
+         * 测试数据查询
+         */
+        async function testDataQuery() {
+            showLoading('query-result');
+            
+            try {
+                // 测试不同时间范围的查询
+                const timeRanges = ['1h', '24h', '7d', '30d'];
+                const results = {};
+                
+                for (const range of timeRanges) {
+                    try {
+                        const data = await apiRequest(`/api/analytics/realtime/${DEFAULT_SHOP_ID}?timeRange=${range}`);
+                        results[range] = {
+                            success: true,
+                            conversations: data.data?.conversations?.total || 0,
+                            messages: data.data?.messages?.total || 0
+                        };
+                    } catch (error) {
+                        results[range] = {
+                            success: false,
+                            error: error.message
+                        };
+                    }
+                }
+                
+                const successCount = Object.values(results).filter(r => r.success).length;
+                const success = successCount > 0;
+                
+                showResult('query-result', success, `数据查询测试完成 (${successCount}/${timeRanges.length} 成功)`, results);
+            } catch (error) {
+                showResult('query-result', false, '数据查询测试失败: ' + error.message);
+            }
+        }
+
+        /**
+         * 运行完整流程测试
+         */
+        async function runFullTest() {
+            showLoading('full-result');
+            
+            try {
+                console.log('开始完整流程测试...');
+                
+                // 1. 记录用户活动
+                const activityResult = await apiRequest('/api/analytics/log-activity', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        userId: 'test_full_user',
+                        shopId: DEFAULT_SHOP_ID,
+                        activityType: 'login',
+                        details: { fullTest: true }
+                    })
+                });
+                
+                // 2. 获取实时数据
+                const realtimeResult = await apiRequest(`/api/analytics/realtime/${DEFAULT_SHOP_ID}`);
+                
+                // 3. 生成KPI报告
+                const kpiResult = await apiRequest(`/api/analytics/kpi-report/${DEFAULT_SHOP_ID}`);
+                
+                // 4. 记录性能指标
+                const performanceResult = await apiRequest('/api/analytics/performance-metrics', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        metricName: 'full_test_execution',
+                        metricValue: Date.now(),
+                        metricUnit: 'timestamp',
+                        responseTime: 150,
+                        memoryUsage: 65,
+                        cpuUsage: 30
+                    })
+                });
+                
+                const results = {
+                    activityLog: activityResult.success,
+                    realtimeData: realtimeResult.success,
+                    kpiReport: kpiResult.success,
+                    performanceMetrics: performanceResult.success,
+                    totalSteps: 4,
+                    completedSteps: [
+                        activityResult.success,
+                        realtimeResult.success,
+                        kpiResult.success,
+                        performanceResult.success
+                    ].filter(Boolean).length
+                };
+                
+                const success = results.completedSteps >= 2; // 至少完成一半步骤
+                showResult('full-result', success, `完整流程测试完成 (${results.completedSteps}/${results.totalSteps} 步骤成功)`, results);
+            } catch (error) {
+                showResult('full-result', false, '完整流程测试失败: ' + error.message);
+            }
+        }
+
+        /**
+         * 运行性能测试
+         */
+        async function runPerformanceTest() {
+            showLoading('performance-result');
+            
+            try {
+                const testCount = 10;
+                const results = [];
+                
+                console.log(`开始性能测试，发送 ${testCount} 个请求...`);
+                
+                const startTime = Date.now();
+                
+                // 并发请求测试
+                const promises = [];
+                for (let i = 0; i < testCount; i++) {
+                    promises.push(
+                        apiRequest(`/api/analytics/realtime/${DEFAULT_SHOP_ID}`)
+                            .then(data => ({ success: true, responseTime: Date.now() - startTime }))
+                            .catch(error => ({ success: false, error: error.message }))
+                    );
+                }
+                
+                const responses = await Promise.all(promises);
+                const totalTime = Date.now() - startTime;
+                
+                const successCount = responses.filter(r => r.success).length;
+                const avgResponseTime = totalTime / testCount;
+                
+                const performanceData = {
+                    totalRequests: testCount,
+                    successfulRequests: successCount,
+                    failedRequests: testCount - successCount,
+                    totalTime: totalTime,
+                    averageResponseTime: Math.round(avgResponseTime),
+                    requestsPerSecond: Math.round((testCount / totalTime) * 1000),
+                    successRate: Math.round((successCount / testCount) * 100)
+                };
+                
+                const success = successCount >= testCount * 0.8; // 80%成功率
+                showResult('performance-result', success, `性能测试完成 (${performanceData.successRate}% 成功率)`, performanceData);
+            } catch (error) {
+                showResult('performance-result', false, '性能测试失败: ' + error.message);
+            }
+        }
+
+        /**
+         * 测试错误处理
+         */
+        async function testErrorHandling() {
+            showLoading('error-result');
+            
+            try {
+                const errorTests = [
+                    {
+                        name: '无效店铺ID',
+                        url: '/api/analytics/realtime/invalid_shop_id',
+                        expectedError: true
+                    },
+                    {
+                        name: '无效时间范围',
+                        url: `/api/analytics/realtime/${DEFAULT_SHOP_ID}?timeRange=invalid`,
+                        expectedError: false // 应该使用默认值
+                    },
+                    {
+                        name: '不存在的端点',
+                        url: '/api/analytics/nonexistent',
+                        expectedError: true
+                    },
+                    {
+                        name: '无效JSON数据',
+                        url: '/api/analytics/log-activity',
+                        method: 'POST',
+                        body: 'invalid json',
+                        expectedError: true
+                    }
+                ];
+                
+                const results = [];
+                
+                for (const test of errorTests) {
+                    try {
+                        const options = {};
+                        if (test.method) options.method = test.method;
+                        if (test.body) options.body = test.body;
+                        
+                        const response = await apiRequest(test.url, options);
+                        
+                        results.push({
+                            test: test.name,
+                            expectedError: test.expectedError,
+                            actualError: false,
+                            success: !test.expectedError, // 如果不期望错误但没有错误，则成功
+                            response: response
+                        });
+                    } catch (error) {
+                        results.push({
+                            test: test.name,
+                            expectedError: test.expectedError,
+                            actualError: true,
+                            success: test.expectedError, // 如果期望错误且发生错误，则成功
+                            error: error.message
+                        });
+                    }
+                }
+                
+                const successCount = results.filter(r => r.success).length;
+                const success = successCount >= results.length * 0.75; // 75%成功率
+                
+                showResult('error-result', success, `错误处理测试完成 (${successCount}/${results.length} 通过)`, {
+                    testResults: results,
+                    successRate: Math.round((successCount / results.length) * 100)
+                });
+            } catch (error) {
+                showResult('error-result', false, '错误处理测试失败: ' + error.message);
+            }
+        }
+
+        // 页面加载完成后的初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('📊 数据分析功能测试页面加载完成');
+            
+            // 显示当前测试环境信息
+            const envInfo = {
+                userAgent: navigator.userAgent,
+                currentTime: new Date().toLocaleString(),
+                testShopId: DEFAULT_SHOP_ID,
+                baseUrl: window.location.origin
+            };
+            
+            console.log('🔧 测试环境信息:', envInfo);
+        });
+    </script>
+</body>
+</html>
