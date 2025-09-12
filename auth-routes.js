@@ -888,4 +888,37 @@ app.put('/api/conversations/:conversationId/read', requireAuth, async (req, res)
     }
 });
 
+// 标记对话为已读 - 兼容前端调用
+app.post('/api/conversations/:conversationId/mark-read', requireAuth, async (req, res) => {
+    try {
+        const { conversationId } = req.params;
+        
+        // conversationId 格式: shopId_userId (例如: shop_1757591780450_1_user_1757591780450_3)
+        // 需要正确分离 shopId 和 userId
+        const userIndex = conversationId.indexOf('_user_');
+        if (userIndex === -1) {
+            return res.status(400).json({ error: '无效的对话ID格式' });
+        }
+        
+        const shopId = conversationId.substring(0, userIndex); // shop_1757591780450_1
+        const userId = conversationId.substring(userIndex + 1); // user_1757591780450_3
+        
+        // 检查用户是否有权限访问该店铺
+        const userShops = await database.getUserShops(req.user.id);
+        const hasAccess = req.user.role === 'super_admin' || 
+                        userShops.some(shop => shop.id === shopId);
+        
+        if (!hasAccess) {
+            return res.status(403).json({ error: '没有权限标记该对话为已读' });
+        }
+        
+        await database.markMessagesAsRead(shopId, userId, req.user.id);
+        
+        res.json({ success: true, message: '对话已标记为已读' });
+    } catch (error) {
+        console.error('标记对话为已读失败:', error.message);
+        res.status(500).json({ error: '标记对话为已读失败' });
+    }
+});
+
 };

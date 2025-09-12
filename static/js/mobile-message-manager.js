@@ -400,7 +400,8 @@ class MobileMessageManager {
 
             if (response.ok) {
                 const data = await response.json();
-                this.currentConversation.messages = data.messages || [];
+                // API直接返回消息数组，不是包装在 messages 字段中
+                this.currentConversation.messages = Array.isArray(data) ? data : (data.messages || []);
                 console.log(`📄 加载消息: ${this.currentConversation.messages.length} 条`);
             } else {
                 throw new Error('加载消息失败');
@@ -659,6 +660,10 @@ class MobileMessageManager {
             if (response.ok) {
                 input.value = '';
                 console.log('✅ 消息发送成功');
+                
+                // 重新加载消息列表以显示新发送的消息
+                await this.loadConversationMessages(this.currentConversation.id);
+                this.renderChatWindow();
             } else {
                 throw new Error('发送消息失败');
             }
