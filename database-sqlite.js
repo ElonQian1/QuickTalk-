@@ -926,13 +926,20 @@ class SQLiteDatabase {
         `, [shopId]);
 
         return conversations.map(conv => ({
+            id: `${conv.shop_id}_${conv.user_id}`, // 生成对话ID格式：shopId_userId
+            customer_id: conv.user_id,
+            customer_name: conv.user_name || `用户${conv.user_id}`,
+            last_message: conv.last_message,
+            last_message_at: conv.last_message_at,
+            unread_count: conv.unread_count,
+            status: conv.status,
+            created_at: conv.created_at,
+            updated_at: conv.updated_at,
+            // 兼容旧格式
             userId: conv.user_id,
             userName: conv.user_name || `用户${conv.user_id}`,
             lastMessage: conv.last_message,
-            lastMessageTime: conv.last_message_at,
-            unreadCount: conv.unread_count,
-            status: conv.status,
-            createdAt: conv.created_at
+            lastMessageTime: conv.last_message_at
         }));
     }
 
