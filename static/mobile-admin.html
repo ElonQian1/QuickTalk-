@@ -1617,12 +1617,43 @@
             document.getElementById('messageInput').addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
                     sendMessage();
-                }
-            });
         });
     </script>
     
+    <!-- 引入新的移动端多店铺电商客服系统 -->
+    <script src="/js/mobile-ecommerce-customer-service.js"></script>
     <!-- 引入店铺管理模块 -->
     <script src="/js/mobile-shop-manager.js"></script>
+    
+    <script>
+        // 初始化新的多店铺客服系统
+        document.addEventListener('DOMContentLoaded', async function() {
+            console.log('🚀 启动新版移动端多店铺客服系统...');
+            
+            // 等待页面完全加载后初始化客服系统
+            try {
+                await window.mobileCustomerService.init();
+                console.log('✅ 新版移动端客服系统初始化完成');
+            } catch (error) {
+                console.error('❌ 新版客服系统初始化失败:', error);
+                // 降级使用原有系统
+                console.log('🔄 降级使用原有系统...');
+            }
+        });
+
+        // 更新页面切换逻辑以支持新的客服系统
+        function switchPage(pageName) {
+            PageManager.switchPage(pageName);
+        }
+
+        function goBack() {
+            // 优先使用新系统的返回逻辑
+            if (window.mobileCustomerService && window.mobileCustomerService.currentView !== 'overview') {
+                window.mobileCustomerService.goBack();
+            } else {
+                PageManager.goBack();
+            }
+        }
+    </script>
 </body>
 </html>

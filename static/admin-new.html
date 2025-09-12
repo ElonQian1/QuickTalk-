@@ -4146,7 +4146,7 @@
         });
 
         // 查看店铺消息
-        function viewShopMessages(shopId) {
+        async function viewShopMessages(shopId) {
             const shop = currentShops.find(s => s.id === shopId);
             if (!shop) return;
             
@@ -4156,15 +4156,229 @@
             messagesPanel.querySelector('.messages-header h3').textContent = `📨 ${shop.name} - 客服消息`;
             messagesBody.innerHTML = '<div class="loading">正在加载消息...</div>';
             
-            // 这里可以加载具体的店铺消息
-            setTimeout(() => {
+            try {
+                // 获取店铺的对话列表
+                const response = await fetch(`/api/conversations?shopId=${shopId}`, {
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('获取对话列表失败');
+                }
+                
+                const data = await response.json();
+                const conversations = data.conversations || [];
+                
+                if (conversations.length === 0) {
+                    messagesBody.innerHTML = `
+                        <div class="empty-state">
+                            暂无客户对话<br>
+                            <small>该店铺还没有收到客户消息</small>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                // 显示对话列表和聊天界面
                 messagesBody.innerHTML = `
-                    <div class="empty-state">
-                        暂无消息<br>
-                        <small>该店铺还没有收到客户消息</small>
+                    <div class="conversations-container">
+                        <div class="conversations-list">
+                            <h4>客户对话列表</h4>
+                            <div id="conversationsList">
+                                ${conversations.map(conv => `
+                                    <div class="conversation-item" onclick="loadConversation('${conv.id}', '${shopId}')">
+                                        <div class="conversation-info">
+                                            <div class="customer-name">${conv.customer_name || '匿名客户'}</div>
+                                            <div class="last-message">${conv.last_message || '暂无消息'}</div>
+                                            <div class="conversation-time">${new Date(conv.updated_at).toLocaleString('zh-CN')}</div>
+                                        </div>
+                                        ${conv.unread_count > 0 ? `<div class="unread-badge">${conv.unread_count}</div>` : ''}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                        <div class="chat-container">
+                            <div class="chat-header">
+                                <span id="chatTitle">选择一个对话开始聊天</span>
+                            </div>
+                            <div class="chat-messages" id="chatMessages">
+                                <div class="empty-chat">
+                                    请从左侧选择一个客户对话
+                                </div>
+                            </div>
+                            <div class="chat-input" id="chatInput" style="display: none;">
+                                <input type="text" id="messageInput" placeholder="输入回复消息..." onkeypress="if(event.key==='Enter') sendReply()">
+                                <button onclick="sendReply()">发送</button>
+                            </div>
+                        </div>
                     </div>
                 `;
-            }, 1000);
+                
+                // 添加对话样式
+                if (!document.getElementById('conversationStyles')) {
+                    const style = document.createElement('style');
+                    style.id = 'conversationStyles';
+                    style.textContent = `
+                        .conversations-container {
+                            display: flex;
+                            height: 500px;
+                            border: 1px solid #e1e5e9;
+                            border-radius: 8px;
+                            overflow: hidden;
+                        }
+                        .conversations-list {
+                            width: 300px;
+                            border-right: 1px solid #e1e5e9;
+                            background: #f8f9fa;
+                            overflow-y: auto;
+                        }
+                        .conversations-list h4 {
+                            padding: 15px;
+                            margin: 0;
+                            background: #667eea;
+                            color: white;
+                            font-size: 14px;
+                        }
+                        .conversation-item {
+                            padding: 12px 15px;
+                            border-bottom: 1px solid #e1e5e9;
+                            cursor: pointer;
+                            transition: background-color 0.2s;
+                            position: relative;
+                        }
+                        .conversation-item:hover {
+                            background: #e9ecef;
+                        }
+                        .conversation-item.active {
+                            background: #667eea;
+                            color: white;
+                        }
+                        .customer-name {
+                            font-weight: 600;
+                            margin-bottom: 4px;
+                        }
+                        .last-message {
+                            font-size: 12px;
+                            color: #666;
+                            margin-bottom: 4px;
+                            overflow: hidden;
+                            white-space: nowrap;
+                            text-overflow: ellipsis;
+                        }
+                        .conversation-item.active .last-message {
+                            color: rgba(255,255,255,0.8);
+                        }
+                        .conversation-time {
+                            font-size: 11px;
+                            color: #999;
+                        }
+                        .conversation-item.active .conversation-time {
+                            color: rgba(255,255,255,0.6);
+                        }
+                        .unread-badge {
+                            position: absolute;
+                            top: 8px;
+                            right: 8px;
+                            background: #dc3545;
+                            color: white;
+                            border-radius: 10px;
+                            padding: 2px 6px;
+                            font-size: 11px;
+                            min-width: 16px;
+                            text-align: center;
+                        }
+                        .chat-container {
+                            flex: 1;
+                            display: flex;
+                            flex-direction: column;
+                        }
+                        .chat-header {
+                            padding: 15px;
+                            background: #f8f9fa;
+                            border-bottom: 1px solid #e1e5e9;
+                            font-weight: 600;
+                        }
+                        .chat-messages {
+                            flex: 1;
+                            padding: 15px;
+                            overflow-y: auto;
+                            background: white;
+                        }
+                        .empty-chat {
+                            text-align: center;
+                            color: #999;
+                            margin-top: 100px;
+                        }
+                        .message {
+                            margin-bottom: 15px;
+                            display: flex;
+                            flex-direction: column;
+                        }
+                        .message.customer {
+                            align-items: flex-start;
+                        }
+                        .message.staff {
+                            align-items: flex-end;
+                        }
+                        .message-content {
+                            max-width: 70%;
+                            padding: 8px 12px;
+                            border-radius: 12px;
+                            word-wrap: break-word;
+                        }
+                        .message.customer .message-content {
+                            background: #f1f3f4;
+                            color: #333;
+                        }
+                        .message.staff .message-content {
+                            background: #667eea;
+                            color: white;
+                        }
+                        .message-info {
+                            font-size: 11px;
+                            color: #999;
+                            margin-top: 4px;
+                        }
+                        .chat-input {
+                            padding: 15px;
+                            border-top: 1px solid #e1e5e9;
+                            display: flex;
+                            gap: 10px;
+                            background: #f8f9fa;
+                        }
+                        .chat-input input {
+                            flex: 1;
+                            padding: 8px 12px;
+                            border: 1px solid #e1e5e9;
+                            border-radius: 20px;
+                            outline: none;
+                        }
+                        .chat-input button {
+                            padding: 8px 16px;
+                            background: #667eea;
+                            color: white;
+                            border: none;
+                            border-radius: 20px;
+                            cursor: pointer;
+                        }
+                    `;
+                    document.head.appendChild(style);
+                }
+                
+            } catch (error) {
+                console.error('加载消息失败:', error);
+                messagesBody.innerHTML = `
+                    <div class="error-state">
+                        加载失败<br>
+                        <small>${error.message}</small>
+                        <br><br>
+                        <button onclick="viewShopMessages('${shopId}')" class="btn btn-sm">重试</button>
+                    </div>
+                `;
+            }
         }
 
         // 管理店铺

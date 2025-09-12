@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>店铺点击调试</title>
+    <link rel="stylesheet" href="/css/multi-shop-customer-service.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        .debug-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .debug-title {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .test-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-btn:hover {
+            background: #5a6fd8;
+        }
+        #debugLog {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 5px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 店铺点击调试页面</h1>
+    
+    <div class="debug-section">
+        <div class="debug-title">1. 测试JavaScript加载</div>
+        <button class="test-btn" onclick="testJavaScriptLoading()">测试JS加载</button>
+        <button class="test-btn" onclick="testManagerInstance()">测试管理器实例</button>
+    </div>
+    
+    <div class="debug-section">
+        <div class="debug-title">2. 测试API连接</div>
+        <button class="test-btn" onclick="testAuthAPI()">测试认证API</button>
+        <button class="test-btn" onclick="testShopsAPI()">测试店铺API</button>
+    </div>
+    
+    <div class="debug-section">
+        <div class="debug-title">3. 测试店铺点击</div>
+        <button class="test-btn" onclick="testShopClick()">模拟店铺点击</button>
+        <button class="test-btn" onclick="testConversationsAPI()">测试对话API</button>
+    </div>
+    
+    <div class="debug-section">
+        <div class="debug-title">4. 调试日志</div>
+        <div id="debugLog"></div>
+        <button class="test-btn" onclick="clearLog()">清空日志</button>
+    </div>
+
+    <script src="/src/multi-shop-customer-service-manager.js"></script>
+    <script>
+        let customerServiceManager = null;
+        
+        function log(message) {
+            const logDiv = document.getElementById('debugLog');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `[${timestamp}] ${message}<br>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(message);
+        }
+        
+        function clearLog() {
+            document.getElementById('debugLog').innerHTML = '';
+        }
+        
+        function testJavaScriptLoading() {
+            try {
+                if (typeof MultiShopCustomerServiceManager !== 'undefined') {
+                    log('✅ MultiShopCustomerServiceManager 类已加载');
+                } else {
+                    log('❌ MultiShopCustomerServiceManager 类未找到');
+                }
+            } catch (error) {
+                log('❌ JavaScript加载错误: ' + error.message);
+            }
+        }
+        
+        function testManagerInstance() {
+            try {
+                if (!customerServiceManager) {
+                    customerServiceManager = new MultiShopCustomerServiceManager();
+                    log('✅ 管理器实例创建成功');
+                } else {
+                    log('ℹ️ 管理器实例已存在');
+                }
+                
+                // 测试方法是否存在
+                if (typeof customerServiceManager.showShopDetail === 'function') {
+                    log('✅ showShopDetail 方法存在');
+                } else {
+                    log('❌ showShopDetail 方法不存在');
+                }
+            } catch (error) {
+                log('❌ 创建管理器实例失败: ' + error.message);
+            }
+        }
+        
+        async function testAuthAPI() {
+            try {
+                // 先设置测试session
+                localStorage.setItem('sessionId', 'test_session_123');
+                
+                const response = await fetch('/api/auth/me', {
+                    headers: { 'X-Session-Id': 'test_session_123' }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log('✅ 认证API成功: ' + JSON.stringify(data));
+                } else {
+                    log('❌ 认证API失败: ' + response.status + ' ' + response.statusText);
+                }
+            } catch (error) {
+                log('❌ 认证API错误: ' + error.message);
+            }
+        }
+        
+        async function testShopsAPI() {
+            try {
+                const sessionId = localStorage.getItem('sessionId') || 'test_session_123';
+                const response = await fetch('/api/auth/me', {
+                    headers: { 'X-Session-Id': sessionId }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log('✅ 店铺数据: ' + data.shops.length + ' 个店铺');
+                    data.shops.forEach(shop => {
+                        log(`   - ${shop.name} (${shop.id})`);
+                    });
+                } else {
+                    log('❌ 获取店铺失败: ' + response.status);
+                }
+            } catch (error) {
+                log('❌ 店铺API错误: ' + error.message);
+            }
+        }
+        
+        async function testShopClick() {
+            try {
+                if (!customerServiceManager) {
+                    customerServiceManager = new MultiShopCustomerServiceManager();
+                }
+                
+                // 先初始化基础数据
+                await customerServiceManager.authenticateUser();
+                await customerServiceManager.loadShopsWithPermissions();
+                
+                if (customerServiceManager.shops.length === 0) {
+                    log('❌ 没有店铺数据可供测试');
+                    return;
+                }
+                
+                const testShop = customerServiceManager.shops[0];
+                log('🧪 测试点击店铺: ' + testShop.name + ' (' + testShop.id + ')');
+                
+                // 模拟店铺点击
+                await customerServiceManager.showShopDetail(testShop.id);
+                log('✅ 店铺点击测试完成');
+                
+            } catch (error) {
+                log('❌ 店铺点击测试失败: ' + error.message);
+                console.error('完整错误:', error);
+            }
+        }
+        
+        async function testConversationsAPI() {
+            try {
+                const sessionId = localStorage.getItem('sessionId') || 'test_session_123';
+                
+                // 先获取店铺列表
+                const authResponse = await fetch('/api/auth/me', {
+                    headers: { 'X-Session-Id': sessionId }
+                });
+                
+                if (!authResponse.ok) {
+                    log('❌ 认证失败，无法测试对话API');
+                    return;
+                }
+                
+                const authData = await authResponse.json();
+                if (authData.shops.length === 0) {
+                    log('❌ 没有店铺可供测试对话API');
+                    return;
+                }
+                
+                const testShopId = authData.shops[0].id;
+                log('🧪 测试店铺对话API: ' + testShopId);
+                
+                const response = await fetch(`/api/shops/${testShopId}/conversations`, {
+                    headers: { 'X-Session-Id': sessionId }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log('✅ 对话API成功: ' + (data.conversations ? data.conversations.length : 0) + ' 个对话');
+                } else {
+                    log('❌ 对话API失败: ' + response.status + ' ' + response.statusText);
+                }
+                
+            } catch (error) {
+                log('❌ 对话API错误: ' + error.message);
+            }
+        }
+        
+        // 页面加载时自动运行基础测试
+        window.addEventListener('load', () => {
+            log('📱 调试页面已加载');
+            testJavaScriptLoading();
+        });
+    </script>
+</body>
+</html>

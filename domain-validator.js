@@ -10,6 +10,9 @@ class DomainValidator {
         // 缓存解析结果，避免频繁DNS查询
         this.ipCache = new Map();
         this.cacheExpiry = 30 * 60 * 1000; // 30分钟缓存
+        // 缓存访问日志，避免重复输出
+        this.logCache = new Map();
+        this.logCacheExpiry = 30 * 1000; // 30秒内相同请求不重复记录日志
     }
 
     /**
@@ -322,6 +325,28 @@ class DomainValidator {
      */
     async logAccess(clientInfo, shop, action, success) {
         try {
+            // 创建缓存键，避免重复日志
+            const cacheKey = `${clientInfo.ip}_${clientInfo.refererDomain || clientInfo.originDomain}_${action}`;
+            const now = Date.now();
+            
+            // 检查是否在缓存期内已记录过相同日志
+            const lastLogged = this.logCache.get(cacheKey);
+            if (lastLogged && (now - lastLogged) < this.logCacheExpiry) {
+                return; // 跳过重复日志
+            }
+            
+            // 更新缓存
+            this.logCache.set(cacheKey, now);
+            
+            // 清理过期缓存（每100次调用清理一次）
+            if (Math.random() < 0.01) {
+                for (const [key, timestamp] of this.logCache.entries()) {
+                    if ((now - timestamp) > this.logCacheExpiry) {
+                        this.logCache.delete(key);
+                    }
+                }
+            }
+
             const logData = {
                 timestamp: new Date(),
                 ip: clientInfo.ip,
@@ -336,7 +361,7 @@ class DomainValidator {
                 details: JSON.stringify(clientInfo)
             };
 
-            // 这里可以存储到数据库或日志文件
+            // 输出日志（现在会被缓存，避免重复）
             console.log(`🔍 访问日志 [${success ? '✅' : '❌'}]:`, {
                 action,
                 domain: logData.domain,

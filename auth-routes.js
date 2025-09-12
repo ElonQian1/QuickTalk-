@@ -3,18 +3,24 @@ module.exports = function(app, database) {
 // 用户认证中间件
 function requireAuth(req, res, next) {
     const sessionId = req.headers['x-session-id'] || req.body.sessionId;
+    console.log('🔍 [AUTH] 认证检查:', { sessionId: sessionId ? sessionId.substring(0, 20) + '...' : 'null', path: req.path });
+    
     if (!sessionId) {
+        console.log('❌ [AUTH] 没有会话ID');
         return res.status(401).json({ error: '需要登录' });
     }
     
     database.validateSession(sessionId).then(user => {
         if (!user) {
+            console.log('❌ [AUTH] 会话验证失败');
             return res.status(401).json({ error: '会话已过期，请重新登录' });
         }
+        console.log('✅ [AUTH] 认证成功:', { userId: user.id, role: user.role });
         req.user = user;
         req.sessionId = sessionId;
         next();
     }).catch(err => {
+        console.log('❌ [AUTH] 认证异常:', err.message);
         res.status(500).json({ error: '验证失败' });
     });
 }
@@ -660,6 +666,258 @@ app.put('/api/admin/review-shop/:shopId', requireAuth, requireSuperAdmin, async 
     } catch (error) {
         console.error('审核店铺错误:', error.message);
         res.status(400).json({ error: error.message });
+    }
+});
+
+// ============ 对话和消息相关API ============
+
+// 获取店铺的对话列表
+app.get('/api/shops/:shopId/conversations', requireAuth, async (req, res) => {
+    try {
+        const { shopId } = req.params;
+        
+        // 检查用户是否有权限访问该店铺
+        const userShops = await database.getUserShops(req.user.id);
+        const hasAccess = req.user.role === 'super_admin' || 
+                        userShops.some(shop => shop.id === shopId);
+        
+        if (!hasAccess) {
+            return res.status(403).json({ error: '没有权限访问该店铺的对话' });
+        }
+        
+        const conversations = await database.getShopConversations(shopId);
+        res.json({ conversations });
+    } catch (error) {
+        console.error('获取店铺对话列表失败:', error.message);
+        res.status(500).json({ error: '获取对话列表失败' });
+    }
+});
+
+// 获取对话信息
+app.get('/api/conversations/:conversationId', requireAuth, async (req, res) => {
+    try {
+        const { conversationId } = req.params;
+        
+        // conversationId 格式: shopId_userId (例如: shop_1757591780450_1_user_1757591780450_3)
+        // 需要正确分离 shopId 和 userId
+        const userIndex = conversationId.indexOf('_user_');
+        if (userIndex === -1) {
+            return res.status(400).json({ error: '无效的对话ID格式' });
+        }
+        
+        const shopId = conversationId.substring(0, userIndex); // shop_1757591780450_1
+        const userId = conversationId.substring(userIndex + 1); // user_1757591780450_3
+        
+        // 检查用户是否有权限访问该店铺
+        const userShops = await database.getUserShops(req.user.id);
+        const hasAccess = req.user.role === 'super_admin' || 
+                        userShops.some(shop => shop.id === shopId);
+        
+        if (!hasAccess) {
+            return res.status(403).json({ error: '没有权限访问该对话' });
+        }
+        
+        // 获取对话信息
+        const conversation = await database.getAsync(`
+            SELECT c.*, s.name as shop_name 
+            FROM conversations c
+            JOIN shops s ON c.shop_id = s.id
+            WHERE c.shop_id = ? AND c.user_id = ?
+        `, [shopId, userId]);
+        
+        if (!conversation) {
+            return res.status(404).json({ error: '对话不存在' });
+        }
+        
+        res.json({
+            id: conversationId,
+            customer_name: conversation.user_name || `用户${userId}`,
+            customer_id: userId,
+            shop_name: conversation.shop_name,
+            shop_id: shopId,
+            last_message: conversation.last_message,
+            last_message_at: conversation.last_message_at,
+            unread_count: conversation.unread_count,
+            status: conversation.status
+        });
+    } catch (error) {
+        console.error('获取对话信息失败:', error.message);
+        res.status(500).json({ error: '获取对话信息失败' });
+    }
+});
+
+// 获取对话的消息列表
+app.get('/api/conversations/:conversationId/messages', requireAuth, async (req, res) => {
+    try {
+        const { conversationId } = req.params;
+        const { limit = 100 } = req.query;
+        
+        console.log('🔍 [DEBUG] 获取对话消息:', {
+            conversationId,
+            userId: req.user.id,
+            userRole: req.user.role
+        });
+        
+        // conversationId 格式: shopId_userId (例如: shop_1757591780450_1_user_1757591780450_3)
+        // 需要正确分离 shopId 和 userId
+        const userIndex = conversationId.indexOf('_user_');
+        if (userIndex === -1) {
+            return res.status(400).json({ error: '无效的对话ID格式' });
+        }
+        
+        const shopId = conversationId.substring(0, userIndex); // shop_1757591780450_1
+        const userId = conversationId.substring(userIndex + 1); // user_1757591780450_3
+        
+        console.log('🔍 [DEBUG] 解析对话ID:', { shopId, userId });
+        
+        // 检查用户是否有权限访问该店铺
+        const userShops = await database.getUserShops(req.user.id);
+        console.log('🔍 [DEBUG] 用户店铺列表:', userShops.map(s => ({ id: s.id, name: s.name })));
+        
+        const hasAccess = req.user.role === 'super_admin' || 
+                        userShops.some(shop => shop.id === shopId);
+        
+        console.log('🔍 [DEBUG] 权限检查:', {
+            isSuperAdmin: req.user.role === 'super_admin',
+            shopMatch: userShops.some(shop => shop.id === shopId),
+            hasAccess
+        });
+        
+        if (!hasAccess) {
+            return res.status(403).json({ error: '没有权限访问该对话的消息' });
+        }
+        
+        const messages = await database.getConversationMessages(shopId, userId, parseInt(limit));
+        res.json(messages);
+    } catch (error) {
+        console.error('获取对话消息失败:', error.message);
+        res.status(500).json({ error: '获取对话消息失败' });
+    }
+});
+
+// 发送消息到对话
+app.post('/api/conversations/:conversationId/messages', requireAuth, async (req, res) => {
+    try {
+        const { conversationId } = req.params;
+        const { content } = req.body;
+        
+        if (!content || !content.trim()) {
+            return res.status(400).json({ error: '消息内容不能为空' });
+        }
+        
+        // conversationId 格式: shopId_userId (例如: shop_1757591780450_1_user_1757591780450_3)
+        // 需要正确分离 shopId 和 userId
+        const userIndex = conversationId.indexOf('_user_');
+        if (userIndex === -1) {
+            return res.status(400).json({ error: '无效的对话ID格式' });
+        }
+        
+        const shopId = conversationId.substring(0, userIndex); // shop_1757591780450_1
+        const userId = conversationId.substring(userIndex + 1); // user_1757591780450_3
+        
+        // 检查用户是否有权限访问该店铺
+        const userShops = await database.getUserShops(req.user.id);
+        const hasAccess = req.user.role === 'super_admin' || 
+                        userShops.some(shop => shop.id === shopId);
+        
+        if (!hasAccess) {
+            return res.status(403).json({ error: '没有权限向该对话发送消息' });
+        }
+        
+        // 创建消息
+        const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        await database.runAsync(`
+            INSERT INTO messages (id, shop_id, user_id, admin_id, message, sender, created_at)
+            VALUES (?, ?, ?, ?, ?, 'admin', CURRENT_TIMESTAMP)
+        `, [messageId, shopId, userId, req.user.id, content.trim()]);
+        
+        // 更新对话的最后消息
+        await database.runAsync(`
+            UPDATE conversations 
+            SET last_message = ?, last_message_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+            WHERE shop_id = ? AND user_id = ?
+        `, [content.trim(), shopId, userId]);
+        
+        res.json({
+            success: true,
+            message: {
+                id: messageId,
+                content: content.trim(),
+                sender_type: 'admin',
+                sender_id: req.user.id,
+                created_at: new Date().toISOString()
+            }
+        });
+    } catch (error) {
+        console.error('发送消息失败:', error.message);
+        res.status(500).json({ error: '发送消息失败' });
+    }
+});
+
+// 标记对话为已读
+app.put('/api/conversations/:conversationId/read', requireAuth, async (req, res) => {
+    try {
+        const { conversationId } = req.params;
+        
+        // conversationId 格式: shopId_userId (例如: shop_1757591780450_1_user_1757591780450_3)
+        // 需要正确分离 shopId 和 userId
+        const userIndex = conversationId.indexOf('_user_');
+        if (userIndex === -1) {
+            return res.status(400).json({ error: '无效的对话ID格式' });
+        }
+        
+        const shopId = conversationId.substring(0, userIndex); // shop_1757591780450_1
+        const userId = conversationId.substring(userIndex + 1); // user_1757591780450_3
+        
+        // 检查用户是否有权限访问该店铺
+        const userShops = await database.getUserShops(req.user.id);
+        const hasAccess = req.user.role === 'super_admin' || 
+                        userShops.some(shop => shop.id === shopId);
+        
+        if (!hasAccess) {
+            return res.status(403).json({ error: '没有权限标记该对话为已读' });
+        }
+        
+        await database.markMessagesAsRead(shopId, userId, req.user.id);
+        
+        res.json({ success: true, message: '对话已标记为已读' });
+    } catch (error) {
+        console.error('标记对话为已读失败:', error.message);
+        res.status(500).json({ error: '标记对话为已读失败' });
+    }
+});
+
+// 标记对话为已读 - 兼容前端调用
+app.post('/api/conversations/:conversationId/mark-read', requireAuth, async (req, res) => {
+    try {
+        const { conversationId } = req.params;
+        
+        // conversationId 格式: shopId_userId (例如: shop_1757591780450_1_user_1757591780450_3)
+        // 需要正确分离 shopId 和 userId
+        const userIndex = conversationId.indexOf('_user_');
+        if (userIndex === -1) {
+            return res.status(400).json({ error: '无效的对话ID格式' });
+        }
+        
+        const shopId = conversationId.substring(0, userIndex); // shop_1757591780450_1
+        const userId = conversationId.substring(userIndex + 1); // user_1757591780450_3
+        
+        // 检查用户是否有权限访问该店铺
+        const userShops = await database.getUserShops(req.user.id);
+        const hasAccess = req.user.role === 'super_admin' || 
+                        userShops.some(shop => shop.id === shopId);
+        
+        if (!hasAccess) {
+            return res.status(403).json({ error: '没有权限标记该对话为已读' });
+        }
+        
+        await database.markMessagesAsRead(shopId, userId, req.user.id);
+        
+        res.json({ success: true, message: '对话已标记为已读' });
+    } catch (error) {
+        console.error('标记对话为已读失败:', error.message);
+        res.status(500).json({ error: '标记对话为已读失败' });
     }
 });
 
