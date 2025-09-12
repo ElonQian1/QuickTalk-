@@ -281,12 +281,51 @@ class ClientApiHandler {
                 // 从数据库获取消息（如果有消息仓库的话）
                 if (this.messageRepo) {
                     try {
-                        messages = await this.messageRepo.getConversationMessages(conversationId, {
-                            limit: 50,
-                            offset: parseInt(lastId) || 0,
+                        // 获取所有消息，然后根据lastId进行过滤
+                        const rawMessages = await this.messageRepo.getConversationMessages(conversationId, {
+                            limit: 100,
+                            offset: 0,
                             orderBy: 'created_at',
-                            orderDirection: 'DESC'
+                            orderDirection: 'ASC'
                         });
+                        
+                        console.log(`🔍 解析conversationId: ${conversationId} -> shopId: ${validation.shop.id}, userId: ${userId}`);
+                        console.log(`✅ 获取到 ${rawMessages.length} 条消息`);
+                        
+                        // 转换消息格式为前端期望的格式，并添加序号
+                        let allMessages = rawMessages.map((msg, index) => {
+                            const baseMsg = {
+                                id: msg.id,
+                                sequenceId: index + 1, // 添加可比较的序号
+                                message: msg.content,
+                                timestamp: msg.created_at,
+                                raw_sender: msg.sender_type
+                            };
+                            
+                            if (msg.sender_type === 'admin') {
+                                return {
+                                    ...baseMsg,
+                                    type: 'staff_message',
+                                    sender: 'staff'
+                                };
+                            } else {
+                                return {
+                                    ...baseMsg,
+                                    type: 'user_message',
+                                    sender: 'user'
+                                };
+                            }
+                        });
+                        
+                        // 根据lastId过滤新消息
+                        const lastSeqId = parseInt(lastId) || 0;
+                        const newMessages = allMessages.filter(msg => msg.sequenceId > lastSeqId);
+                        
+                        // 只返回客服消息给客户端
+                        messages = newMessages.filter(msg => msg.sender === 'staff');
+                        
+                        console.log(`🔍 转换后的消息格式:`, messages.length > 0 ? messages[0] : '无消息');
+                        
                     } catch (dbError) {
                         console.error('❌ 从数据库获取消息失败:', dbError);
                         // 返回空消息数组，不阻塞API
@@ -301,7 +340,8 @@ class ClientApiHandler {
                 data: {
                     messages,
                     conversationId,
-                    hasMore: false
+                    hasMore: false,
+                    maxSequenceId: messages.length > 0 ? Math.max(...messages.map(m => m.sequenceId)) : lastId
                 }
             });
 

@@ -21,8 +21,14 @@ class MessageAdapter {
                 content
             } = data;
 
-            // 从conversationId中提取shop_id (格式: shop_xxx_yyy_userId)
-            const shopId = conversationId.split('_')[0] + '_' + conversationId.split('_')[1] + '_' + conversationId.split('_')[2];
+            // 从conversationId中提取shop_id (格式: shop_1757591780450_1_user_67bi6gybb_1757684317815)
+            const userIndex = conversationId.lastIndexOf('_user_');
+            if (userIndex === -1) {
+                console.error('❌ 无效的conversationId格式:', conversationId);
+                throw new Error('无效的conversationId格式');
+            }
+            
+            const shopId = conversationId.substring(0, userIndex);
             const userId = senderId;
             const sender = senderType === 'customer' ? 'user' : senderType;
 
@@ -73,8 +79,17 @@ class MessageAdapter {
             } = options;
 
             // 从conversationId中提取shop_id和user_id
-            const shopId = conversationId.split('_')[0] + '_' + conversationId.split('_')[1] + '_' + conversationId.split('_')[2];
-            const userId = conversationId.split('_').slice(3).join('_');
+            // conversationId 格式: shop_1757591780450_1_user_67bi6gybb_1757684317815
+            const userIndex = conversationId.lastIndexOf('_user_');
+            if (userIndex === -1) {
+                console.error('❌ 无效的conversationId格式:', conversationId);
+                return [];
+            }
+            
+            const shopId = conversationId.substring(0, userIndex);
+            const userId = conversationId.substring(userIndex + 1); // 去掉前面的下划线
+
+            console.log(`🔍 解析conversationId: ${conversationId} -> shopId: ${shopId}, userId: ${userId}`);
 
             const sql = `
                 SELECT 
