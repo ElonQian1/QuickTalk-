@@ -13,7 +13,11 @@ if (modularApp && modularApp.initialized) {
 
 // 用户认证中间件
 function requireAuth(req, res, next) {
-    const sessionId = req.headers['x-session-id'] || req.body.sessionId;
+    // 从多种来源获取 sessionId：header、body、cookie
+    const sessionId = req.headers['x-session-id'] || 
+                     req.body.sessionId || 
+                     (req.headers.cookie && req.headers.cookie.split(';').find(c => c.trim().startsWith('sessionId='))?.split('=')[1]);
+    
     console.log('🔍 [AUTH] 认证检查:', { sessionId: sessionId ? sessionId.substring(0, 20) + '...' : 'null', path: req.path });
     
     if (!sessionId) {
@@ -109,6 +113,20 @@ app.post('/api/auth/login', async (req, res) => {
 
 // 获取当前用户信息
 app.get('/api/auth/me', requireAuth, async (req, res) => {
+    try {
+        // 使用统一的用户信息获取函数
+        const completeUserInfo = await database.getCompleteUserInfo(req.user.id);
+        res.json({
+            success: true,
+            ...completeUserInfo
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 获取当前用户信息（别名）
+app.get('/api/auth/user', requireAuth, async (req, res) => {
     try {
         // 使用统一的用户信息获取函数
         const completeUserInfo = await database.getCompleteUserInfo(req.user.id);
@@ -768,16 +786,17 @@ app.get('/api/conversations/:conversationId/messages', requireAuth, async (req, 
             userRole: req.user.role
         });
         
-        // conversationId 格式: shopId_userId (例如: shop_123_user_456)
-        const parts = conversationId.split('_');
-        if (parts.length < 3) {
+        // conversationId 格式: shopId_userId (例如: shop_1757591780450_1_user_1757591780450_3)
+        // 需要正确解析包含多个下划线的ID
+        const userIndex = conversationId.lastIndexOf('_user_');
+        if (userIndex === -1) {
             return res.status(400).json({ error: '无效的对话ID格式' });
         }
         
-        const shopId = parts.slice(0, 2).join('_'); // shop_123
-        const userId = parts.slice(2).join('_'); // user_456
+        const shopId = conversationId.substring(0, userIndex);
+        const userId = conversationId.substring(userIndex + 1); // 去掉前面的下划线
         
-        console.log('🔍 [DEBUG] 解析对话ID:', { shopId, userId });
+        console.log('🔍 [DEBUG] 解析对话ID:', { conversationId, shopId, userId });
         
         // 检查用户是否有权限访问该店铺
         const userShops = await database.getUserShops(req.user.id);
@@ -814,14 +833,15 @@ app.post('/api/conversations/:conversationId/messages', requireAuth, async (req,
             return res.status(400).json({ error: '消息内容不能为空' });
         }
         
-        // conversationId 格式: shopId_userId (例如: shop_123_user_456)
-        const parts = conversationId.split('_');
-        if (parts.length < 3) {
+        // conversationId 格式: shopId_userId (例如: shop_1757591780450_1_user_1757591780450_3)
+        // 需要正确解析包含多个下划线的ID
+        const userIndex = conversationId.lastIndexOf('_user_');
+        if (userIndex === -1) {
             return res.status(400).json({ error: '无效的对话ID格式' });
         }
         
-        const shopId = parts.slice(0, 2).join('_'); // shop_123
-        const userId = parts.slice(2).join('_'); // user_456
+        const shopId = conversationId.substring(0, userIndex);
+        const userId = conversationId.substring(userIndex + 1); // 去掉前面的下划线
         
         // 检查用户是否有权限访问该店铺
         const userShops = await database.getUserShops(req.user.id);
