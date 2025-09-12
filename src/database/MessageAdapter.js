@@ -48,6 +48,10 @@ class MessageAdapter {
             ]);
 
             console.log(`✅ 消息已保存: ${messageId}`);
+
+            // 自动创建或更新对话记录
+            await this.ensureConversationExists(shopId, userId, content);
+
             return messageId;
 
         } catch (error) {
@@ -103,6 +107,65 @@ class MessageAdapter {
      */
     generateId() {
         return Math.random().toString(36).substr(2, 15) + Date.now().toString(36);
+    }
+
+    /**
+     * 确保对话记录存在 - 自动创建或更新对话
+     */
+    async ensureConversationExists(shopId, userId, lastMessage) {
+        try {
+            const conversationId = `${shopId}_${userId}`;
+            
+            // 检查对话是否已存在
+            const existing = await this.db.getAsync(
+                'SELECT id FROM conversations WHERE shop_id = ? AND user_id = ?',
+                [shopId, userId]
+            );
+
+            const now = new Date().toISOString();
+            const userName = userId.includes('test_') || userId.includes('customer_') || userId.includes('final_') || userId.includes('user_correct_') 
+                ? `测试用户${userId}` 
+                : `匿名客户${userId.split('_').pop()}`;
+
+            if (existing) {
+                // 更新现有对话
+                await this.db.runAsync(`
+                    UPDATE conversations 
+                    SET last_message = ?, 
+                        last_message_at = ?, 
+                        unread_count = unread_count + 1,
+                        updated_at = ?
+                    WHERE shop_id = ? AND user_id = ?
+                `, [lastMessage, now, now, shopId, userId]);
+                
+                console.log(`🔄 更新对话: ${conversationId}`);
+            } else {
+                // 创建新对话
+                await this.db.runAsync(`
+                    INSERT INTO conversations (
+                        id, shop_id, user_id, user_name, 
+                        last_message, last_message_at, 
+                        unread_count, status, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                `, [
+                    conversationId,
+                    shopId,
+                    userId,
+                    userName,
+                    lastMessage,
+                    now,
+                    1, // 新对话有1条未读消息
+                    'active',
+                    now,
+                    now
+                ]);
+                
+                console.log(`🆕 创建新对话: ${conversationId} (用户: ${userName})`);
+            }
+        } catch (error) {
+            console.error('❌ 确保对话存在失败:', error);
+            // 不抛出错误，避免影响消息保存
+        }
     }
 }
 

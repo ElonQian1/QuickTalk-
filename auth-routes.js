@@ -786,22 +786,41 @@ app.get('/api/conversations/:conversationId/messages', requireAuth, async (req, 
             userRole: req.user.role
         });
         
-        // conversationId 格式: shopId_userId (例如: shop_1757591780450_1_user_1757591780450_3)
-        // 需要正确解析包含多个下划线的ID
-        const userIndex = conversationId.lastIndexOf('_user_');
-        if (userIndex === -1) {
-            return res.status(400).json({ error: '无效的对话ID格式' });
-        }
+        // conversationId 格式: shopId_userId (例如: shop_1757591780450_1_brand_new_user_810960)
+        // 需要正确解析包含多个下划线的用户ID
         
-        const shopId = conversationId.substring(0, userIndex);
-        const userId = conversationId.substring(userIndex + 1); // 去掉前面的下划线
-        
-        console.log('🔍 [DEBUG] 解析对话ID:', { conversationId, shopId, userId });
-        
-        // 检查用户是否有权限访问该店铺
+        // 先获取用户的店铺列表，用于正确分割 conversationId
         const userShops = await database.getUserShops(req.user.id);
         console.log('🔍 [DEBUG] 用户店铺列表:', userShops.map(s => ({ id: s.id, name: s.name })));
         
+        // 查找匹配的店铺ID来正确分割conversationId
+        let shopId = null;
+        let userId = null;
+        
+        for (const shop of userShops) {
+            if (conversationId.startsWith(shop.id + '_')) {
+                shopId = shop.id;
+                userId = conversationId.substring(shop.id.length + 1); // +1 for the underscore
+                break;
+            }
+        }
+        
+        // 如果是超级管理员，尝试从conversationId中提取shop_开头的部分
+        if (!shopId && req.user.role === 'super_admin') {
+            const shopMatch = conversationId.match(/^(shop_\d+_\d+)_(.+)$/);
+            if (shopMatch) {
+                shopId = shopMatch[1];
+                userId = shopMatch[2];
+            }
+        }
+        
+        if (!shopId || !userId) {
+            return res.status(400).json({ error: '无效的对话ID格式或无权限访问该对话' });
+        }
+        
+        console.log('🔍 [DEBUG] 解析对话ID:', { conversationId, shopId, userId });
+        
+        // 权限检查 - 由于我们已经在上面根据用户店铺列表进行了匹配，这里只需要确认访问权限
         const hasAccess = req.user.role === 'super_admin' || 
                         userShops.some(shop => shop.id === shopId);
         
@@ -888,17 +907,79 @@ app.put('/api/conversations/:conversationId/read', requireAuth, async (req, res)
     try {
         const { conversationId } = req.params;
         
-        // conversationId 格式: shopId_userId (例如: shop_123_user_456)
-        const parts = conversationId.split('_');
-        if (parts.length < 3) {
-            return res.status(400).json({ error: '无效的对话ID格式' });
+        // 使用改进的解析逻辑
+        const userShops = await database.getUserShops(req.user.id);
+        
+        let shopId = null;
+        let userId = null;
+        
+        for (const shop of userShops) {
+            if (conversationId.startsWith(shop.id + '_')) {
+                shopId = shop.id;
+                userId = conversationId.substring(shop.id.length + 1);
+                break;
+            }
         }
         
-        const shopId = parts.slice(0, 2).join('_'); // shop_123
-        const userId = parts.slice(2).join('_'); // user_456
+        if (!shopId && req.user.role === 'super_admin') {
+            const shopMatch = conversationId.match(/^(shop_\d+_\d+)_(.+)$/);
+            if (shopMatch) {
+                shopId = shopMatch[1];
+                userId = shopMatch[2];
+            }
+        }
         
-        // 检查用户是否有权限访问该店铺
+        if (!shopId || !userId) {
+            return res.status(400).json({ error: '无效的对话ID格式或无权限访问该对话' });
+        }
+        
+        const hasAccess = req.user.role === 'super_admin' || 
+                        userShops.some(shop => shop.id === shopId);
+        
+        if (!hasAccess) {
+            return res.status(403).json({ error: '没有权限标记该对话为已读' });
+        }
+        
+        await database.markMessagesAsRead(shopId, userId, req.user.id);
+        
+        res.json({ success: true, message: '对话已标记为已读' });
+    } catch (error) {
+        console.error('标记对话为已读失败:', error.message);
+        res.status(500).json({ error: '标记对话为已读失败' });
+    }
+});
+
+// 标记对话为已读 - 兼容前端的mark-read路径
+app.post('/api/conversations/:conversationId/mark-read', requireAuth, async (req, res) => {
+    try {
+        const { conversationId } = req.params;
+        
+        // 使用改进的解析逻辑
         const userShops = await database.getUserShops(req.user.id);
+        
+        let shopId = null;
+        let userId = null;
+        
+        for (const shop of userShops) {
+            if (conversationId.startsWith(shop.id + '_')) {
+                shopId = shop.id;
+                userId = conversationId.substring(shop.id.length + 1);
+                break;
+            }
+        }
+        
+        if (!shopId && req.user.role === 'super_admin') {
+            const shopMatch = conversationId.match(/^(shop_\d+_\d+)_(.+)$/);
+            if (shopMatch) {
+                shopId = shopMatch[1];
+                userId = shopMatch[2];
+            }
+        }
+        
+        if (!shopId || !userId) {
+            return res.status(400).json({ error: '无效的对话ID格式或无权限访问该对话' });
+        }
+        
         const hasAccess = req.user.role === 'super_admin' || 
                         userShops.some(shop => shop.id === shopId);
         

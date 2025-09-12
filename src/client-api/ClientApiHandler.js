@@ -167,14 +167,38 @@ class ClientApiHandler {
                         }
                     });
                 }
+            } else if (apiKey) {
+                // 如果有API密钥但没有domain，尝试从headers获取host
+                const host = req.get('host') || req.get('origin') || 'localhost';
+                validation = await this.security.validateApiKeyAndDomain(apiKey, host, shopId);
+                
+                if (!validation.valid) {
+                    return res.status(401).json({
+                        success: false,
+                        error: {
+                            code: validation.code,
+                            message: validation.message
+                        }
+                    });
+                }
+            }
+
+            // 如果没有验证通过，返回错误（不允许guest模式）
+            if (!validation || !validation.valid) {
+                return res.status(401).json({
+                    success: false,
+                    error: {
+                        code: 'AUTHENTICATION_REQUIRED',
+                        message: '需要有效的API密钥和域名验证'
+                    }
+                });
             }
 
             // 保存消息到数据库（如果有消息仓库的话）
             if (this.messageRepo) {
                 try {
-                    const conversationId = validation ? 
-                        `${validation.shop.id}_${actualUserId}` : 
-                        `guest_${actualUserId}`;
+                    // 现在validation已经保证不为null
+                    const conversationId = `${validation.shop.id}_${actualUserId}`;
                     
                     await this.messageRepo.addMessage({
                         conversationId,
@@ -197,7 +221,7 @@ class ClientApiHandler {
                 data: {
                     messageId: 'msg_' + Date.now(),
                     timestamp: new Date(),
-                    conversationId: validation ? `${validation.shop.id}_${actualUserId}` : `guest_${actualUserId}`
+                    conversationId: `${validation.shop.id}_${actualUserId}`
                 },
                 message: '消息发送成功'
             });

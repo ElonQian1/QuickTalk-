@@ -4077,7 +4077,7 @@
             
             try {
                 // 获取店铺的对话列表
-                const response = await fetch(`/api/conversations?shopId=${shopId}`, {
+                const response = await fetch(`/api/shops/${shopId}/conversations`, {
                     credentials: 'include',
                     headers: {
                         'Content-Type': 'application/json'
