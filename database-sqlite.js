@@ -514,6 +514,22 @@ class SQLiteDatabase {
         return await this.getShopById(shopId);
     }
 
+    async updateShopActivation(shopId, activationData) {
+        const { status, approval_status, activated_at, expires_at } = activationData;
+        await this.runAsync(`
+            UPDATE shops 
+            SET status = ?, 
+                approval_status = ?, 
+                activated_at = ?, 
+                expires_at = ?, 
+                updated_at = CURRENT_TIMESTAMP 
+            WHERE id = ?
+        `, [status, approval_status, activated_at, expires_at, shopId]);
+        
+        console.log('✅ 店铺激活状态已更新:', { shopId, status, approval_status });
+        return await this.getShopById(shopId);
+    }
+
     async deleteShop(id) {
         await this.runAsync('DELETE FROM shops WHERE id = ?', [id]);
         return true;

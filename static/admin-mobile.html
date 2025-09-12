@@ -462,7 +462,7 @@
 
         .shop-item {
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             padding: 20px;
             border-bottom: 1px solid #f0f0f0;
             background: white;
@@ -473,10 +473,21 @@
             background: #f8f9fa;
         }
 
+        .shop-avatar-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            margin-right: 15px;
+            flex-shrink: 0;
+            min-height: 80px;
+            padding: 5px 0;
+        }
+
         .shop-avatar {
             width: 60px;
             height: 60px;
-            border-radius: 15px;
+            border-radius: 8px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             display: flex;
             align-items: center;
@@ -484,11 +495,34 @@
             color: white;
             font-weight: bold;
             font-size: 20px;
-            margin-right: 15px;
+            margin-bottom: 12px;
+        }
+
+        .shop-role {
+            font-size: 10px;
+            color: white;
+            background: #667eea;
+            padding: 2px 6px;
+            border-radius: 8px;
+            white-space: nowrap;
+            font-weight: 600;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: fit-content;
+            align-self: center;
+        }
+
+        .shop-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
         }
 
         .shop-info {
-            flex: 1;
+            /* 店铺信息在上方 */
         }
 
         .shop-name {
@@ -507,7 +541,7 @@
         .shop-status {
             font-size: 12px;
             padding: 4px 8px;
-            border-radius: 12px;
+            border-radius: 8px;
             color: white;
         }
 
@@ -519,6 +553,7 @@
             display: flex;
             flex-direction: column;
             gap: 8px;
+            /* 操作按钮在下方 */
         }
 
         .shop-btn {
@@ -613,6 +648,8 @@
             justify-content: center;
             font-size: 12px;
             font-weight: bold;
+            align-self: flex-start;
+            margin-top: 5px;
         }
 
         /* 聊天界面 */
@@ -2352,6 +2389,319 @@
             margin: 0;
             color: #333;
         }
+
+        /* ============ 付费开通完整样式 ============ */
+        .activation-info {
+            margin-bottom: 20px;
+        }
+
+        .activation-info .info-item {
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+        }
+
+        .activation-info .info-item strong {
+            color: #333;
+        }
+
+        .amount {
+            color: #e74c3c;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .benefit-text {
+            color: #28a745;
+            font-weight: bold;
+        }
+
+        .payment-methods {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .payment-methods h4 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .payment-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .payment-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px 15px;
+            border: 2px solid #ddd;
+            border-radius: 12px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 120px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .payment-btn::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            transition: left 0.5s;
+        }
+
+        .payment-btn:hover::before {
+            left: 100%;
+        }
+
+        .payment-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(0,0,0,0.15);
+        }
+
+        .alipay-btn {
+            background: linear-gradient(135deg, #fff 0%, #f0f8ff 100%);
+        }
+
+        .alipay-btn:hover {
+            border-color: #1677ff;
+            background: linear-gradient(135deg, #f0f8ff 0%, #e6f7ff 100%);
+            box-shadow: 0 6px 15px rgba(22,119,255,0.25);
+        }
+
+        .wechat-btn {
+            background: linear-gradient(135deg, #fff 0%, #f0fff4 100%);
+        }
+
+        .wechat-btn:hover {
+            border-color: #07c160;
+            background: linear-gradient(135deg, #f0fff4 0%, #e6f7ec 100%);
+            box-shadow: 0 6px 15px rgba(7,193,96,0.25);
+        }
+
+        .payment-icon {
+            font-size: 28px;
+            margin-bottom: 10px;
+            transition: transform 0.3s ease;
+        }
+
+        .payment-btn:hover .payment-icon {
+            transform: scale(1.1) rotate(5deg);
+        }
+
+        .payment-text {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            transition: color 0.3s ease;
+        }
+
+        .alipay-btn:hover .payment-text {
+            color: #1677ff;
+        }
+
+        .wechat-btn:hover .payment-text {
+            color: #07c160;
+        }
+
+        .qr-code-section {
+            text-align: center;
+        }
+
+        .qr-code-section h4 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .qr-code-section h4::before {
+            content: "💰";
+            font-size: 20px;
+        }
+
+        .qr-code-section[data-method="wechat"] h4::before {
+            content: "💚";
+        }
+
+        .qr-code-container {
+            display: inline-block;
+            padding: 20px;
+            background: white;
+            border: 3px solid #eee;
+            border-radius: 12px;
+            margin: 20px 0;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .qr-code-container::before {
+            content: "";
+            position: absolute;
+            top: -3px;
+            left: -3px;
+            right: -3px;
+            bottom: -3px;
+            border-radius: 12px;
+            background: linear-gradient(45deg, #1677ff, #52c41a);
+            z-index: -1;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .qr-code-container:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+        }
+
+        .qr-code-container:hover::before {
+            opacity: 1;
+        }
+
+        .qr-code-container.alipay-style {
+            border-color: #1677ff;
+        }
+
+        .qr-code-container.alipay-style::before {
+            background: linear-gradient(45deg, #1677ff, #40a9ff);
+        }
+
+        .qr-code-container.wechat-style {
+            border-color: #07c160;
+        }
+
+        .qr-code-container.wechat-style::before {
+            background: linear-gradient(45deg, #07c160, #52c41a);
+        }
+
+        .qr-code-container img {
+            width: 180px;
+            height: 180px;
+            border: none;
+            display: block;
+            margin: 0 auto;
+            border-radius: 8px;
+            transition: transform 0.3s ease;
+        }
+
+        .qr-code-container:hover img {
+            transform: scale(1.02);
+        }
+
+        .qr-tips {
+            margin-top: 15px;
+        }
+
+        .qr-tips p {
+            margin: 8px 0;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .tip-text {
+            color: #666 !important;
+            font-size: 12px;
+        }
+
+        .qr-actions {
+            margin-top: 15px;
+        }
+
+        .refresh-btn {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background-color 0.3s;
+        }
+
+        .refresh-btn:hover {
+            background: #5a6268;
+        }
+
+        .refresh-btn:disabled {
+            background: #adb5bd;
+            cursor: not-allowed;
+        }
+
+        .test-buttons {
+            margin-top: 15px;
+        }
+
+        .test-btn {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 10px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background-color 0.3s;
+        }
+
+        .test-btn:hover {
+            background: #5a6268;
+        }
+
+        .payment-success {
+            text-align: center;
+            padding: 30px 20px;
+        }
+
+        .success-icon {
+            font-size: 42px;
+            margin-bottom: 15px;
+        }
+
+        .payment-success h4 {
+            color: #28a745;
+            margin-bottom: 10px;
+        }
+
+        .payment-success p {
+            color: #666;
+            margin-bottom: 20px;
+        }
+
+        .success-actions {
+            margin-top: 20px;
+        }
+
+        /* 移动端响应式优化 */
+        @media (max-width: 480px) {
+            .payment-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .payment-btn {
+                width: 100%;
+                max-width: 200px;
+            }
+            
+            .qr-code-container img {
+                width: 160px;
+                height: 160px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -3009,14 +3359,21 @@
 
                     const shopListHTML = currentShops.map(shop => {
                         const unreadCount = messageCounters[shop.id] || 0;
+                        const userRole = ShopManager.getUserRoleInShop ? ShopManager.getUserRoleInShop(shop) : 'member';
+                        
                         return `
                             <div class="shop-item" onclick="MessageManager.viewShopConversations('${shop.id}')">
-                                <div class="shop-avatar">${shop.name.charAt(0)}</div>
-                                <div class="shop-info">
-                                    <div class="shop-name">${shop.name}</div>
-                                    <div class="shop-domain">${shop.domain}</div>
+                                <div class="shop-avatar-container">
+                                    <div class="shop-avatar">${shop.name.charAt(0)}</div>
+                                    <div class="shop-role">${ShopManager.getRoleText ? ShopManager.getRoleText(userRole) : userRole}</div>
                                 </div>
-                                ${unreadCount > 0 ? `<div class="unread-badge">${unreadCount}</div>` : ''}
+                                <div class="shop-content">
+                                    <div class="shop-info">
+                                        <div class="shop-name">${shop.name}</div>
+                                        <div class="shop-domain">${shop.domain}</div>
+                                    </div>
+                                    ${unreadCount > 0 ? `<div class="unread-badge">${unreadCount}</div>` : ''}
+                                </div>
                             </div>
                         `;
                     }).join('');
@@ -3186,8 +3543,7 @@
                         console.log('📦 API返回的原始数据:', responseData);
                         console.log('📦 数据类型:', typeof responseData);
                         
-                        // 处理不同的响应格式
-                        let currentShops;
+                        // 处理不同的响应格式，更新全局currentShops变量
                         if (Array.isArray(responseData)) {
                             // 直接是数组格式 (来自 /api/shops)
                             currentShops = responseData;
@@ -3202,6 +3558,7 @@
                         }
                         
                         console.log('📦 是否为数组:', Array.isArray(currentShops));
+                        console.log('📦 全局currentShops已更新，包含', currentShops.length, '个店铺');
                         
                         // 确保数据是数组格式
                         if (!Array.isArray(currentShops)) {
@@ -3213,6 +3570,16 @@
                         console.log('✅ 收到店铺数据:', currentShops.length, '个店铺');
                         if (currentShops.length > 0) {
                             console.log('📄 店铺数据预览:', currentShops.slice(0, 2));
+                            
+                            // 详细分析每个店铺的状态
+                            currentShops.forEach((shop, index) => {
+                                console.log(`店铺${index + 1}: ${shop.name}`);
+                                console.log(`  - ID: ${shop.id}`);
+                                console.log(`  - approvalStatus: ${shop.approvalStatus}`);
+                                console.log(`  - approval_status: ${shop.approval_status}`);
+                                console.log(`  - userRole: ${shop.userRole}`);
+                                console.log(`  - permissions: ${JSON.stringify(shop.permissions)}`);
+                            });
                         }
                         this.renderShops(currentShops);
                     } else {
@@ -3248,30 +3615,49 @@
                     }
                     const statusClass = this.getStatusClass(shop.approvalStatus || shop.status);
                     const statusText = this.getStatusText(shop.approvalStatus || shop.status);
+                    const userRole = this.getUserRoleInShop(shop);
 
                     return `
                         <div class="shop-item">
-                            <div class="shop-avatar">${shop.name.charAt(0)}</div>
-                            <div class="shop-info">
-                                <div class="shop-name">${shop.name}</div>
-                                <div class="shop-domain">${shop.domain}</div>
-                                <div class="shop-status ${statusClass}">${statusText}</div>
+                            <div class="shop-avatar-container">
+                                <div class="shop-avatar">${shop.name.charAt(0)}</div>
+                                <div class="shop-role">${this.getRoleText(userRole)}</div>
                             </div>
-                            <div class="shop-actions">
-                                <button class="shop-btn primary" onclick="ShopManager.manageShop('${shop.id}')">管理</button>
-                                <button class="shop-btn success" onclick="MessageManager.viewShopConversations('${shop.id}')">💬 消息</button>
-                                <button class="shop-btn primary" onclick="viewMobileShopMessages('${shop.id}')">📄 消息详情</button>
-                                ${shop.status === 'approved' ? 
-                                    `<button class="shop-btn info" onclick="generateMobileIntegrationCode('${shop.id}')">📋 代码</button>
-                                     <button class="shop-btn warning" onclick="editMobileShopInfo('${shop.id}')">✏️ 编辑</button>` : ''
-                                }
-                                ${shop.status === 'pending' ? 
-                                    `<button class="shop-btn warning" onclick="payToActivateShop('${shop.id}')">💰 付费开通</button>
-                                     <button class="shop-btn secondary" onclick="editMobilePendingShop('${shop.id}')">📝 编辑</button>
-                                     <button class="shop-btn info" onclick="resubmitMobileShop('${shop.id}')">🔄 重新提交</button>` : 
-                                    `<button class="shop-btn info" onclick="renewShop('${shop.id}')">🔄 续费</button>
-                                     <button class="shop-btn warning" onclick="editMobileShopInfo('${shop.id}')">✏️ 编辑</button>`
-                                }
+                            <div class="shop-content">
+                                <div class="shop-info">
+                                    <div class="shop-name">${shop.name}</div>
+                                    <div class="shop-domain">${shop.domain}</div>
+                                    <div class="shop-status ${statusClass}">${statusText}</div>
+                                </div>
+                                <div class="shop-actions">
+                                    ${(() => {
+                                        const approvalStatus = shop.approval_status || shop.approvalStatus;
+                                        console.log('🔍 店铺按钮渲染:', shop.name, 'approval_status:', shop.approval_status, 'approvalStatus:', shop.approvalStatus, '最终使用:', approvalStatus);
+                                        
+                                        if (approvalStatus === 'approved') {
+                                            return `
+                                                <button class="shop-btn primary" onclick="ShopManager.manageShop('${shop.id}')">管理</button>
+                                                <button class="shop-btn success" onclick="MessageManager.viewShopConversations('${shop.id}')">💬 消息</button>
+                                                <button class="shop-btn primary" onclick="viewMobileShopMessages('${shop.id}')">📄 消息详情</button>
+                                                <button class="shop-btn info" onclick="generateMobileIntegrationCode('${shop.id}')">📋 代码</button>
+                                                <button class="shop-btn warning" onclick="editMobileShopInfo('${shop.id}')">✏️ 编辑</button>
+                                                <button class="shop-btn info" onclick="renewShop('${shop.id}')">🔄 续费</button>
+                                            `;
+                                        } else if (approvalStatus === 'pending') {
+                                            return `
+                                                <button class="shop-btn warning" onclick="payToActivateShop('${shop.id}')">💰 付费开通</button>
+                                                <button class="shop-btn secondary" onclick="editMobilePendingShop('${shop.id}')">📝 编辑</button>
+                                                <button class="shop-btn info" onclick="resubmitMobileShop('${shop.id}')">🔄 重新提交</button>
+                                            `;
+                                        } else {
+                                            return `
+                                                <button class="shop-btn info" onclick="renewShop('${shop.id}')">🔄 续费</button>
+                                                <button class="shop-btn warning" onclick="editMobileShopInfo('${shop.id}')">✏️ 编辑</button>
+                                            `;
+                                        }
+                                    })()}
+                                </div>
+                                </div>
                             </div>
                         </div>
                     `;
@@ -3302,6 +3688,43 @@
                     'rejected': '❌ 已拒绝'
                 };
                 return statusMap[status] || '未知状态';
+            }
+
+            static getUserRoleInShop(shop) {
+                // 如果店铺数据中已有userRole属性，直接使用
+                if (shop.userRole) {
+                    return shop.userRole;
+                }
+                
+                // 如果当前用户是超级管理员
+                if (currentUser && currentUser.role === 'super_admin') {
+                    return 'admin';
+                }
+                
+                // 如果当前用户是店主
+                if (currentUser && currentUser.role === 'shop_owner') {
+                    return 'owner';
+                }
+                
+                // 检查是否是员工
+                if (currentUser && (currentUser.role === 'employee' || currentUser.role === 'agent')) {
+                    return 'employee';
+                }
+                
+                // 默认返回
+                return 'member';
+            }
+
+            // 获取角色显示文本（与桌面版保持一致）
+            static getRoleText(role) {
+                const roleTexts = {
+                    'owner': '店主',
+                    'manager': '经理', 
+                    'employee': '员工',
+                    'admin': '管理员',
+                    'member': '成员'
+                };
+                return roleTexts[role] || role;
             }
 
             static manageShop(shopId) {
@@ -3854,8 +4277,9 @@
                 });
 
                 if (response.ok) {
-                    const shops = await response.json();
-                    renderMobilePendingShops(shops);
+                    const data = await response.json();
+                    console.log('待审核店铺API响应:', data);
+                    renderMobilePendingShops(data.shops || data);
                 } else {
                     container.innerHTML = '<div class="empty-state">加载失败</div>';
                 }
@@ -3887,11 +4311,11 @@
                         </div>
                         <div class="detail-row">
                             <span class="label">店主:</span>
-                            <span class="value">${shop.ownerName}</span>
+                            <span class="value">${shop.owner_username || shop.ownerName || '未知'}</span>
                         </div>
                         <div class="detail-row">
                             <span class="label">申请时间:</span>
-                            <span class="value">${new Date(shop.createdAt).toLocaleDateString()}</span>
+                            <span class="value">${new Date(shop.created_at || shop.createdAt).toLocaleDateString()}</span>
                         </div>
                         <div class="detail-row description">
                             <span class="label">描述:</span>
@@ -3899,8 +4323,8 @@
                         </div>
                     </div>
                     <div class="review-actions">
-                        <button class="approve-btn" onclick="approveMobileShop(${shop.id})">✅ 通过</button>
-                        <button class="reject-btn" onclick="rejectMobileShop(${shop.id})">❌ 拒绝</button>
+                        <button class="approve-btn" onclick="console.log('🔘 按钮被点击, shopId:', '${shop.id}'); approveMobileShop('${shop.id}')">✅ 通过</button>
+                        <button class="reject-btn" onclick="rejectMobileShop('${shop.id}')">❌ 拒绝</button>
                     </div>
                 </div>
             `).join('');
@@ -3910,24 +4334,38 @@
 
         // 审核通过
         async function approveMobileShop(shopId) {
-            if (!confirm('确定要通过这个店铺的审核吗？')) return;
+            console.log('🔧 approveMobileShop 函数被调用, shopId:', shopId);
+            
+            if (!confirm('确定要通过这个店铺的审核吗？')) {
+                console.log('❌ 用户取消审核');
+                return;
+            }
+            
+            console.log('✅ 用户确认审核，准备发送请求');
             
             try {
                 const sessionId = localStorage.getItem('sessionId');
+                console.log('📤 发送审核请求:', `/api/admin/approve-shop/${shopId}`);
+                
                 const response = await fetch(`/api/admin/approve-shop/${shopId}`, {
                     method: 'POST',
                     headers: { 'X-Session-Id': sessionId }
                 });
 
+                console.log('📥 审核响应状态:', response.status);
+
                 if (response.ok) {
+                    const result = await response.json();
+                    console.log('✅ 审核成功:', result);
                     alert('店铺审核通过成功！');
                     loadMobilePendingShops(); // 重新加载列表
                 } else {
                     const error = await response.json();
+                    console.error('❌ 审核失败:', error);
                     alert('操作失败: ' + error.error);
                 }
             } catch (error) {
-                console.error('审核操作失败:', error);
+                console.error('❌ 审核操作失败:', error);
                 alert('网络错误，请重试');
             }
         }
@@ -4470,64 +4908,275 @@
             currentRenewalShop = null;
         }
         
-        // 付费开通功能
-        let currentActivationShop = null;
+        // ============ 店铺付费开通功能 ============
         
-        function payToActivateShop(shopId) {
-            const shop = currentShops.find(s => s.id === shopId);
+        // 调试函数 - 测试按钮点击
+        function debugActivateShop(shopId) {
+            console.log('🔍 调试: 付费开通按钮被点击', shopId);
+            console.log('🔍 当前店铺数据:', currentShops);
+            payToActivateShop(shopId);
+        }
+
+        // 店铺付费开通
+        async function payToActivateShop(shopId) {
+            console.log('🎯 开始付费开通流程:', shopId);
+            
+            // 从当前加载的店铺数据中查找店铺
+            let shop = null;
+            if (currentShops && currentShops.length > 0) {
+                shop = currentShops.find(s => s.id === shopId);
+                console.log('🔍 找到的店铺:', shop);
+            } else {
+                console.error('❌ currentShops为空或未定义:', currentShops);
+            }
+
             if (!shop) {
-                alert('店铺信息不存在');
+                alert('店铺不存在或数据未加载，请刷新页面后重试');
+                console.error('❌ Shop not found:', shopId, 'Available shops:', currentShops);
                 return;
             }
-            
+
+            console.log('✅ 店铺验证通过，显示确认对话框');
             if (!confirm(`确定要付费开通店铺 "${shop.name}" 吗？\n\n付费开通价格：¥2000\n付费成功后，店铺将立即审核通过并获得1年有效期`)) {
+                console.log('❌ 用户取消了付费开通');
                 return;
             }
+
+            console.log('✅ 用户确认付费开通，创建订单...');
+            try {
+                // 创建付费开通订单
+                const response = await fetch(`/api/shops/${shopId}/activate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Session-Id': sessionId
+                    }
+                });
+
+                console.log('📡 API响应状态:', response.status);
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('✅ 订单创建成功:', data);
+                    showActivationPaymentModal(data.order);
+                } else {
+                    const error = await response.json();
+                    console.error('❌ API错误:', error);
+                    alert('创建付费开通订单失败: ' + error.error);
+                }
+            } catch (error) {
+                console.error('❌ 网络错误:', error);
+                alert('网络错误，请重试');
+            }
+        }
+
+        // 显示付费开通支付模态框
+        function showActivationPaymentModal(order) {
+            // 填充订单信息
+            document.getElementById('activationOrderId').textContent = order.orderId;
+            document.getElementById('activationShopName').textContent = order.shopName;
+            document.getElementById('activationExpiry').textContent = order.expiresAt ? 
+                new Date(order.expiresAt).toLocaleString() : '无';
+
+            // 显示模态框
+            document.getElementById('activationModal').style.display = 'flex';
             
-            currentActivationShop = shop;
+            // 存储当前订单ID
+            window.currentActivationOrder = order;
+        }
+
+        // 选择付费开通支付方式并生成二维码
+        async function selectActivationPaymentMethod(method) {
+            if (!window.currentActivationOrder) {
+                alert('订单信息异常，请重新发起付费开通');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/activation-orders/${window.currentActivationOrder.orderId}/qrcode`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Session-Id': sessionId
+                    },
+                    body: JSON.stringify({
+                        paymentMethod: method
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    showActivationQRCode(data.qrData, method);
+                } else {
+                    const error = await response.json();
+                    alert('生成支付二维码失败: ' + error.error);
+                }
+            } catch (error) {
+                console.error('生成付费开通二维码错误:', error);
+                alert('网络错误，请重试');
+            }
+        }
+
+        // 显示付费开通支付二维码
+        function showActivationQRCode(qrData, method) {
+            const methodName = method === 'alipay' ? '支付宝' : '微信';
+            const appName = method === 'alipay' ? '支付宝' : '微信';
             
-            // 显示付费开通模态框
-            document.getElementById('activationShopName').textContent = shop.name;
+            // 更新界面显示
+            document.getElementById('activationPaymentMethodName').textContent = methodName;
+            document.getElementById('activationPaymentQRCode').src = qrData.qrCodeUrl;
+            document.getElementById('activationPaymentAppName').textContent = appName;
             
-            // 创建付费开通订单 (模拟)
-            const order = {
-                id: 'activation_' + Date.now(),
-                shopId: shopId,
-                amount: 2000,
-                type: 'activation',
-                status: 'pending',
-                expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString() // 30分钟后过期
+            // 设置支付方式样式
+            const qrSection = document.getElementById('activationQrCodeSection');
+            const qrContainer = qrSection.querySelector('.qr-code-container');
+            
+            // 清除旧样式
+            qrContainer.classList.remove('alipay-style', 'wechat-style');
+            qrSection.removeAttribute('data-method');
+            
+            // 应用新样式
+            qrContainer.classList.add(method === 'alipay' ? 'alipay-style' : 'wechat-style');
+            qrSection.setAttribute('data-method', method);
+            
+            // 存储当前支付方式，用于刷新功能
+            window.currentActivationPaymentMethod = method;
+            
+            // 添加二维码加载错误处理
+            const qrImg = document.getElementById('activationPaymentQRCode');
+            qrImg.onerror = function() {
+                console.warn('付费开通二维码加载失败，使用备用方案');
+                this.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent('模拟' + methodName + '付费开通订单:' + qrData.orderId + ' 金额:¥' + qrData.amount)}`;
             };
             
-            const expiresAt = new Date(order.expiresAt).toLocaleString();
-            document.getElementById('activationExpiry').textContent = expiresAt;
-            
-            document.getElementById('activationModal').style.display = 'flex';
-        }
-        
-        function processActivationPayment() {
-            const paymentMethod = document.querySelector('input[name="activation_payment"]:checked').value;
-            
-            // 隐藏支付方式，显示加载状态
+            // 隐藏支付方式选择，显示二维码
             document.getElementById('activationPaymentMethods').style.display = 'none';
+            document.getElementById('activationQrCodeSection').style.display = 'block';
             
-            // 模拟支付处理
-            setTimeout(() => {
-                // 显示支付成功结果
-                document.getElementById('activationPaymentResult').style.display = 'block';
-                
-                // 刷新店铺列表
-                setTimeout(() => {
-                    ShopManager.loadShops();
-                }, 1000);
-            }, 2000);
+            console.log(`💎 显示${methodName}付费开通支付二维码:`, qrData.qrCodeUrl);
+            
+            // 开始轮询订单状态
+            startActivationPaymentPolling(qrData.orderId);
         }
-        
+
+        // 开始付费开通支付状态轮询
+        function startActivationPaymentPolling(orderId) {
+            // 清理之前的轮询
+            if (window.activationPaymentPolling) {
+                clearInterval(window.activationPaymentPolling);
+            }
+
+            console.log('🔄 开始付费开通支付状态轮询...');
+            
+            window.activationPaymentPolling = setInterval(async () => {
+                try {
+                    const response = await fetch(`/api/activation-orders/${orderId}/status`, {
+                        headers: {
+                            'X-Session-Id': sessionId
+                        }
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        const order = data.order;
+
+                        if (order.status === 'paid') {
+                            // 支付成功
+                            clearInterval(window.activationPaymentPolling);
+                            window.activationPaymentPolling = null;
+                            showActivationPaymentSuccess();
+                        } else if (order.status === 'expired') {
+                            // 订单过期
+                            clearInterval(window.activationPaymentPolling);
+                            window.activationPaymentPolling = null;
+                            alert('支付超时，请重新发起付费开通');
+                            closeActivationModal();
+                        }
+                    }
+                } catch (error) {
+                    console.error('付费开通轮询错误:', error);
+                }
+            }, 3000); // 每3秒检查一次
+
+            // 30分钟后停止轮询
+            setTimeout(() => {
+                if (window.activationPaymentPolling) {
+                    clearInterval(window.activationPaymentPolling);
+                    window.activationPaymentPolling = null;
+                }
+            }, 30 * 60 * 1000);
+        }
+
+        // 显示付费开通支付成功页面
+        function showActivationPaymentSuccess() {
+            document.getElementById('activationQrCodeSection').style.display = 'none';
+            document.getElementById('activationPaymentSuccess').style.display = 'block';
+            
+            console.log('🎉 付费开通支付成功');
+            
+            // 3秒后自动关闭并刷新店铺列表
+            setTimeout(() => {
+                alert('🎉 付费开通成功！\n\n您的店铺已自动审核通过并获得1年有效期，感谢您的支持！');
+                closeActivationModal();
+                ShopManager.loadShops(); // 刷新店铺列表
+            }, 1000);
+        }
+
+        // 刷新付费开通二维码
+        function refreshActivationQRCode() {
+            if (!window.currentActivationOrder || !window.currentActivationPaymentMethod) {
+                alert('无法刷新二维码，请重新选择支付方式');
+                return;
+            }
+            
+            const refreshBtn = document.querySelector('#activationQrCodeSection .refresh-btn');
+            const originalText = refreshBtn.textContent;
+            
+            // 显示加载状态
+            refreshBtn.textContent = '🔄 刷新中...';
+            refreshBtn.disabled = true;
+            
+            // 重新生成二维码
+            selectActivationPaymentMethod(window.currentActivationPaymentMethod).finally(() => {
+                // 恢复按钮状态
+                setTimeout(() => {
+                    refreshBtn.textContent = originalText;
+                    refreshBtn.disabled = false;
+                }, 500);
+            });
+        }
+
+        // 关闭付费开通模态框
         function closeActivationModal() {
             document.getElementById('activationModal').style.display = 'none';
+            
+            // 清理轮询
+            if (window.activationPaymentPolling) {
+                clearInterval(window.activationPaymentPolling);
+                window.activationPaymentPolling = null;
+            }
+            
+            // 重置状态
             document.getElementById('activationPaymentMethods').style.display = 'block';
-            document.getElementById('activationPaymentResult').style.display = 'none';
-            currentActivationShop = null;
+            document.getElementById('activationQrCodeSection').style.display = 'none';
+            document.getElementById('activationPaymentSuccess').style.display = 'none';
+            
+            // 清理全局变量
+            window.currentActivationOrder = null;
+            window.currentActivationPaymentMethod = null;
+        }
+
+        // 模拟付费开通支付成功 (测试功能)
+        function mockActivationPaymentSuccess() {
+            console.log('🧪 模拟付费开通支付成功');
+            
+            // 清理轮询
+            if (window.activationPaymentPolling) {
+                clearInterval(window.activationPaymentPolling);
+                window.activationPaymentPolling = null;
+            }
+            
+            // 显示支付成功
+            showActivationPaymentSuccess();
         }
 
         // 模拟续费支付成功
@@ -5016,7 +5665,7 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-Session-Id': currentSession
+                        'X-Session-Id': sessionId
                     }
                 });
 
@@ -5558,8 +6207,12 @@
                     
                     shopsList.innerHTML = shops.map(shop => `
                         <div class="shop-item">
-                            <div class="shop-info">
-                                <div class="shop-details">
+                            <div class="shop-avatar-container">
+                                <div class="shop-avatar">${shop.name.charAt(0)}</div>
+                                <div class="shop-role">管理员</div>
+                            </div>
+                            <div class="shop-content">
+                                <div class="shop-info">
                                     <div class="shop-name">${shop.name}</div>
                                     <div class="shop-domain">${shop.domain} | 店主: ${shop.ownerName}</div>
                                 </div>
@@ -5946,56 +6599,82 @@
     <div id="activationModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>💳 付费开通店铺</h3>
+                <h3>� 店铺付费开通</h3>
                 <span class="close-btn" onclick="closeActivationModal()">&times;</span>
             </div>
             <div class="modal-body">
+                <!-- 订单信息 -->
                 <div class="activation-info">
-                    <div class="shop-activation-info">
-                        <h4 id="activationShopName">店铺名称</h4>
-                        <p><strong>开通费用：</strong><span style="color: #007AFF; font-weight: bold;">¥2000</span></p>
-                        <p><strong>开通后权益：</strong></p>
-                        <ul>
-                            <li>✅ 店铺立即审核通过</li>
-                            <li>✅ 获得1年有效期</li>
-                            <li>✅ 解锁全部功能</li>
-                        </ul>
-                        <p><strong>订单有效期：</strong><span id="activationExpiry">-</span></p>
+                    <div class="info-item">
+                        <strong>订单号：</strong>
+                        <span id="activationOrderId"></span>
                     </div>
-                    
-                    <!-- 支付方式选择 -->
-                    <div class="payment-methods" id="activationPaymentMethods">
-                        <h4>选择支付方式</h4>
-                        <div class="payment-options">
-                            <label class="payment-option">
-                                <input type="radio" name="activation_payment" value="alipay" checked>
-                                <span class="payment-icon">💰</span>
-                                <span>支付宝</span>
-                            </label>
-                            <label class="payment-option">
-                                <input type="radio" name="activation_payment" value="wechat">
-                                <span class="payment-icon">💚</span>
-                                <span>微信支付</span>
-                            </label>
+                    <div class="info-item">
+                        <strong>店铺名称：</strong>
+                        <span id="activationShopName"></span>
+                    </div>
+                    <div class="info-item">
+                        <strong>开通费用：</strong>
+                        <span id="activationAmount" class="amount">¥2000</span>
+                    </div>
+                    <div class="info-item">
+                        <strong>订单有效期：</strong>
+                        <span id="activationExpiry"></span>
+                    </div>
+                    <div class="info-item activation-benefit">
+                        <strong>开通后享受：</strong>
+                        <span class="benefit-text">✅ 立即审核通过 + 1年服务期</span>
+                    </div>
+                </div>
+
+                <!-- 支付方式选择 -->
+                <div id="activationPaymentMethods" class="payment-methods">
+                    <h4>请选择支付方式：</h4>
+                    <div class="payment-buttons">
+                        <button class="payment-btn alipay-btn" onclick="selectActivationPaymentMethod('alipay')">
+                            <div class="payment-icon">💰</div>
+                            <div class="payment-text">支付宝支付</div>
+                        </button>
+                        <button class="payment-btn wechat-btn" onclick="selectActivationPaymentMethod('wechat')">
+                            <div class="payment-icon">💚</div>
+                            <div class="payment-text">微信支付</div>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 二维码支付区域 -->
+                <div id="activationQrCodeSection" class="qr-code-section" style="display: none;">
+                    <h4 id="activationPaymentMethodName">支付宝</h4>
+                    <div class="qr-code-container">
+                        <img id="activationPaymentQRCode" src="" alt="付费开通支付二维码" />
+                        <div class="qr-tips">
+                            <p>请使用<span id="activationPaymentAppName">支付宝</span>扫码支付 <span class="amount">¥2000</span></p>
+                            <p class="tip-text">付费成功后，店铺将立即审核通过</p>
                         </div>
-                        <button class="btn btn-primary" onclick="processActivationPayment()">立即支付</button>
                         
-                        <!-- 测试按钮 -->
-                        <div class="test-buttons">
-                            <button class="test-btn" onclick="mockActivationPaymentSuccess()">
-                                🧪 模拟支付成功 (测试)
+                        <!-- 刷新二维码按钮 -->
+                        <div class="qr-actions">
+                            <button class="refresh-btn" onclick="refreshActivationQRCode()" title="刷新二维码">
+                                🔄 刷新二维码
                             </button>
                         </div>
                     </div>
                     
-                    <!-- 支付结果 -->
-                    <div class="payment-result" id="activationPaymentResult" style="display: none;">
-                        <div class="payment-success">
-                            <div class="success-icon">✅</div>
-                            <h4>付费开通成功！</h4>
-                            <p>您的店铺已自动审核通过并获得1年有效期</p>
-                            <button class="btn btn-primary" onclick="closeActivationModal()">确定</button>
-                        </div>
+                    <!-- 测试按钮 -->
+                    <div class="test-buttons">
+                        <button class="test-btn" onclick="mockActivationPaymentSuccess()">
+                            🧪 模拟支付成功 (测试)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 支付成功 -->
+                <div id="activationPaymentSuccess" class="payment-success" style="display: none;">
+                    <div class="success-icon">🎉</div>
+                    <h4>付费开通成功！</h4>
+                    <p>您的店铺已自动审核通过并获得1年有效期</p>
+                    <div class="success-actions">
+                        <button class="btn btn-primary" onclick="closeActivationModal(); loadShops();">返回店铺列表</button>
                     </div>
                 </div>
             </div>

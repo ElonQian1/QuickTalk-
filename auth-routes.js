@@ -199,6 +199,34 @@ app.get('/api/admin/shops', requireAuth, requireSuperAdmin, async (req, res) => 
     }
 });
 
+// 管理员 - 获取统计信息
+app.get('/api/admin/stats', requireAuth, async (req, res) => {
+    try {
+        // 获取用户的店铺数量
+        const userShops = await database.getUserShops(req.user.id);
+        let totalShops = userShops.length;
+        
+        // 如果是超级管理员，获取所有店铺数量
+        if (req.user.role === 'super_admin') {
+            const allShops = await database.getAllShops();
+            totalShops = allShops.length;
+        }
+        
+        // 获取未读消息数量 (暂时返回0，后续可以扩展)
+        const unreadMessages = 0;
+        
+        res.json({
+            success: true,
+            totalShops,
+            unreadMessages,
+            userRole: req.user.role
+        });
+    } catch (error) {
+        console.error('获取统计信息失败:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // 根据店铺过滤客服消息
 app.get('/api/messages', requireAuth, (req, res) => {
     const { shopId, userId, lastId = 0 } = req.query;
@@ -645,7 +673,46 @@ app.get('/api/admin/pending-shops', requireAuth, requireSuperAdmin, async (req, 
     }
 });
 
-// 审核店铺（通过/拒绝）
+// 审核店铺通过
+app.post('/api/admin/approve-shop/:shopId', requireAuth, requireSuperAdmin, async (req, res) => {
+    try {
+        const { shopId } = req.params;
+        
+        const reviewedShop = await database.reviewShop(shopId, { approved: true, note: '审核通过' }, req.user.id);
+        
+        console.log(`✅ 超级管理员通过店铺审核: ${reviewedShop.name}`);
+        res.json({
+            success: true,
+            message: '店铺审核通过',
+            shop: reviewedShop
+        });
+    } catch (error) {
+        console.error('审核通过店铺错误:', error.message);
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// 审核店铺拒绝
+app.post('/api/admin/reject-shop/:shopId', requireAuth, requireSuperAdmin, async (req, res) => {
+    try {
+        const { shopId } = req.params;
+        const { reason } = req.body;
+        
+        const reviewedShop = await database.reviewShop(shopId, { approved: false, note: reason || '审核拒绝' }, req.user.id);
+        
+        console.log(`❌ 超级管理员拒绝店铺审核: ${reviewedShop.name}, 原因: ${reason || '无'}`);
+        res.json({
+            success: true,
+            message: '店铺审核拒绝',
+            shop: reviewedShop
+        });
+    } catch (error) {
+        console.error('审核拒绝店铺错误:', error.message);
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// 审核店铺（通用）
 app.put('/api/admin/review-shop/:shopId', requireAuth, requireSuperAdmin, async (req, res) => {
     try {
         const { shopId } = req.params;
@@ -918,6 +985,172 @@ app.post('/api/conversations/:conversationId/mark-read', requireAuth, async (req
     } catch (error) {
         console.error('标记对话为已读失败:', error.message);
         res.status(500).json({ error: '标记对话为已读失败' });
+    }
+});
+
+// ============ 付费开通功能 ============
+
+// 创建付费开通订单
+app.post('/api/shops/:shopId/activate', requireAuth, requireShopOwner, async (req, res) => {
+    try {
+        const shopId = req.params.shopId; // 保持字符串格式，不要parseInt
+        const userId = req.user.id;
+        
+        console.log('💎 创建付费开通订单:', { shopId, userId });
+        
+        // 检查店铺是否存在且属于当前用户
+        const shop = await database.getShopById(shopId);
+        if (!shop) {
+            return res.status(404).json({ error: '店铺不存在' });
+        }
+        
+        // 检查权限（超级管理员可以为任何店铺付费开通，店主只能为自己的店铺付费开通）
+        if (req.user.role !== 'super_admin' && shop.owner_id !== userId) {
+            return res.status(403).json({ error: '只能为自己的店铺付费开通' });
+        }
+        
+        // 检查店铺是否已经激活
+        if (shop.status === 'active' && shop.approval_status === 'approved') {
+            return res.status(400).json({ error: '店铺已经激活，无需重复开通' });
+        }
+        
+        // 生成订单ID
+        const orderId = 'ACT' + Date.now() + Math.random().toString(36).substr(2, 9);
+        
+        // 创建订单数据
+        const order = {
+            orderId: orderId,
+            shopId: shopId,
+            shopName: shop.name,
+            userId: userId,
+            amount: 2000, // 固定价格2000元
+            status: 'pending',
+            createdAt: new Date().toISOString(),
+            expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString() // 30分钟后过期
+        };
+        
+        // 存储订单（简化实现，实际应该存储到数据库）
+        global.activationOrders = global.activationOrders || {};
+        global.activationOrders[orderId] = order;
+        
+        console.log('✅ 付费开通订单创建成功:', order);
+        
+        res.json({
+            success: true,
+            order: order
+        });
+        
+    } catch (error) {
+        console.error('创建付费开通订单失败:', error.message);
+        res.status(500).json({ error: '创建付费开通订单失败' });
+    }
+});
+
+// 生成付费开通支付二维码
+app.post('/api/activation-orders/:orderId/qrcode', requireAuth, async (req, res) => {
+    try {
+        const orderId = req.params.orderId;
+        const { paymentMethod } = req.body;
+        
+        console.log('💳 生成付费开通支付二维码:', { orderId, paymentMethod });
+        
+        // 检查订单是否存在
+        const order = global.activationOrders?.[orderId];
+        if (!order) {
+            return res.status(404).json({ error: '订单不存在或已过期' });
+        }
+        
+        // 检查订单是否过期
+        if (new Date() > new Date(order.expiresAt)) {
+            return res.status(400).json({ error: '订单已过期，请重新创建' });
+        }
+        
+        // 生成二维码数据（模拟实现）
+        const qrData = {
+            orderId: orderId,
+            amount: order.amount,
+            paymentMethod: paymentMethod,
+            qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`${paymentMethod}://pay?orderId=${orderId}&amount=${order.amount}&shopName=${order.shopName}`)}`
+        };
+        
+        console.log('✅ 付费开通二维码生成成功:', qrData.qrCodeUrl);
+        
+        res.json({
+            success: true,
+            qrData: qrData
+        });
+        
+    } catch (error) {
+        console.error('生成付费开通二维码失败:', error.message);
+        res.status(500).json({ error: '生成付费开通二维码失败' });
+    }
+});
+
+// 查询付费开通订单状态
+app.get('/api/activation-orders/:orderId/status', requireAuth, async (req, res) => {
+    try {
+        const orderId = req.params.orderId;
+        
+        console.log('🔍 查询付费开通订单状态:', orderId);
+        
+        // 检查订单是否存在
+        const order = global.activationOrders?.[orderId];
+        if (!order) {
+            return res.status(404).json({ error: '订单不存在' });
+        }
+        
+        // 检查订单是否过期
+        if (new Date() > new Date(order.expiresAt)) {
+            order.status = 'expired';
+        }
+        
+        res.json({
+            success: true,
+            order: order
+        });
+        
+    } catch (error) {
+        console.error('查询付费开通订单状态失败:', error.message);
+        res.status(500).json({ error: '查询付费开通订单状态失败' });
+    }
+});
+
+// 模拟付费开通支付成功（测试功能）
+app.post('/api/activation-orders/:orderId/mock-success', requireAuth, async (req, res) => {
+    try {
+        const orderId = req.params.orderId;
+        
+        console.log('🧪 模拟付费开通支付成功:', orderId);
+        
+        // 检查订单是否存在
+        const order = global.activationOrders?.[orderId];
+        if (!order) {
+            return res.status(404).json({ error: '订单不存在' });
+        }
+        
+        // 更新订单状态为已支付
+        order.status = 'paid';
+        order.paidAt = new Date().toISOString();
+        
+        // 激活店铺
+        await database.updateShopActivation(order.shopId, {
+            status: 'active',
+            approval_status: 'approved',
+            activated_at: new Date().toISOString(),
+            expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() // 1年有效期
+        });
+        
+        console.log('✅ 付费开通支付成功，店铺已激活');
+        
+        res.json({
+            success: true,
+            message: '付费开通成功，店铺已激活',
+            order: order
+        });
+        
+    } catch (error) {
+        console.error('模拟付费开通支付失败:', error.message);
+        res.status(500).json({ error: '模拟付费开通支付失败' });
     }
 });
 
