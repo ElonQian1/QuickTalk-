@@ -134,19 +134,20 @@ class ClientApiHandler {
      */
     async handleSendMessage(req, res) {
         try {
-            const { userId, message, shopKey, timestamp } = req.body;
-            const apiKey = req.headers['x-shop-key'] || shopKey;
+            const { userId, user_id, message, shopKey, api_key, timestamp } = req.body;
+            const actualUserId = userId || user_id; // 支持两种参数格式
+            const apiKey = req.headers['x-shop-key'] || shopKey || api_key;
             const shopId = req.headers['x-shop-id'];
 
-            console.log(`📤 发送消息请求: userId=${userId}, shopId=${shopId}, message=${message?.substring(0, 50)}...`);
+            console.log(`📤 发送消息请求: userId=${actualUserId}, shopId=${shopId}, message=${message?.substring(0, 50)}...`);
 
             // 验证必要参数
-            if (!userId || !message) {
+            if (!actualUserId || !message) {
                 return res.status(400).json({
                     success: false,
                     error: {
                         code: 'MISSING_PARAMETERS',
-                        message: '缺少必要参数: userId, message'
+                        message: '缺少必要参数: userId/user_id, message'
                     }
                 });
             }
@@ -154,8 +155,8 @@ class ClientApiHandler {
             let validation = null;
 
             // 如果有API密钥，进行安全验证
-            if (apiKey && shopId) {
-                validation = await this.security.validateApiKeyAndDomain(apiKey, req.get('host'), shopId);
+            if (apiKey && req.body.domain) {
+                validation = await this.security.validateApiKeyAndDomain(apiKey, req.body.domain, shopId);
                 
                 if (!validation.valid) {
                     return res.status(401).json({
@@ -172,16 +173,16 @@ class ClientApiHandler {
             if (this.messageRepo) {
                 try {
                     const conversationId = validation ? 
-                        `${validation.shop.id}_${userId}` : 
-                        `guest_${userId}`;
+                        `${validation.shop.id}_${actualUserId}` : 
+                        `guest_${actualUserId}`;
                     
                     await this.messageRepo.addMessage({
                         conversationId,
-                        sender: 'user',
-                        message,
-                        timestamp: new Date(),
-                        userId,
-                        shopId: validation?.shop.id
+                        senderType: 'customer', // 客户发送的消息
+                        senderId: actualUserId,
+                        senderName: null, // 可以后续从用户信息获取
+                        content: message,
+                        messageType: 'text'
                     });
                 } catch (dbError) {
                     console.error('❌ 保存消息到数据库失败:', dbError);
@@ -189,14 +190,14 @@ class ClientApiHandler {
                 }
             }
 
-            console.log(`✅ 消息发送成功: userId=${userId}`);
+            console.log(`✅ 消息发送成功: userId=${actualUserId}`);
 
             res.json({
                 success: true,
                 data: {
                     messageId: 'msg_' + Date.now(),
                     timestamp: new Date(),
-                    conversationId: validation ? `${validation.shop.id}_${userId}` : `guest_${userId}`
+                    conversationId: validation ? `${validation.shop.id}_${actualUserId}` : `guest_${actualUserId}`
                 },
                 message: '消息发送成功'
             });
@@ -256,7 +257,12 @@ class ClientApiHandler {
                 // 从数据库获取消息（如果有消息仓库的话）
                 if (this.messageRepo) {
                     try {
-                        messages = await this.messageRepo.getMessages(conversationId, lastId);
+                        messages = await this.messageRepo.getConversationMessages(conversationId, {
+                            limit: 50,
+                            offset: parseInt(lastId) || 0,
+                            orderBy: 'created_at',
+                            orderDirection: 'DESC'
+                        });
                     } catch (dbError) {
                         console.error('❌ 从数据库获取消息失败:', dbError);
                         // 返回空消息数组，不阻塞API

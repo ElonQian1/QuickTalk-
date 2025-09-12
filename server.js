@@ -32,8 +32,8 @@ async function initializeModularSystem() {
     console.log('🚀 正在初始化新的模块化客服系统...');
     
     try {
-        // 创建并初始化模块化应用
-        modularApp = new ModularApp();
+        // 创建并初始化模块化应用，传入数据库实例
+        modularApp = new ModularApp(database);
         
         await modularApp.initialize();
         
@@ -213,11 +213,11 @@ function initializeWebSocket(server) {
 // ============ 服务器启动 ============
 async function startServer() {
     try {
-        // 1. 初始化模块化系统
-        await initializeModularSystem();
-        
-        // 2. 初始化兼容模块
+        // 1. 首先初始化兼容模块（包括数据库）
         await initializeCompatibilityModules();
+        
+        // 2. 然后初始化模块化系统（需要数据库实例）
+        await initializeModularSystem();
         
         // 3. 显示旧模块日志（保持界面一致性）
         await displayLegacyModuleLogs();

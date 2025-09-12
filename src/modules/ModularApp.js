@@ -1,12 +1,14 @@
 // 模块化应用管理器
 const DatabaseCore = require('../../database-memory');
 const ShopRepository = require('../database/ShopRepository');
+const MessageAdapter = require('../database/MessageAdapter'); // 消息数据库适配器
 const SecurityManager = require('../security/SecurityManager');
 const ClientApiHandler = require('../client-api/ClientApiHandler');
 
 class ModularApp {
-    constructor() {
+    constructor(externalDatabase = null) {
         this.db = null;
+        this.externalDatabase = externalDatabase; // 接受外部数据库实例
         this.shopRepo = null;
         this.security = null;
         this.clientApi = null;
@@ -22,14 +24,22 @@ class ModularApp {
 
             // 1. 初始化数据库层
             console.log('📊 初始化数据库层...');
-            this.db = new DatabaseCore();
-            // database-memory.js 不需要连接，直接创建实例即可
-            console.log('✅ 数据库连接成功');
+            console.log('🔍 外部数据库实例类型:', this.externalDatabase?.constructor?.name);
+            if (this.externalDatabase) {
+                // 使用外部数据库实例（比如 database-sqlite）
+                this.db = this.externalDatabase;
+                console.log('✅ 使用外部数据库实例');
+            } else {
+                // 使用内存数据库
+                this.db = new DatabaseCore();
+                console.log('✅ 使用内存数据库');
+            }
             console.log('✅ 数据库层初始化完成');
 
             // 2. 初始化仓库层
             console.log('🏪 初始化仓库层...');
-            this.shopRepo = new ShopRepository(this.db);
+            this.shopRepo = new ShopRepository(this.db); // 使用ShopRepository包装数据库实例
+            this.messageRepo = new MessageAdapter(this.db); // 使用消息适配器
             console.log('✅ 仓库层初始化完成');
 
             // 3. 初始化安全层
@@ -39,14 +49,17 @@ class ModularApp {
 
             // 4. 初始化客户端API层
             console.log('📡 初始化客户端API层...');
-            this.clientApi = new ClientApiHandler(this.security, null); // 暂时不传入消息仓库
+            this.clientApi = new ClientApiHandler(this.security, this.messageRepo); // 传入消息仓库
             console.log('✅ 客户端API层初始化完成');
 
-            // 5. 初始化数据库表
-            await this.initializeTables();
-
-            // 6. 创建测试数据
-            await this.createTestData();
+            // 5. 初始化数据库表（仅在使用内存数据库时）
+            if (!this.externalDatabase) {
+                await this.initializeTables();
+                // 6. 创建测试数据（仅在使用内存数据库时）
+                await this.createTestData();
+            } else {
+                console.log('✅ 使用外部数据库，跳过表初始化和测试数据创建');
+            }
 
             this.initialized = true;
             console.log('✅ 模块化应用初始化完成');
