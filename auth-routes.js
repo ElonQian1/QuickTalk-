@@ -698,14 +698,15 @@ app.get('/api/conversations/:conversationId', requireAuth, async (req, res) => {
     try {
         const { conversationId } = req.params;
         
-        // conversationId 格式: shopId_userId (例如: shop_123_user_456)
-        const parts = conversationId.split('_');
-        if (parts.length < 3) {
+        // conversationId 格式: shopId_userId (例如: shop_1757591780450_1_user_1757591780450_3)
+        // 需要正确分离 shopId 和 userId
+        const userIndex = conversationId.indexOf('_user_');
+        if (userIndex === -1) {
             return res.status(400).json({ error: '无效的对话ID格式' });
         }
         
-        const shopId = parts.slice(0, 2).join('_'); // shop_123
-        const userId = parts.slice(2).join('_'); // user_456
+        const shopId = conversationId.substring(0, userIndex); // shop_1757591780450_1
+        const userId = conversationId.substring(userIndex + 1); // user_1757591780450_3
         
         // 检查用户是否有权限访问该店铺
         const userShops = await database.getUserShops(req.user.id);
@@ -757,14 +758,15 @@ app.get('/api/conversations/:conversationId/messages', requireAuth, async (req, 
             userRole: req.user.role
         });
         
-        // conversationId 格式: shopId_userId (例如: shop_123_user_456)
-        const parts = conversationId.split('_');
-        if (parts.length < 3) {
+        // conversationId 格式: shopId_userId (例如: shop_1757591780450_1_user_1757591780450_3)
+        // 需要正确分离 shopId 和 userId
+        const userIndex = conversationId.indexOf('_user_');
+        if (userIndex === -1) {
             return res.status(400).json({ error: '无效的对话ID格式' });
         }
         
-        const shopId = parts.slice(0, 2).join('_'); // shop_123
-        const userId = parts.slice(2).join('_'); // user_456
+        const shopId = conversationId.substring(0, userIndex); // shop_1757591780450_1
+        const userId = conversationId.substring(userIndex + 1); // user_1757591780450_3
         
         console.log('🔍 [DEBUG] 解析对话ID:', { shopId, userId });
         
@@ -803,14 +805,15 @@ app.post('/api/conversations/:conversationId/messages', requireAuth, async (req,
             return res.status(400).json({ error: '消息内容不能为空' });
         }
         
-        // conversationId 格式: shopId_userId (例如: shop_123_user_456)
-        const parts = conversationId.split('_');
-        if (parts.length < 3) {
+        // conversationId 格式: shopId_userId (例如: shop_1757591780450_1_user_1757591780450_3)
+        // 需要正确分离 shopId 和 userId
+        const userIndex = conversationId.indexOf('_user_');
+        if (userIndex === -1) {
             return res.status(400).json({ error: '无效的对话ID格式' });
         }
         
-        const shopId = parts.slice(0, 2).join('_'); // shop_123
-        const userId = parts.slice(2).join('_'); // user_456
+        const shopId = conversationId.substring(0, userIndex); // shop_1757591780450_1
+        const userId = conversationId.substring(userIndex + 1); // user_1757591780450_3
         
         // 检查用户是否有权限访问该店铺
         const userShops = await database.getUserShops(req.user.id);
@@ -857,14 +860,15 @@ app.put('/api/conversations/:conversationId/read', requireAuth, async (req, res)
     try {
         const { conversationId } = req.params;
         
-        // conversationId 格式: shopId_userId (例如: shop_123_user_456)
-        const parts = conversationId.split('_');
-        if (parts.length < 3) {
+        // conversationId 格式: shopId_userId (例如: shop_1757591780450_1_user_1757591780450_3)
+        // 需要正确分离 shopId 和 userId
+        const userIndex = conversationId.indexOf('_user_');
+        if (userIndex === -1) {
             return res.status(400).json({ error: '无效的对话ID格式' });
         }
         
-        const shopId = parts.slice(0, 2).join('_'); // shop_123
-        const userId = parts.slice(2).join('_'); // user_456
+        const shopId = conversationId.substring(0, userIndex); // shop_1757591780450_1
+        const userId = conversationId.substring(userIndex + 1); // user_1757591780450_3
         
         // 检查用户是否有权限访问该店铺
         const userShops = await database.getUserShops(req.user.id);
