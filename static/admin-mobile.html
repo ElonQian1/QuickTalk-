@@ -347,6 +347,14 @@
             background: #f8f9fa;
         }
 
+        .shop-avatar-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-right: 15px;
+            position: relative;
+        }
+
         .shop-avatar {
             width: 60px;
             height: 60px;
@@ -358,7 +366,25 @@
             color: white;
             font-weight: bold;
             font-size: 20px;
-            margin-right: 15px;
+        }
+
+        .shop-role {
+            font-size: 10px;
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
+            padding: 2px 6px;
+            border-radius: 8px;
+            margin-top: 4px;
+            text-align: center;
+            white-space: nowrap;
+            font-weight: bold;
+        }
+
+        .shop-content {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
 
         .shop-info {
@@ -422,6 +448,21 @@
         .shop-btn.info {
             background: #007AFF;
             color: white;
+        }
+
+        .shop-btn.danger {
+            background: #FF3B30;
+            color: white;
+        }
+
+        .shop-btn.secondary {
+            background: #8E8E93;
+            color: white;
+        }
+
+        .shop-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
         }
 
         /* 消息列表样式 */
@@ -1812,19 +1853,65 @@
                     }
                     const statusClass = this.getStatusClass(shop.approvalStatus || shop.status);
                     const statusText = this.getStatusText(shop.approvalStatus || shop.status);
+                    const userRole = this.getUserRoleInShop(shop);
 
                     return `
                         <div class="shop-item">
-                            <div class="shop-avatar">${shop.name.charAt(0)}</div>
-                            <div class="shop-info">
-                                <div class="shop-name">${shop.name}</div>
-                                <div class="shop-domain">${shop.domain}</div>
-                                <div class="shop-status ${statusClass}">${statusText}</div>
+                            <div class="shop-avatar-container">
+                                <div class="shop-avatar">${shop.name.charAt(0)}</div>
+                                <div class="shop-role">${this.getRoleText(userRole)}</div>
                             </div>
-                            <div class="shop-actions">
-                                <button class="shop-btn primary" onclick="ShopManager.manageShop('${shop.id}')">管理</button>
-                                <button class="shop-btn success" onclick="MessageManager.viewShopConversations('${shop.id}')">消息</button>
-                                <button class="shop-btn info" onclick="showIntegrationCode('${shop.id}', '${shop.name}')">📋 代码</button>
+                            <div class="shop-content">
+                                <div class="shop-info">
+                                    <div class="shop-name">${shop.name}</div>
+                                    <div class="shop-domain">${shop.domain}</div>
+                                    <div class="shop-status ${statusClass}">${statusText}</div>
+                                </div>
+                                <div class="shop-actions">
+                                    ${(() => {
+                                        const approvalStatus = shop.approval_status || shop.approvalStatus;
+                                        
+                                        if (approvalStatus === 'approved') {
+                                            // 根据用户在店铺中的角色显示不同按钮
+                                            if (userRole === 'owner' || userRole === 'admin') {
+                                                // 店主/管理员：显示所有管理按钮
+                                                return `
+                                                    <button class="shop-btn primary" onclick="ShopManager.manageShop('${shop.id}')">管理</button>
+                                                    <button class="shop-btn success" onclick="MessageManager.viewShopConversations('${shop.id}')">💬 消息</button>
+                                                    <button class="shop-btn info" onclick="showIntegrationCode('${shop.id}', '${shop.name}')">📋 代码</button>
+                                                `;
+                                            } else if (userRole === 'manager') {
+                                                // 经理：显示部分管理按钮
+                                                return `
+                                                    <button class="shop-btn success" onclick="MessageManager.viewShopConversations('${shop.id}')">💬 消息</button>
+                                                    <button class="shop-btn info" onclick="showIntegrationCode('${shop.id}', '${shop.name}')">📋 代码</button>
+                                                `;
+                                            } else if (userRole === 'employee') {
+                                                // 员工：只显示消息相关按钮
+                                                return `
+                                                    <button class="shop-btn success" onclick="MessageManager.viewShopConversations('${shop.id}')">💬 消息</button>
+                                                `;
+                                            } else {
+                                                // 其他角色：基本查看权限
+                                                return `
+                                                    <button class="shop-btn success" onclick="MessageManager.viewShopConversations('${shop.id}')">💬 消息</button>
+                                                `;
+                                            }
+                                        } else if (approvalStatus === 'pending') {
+                                            return `
+                                                <button class="shop-btn warning" disabled>等待审核</button>
+                                            `;
+                                        } else if (approvalStatus === 'rejected') {
+                                            return `
+                                                <button class="shop-btn danger" disabled>已拒绝</button>
+                                            `;
+                                        } else {
+                                            return `
+                                                <button class="shop-btn secondary" onclick="ShopManager.manageShop('${shop.id}')">查看</button>
+                                            `;
+                                        }
+                                    })()}
+                                </div>
                             </div>
                         </div>
                     `;
@@ -1860,6 +1947,44 @@
             static manageShop(shopId) {
                 console.log('🏪 打开店铺管理:', shopId);
                 openShopManageModal(shopId);
+            }
+
+            // 获取用户在店铺中的角色
+            static getUserRoleInShop(shop) {
+                // 如果店铺数据中已有userRole属性，直接使用
+                if (shop.userRole) {
+                    return shop.userRole;
+                }
+                
+                // 如果当前用户是超级管理员
+                if (currentUser && currentUser.role === 'super_admin') {
+                    return 'admin';
+                }
+                
+                // 如果当前用户是店主
+                if (currentUser && currentUser.role === 'shop_owner') {
+                    return 'owner';
+                }
+                
+                // 检查是否是员工
+                if (currentUser && (currentUser.role === 'employee' || currentUser.role === 'agent')) {
+                    return 'employee';
+                }
+                
+                // 默认返回
+                return 'member';
+            }
+
+            // 获取角色显示文本（与桌面版保持一致）
+            static getRoleText(role) {
+                const roleTexts = {
+                    'owner': '店主',
+                    'manager': '经理', 
+                    'employee': '员工',
+                    'admin': '管理员',
+                    'member': '成员'
+                };
+                return roleTexts[role] || '未知';
             }
         }
 
