@@ -1,0 +1,265 @@
+<!-- QuickTalk客服系统集成代码 - 优化轮询版本 -->
+<!-- 优化内容: 减少日志输出，智能轮询频率 -->
+
+<script>
+// 客服系统实现 - 优化轮询版本
+(function(){
+    let cs = {
+        isOpen: false,
+        isMini: false,
+        isConnected: false,
+        userId: 'user_' + Math.random().toString(36).substr(2,9) + '_' + Date.now(),
+        interval: null,
+        lastSequenceId: 0,
+        pollInterval: 2000,  // 基础轮询间隔
+        maxPollInterval: 10000,  // 最大轮询间隔
+        emptyResponseCount: 0,  // 连续空响应计数
+        
+        init() {
+            // 验证域名
+            const currentDomain = window.location.hostname;
+            const authorizedDomain = window.QUICKTALK_CONFIG.authorizedDomain;
+            
+            if (currentDomain !== authorizedDomain && 
+                !currentDomain.endsWith('.' + authorizedDomain) && 
+                currentDomain !== 'localhost') {
+                console.error('❌ QuickTalk客服系统：域名未授权');
+                return;
+            }
+            
+            console.log('✅ 域名验证通过，正在连接客服系统...');
+            this.updateTime();
+            setTimeout(() => this.connect(), 1000);
+        },
+        
+        async connect() {
+            try {
+                console.log('🔗 尝试连接到服务器...');
+                
+                let res = await fetch(window.QUICKTALK_CONFIG.apiUrl + '/secure-connect', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Shop-Key': window.QUICKTALK_CONFIG.shopKey,
+                        'X-Shop-Id': window.QUICKTALK_CONFIG.shopId
+                    },
+                    body: JSON.stringify({
+                        userId: this.userId,
+                        timestamp: Date.now(),
+                        shopKey: window.QUICKTALK_CONFIG.shopKey,
+                        shopId: window.QUICKTALK_CONFIG.shopId,
+                        domain: window.location.hostname,
+                        version: window.QUICKTALK_CONFIG.version
+                    })
+                });
+                
+                if (!res.ok) {
+                    res = await fetch(window.QUICKTALK_CONFIG.apiUrl + '/connect', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            userId: this.userId,
+                            timestamp: Date.now()
+                        })
+                    });
+                }
+                
+                if (res.ok) {
+                    const data = await res.json();
+                    this.isConnected = true;
+                    this.updateStatus('connected', '已连接');
+                    this.startSmartPoll();  // 使用智能轮询
+                    console.log('✅ 客服连接成功:', data.shop?.name || '基础连接');
+                } else {
+                    throw new Error('连接失败');
+                }
+            } catch (e) {
+                console.error('❌ 客服连接失败:', e);
+                this.updateStatus('disconnected', '连接失败');
+                setTimeout(() => this.connect(), 5000);
+            }
+        },
+        
+        // 🚀 智能轮询：根据消息活跃度调整频率
+        startSmartPoll() {
+            if (this.interval) clearInterval(this.interval);
+            this.interval = setInterval(() => this.checkMsg(), this.pollInterval);
+            console.log('🔄 开始智能轮询 (间隔: ' + this.pollInterval + 'ms)...');
+        },
+        
+        // 📈 动态调整轮询频率
+        adjustPollInterval(hasNewMessages) {
+            if (hasNewMessages) {
+                // 有新消息时恢复快速轮询
+                this.pollInterval = 2000;
+                this.emptyResponseCount = 0;
+            } else {
+                // 连续无消息时逐渐减慢轮询
+                this.emptyResponseCount++;
+                if (this.emptyResponseCount > 5) {
+                    this.pollInterval = Math.min(this.maxPollInterval, this.pollInterval * 1.5);
+                }
+            }
+            
+            // 重启轮询以应用新间隔
+            if (this.interval) {
+                clearInterval(this.interval);
+                this.interval = setInterval(() => this.checkMsg(), this.pollInterval);
+            }
+        },
+        
+        async checkMsg() {
+            if (!this.isConnected) return;
+            try {
+                const res = await fetch(window.QUICKTALK_CONFIG.apiUrl + '/client/messages?userId=' + this.userId + '&lastId=' + this.lastSequenceId + '&shopId=' + window.QUICKTALK_CONFIG.shopId, {
+                    headers: {
+                        'X-Shop-Key': window.QUICKTALK_CONFIG.shopKey,
+                        'X-Shop-Id': window.QUICKTALK_CONFIG.shopId
+                    }
+                });
+                
+                if (res.ok) {
+                    const data = await res.json();
+                    const hasNewMessages = data.data?.messages?.length > 0;
+                    
+                    if (hasNewMessages) {
+                        console.log('📨 收到新消息:', data.data.messages.length + '条');
+                        data.data.messages.forEach(msg => {
+                            this.handleMsg(msg);
+                        });
+                        
+                        if (data.data.maxSequenceId) {
+                            this.lastSequenceId = data.data.maxSequenceId;
+                            console.log('🔄 更新lastSequenceId:', this.lastSequenceId);
+                        }
+                    }
+                    
+                    // 根据是否有新消息调整轮询频率
+                    this.adjustPollInterval(hasNewMessages);
+                    
+                } else if (res.status === 401) {
+                    console.error('❌ 认证失败，尝试重新连接...');
+                    this.isConnected = false;
+                    this.updateStatus('disconnected', '认证失败');
+                    setTimeout(() => this.connect(), 3000);
+                }
+            } catch (e) {
+                console.error('❌ 获取消息失败:', e);
+                this.isConnected = false;
+                this.updateStatus('disconnected', '连接断开');
+                setTimeout(() => this.connect(), 3000);
+            }
+        },
+        
+        handleMsg(msg) {
+            if (msg.type === 'staff_message') {
+                this.addMsg('staff', msg.message);
+                console.log('📨 收到客服消息:', msg.message);
+                
+                // 收到消息时立即恢复快速轮询
+                this.pollInterval = 2000;
+                this.emptyResponseCount = 0;
+            } else if (msg.type === 'system_notification') {
+                this.addMsg('system', msg.message);
+                console.log('📨 收到系统消息:', msg.message);
+            }
+        },
+        
+        // ... 其他方法保持不变
+        addMsg(type, text) {
+            const body = document.getElementById('cs-body');
+            const div = document.createElement('div');
+            div.className = 'cs-msg cs-' + type;
+            div.innerHTML = '<span class="cs-msg-text">' + text + '</span><span class="cs-msg-time">' + new Date().toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit'}) + '</span>';
+            body.appendChild(div);
+            body.scrollTop = body.scrollHeight;
+        },
+        
+        async send() {
+            const input = document.getElementById('cs-input');
+            const msg = input.value.trim();
+            if (!msg) return;
+            
+            if (!this.isConnected) {
+                this.addMsg('system', '连接断开，无法发送消息');
+                return;
+            }
+            
+            this.addMsg('user', msg);
+            input.value = '';
+            
+            try {
+                const response = await fetch(window.QUICKTALK_CONFIG.apiUrl + '/send', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Shop-Key': window.QUICKTALK_CONFIG.shopKey,
+                        'X-Shop-Id': window.QUICKTALK_CONFIG.shopId
+                    },
+                    body: JSON.stringify({
+                        userId: this.userId,
+                        message: msg,
+                        shopKey: window.QUICKTALK_CONFIG.shopKey,
+                        timestamp: Date.now()
+                    })
+                });
+                
+                if (response.ok) {
+                    console.log('✅ 消息发送成功');
+                    // 发送消息后恢复快速轮询等待回复
+                    this.pollInterval = 1000;  // 临时提高频率
+                    this.emptyResponseCount = 0;
+                    setTimeout(() => this.checkMsg(), 500);
+                } else {
+                    console.error('❌ 消息发送失败');
+                    this.addMsg('system', '发送失败，请重试');
+                }
+            } catch (e) {
+                console.error('❌ 发送错误:', e);
+                this.addMsg('system', '发送失败，请重试');
+            }
+        },
+        
+        updateStatus(status, text) {
+            const dot = document.getElementById('cs-dot');
+            const statusText = document.getElementById('cs-status');
+            if (dot) dot.className = 'cs-dot cs-' + status;
+            if (statusText) statusText.textContent = text;
+        },
+        
+        updateTime() {
+            const time = document.getElementById('welcome-time');
+            if (time) time.textContent = new Date().toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit'});
+        }
+        
+        // ... 其他方法保持不变
+    };
+    
+    // 全局函数
+    window.toggleCS = () => cs.toggle();
+    window.closeCS = () => cs.close();
+    window.miniCS = () => cs.minimize();
+    window.sendCS = () => cs.send();
+    
+    // 初始化
+    document.addEventListener('DOMContentLoaded', function() {
+        const cbBtn = document.querySelector('#cb');
+        if (cbBtn) {
+            cbBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                cs.toggle();
+            });
+        }
+        setTimeout(() => cs.init(), 1000);
+    });
+    
+    if (document.readyState !== 'loading') {
+        setTimeout(() => cs.init(), 1000);
+    }
+    
+    window.addEventListener('beforeunload', () => {
+        if (cs.interval) clearInterval(cs.interval);
+    });
+})();
+</script>

@@ -1,0 +1,415 @@
+// WebSocket管理器 - 模块化实现
+// 负责处理WebSocket连接、消息路由和客户端管理
+
+class WebSocketManager {
+    constructor(server, messageAdapter) {
+        this.server = server;
+        this.messageAdapter = messageAdapter;
+        this.wss = null;
+        
+        // 客户端连接管理
+        this.clients = new Map(); // userId -> WebSocket连接
+        this.shopClients = new Map(); // shopId -> Set<userId>
+        this.connectionStats = {
+            totalConnections: 0,
+            activeConnections: 0,
+            messagesHandled: 0
+        };
+        
+        this.isInitialized = false;
+    }
+    
+    /**
+     * 初始化WebSocket服务器
+     */
+    initialize() {
+        if (this.isInitialized) {
+            console.log('⚠️ WebSocket管理器已经初始化');
+            return this.wss;
+        }
+        
+        // 创建WebSocket服务器
+        this.wss = new (require('ws')).Server({
+            server: this.server,
+            path: '/ws',
+            perMessageDeflate: false
+        });
+        
+        // 设置连接处理
+        this.wss.on('connection', (ws, req) => {
+            this.handleNewConnection(ws, req);
+        });
+        
+        // 心跳检测
+        this.startHeartbeat();
+        
+        this.isInitialized = true;
+        console.log('🔌 WebSocket管理器初始化完成');
+        console.log(`   📡 WebSocket路径: ws://localhost:3030/ws`);
+        
+        return this.wss;
+    }
+    
+    /**
+     * 处理新的WebSocket连接
+     */
+    handleNewConnection(ws, req) {
+        console.log('🔗 新的WebSocket连接');
+        
+        // 连接统计
+        this.connectionStats.totalConnections++;
+        this.connectionStats.activeConnections++;
+        
+        // 连接状态
+        ws.isAlive = true;
+        ws.userId = null;
+        ws.shopId = null;
+        ws.authenticated = false;
+        ws.connectedAt = new Date();
+        
+        // 事件处理器
+        ws.on('message', (message) => {
+            this.handleMessage(ws, message);
+        });
+        
+        ws.on('close', (code, reason) => {
+            this.handleDisconnection(ws, code, reason);
+        });
+        
+        ws.on('error', (error) => {
+            this.handleError(ws, error);
+        });
+        
+        ws.on('pong', () => {
+            ws.isAlive = true;
+        });
+        
+        // 发送连接确认
+        this.sendMessage(ws, {
+            type: 'connection_established',
+            timestamp: Date.now(),
+            message: 'WebSocket连接已建立'
+        });
+    }
+    
+    /**
+     * 处理WebSocket消息
+     */
+    async handleMessage(ws, message) {
+        try {
+            const data = JSON.parse(message);
+            this.connectionStats.messagesHandled++;
+            
+            console.log('📨 收到WebSocket消息:', data.type, `(用户: ${ws.userId || '未认证'})`);
+            
+            switch (data.type) {
+                case 'auth':
+                    await this.handleAuth(ws, data);
+                    break;
+                    
+                case 'send_message':
+                    await this.handleSendMessage(ws, data);
+                    break;
+                    
+                case 'ping':
+                    this.handlePing(ws, data);
+                    break;
+                    
+                default:
+                    console.log('⚠️ 未知消息类型:', data.type);
+                    this.sendError(ws, `未知消息类型: ${data.type}`);
+            }
+            
+        } catch (e) {
+            console.error('❌ WebSocket消息解析失败:', e);
+            this.sendError(ws, '消息格式错误');
+        }
+    }
+    
+    /**
+     * 处理用户认证
+     */
+    async handleAuth(ws, data) {
+        try {
+            // 验证必需字段
+            if (!data.shopKey || !data.shopId || !data.userId) {
+                this.sendError(ws, '认证信息不完整');
+                return;
+            }
+            
+            // 这里可以添加更严格的认证逻辑
+            // 例如验证shopKey是否有效
+            
+            // 设置连接信息
+            ws.userId = data.userId;
+            ws.shopId = data.shopId;
+            ws.shopKey = data.shopKey;
+            ws.authenticated = true;
+            
+            // 注册客户端
+            this.registerClient(ws);
+            
+            // 发送认证成功消息
+            this.sendMessage(ws, {
+                type: 'auth_success',
+                message: 'WebSocket认证成功',
+                userId: data.userId,
+                timestamp: Date.now()
+            });
+            
+            console.log(`✅ WebSocket用户认证成功: ${data.userId} (店铺: ${data.shopId})`);
+            
+        } catch (e) {
+            console.error('❌ WebSocket认证失败:', e);
+            this.sendError(ws, '认证失败: ' + e.message);
+        }
+    }
+    
+    /**
+     * 处理用户发送消息
+     */
+    async handleSendMessage(ws, data) {
+        if (!ws.authenticated) {
+            this.sendError(ws, '请先进行认证');
+            return;
+        }
+        
+        try {
+            console.log(`📤 用户 ${ws.userId} 发送消息: "${data.message}"`);
+            
+            // 保存消息到数据库 - 使用正确的方法名和格式
+            const conversationId = `${data.shopId}_${data.userId}`;
+            const messageData = {
+                conversationId: conversationId,
+                senderType: 'customer',
+                senderId: data.userId,
+                content: data.message,
+                timestamp: new Date().toISOString()
+            };
+            
+            await this.messageAdapter.addMessage(messageData);
+            
+            // 发送确认
+            this.sendMessage(ws, {
+                type: 'message_sent',
+                message: '消息发送成功',
+                timestamp: Date.now()
+            });
+            
+            console.log(`✅ 用户消息已保存: ${data.userId} -> "${data.message}"`);
+            
+            // 通知店铺管理员（如果在线）
+            this.notifyShopStaff(data.shopId, {
+                type: 'new_user_message',
+                userId: data.userId,
+                message: data.message,
+                timestamp: Date.now()
+            });
+            
+        } catch (e) {
+            console.error('❌ 保存用户消息失败:', e);
+            this.sendError(ws, '消息发送失败');
+        }
+    }
+    
+    /**
+     * 处理心跳包
+     */
+    handlePing(ws, data) {
+        this.sendMessage(ws, {
+            type: 'pong',
+            timestamp: Date.now()
+        });
+    }
+    
+    /**
+     * 注册客户端连接
+     */
+    registerClient(ws) {
+        // 添加到客户端映射
+        this.clients.set(ws.userId, ws);
+        
+        // 添加到店铺客户端映射
+        if (!this.shopClients.has(ws.shopId)) {
+            this.shopClients.set(ws.shopId, new Set());
+        }
+        this.shopClients.get(ws.shopId).add(ws.userId);
+        
+        console.log(`📊 当前在线用户: ${this.clients.size}，店铺 ${ws.shopId} 在线用户: ${this.shopClients.get(ws.shopId).size}`);
+    }
+    
+    /**
+     * 移除客户端连接
+     */
+    removeClient(ws) {
+        if (ws.userId) {
+            this.clients.delete(ws.userId);
+            
+            if (ws.shopId && this.shopClients.has(ws.shopId)) {
+                this.shopClients.get(ws.shopId).delete(ws.userId);
+                
+                // 如果店铺没有在线用户了，清理
+                if (this.shopClients.get(ws.shopId).size === 0) {
+                    this.shopClients.delete(ws.shopId);
+                }
+            }
+        }
+        
+        this.connectionStats.activeConnections--;
+    }
+    
+    /**
+     * 处理连接断开
+     */
+    handleDisconnection(ws, code, reason) {
+        console.log(`🔌 WebSocket连接断开: ${code} (用户: ${ws.userId || '未认证'})`);
+        this.removeClient(ws);
+    }
+    
+    /**
+     * 处理连接错误
+     */
+    handleError(ws, error) {
+        console.error('❌ WebSocket连接错误:', error);
+        this.removeClient(ws);
+    }
+    
+    /**
+     * 向客户端推送消息（客服回复）
+     */
+    async pushMessageToUser(userId, message, messageType = 'staff') {
+        const ws = this.clients.get(userId);
+        if (ws && ws.readyState === require('ws').OPEN && ws.authenticated) {
+            try {
+                this.sendMessage(ws, {
+                    type: 'staff_message',
+                    message: message,
+                    messageType: messageType,
+                    timestamp: Date.now()
+                });
+                
+                console.log(`📨 客服消息已推送: ${userId} -> "${message}"`);
+                return true;
+                
+            } catch (e) {
+                console.error('❌ 推送消息失败:', e);
+                this.removeClient(ws);
+                return false;
+            }
+        }
+        
+        console.log(`⚠️ 用户 ${userId} 不在线，无法推送消息`);
+        return false;
+    }
+    
+    /**
+     * 批量推送消息给店铺的所有在线用户
+     */
+    async broadcastToShop(shopId, message, messageType = 'system') {
+        const userIds = this.shopClients.get(shopId);
+        if (!userIds) {
+            console.log(`⚠️ 店铺 ${shopId} 没有在线用户`);
+            return 0;
+        }
+        
+        let sentCount = 0;
+        for (const userId of userIds) {
+            if (await this.pushMessageToUser(userId, message, messageType)) {
+                sentCount++;
+            }
+        }
+        
+        if (sentCount > 0) {
+            console.log(`📨 店铺广播消息: ${shopId} (${sentCount}个用户收到)`);
+        }
+        
+        return sentCount;
+    }
+    
+    /**
+     * 发送消息到WebSocket
+     */
+    sendMessage(ws, data) {
+        if (ws.readyState === require('ws').OPEN) {
+            ws.send(JSON.stringify(data));
+        }
+    }
+    
+    /**
+     * 发送错误消息
+     */
+    sendError(ws, message) {
+        this.sendMessage(ws, {
+            type: 'error',
+            message: message,
+            timestamp: Date.now()
+        });
+    }
+    
+    /**
+     * 通知店铺工作人员
+     */
+    notifyShopStaff(shopId, data) {
+        // 这里可以实现通知店铺管理员的逻辑
+        // 比如发送到管理员的WebSocket连接
+        console.log(`🔔 店铺 ${shopId} 有新用户消息，等待客服回复`);
+    }
+    
+    /**
+     * 启动心跳检测
+     */
+    startHeartbeat() {
+        const interval = setInterval(() => {
+            this.wss.clients.forEach((ws) => {
+                if (ws.isAlive === false) {
+                    console.log(`💔 清理死连接: ${ws.userId || '未认证用户'}`);
+                    return ws.terminate();
+                }
+                
+                ws.isAlive = false;
+                ws.ping();
+            });
+        }, 30000); // 30秒检测一次
+        
+        this.wss.on('close', () => {
+            clearInterval(interval);
+        });
+        
+        console.log('💓 WebSocket心跳检测已启动 (30秒间隔)');
+    }
+    
+    /**
+     * 获取连接统计信息
+     */
+    getStats() {
+        return {
+            ...this.connectionStats,
+            activeConnections: this.clients.size,
+            shopsWithUsers: this.shopClients.size,
+            shops: Array.from(this.shopClients.entries()).map(([shopId, userIds]) => ({
+                shopId,
+                onlineUsers: userIds.size,
+                users: Array.from(userIds)
+            }))
+        };
+    }
+    
+    /**
+     * 获取在线用户列表
+     */
+    getOnlineUsers() {
+        return Array.from(this.clients.keys());
+    }
+    
+    /**
+     * 关闭WebSocket服务器
+     */
+    close() {
+        if (this.wss) {
+            this.wss.close();
+            console.log('🔌 WebSocket服务器已关闭');
+        }
+    }
+}
+
+module.exports = WebSocketManager;
