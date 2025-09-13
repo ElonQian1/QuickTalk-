@@ -860,7 +860,7 @@ app.post('/api/conversations/:conversationId/messages', requireAuth, async (req,
         }
         
         const shopId = conversationId.substring(0, userIndex);
-        const userId = conversationId.substring(userIndex + 6); // 跳过"_user_"（6个字符）
+        const userId = conversationId.substring(userIndex + 1); // 只跳过开头的"_"，保留"user_"前缀
         
         console.log(`🔍 解析对话ID: conversationId=${conversationId}, shopId=${shopId}, userId=${userId}`);
         
