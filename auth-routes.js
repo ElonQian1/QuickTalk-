@@ -1,8 +1,23 @@
-module.exports = function(app, database) {
+module.exports = function(app, database, modularApp = null) {
+
+// ========== 集成新的模块化客户端API ==========
+if (modularApp && modularApp.initialized) {
+    console.log('🔌 集成模块化客户端API...');
+    
+    // 引入客户端API路由集成模块
+    const { integrateClientApiRoutes } = require('./src/client-api/routes');
+    
+    // 集成客户端API路由
+    integrateClientApiRoutes(app, modularApp);
+}
 
 // 用户认证中间件
 function requireAuth(req, res, next) {
-    const sessionId = req.headers['x-session-id'] || req.body.sessionId;
+    // 从多种来源获取 sessionId：header、body、cookie
+    const sessionId = req.headers['x-session-id'] || 
+                     req.body.sessionId || 
+                     (req.headers.cookie && req.headers.cookie.split(';').find(c => c.trim().startsWith('sessionId='))?.split('=')[1]);
+    
     console.log('🔍 [AUTH] 认证检查:', { sessionId: sessionId ? sessionId.substring(0, 20) + '...' : 'null', path: req.path });
     
     if (!sessionId) {
@@ -98,6 +113,20 @@ app.post('/api/auth/login', async (req, res) => {
 
 // 获取当前用户信息
 app.get('/api/auth/me', requireAuth, async (req, res) => {
+    try {
+        // 使用统一的用户信息获取函数
+        const completeUserInfo = await database.getCompleteUserInfo(req.user.id);
+        res.json({
+            success: true,
+            ...completeUserInfo
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 获取当前用户信息（别名）
+app.get('/api/auth/user', requireAuth, async (req, res) => {
     try {
         // 使用统一的用户信息获取函数
         const completeUserInfo = await database.getCompleteUserInfo(req.user.id);
@@ -698,15 +727,14 @@ app.get('/api/conversations/:conversationId', requireAuth, async (req, res) => {
     try {
         const { conversationId } = req.params;
         
-        // conversationId 格式: shopId_userId (例如: shop_1757591780450_1_user_1757591780450_3)
-        // 需要正确分离 shopId 和 userId
-        const userIndex = conversationId.indexOf('_user_');
-        if (userIndex === -1) {
+        // conversationId 格式: shopId_userId (例如: shop_123_user_456)
+        const parts = conversationId.split('_');
+        if (parts.length < 3) {
             return res.status(400).json({ error: '无效的对话ID格式' });
         }
         
-        const shopId = conversationId.substring(0, userIndex); // shop_1757591780450_1
-        const userId = conversationId.substring(userIndex + 1); // user_1757591780450_3
+        const shopId = parts.slice(0, 2).join('_'); // shop_123
+        const userId = parts.slice(2).join('_'); // user_456
         
         // 检查用户是否有权限访问该店铺
         const userShops = await database.getUserShops(req.user.id);
@@ -758,22 +786,41 @@ app.get('/api/conversations/:conversationId/messages', requireAuth, async (req, 
             userRole: req.user.role
         });
         
-        // conversationId 格式: shopId_userId (例如: shop_1757591780450_1_user_1757591780450_3)
-        // 需要正确分离 shopId 和 userId
-        const userIndex = conversationId.indexOf('_user_');
-        if (userIndex === -1) {
-            return res.status(400).json({ error: '无效的对话ID格式' });
-        }
+        // conversationId 格式: shopId_userId (例如: shop_1757591780450_1_brand_new_user_810960)
+        // 需要正确解析包含多个下划线的用户ID
         
-        const shopId = conversationId.substring(0, userIndex); // shop_1757591780450_1
-        const userId = conversationId.substring(userIndex + 1); // user_1757591780450_3
-        
-        console.log('🔍 [DEBUG] 解析对话ID:', { shopId, userId });
-        
-        // 检查用户是否有权限访问该店铺
+        // 先获取用户的店铺列表，用于正确分割 conversationId
         const userShops = await database.getUserShops(req.user.id);
         console.log('🔍 [DEBUG] 用户店铺列表:', userShops.map(s => ({ id: s.id, name: s.name })));
         
+        // 查找匹配的店铺ID来正确分割conversationId
+        let shopId = null;
+        let userId = null;
+        
+        for (const shop of userShops) {
+            if (conversationId.startsWith(shop.id + '_')) {
+                shopId = shop.id;
+                userId = conversationId.substring(shop.id.length + 1); // +1 for the underscore
+                break;
+            }
+        }
+        
+        // 如果是超级管理员，尝试从conversationId中提取shop_开头的部分
+        if (!shopId && req.user.role === 'super_admin') {
+            const shopMatch = conversationId.match(/^(shop_\d+_\d+)_(.+)$/);
+            if (shopMatch) {
+                shopId = shopMatch[1];
+                userId = shopMatch[2];
+            }
+        }
+        
+        if (!shopId || !userId) {
+            return res.status(400).json({ error: '无效的对话ID格式或无权限访问该对话' });
+        }
+        
+        console.log('🔍 [DEBUG] 解析对话ID:', { conversationId, shopId, userId });
+        
+        // 权限检查 - 由于我们已经在上面根据用户店铺列表进行了匹配，这里只需要确认访问权限
         const hasAccess = req.user.role === 'super_admin' || 
                         userShops.some(shop => shop.id === shopId);
         
@@ -806,14 +853,16 @@ app.post('/api/conversations/:conversationId/messages', requireAuth, async (req,
         }
         
         // conversationId 格式: shopId_userId (例如: shop_1757591780450_1_user_1757591780450_3)
-        // 需要正确分离 shopId 和 userId
-        const userIndex = conversationId.indexOf('_user_');
+        // 需要正确解析包含多个下划线的ID
+        const userIndex = conversationId.lastIndexOf('_user_');
         if (userIndex === -1) {
             return res.status(400).json({ error: '无效的对话ID格式' });
         }
         
-        const shopId = conversationId.substring(0, userIndex); // shop_1757591780450_1
-        const userId = conversationId.substring(userIndex + 1); // user_1757591780450_3
+        const shopId = conversationId.substring(0, userIndex);
+        const userId = conversationId.substring(userIndex + 6); // 跳过"_user_"（6个字符）
+        
+        console.log(`🔍 解析对话ID: conversationId=${conversationId}, shopId=${shopId}, userId=${userId}`);
         
         // 检查用户是否有权限访问该店铺
         const userShops = await database.getUserShops(req.user.id);
@@ -839,6 +888,17 @@ app.post('/api/conversations/:conversationId/messages', requireAuth, async (req,
             WHERE shop_id = ? AND user_id = ?
         `, [content.trim(), shopId, userId]);
         
+        // 🚀 新增：通过WebSocket推送消息给客户端
+        let webSocketPushed = false;
+        if (global.wsManager) {
+            try {
+                webSocketPushed = await global.wsManager.pushMessageToUser(userId, content.trim(), 'admin');
+                console.log(`📨 管理后台消息WebSocket推送: ${userId} -> "${content.trim()}" (${webSocketPushed ? '成功' : '失败'})`);
+            } catch (error) {
+                console.error('❌ WebSocket推送失败:', error);
+            }
+        }
+        
         res.json({
             success: true,
             message: {
@@ -847,7 +907,9 @@ app.post('/api/conversations/:conversationId/messages', requireAuth, async (req,
                 sender_type: 'admin',
                 sender_id: req.user.id,
                 created_at: new Date().toISOString()
-            }
+            },
+            // 添加WebSocket推送状态信息
+            webSocketPushed: webSocketPushed
         });
     } catch (error) {
         console.error('发送消息失败:', error.message);
@@ -860,18 +922,32 @@ app.put('/api/conversations/:conversationId/read', requireAuth, async (req, res)
     try {
         const { conversationId } = req.params;
         
-        // conversationId 格式: shopId_userId (例如: shop_1757591780450_1_user_1757591780450_3)
-        // 需要正确分离 shopId 和 userId
-        const userIndex = conversationId.indexOf('_user_');
-        if (userIndex === -1) {
-            return res.status(400).json({ error: '无效的对话ID格式' });
+        // 使用改进的解析逻辑
+        const userShops = await database.getUserShops(req.user.id);
+        
+        let shopId = null;
+        let userId = null;
+        
+        for (const shop of userShops) {
+            if (conversationId.startsWith(shop.id + '_')) {
+                shopId = shop.id;
+                userId = conversationId.substring(shop.id.length + 1);
+                break;
+            }
         }
         
-        const shopId = conversationId.substring(0, userIndex); // shop_1757591780450_1
-        const userId = conversationId.substring(userIndex + 1); // user_1757591780450_3
+        if (!shopId && req.user.role === 'super_admin') {
+            const shopMatch = conversationId.match(/^(shop_\d+_\d+)_(.+)$/);
+            if (shopMatch) {
+                shopId = shopMatch[1];
+                userId = shopMatch[2];
+            }
+        }
         
-        // 检查用户是否有权限访问该店铺
-        const userShops = await database.getUserShops(req.user.id);
+        if (!shopId || !userId) {
+            return res.status(400).json({ error: '无效的对话ID格式或无权限访问该对话' });
+        }
+        
         const hasAccess = req.user.role === 'super_admin' || 
                         userShops.some(shop => shop.id === shopId);
         
@@ -888,23 +964,37 @@ app.put('/api/conversations/:conversationId/read', requireAuth, async (req, res)
     }
 });
 
-// 标记对话为已读 - 兼容前端调用
+// 标记对话为已读 - 兼容前端的mark-read路径
 app.post('/api/conversations/:conversationId/mark-read', requireAuth, async (req, res) => {
     try {
         const { conversationId } = req.params;
         
-        // conversationId 格式: shopId_userId (例如: shop_1757591780450_1_user_1757591780450_3)
-        // 需要正确分离 shopId 和 userId
-        const userIndex = conversationId.indexOf('_user_');
-        if (userIndex === -1) {
-            return res.status(400).json({ error: '无效的对话ID格式' });
+        // 使用改进的解析逻辑
+        const userShops = await database.getUserShops(req.user.id);
+        
+        let shopId = null;
+        let userId = null;
+        
+        for (const shop of userShops) {
+            if (conversationId.startsWith(shop.id + '_')) {
+                shopId = shop.id;
+                userId = conversationId.substring(shop.id.length + 1);
+                break;
+            }
         }
         
-        const shopId = conversationId.substring(0, userIndex); // shop_1757591780450_1
-        const userId = conversationId.substring(userIndex + 1); // user_1757591780450_3
+        if (!shopId && req.user.role === 'super_admin') {
+            const shopMatch = conversationId.match(/^(shop_\d+_\d+)_(.+)$/);
+            if (shopMatch) {
+                shopId = shopMatch[1];
+                userId = shopMatch[2];
+            }
+        }
         
-        // 检查用户是否有权限访问该店铺
-        const userShops = await database.getUserShops(req.user.id);
+        if (!shopId || !userId) {
+            return res.status(400).json({ error: '无效的对话ID格式或无权限访问该对话' });
+        }
+        
         const hasAccess = req.user.role === 'super_admin' || 
                         userShops.some(shop => shop.id === shopId);
         

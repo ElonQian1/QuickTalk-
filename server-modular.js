@@ -4,10 +4,7 @@ const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 
 // 引入新的模块化应用管理器
-const ModularApp = require('./src/modules/ModularApp');
-
-// 引入新的WebSocket路由系统
-const WebSocketRouter = require('./src/websocket/WebSocketRouter');
+const ModularApp = require('./src/app/modular-app');
 
 // 引入旧系统的兼容模块
 const Database = require('./database-sqlite');
@@ -35,10 +32,17 @@ async function initializeModularSystem() {
     console.log('🚀 正在初始化新的模块化客服系统...');
     
     try {
-        // 创建并初始化模块化应用，传入数据库实例
-        modularApp = new ModularApp(database);
+        // 创建并初始化模块化应用
+        modularApp = new ModularApp({
+            dbPath: './data/customer_service.db',
+            logDir: './logs',
+            port: PORT
+        });
         
         await modularApp.initialize();
+        
+        // 创建测试数据
+        await modularApp.createTestData();
         
         console.log('✅ 模块化系统初始化完成');
         return modularApp;
@@ -156,10 +160,6 @@ function initializeRoutes() {
     // 引入认证路由，传入模块化应用实例
     require('./auth-routes')(app, database, modularApp);
     
-    // 引入WebSocket集成API
-    const { setupWebSocketIntegratedAPI } = require('./src/websocket/WebSocketAPI');
-    setupWebSocketIntegratedAPI(app, modularApp);
-    
     console.log('✅ 路由系统初始化完成');
 }
 
@@ -207,32 +207,24 @@ function initializeStaticRoutes() {
     });
 }
 
-// ============ 模块化 WebSocket 系统 ============
-function initializeWebSocket(server, messageAdapter) {
-    console.log('🚀 初始化模块化WebSocket系统...');
+// ============ WebSocket 连接处理 ============
+function initializeWebSocket(server) {
+    // 创建 WebSocket 服务器
+    const wss = new WebSocket.Server({ server, path: '/ws' });
+    global.wss = wss;
     
-    // 使用新的模块化WebSocket路由
-    const wsManager = WebSocketRouter.initialize(server, messageAdapter);
-    
-    // 设置WebSocket相关的HTTP API路由
-    WebSocketRouter.setupRoutes(app);
-    
-    // 将WebSocket管理器设为全局可访问（兼容性）
-    global.wsManager = wsManager;
-    global.wss = wsManager.wss;
-    
-    console.log('✅ 模块化WebSocket系统初始化完成');
-    return wsManager;
+    console.log('🔌 WebSocket服务器初始化完成');
+    return wss;
 }
 
 // ============ 服务器启动 ============
 async function startServer() {
     try {
-        // 1. 首先初始化兼容模块（包括数据库）
-        await initializeCompatibilityModules();
-        
-        // 2. 然后初始化模块化系统（需要数据库实例）
+        // 1. 初始化模块化系统
         await initializeModularSystem();
+        
+        // 2. 初始化兼容模块
+        await initializeCompatibilityModules();
         
         // 3. 显示旧模块日志（保持界面一致性）
         await displayLegacyModuleLogs();
@@ -249,9 +241,8 @@ async function startServer() {
         // 7. 创建 HTTP 服务器
         const server = require('http').createServer(app);
         
-        // 8. 初始化模块化 WebSocket (传入messageAdapter)
-        const messageAdapter = modularApp.getMessageAdapter();
-        initializeWebSocket(server, messageAdapter);
+        // 8. 初始化 WebSocket
+        initializeWebSocket(server);
         
         // 9. 启动服务器
         server.listen(PORT, () => {
