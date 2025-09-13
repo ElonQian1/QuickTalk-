@@ -11,8 +11,8 @@ const WebSocketRouter = require('./src/websocket/WebSocketRouter');
 
 // 引入旧系统的兼容模块
 const Database = require('./database-sqlite');
-const DomainValidator = require('./domain-validator');
-const IntegrationCodeGenerator = require('./integration-code-generator');
+const DomainValidator = require('./src/security/domain-validator');
+// const IntegrationCodeGenerator = require('./static/js/modules/ruilong-features/integration-generator'); // 暂时注释，前端代码不能在Node.js中运行
 
 const app = express();
 const PORT = 3030;
@@ -61,7 +61,7 @@ async function initializeCompatibilityModules() {
         domainValidator = new DomainValidator(database);
         
         // 初始化集成代码生成器
-        codeGenerator = new IntegrationCodeGenerator(database);
+        // codeGenerator = new IntegrationCodeGenerator(database); // 暂时注释
         
         console.log('✅ 兼容模块初始化完成');
         
