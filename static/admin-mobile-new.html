@@ -1,0 +1,1072 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>客服管理系统 - QuickTalk</title>
+    
+    <!-- 基础样式重置 -->
+    <link rel="stylesheet" href="/assets/css/core/reset.css">
+    <!-- 基础样式 -->
+    <link rel="stylesheet" href="/assets/css/core/base.css">
+    <!-- 组件样式库 -->
+    <link rel="stylesheet" href="/assets/css/components/index.css">
+    
+    <style>
+        /* 管理后台特定样式 */
+        body {
+            font-family: var(--font-family-sans);
+            background: var(--gray-100);
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* 应用容器 */
+        .admin-app {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            background: var(--gray-100);
+        }
+
+        /* 登录界面 */
+        .login-screen {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, var(--primary-color) 0%, #764ba2 100%);
+            padding: var(--spacing-md);
+        }
+
+        .login-container {
+            background: white;
+            padding: var(--spacing-xl);
+            border-radius: var(--border-radius-lg);
+            box-shadow: var(--box-shadow-lg);
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: var(--spacing-xl);
+        }
+
+        .login-logo {
+            font-size: 2rem;
+            font-weight: var(--font-weight-bold);
+            color: var(--primary-color);
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .login-subtitle {
+            color: var(--gray-600);
+            font-size: var(--font-size-sm);
+        }
+
+        /* 状态栏 */
+        .status-bar {
+            height: 44px;
+            background: var(--primary-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: var(--font-weight-semibold);
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .status-bar .connection-info {
+            position: absolute;
+            right: var(--spacing-md);
+            font-size: var(--font-size-xs);
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--danger-color);
+        }
+
+        .status-indicator.connected {
+            background: var(--success-color);
+        }
+
+        /* 主要内容区域 */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* 标签页导航 */
+        .tab-navigation {
+            background: white;
+            border-bottom: 1px solid var(--border-color);
+            flex-shrink: 0;
+        }
+
+        /* 内容面板 */
+        .content-panels {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .content-panel {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .content-panel.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* 消息面板 */
+        .messages-panel {
+            background: white;
+        }
+
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .conversation-header {
+            background: var(--gray-50);
+            padding: var(--spacing-md);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .conversation-info h3 {
+            margin: 0;
+            font-size: var(--font-size-base);
+            font-weight: var(--font-weight-medium);
+        }
+
+        .conversation-info p {
+            margin: 0;
+            font-size: var(--font-size-xs);
+            color: var(--gray-600);
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: var(--spacing-md);
+            overflow-y: auto;
+            background: var(--gray-50);
+        }
+
+        .chat-input-area {
+            background: white;
+            border-top: 1px solid var(--border-color);
+            padding: var(--spacing-md);
+        }
+
+        .input-group {
+            display: flex;
+            gap: var(--spacing-sm);
+        }
+
+        .message-input {
+            flex: 1;
+            resize: none;
+            min-height: 40px;
+            max-height: 120px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            padding: var(--spacing-sm) var(--spacing-md);
+            font-size: var(--font-size-sm);
+        }
+
+        .message-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+        }
+
+        /* 店铺管理面板 */
+        .shops-panel {
+            background: white;
+            padding: var(--spacing-md);
+        }
+
+        .shop-grid {
+            display: grid;
+            gap: var(--spacing-md);
+            margin-top: var(--spacing-md);
+        }
+
+        .shop-card {
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            padding: var(--spacing-md);
+            transition: all 0.2s ease;
+        }
+
+        .shop-card:hover {
+            border-color: var(--primary-color);
+            box-shadow: var(--box-shadow-sm);
+        }
+
+        .shop-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .shop-name {
+            font-weight: var(--font-weight-medium);
+            color: var(--gray-900);
+        }
+
+        .shop-status {
+            font-size: var(--font-size-xs);
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-weight: var(--font-weight-medium);
+        }
+
+        .shop-status.active {
+            background: rgba(40, 167, 69, 0.1);
+            color: var(--success-color);
+        }
+
+        .shop-status.pending {
+            background: rgba(255, 193, 7, 0.1);
+            color: var(--warning-color);
+        }
+
+        .shop-info {
+            font-size: var(--font-size-sm);
+            color: var(--gray-600);
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .shop-actions {
+            display: flex;
+            gap: var(--spacing-sm);
+        }
+
+        /* 设置面板 */
+        .settings-panel {
+            background: white;
+            padding: var(--spacing-md);
+        }
+
+        .setting-group {
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .setting-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .setting-label {
+            display: block;
+            font-weight: var(--font-weight-medium);
+            margin-bottom: var(--spacing-sm);
+            color: var(--gray-900);
+        }
+
+        .setting-description {
+            font-size: var(--font-size-sm);
+            color: var(--gray-600);
+            margin-bottom: var(--spacing-sm);
+        }
+
+        /* 消息样式 */
+        .message {
+            margin-bottom: var(--spacing-md);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .message-customer {
+            align-items: flex-start;
+        }
+
+        .message-agent {
+            align-items: flex-end;
+        }
+
+        .message-system {
+            align-items: center;
+        }
+
+        .message-content {
+            max-width: 80%;
+            padding: var(--spacing-sm) var(--spacing-md);
+            border-radius: var(--border-radius);
+            margin-bottom: var(--spacing-xs);
+            word-wrap: break-word;
+        }
+
+        .message-customer .message-content {
+            background: var(--gray-200);
+            color: var(--gray-900);
+        }
+
+        .message-agent .message-content {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .message-system .message-content {
+            background: var(--gray-100);
+            color: var(--gray-600);
+            font-style: italic;
+            font-size: var(--font-size-sm);
+            text-align: center;
+        }
+
+        .message-time {
+            font-size: var(--font-size-xs);
+            color: var(--gray-500);
+            padding: 0 var(--spacing-sm);
+        }
+
+        .message-info {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 480px) {
+            .login-container {
+                padding: var(--spacing-lg);
+            }
+            
+            .conversation-header {
+                padding: var(--spacing-sm) var(--spacing-md);
+            }
+            
+            .chat-messages {
+                padding: var(--spacing-sm) var(--spacing-md);
+            }
+            
+            .chat-input-area {
+                padding: var(--spacing-sm) var(--spacing-md);
+            }
+        }
+
+        /* 深色主题支持 */
+        @media (prefers-color-scheme: dark) {
+            .admin-app {
+                background: var(--gray-900);
+            }
+
+            .login-container {
+                background: var(--gray-800);
+            }
+
+            .messages-panel,
+            .shops-panel,
+            .settings-panel {
+                background: var(--gray-800);
+            }
+
+            .conversation-header {
+                background: var(--gray-700);
+            }
+
+            .chat-messages {
+                background: var(--gray-700);
+            }
+
+            .chat-input-area {
+                background: var(--gray-800);
+                border-top-color: var(--gray-600);
+            }
+
+            .message-input {
+                background: var(--gray-700);
+                border-color: var(--gray-600);
+                color: var(--gray-100);
+            }
+
+            .shop-card {
+                background: var(--gray-800);
+                border-color: var(--gray-600);
+            }
+
+            .message-customer .message-content {
+                background: var(--gray-600);
+                color: var(--gray-100);
+            }
+
+            .message-system .message-content {
+                background: var(--gray-600);
+                color: var(--gray-300);
+            }
+        }
+
+        /* 隐藏类 */
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-app" id="admin-app">
+        <!-- 登录界面 -->
+        <div class="login-screen" id="login-screen">
+            <div class="login-container">
+                <div class="login-header">
+                    <h1 class="login-logo">QuickTalk</h1>
+                    <p class="login-subtitle">客服管理系统</p>
+                </div>
+                <div class="login-form" id="login-form">
+                    <!-- 登录表单将通过JavaScript创建 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 主应用界面 -->
+        <div class="main-app hidden" id="main-app">
+            <!-- 状态栏 -->
+            <div class="status-bar">
+                <span>客服管理系统</span>
+                <div class="connection-info">
+                    <span class="status-indicator" id="ws-status"></span>
+                    <span id="ws-status-text">离线</span>
+                </div>
+            </div>
+
+            <!-- 主要内容 -->
+            <div class="main-content">
+                <!-- 标签页导航 -->
+                <div class="tab-navigation" id="tab-navigation">
+                    <!-- 导航将通过JavaScript创建 -->
+                </div>
+
+                <!-- 内容面板 -->
+                <div class="content-panels">
+                    <!-- 消息面板 -->
+                    <div class="content-panel active" id="messages-panel">
+                        <div class="messages-panel">
+                            <div class="chat-container">
+                                <div class="conversation-header">
+                                    <div class="conversation-info">
+                                        <h3 id="conversation-title">选择一个对话</h3>
+                                        <p id="conversation-subtitle">等待客户消息...</p>
+                                    </div>
+                                    <div class="conversation-actions">
+                                        <button class="btn btn-sm btn-outline-primary" id="refresh-btn">刷新</button>
+                                    </div>
+                                </div>
+                                <div class="chat-messages" id="chat-messages">
+                                    <!-- 消息将通过JavaScript动态添加 -->
+                                </div>
+                                <div class="chat-input-area">
+                                    <div class="input-group">
+                                        <textarea class="message-input" id="message-input" placeholder="输入回复消息..." rows="1"></textarea>
+                                        <button class="btn btn-primary" id="send-btn">发送</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 店铺管理面板 -->
+                    <div class="content-panel" id="shops-panel">
+                        <div class="shops-panel">
+                            <div class="d-flex align-items-center justify-content-between mb-3">
+                                <h2 class="fs-lg fw-semibold">店铺管理</h2>
+                                <button class="btn btn-primary btn-sm" id="add-shop-btn">添加店铺</button>
+                            </div>
+                            <div class="shop-grid" id="shop-grid">
+                                <!-- 店铺卡片将通过JavaScript动态添加 -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 设置面板 -->
+                    <div class="content-panel" id="settings-panel">
+                        <div class="settings-panel">
+                            <h2 class="fs-lg fw-semibold mb-4">系统设置</h2>
+                            <div class="setting-group">
+                                <label class="setting-label">通知设置</label>
+                                <p class="setting-description">配置新消息通知方式</p>
+                                <div class="form-check">
+                                    <input type="checkbox" class="form-check-input" id="sound-notification">
+                                    <label class="form-check-label" for="sound-notification">声音通知</label>
+                                </div>
+                                <div class="form-check">
+                                    <input type="checkbox" class="form-check-input" id="desktop-notification">
+                                    <label class="form-check-label" for="desktop-notification">桌面通知</label>
+                                </div>
+                            </div>
+                            <div class="setting-group">
+                                <label class="setting-label">自动回复</label>
+                                <p class="setting-description">设置自动回复消息</p>
+                                <textarea class="form-control" id="auto-reply" placeholder="输入自动回复内容..." rows="3"></textarea>
+                            </div>
+                            <div class="setting-group">
+                                <label class="setting-label">工作时间</label>
+                                <p class="setting-description">设置客服工作时间</p>
+                                <div class="d-flex gap-2">
+                                    <input type="time" class="form-control" id="work-start" value="09:00">
+                                    <span class="align-self-center">到</span>
+                                    <input type="time" class="form-control" id="work-end" value="18:00">
+                                </div>
+                            </div>
+                            <div class="setting-group">
+                                <button class="btn btn-primary" id="save-settings-btn">保存设置</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 核心JavaScript模块 -->
+    <script src="/assets/js/core/eventbus.js"></script>
+    <script src="/assets/js/core/utils.js"></script>
+    <script src="/assets/js/core/config.js"></script>
+    
+    <!-- UI组件库 -->
+    <script src="/assets/js/components/index.js"></script>
+    
+    <!-- 业务管理器 -->
+    <script src="/assets/js/modules/user-manager.js"></script>
+    <script src="/assets/js/modules/message-manager.js"></script>
+    <script src="/assets/js/modules/shop-manager.js"></script>
+
+    <script>
+        // 管理后台应用
+        class AdminApp {
+            constructor() {
+                this.isLoggedIn = false;
+                this.currentUser = null;
+                this.ws = null;
+                this.currentConversation = null;
+                this.activeTab = 'messages';
+                
+                // 组件实例
+                this.navigation = null;
+                this.userManager = null;
+                this.messageManager = null;
+                this.shopManager = null;
+                
+                this.init();
+            }
+            
+            async init() {
+                console.log('[AdminApp] 初始化开始');
+                
+                // 初始化管理器
+                this.userManager = new UserManager({
+                    eventBus: window.EventBus,
+                    utils: window.Utils
+                });
+                
+                this.messageManager = new MessageManager({
+                    eventBus: window.EventBus,
+                    utils: window.Utils
+                });
+                
+                this.shopManager = new ShopManager({
+                    eventBus: window.EventBus,
+                    utils: window.Utils
+                });
+                
+                // 绑定事件
+                this.bindEvents();
+                
+                // 创建登录表单
+                this.createLoginForm();
+                
+                // 检查是否已登录
+                await this.checkLoginStatus();
+                
+                console.log('[AdminApp] 初始化完成');
+            }
+            
+            bindEvents() {
+                // 监听用户相关事件
+                window.EventBus?.on('user:loginSuccess', (data) => {
+                    this.handleLoginSuccess(data);
+                });
+                
+                window.EventBus?.on('user:logout', () => {
+                    this.handleLogout();
+                });
+                
+                // 监听消息相关事件
+                window.EventBus?.on('message:received', (data) => {
+                    this.handleNewMessage(data);
+                });
+                
+                // 监听WebSocket连接状态
+                window.EventBus?.on('connection:statusChanged', (status) => {
+                    this.updateConnectionStatus(status);
+                });
+            }
+            
+            createLoginForm() {
+                const formContainer = document.getElementById('login-form');
+                
+                // 使用Form组件创建登录表单
+                const form = new window.Form(formContainer, {
+                    fields: [
+                        {
+                            name: 'username',
+                            type: 'text',
+                            label: '用户名',
+                            required: true,
+                            placeholder: '请输入用户名'
+                        },
+                        {
+                            name: 'password',
+                            type: 'password',
+                            label: '密码',
+                            required: true,
+                            placeholder: '请输入密码'
+                        }
+                    ],
+                    actions: [
+                        {
+                            text: '登录',
+                            type: 'submit',
+                            variant: 'primary',
+                            block: true
+                        }
+                    ],
+                    onSubmit: (data) => this.handleLogin(data),
+                    eventBus: window.EventBus,
+                    utils: window.Utils
+                });
+            }
+            
+            createNavigation() {
+                const navContainer = document.getElementById('tab-navigation');
+                
+                // 使用Navigation组件创建标签页导航
+                this.navigation = new window.Navigation(navContainer, {
+                    type: 'tabs',
+                    items: [
+                        {
+                            id: 'messages',
+                            label: '消息',
+                            icon: '💬',
+                            badge: 0
+                        },
+                        {
+                            id: 'shops',
+                            label: '店铺',
+                            icon: '🏪'
+                        },
+                        {
+                            id: 'settings',
+                            label: '设置',
+                            icon: '⚙️'
+                        }
+                    ],
+                    activeItem: 'messages',
+                    onItemClick: (itemId) => this.switchTab(itemId),
+                    eventBus: window.EventBus,
+                    utils: window.Utils
+                });
+            }
+            
+            async handleLogin(formData) {
+                try {
+                    const response = await fetch('/api/admin/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(formData)
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        this.handleLoginSuccess(result);
+                    } else {
+                        window.Notification?.error(result.message || '登录失败');
+                    }
+                } catch (error) {
+                    console.error('登录错误:', error);
+                    window.Notification?.error('登录失败，请重试');
+                }
+            }
+            
+            handleLoginSuccess(data) {
+                this.isLoggedIn = true;
+                this.currentUser = data.user;
+                
+                // 隐藏登录界面，显示主应用
+                document.getElementById('login-screen').classList.add('hidden');
+                document.getElementById('main-app').classList.remove('hidden');
+                
+                // 创建导航
+                this.createNavigation();
+                
+                // 连接WebSocket
+                this.connectWebSocket();
+                
+                // 加载初始数据
+                this.loadInitialData();
+                
+                window.Notification?.success('登录成功！');
+            }
+            
+            handleLogout() {
+                this.isLoggedIn = false;
+                this.currentUser = null;
+                
+                // 断开WebSocket
+                if (this.ws) {
+                    this.ws.close();
+                    this.ws = null;
+                }
+                
+                // 显示登录界面
+                document.getElementById('main-app').classList.add('hidden');
+                document.getElementById('login-screen').classList.remove('hidden');
+                
+                window.Notification?.info('已退出登录');
+            }
+            
+            async checkLoginStatus() {
+                try {
+                    const response = await fetch('/api/admin/status');
+                    const result = await response.json();
+                    
+                    if (result.success && result.user) {
+                        this.handleLoginSuccess(result);
+                    }
+                } catch (error) {
+                    console.log('未登录或登录已过期');
+                }
+            }
+            
+            connectWebSocket() {
+                const wsUrl = `ws://localhost:3030/ws`;
+                this.ws = new WebSocket(wsUrl);
+                
+                this.ws.onopen = () => {
+                    console.log('WebSocket 连接已建立');
+                    this.updateConnectionStatus('connected');
+                    
+                    // 发送管理员连接消息
+                    this.ws.send(JSON.stringify({
+                        type: 'admin-connect',
+                        userId: this.currentUser.id
+                    }));
+                };
+                
+                this.ws.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        this.handleWebSocketMessage(data);
+                    } catch (error) {
+                        console.error('解析WebSocket消息失败:', error);
+                    }
+                };
+                
+                this.ws.onclose = () => {
+                    console.log('WebSocket 连接已断开');
+                    this.updateConnectionStatus('disconnected');
+                    
+                    // 尝试重连
+                    setTimeout(() => {
+                        if (this.isLoggedIn) {
+                            this.connectWebSocket();
+                        }
+                    }, 5000);
+                };
+                
+                this.ws.onerror = (error) => {
+                    console.error('WebSocket 错误:', error);
+                    this.updateConnectionStatus('error');
+                };
+            }
+            
+            handleWebSocketMessage(data) {
+                switch (data.type) {
+                    case 'new-conversation':
+                        this.handleNewConversation(data);
+                        break;
+                    case 'message':
+                        this.handleNewMessage(data);
+                        break;
+                    case 'conversation-closed':
+                        this.handleConversationClosed(data);
+                        break;
+                }
+            }
+            
+            handleNewConversation(data) {
+                // 更新消息标签页的徽章
+                if (this.navigation) {
+                    const currentBadge = this.navigation.getItem('messages')?.badge || 0;
+                    this.navigation.updateBadge('messages', currentBadge + 1);
+                }
+                
+                window.Notification?.info(`新的客户对话: ${data.customerName || '匿名客户'}`);
+            }
+            
+            handleNewMessage(data) {
+                // 如果当前不在消息标签页，更新徽章
+                if (this.activeTab !== 'messages') {
+                    const currentBadge = this.navigation.getItem('messages')?.badge || 0;
+                    this.navigation.updateBadge('messages', currentBadge + 1);
+                }
+                
+                // 如果是当前对话的消息，添加到聊天界面
+                if (this.currentConversation && data.conversationId === this.currentConversation.id) {
+                    this.addMessageToChat(data.content, 'customer', data.timestamp);
+                }
+                
+                // 显示通知
+                if (data.conversationId !== this.currentConversation?.id) {
+                    window.Notification?.info(`新消息: ${data.content}`);
+                }
+            }
+            
+            switchTab(tabId) {
+                // 隐藏所有面板
+                document.querySelectorAll('.content-panel').forEach(panel => {
+                    panel.classList.remove('active');
+                });
+                
+                // 显示选中的面板
+                document.getElementById(`${tabId}-panel`).classList.add('active');
+                
+                this.activeTab = tabId;
+                
+                // 如果切换到消息标签页，清除徽章
+                if (tabId === 'messages' && this.navigation) {
+                    this.navigation.updateBadge('messages', 0);
+                }
+                
+                // 加载对应数据
+                switch (tabId) {
+                    case 'messages':
+                        this.loadMessages();
+                        break;
+                    case 'shops':
+                        this.loadShops();
+                        break;
+                    case 'settings':
+                        this.loadSettings();
+                        break;
+                }
+            }
+            
+            async loadInitialData() {
+                // 根据当前标签页加载数据
+                switch (this.activeTab) {
+                    case 'messages':
+                        await this.loadMessages();
+                        break;
+                    case 'shops':
+                        await this.loadShops();
+                        break;
+                }
+            }
+            
+            async loadMessages() {
+                try {
+                    // 这里加载消息列表
+                    // 暂时显示占位内容
+                    this.addSystemMessage('等待客户消息...');
+                } catch (error) {
+                    console.error('加载消息失败:', error);
+                    window.Notification?.error('加载消息失败');
+                }
+            }
+            
+            async loadShops() {
+                try {
+                    const shops = await this.shopManager.getShops();
+                    this.renderShops(shops);
+                } catch (error) {
+                    console.error('加载店铺失败:', error);
+                    window.Notification?.error('加载店铺失败');
+                }
+            }
+            
+            renderShops(shops) {
+                const shopGrid = document.getElementById('shop-grid');
+                shopGrid.innerHTML = '';
+                
+                shops.forEach(shop => {
+                    const shopCard = document.createElement('div');
+                    shopCard.className = 'shop-card';
+                    shopCard.innerHTML = `
+                        <div class="shop-header">
+                            <span class="shop-name">${this.escapeHtml(shop.name)}</span>
+                            <span class="shop-status ${shop.status}">${shop.status === 'active' ? '已激活' : '待审核'}</span>
+                        </div>
+                        <div class="shop-info">
+                            <div>域名: ${this.escapeHtml(shop.domain || '未设置')}</div>
+                            <div>创建时间: ${new Date(shop.createdAt).toLocaleDateString()}</div>
+                        </div>
+                        <div class="shop-actions">
+                            <button class="btn btn-sm btn-outline-primary" onclick="editShop('${shop.id}')">编辑</button>
+                            <button class="btn btn-sm btn-outline-${shop.status === 'active' ? 'warning' : 'success'}" onclick="toggleShopStatus('${shop.id}')">
+                                ${shop.status === 'active' ? '停用' : '激活'}
+                            </button>
+                        </div>
+                    `;
+                    shopGrid.appendChild(shopCard);
+                });
+            }
+            
+            loadSettings() {
+                // 加载设置数据
+                // 这里可以从本地存储或服务器加载设置
+            }
+            
+            async sendMessage() {
+                const input = document.getElementById('message-input');
+                const message = input.value.trim();
+                
+                if (!message || !this.currentConversation) return;
+                
+                // 添加消息到界面
+                this.addMessageToChat(message, 'agent');
+                input.value = '';
+                
+                // 发送到服务器
+                if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                    this.ws.send(JSON.stringify({
+                        type: 'message',
+                        content: message,
+                        conversationId: this.currentConversation.id,
+                        timestamp: Date.now()
+                    }));
+                }
+            }
+            
+            addMessageToChat(content, sender, timestamp = null) {
+                const messagesContainer = document.getElementById('chat-messages');
+                const messageEl = document.createElement('div');
+                
+                messageEl.className = `message message-${sender}`;
+                
+                const time = timestamp ? new Date(timestamp) : new Date();
+                const timeStr = time.toLocaleTimeString('zh-CN', { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                });
+                
+                messageEl.innerHTML = `
+                    <div class="message-content">${this.escapeHtml(content)}</div>
+                    <div class="message-info">
+                        <span class="message-time">${timeStr}</span>
+                    </div>
+                `;
+                
+                messagesContainer.appendChild(messageEl);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+            
+            addSystemMessage(content) {
+                const messagesContainer = document.getElementById('chat-messages');
+                const messageEl = document.createElement('div');
+                
+                messageEl.className = 'message message-system';
+                messageEl.innerHTML = `
+                    <div class="message-content">${this.escapeHtml(content)}</div>
+                `;
+                
+                messagesContainer.appendChild(messageEl);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+            
+            updateConnectionStatus(status) {
+                const indicator = document.getElementById('ws-status');
+                const text = document.getElementById('ws-status-text');
+                
+                switch (status) {
+                    case 'connected':
+                        indicator.className = 'status-indicator connected';
+                        text.textContent = '在线';
+                        break;
+                    case 'disconnected':
+                        indicator.className = 'status-indicator';
+                        text.textContent = '离线';
+                        break;
+                    case 'error':
+                        indicator.className = 'status-indicator';
+                        text.textContent = '错误';
+                        break;
+                }
+            }
+            
+            escapeHtml(text) {
+                if (window.Utils && window.Utils.escapeHtml) {
+                    return window.Utils.escapeHtml(text);
+                }
+                
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+        }
+        
+        // 全局应用实例
+        let adminApp;
+        
+        // 全局函数（保持向后兼容）
+        function editShop(shopId) {
+            console.log('编辑店铺:', shopId);
+            // 这里可以打开编辑模态框
+        }
+        
+        function toggleShopStatus(shopId) {
+            console.log('切换店铺状态:', shopId);
+            // 这里可以调用API切换店铺状态
+        }
+        
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            adminApp = new AdminApp();
+            
+            // 绑定发送按钮
+            document.getElementById('send-btn').addEventListener('click', () => {
+                adminApp.sendMessage();
+            });
+            
+            // 绑定输入框回车键
+            document.getElementById('message-input').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    adminApp.sendMessage();
+                }
+            });
+            
+            console.log('[AdminMobile] 页面初始化完成');
+        });
+    </script>
+</body>
+</html>
