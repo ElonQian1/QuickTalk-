@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Message Test</title>
+</head>
+<body>
+    <h1>消息发送测试</h1>
+    <button onclick="sendMessage()">发送测试消息</button>
+    <div id="result"></div>
+
+    <script>
+    async function sendMessage() {
+        const data = {
+            api_key: "quicktalk_api_key_shop_1",
+            domain: "bbs16.929991.xyz",
+            message: "这是网页测试消息",
+            user_id: "test_user_web"
+        };
+
+        try {
+            const response = await fetch('/api/send', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            });
+
+            const result = await response.json();
+            document.getElementById('result').innerHTML = 
+                '<pre>' + JSON.stringify(result, null, 2) + '</pre>';
+        } catch (error) {
+            document.getElementById('result').innerHTML = 
+                '<pre>Error: ' + error.message + '</pre>';
+        }
+    }
+    </script>
+</body>
+</html>

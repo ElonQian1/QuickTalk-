@@ -173,6 +173,23 @@ class SQLiteDatabase {
         });
     }
 
+    // 为兼容MessageDatabase而添加的run方法别名
+    async run(sql, params = []) {
+        return await this.runAsync(sql, params);
+    }
+
+    // 为兼容MessageDatabase而添加的allAsync方法别名  
+    async getAllAsync(sql, params = []) {
+        return await this.allAsync(sql, params);
+    }
+
+    // 为兼容其他模块添加prepare方法
+    prepare(sql) {
+        return {
+            run: (params) => this.runAsync(sql, params)
+        };
+    }
+
     getAsync(sql, params = []) {
         return new Promise((resolve, reject) => {
             this.db.get(sql, params, (err, row) => {
@@ -485,6 +502,10 @@ class SQLiteDatabase {
 
     async getShopByDomain(domain) {
         return await this.getAsync('SELECT * FROM shops WHERE domain = ?', [domain]);
+    }
+
+    async getShopByApiKey(apiKey) {
+        return await this.getAsync('SELECT * FROM shops WHERE api_key = ?', [apiKey]);
     }
 
     async getShopsByOwner(ownerId) {
