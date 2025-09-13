@@ -33,12 +33,29 @@ function requireSuperAdmin(req, res, next) {
     next();
 }
 
-// 店主权限检查
-function requireShopOwner(req, res, next) {
-    if (!['super_admin', 'shop_owner'].includes(req.user.role)) {
+// 店主权限检查 - 修改为支持店铺所有者权限
+async function requireShopOwner(req, res, next) {
+    try {
+        // 超级管理员和全局店主角色可以直接通过
+        if (['super_admin', 'shop_owner'].includes(req.user.role)) {
+            return next();
+        }
+        
+        // 如果是针对特定店铺的操作，检查用户是否是该店铺的所有者
+        const shopId = req.params.shopId;
+        if (shopId) {
+            const shop = await database.getShopById(shopId);
+            if (shop && shop.owner_id === req.user.id) {
+                console.log('✅ 用户是店铺所有者，允许操作:', { userId: req.user.id, shopId: shopId });
+                return next();
+            }
+        }
+        
         return res.status(403).json({ error: '需要店主权限' });
+    } catch (error) {
+        console.error('权限检查失败:', error.message);
+        return res.status(500).json({ error: '权限验证失败' });
     }
-    next();
 }
 
 // 用户注册
@@ -998,16 +1015,13 @@ app.post('/api/shops/:shopId/activate', requireAuth, requireShopOwner, async (re
         
         console.log('💎 创建付费开通订单:', { shopId, userId });
         
-        // 检查店铺是否存在且属于当前用户
+        // 检查店铺是否存在
         const shop = await database.getShopById(shopId);
         if (!shop) {
             return res.status(404).json({ error: '店铺不存在' });
         }
         
-        // 检查权限（超级管理员可以为任何店铺付费开通，店主只能为自己的店铺付费开通）
-        if (req.user.role !== 'super_admin' && shop.owner_id !== userId) {
-            return res.status(403).json({ error: '只能为自己的店铺付费开通' });
-        }
+        // 权限检查已经在requireShopOwner中间件中完成，这里不需要重复检查
         
         // 检查店铺是否已经激活
         if (shop.status === 'active' && shop.approval_status === 'approved') {
@@ -1151,6 +1165,48 @@ app.post('/api/activation-orders/:orderId/mock-success', requireAuth, async (req
     } catch (error) {
         console.error('模拟付费开通支付失败:', error.message);
         res.status(500).json({ error: '模拟付费开通支付失败' });
+    }
+});
+
+// ============ 集成代码生成功能 ============
+
+// 生成店铺集成代码
+app.post('/api/shops/:shopId/integration-code', requireAuth, requireShopOwner, async (req, res) => {
+    try {
+        const shopId = req.params.shopId;
+        const { serverUrl } = req.body;
+        
+        console.log('📋 生成集成代码请求:', { shopId, serverUrl });
+        
+        // 检查店铺是否存在
+        const shop = await database.getShopById(shopId);
+        if (!shop) {
+            return res.status(404).json({ error: '店铺不存在' });
+        }
+        
+        // 使用集成代码生成器生成代码
+        const IntegrationCodeGenerator = require('./integration-code-generator');
+        const codeGenerator = new IntegrationCodeGenerator(database);
+        
+        const integrationCode = await codeGenerator.generateIntegrationCode(shopId, {
+            serverUrl: serverUrl || `${req.protocol}://${req.get('host')}`
+        });
+        
+        console.log('✅ 集成代码生成成功');
+        
+        res.json({
+            success: true,
+            shop: {
+                id: shop.id,
+                name: shop.name,
+                domain: shop.domain
+            },
+            integrationCode: integrationCode
+        });
+        
+    } catch (error) {
+        console.error('生成集成代码失败:', error.message);
+        res.status(500).json({ error: '生成集成代码失败: ' + error.message });
     }
 });
 

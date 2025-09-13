@@ -506,11 +506,26 @@ class SQLiteDatabase {
     }
 
     async updateShopApiKey(shopId, apiKey) {
-        await this.runAsync(`
-            UPDATE shops 
-            SET api_key = ?, api_key_created_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP 
-            WHERE id = ?
-        `, [apiKey, shopId]);
+        try {
+            // 尝试完整更新
+            await this.runAsync(`
+                UPDATE shops 
+                SET api_key = ?, api_key_created_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP 
+                WHERE id = ?
+            `, [apiKey, shopId]);
+        } catch (error) {
+            if (error.message.includes('api_key_created_at')) {
+                console.log('⚠️  api_key_created_at字段不存在，仅更新api_key字段');
+                // 如果api_key_created_at字段不存在，仅更新api_key
+                await this.runAsync(`
+                    UPDATE shops 
+                    SET api_key = ?, updated_at = CURRENT_TIMESTAMP 
+                    WHERE id = ?
+                `, [apiKey, shopId]);
+            } else {
+                throw error;
+            }
+        }
         return await this.getShopById(shopId);
     }
 
