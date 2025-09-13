@@ -80,11 +80,18 @@ class MobileShopManager {
         const sessionId = urlParams.get('sessionId');
         
         if (sessionId) {
+            localStorage.setItem('sessionId', sessionId);
             sessionStorage.setItem('currentSessionId', sessionId);
             return sessionId;
         }
         
-        // 从sessionStorage获取
+        // 从localStorage获取（主存储位置）
+        const localSessionId = localStorage.getItem('sessionId');
+        if (localSessionId) {
+            return localSessionId;
+        }
+        
+        // 从sessionStorage获取（备用）
         const storedSessionId = sessionStorage.getItem('currentSessionId');
         if (storedSessionId) {
             return storedSessionId;

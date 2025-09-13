@@ -1011,4 +1011,167 @@ app.post('/api/conversations/:conversationId/mark-read', requireAuth, async (req
     }
 });
 
+// ========== 集成代码相关API ==========
+
+// 生成集成代码
+app.post('/api/integration/generate-code', requireAuth, async (req, res) => {
+    try {
+        const { shopId } = req.body;
+        
+        if (!shopId) {
+            return res.status(400).json({ error: '店铺ID不能为空' });
+        }
+        
+        // 检查用户是否有权限访问该店铺
+        const userShops = await database.getUserShops(req.user.id);
+        const hasAccess = req.user.role === 'super_admin' || 
+                        userShops.some(shop => shop.id === shopId);
+        
+        if (!hasAccess) {
+            return res.status(403).json({ error: '没有权限访问该店铺' });
+        }
+        
+        // 生成或获取API密钥
+        let apiKey = await database.getShopApiKey(shopId);
+        if (!apiKey) {
+            apiKey = generateApiKey();
+            await database.saveShopApiKey(shopId, apiKey);
+        }
+        
+        // 生成集成代码
+        const integrationCode = generateIntegrationCodeTemplate(shopId, apiKey);
+        
+        res.json({
+            success: true,
+            apiKey: apiKey,
+            integrationCode: integrationCode
+        });
+    } catch (error) {
+        console.error('生成集成代码失败:', error.message);
+        res.status(500).json({ error: '生成集成代码失败' });
+    }
+});
+
+// 重新生成API密钥
+app.post('/api/integration/regenerate-key', requireAuth, async (req, res) => {
+    try {
+        const { shopId } = req.body;
+        
+        if (!shopId) {
+            return res.status(400).json({ error: '店铺ID不能为空' });
+        }
+        
+        // 检查用户是否有权限访问该店铺
+        const userShops = await database.getUserShops(req.user.id);
+        const hasAccess = req.user.role === 'super_admin' || 
+                        userShops.some(shop => shop.id === shopId);
+        
+        if (!hasAccess) {
+            return res.status(403).json({ error: '没有权限访问该店铺' });
+        }
+        
+        // 生成新的API密钥
+        const newApiKey = generateApiKey();
+        await database.saveShopApiKey(shopId, newApiKey);
+        
+        // 生成新的集成代码
+        const integrationCode = generateIntegrationCodeTemplate(shopId, newApiKey);
+        
+        res.json({
+            success: true,
+            apiKey: newApiKey,
+            integrationCode: integrationCode
+        });
+    } catch (error) {
+        console.error('重新生成API密钥失败:', error.message);
+        res.status(500).json({ error: '重新生成API密钥失败' });
+    }
+});
+
+// 生成API密钥的辅助函数
+function generateApiKey() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let result = '';
+    for (let i = 0; i < 32; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+}
+
+// 生成集成代码模板的辅助函数
+function generateIntegrationCodeTemplate(shopId, apiKey) {
+    const serverUrl = process.env.SERVER_URL || 'http://localhost:3030';
+    
+    return `<!-- QuickTalk客服系统集成代码 -->
+<script>
+(function() {
+    // 配置
+    var config = {
+        shopId: '${shopId}',
+        apiKey: '${apiKey}',
+        serverUrl: '${serverUrl}',
+        chatButtonText: '💬 在线客服',
+        chatButtonColor: '#007AFF',
+        position: 'bottom-right'
+    };
+    
+    // 创建聊天按钮
+    var chatButton = document.createElement('div');
+    chatButton.id = 'quicktalk-chat-button';
+    chatButton.innerHTML = config.chatButtonText;
+    chatButton.style.cssText = \`
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background: \${config.chatButtonColor};
+        color: white;
+        padding: 12px 20px;
+        border-radius: 25px;
+        cursor: pointer;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+        font-size: 14px;
+        font-weight: 600;
+        z-index: 10000;
+        transition: all 0.3s ease;
+    \`;
+    
+    // 鼠标悬停效果
+    chatButton.onmouseover = function() {
+        this.style.transform = 'scale(1.05)';
+        this.style.boxShadow = '0 6px 20px rgba(0,0,0,0.2)';
+    };
+    
+    chatButton.onmouseout = function() {
+        this.style.transform = 'scale(1)';
+        this.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+    };
+    
+    // 点击打开聊天窗口
+    chatButton.onclick = function() {
+        openChatWindow();
+    };
+    
+    // 打开聊天窗口
+    function openChatWindow() {
+        var chatUrl = config.serverUrl + '/chat?shop=' + encodeURIComponent(config.shopId) + 
+                     '&key=' + encodeURIComponent(config.apiKey);
+        
+        window.open(chatUrl, 'quicktalk-chat', 
+                   'width=400,height=600,resizable=yes,scrollbars=yes');
+    }
+    
+    // 页面加载完成后添加按钮
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+            document.body.appendChild(chatButton);
+        });
+    } else {
+        document.body.appendChild(chatButton);
+    }
+})();
+</script>
+<!-- End QuickTalk客服系统集成代码 -->`;
+}
+
 };

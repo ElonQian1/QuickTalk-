@@ -419,6 +419,11 @@
             color: white;
         }
 
+        .shop-btn.info {
+            background: #007AFF;
+            color: white;
+        }
+
         /* 消息列表样式 */
         .conversation-item {
             display: flex;
@@ -953,6 +958,100 @@
             margin: 0;
             color: #333;
         }
+
+        /* ============ 集成代码模态框样式 ============ */
+        .integration-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .info-grid {
+            display: grid;
+            gap: 10px;
+        }
+
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .info-item:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .info-value {
+            color: #666;
+            font-family: monospace;
+        }
+
+        .code-section {
+            margin: 20px 0;
+        }
+
+        .code-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .code-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .code-textarea {
+            width: 100%;
+            height: 200px;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.4;
+            background: #f8f9fa;
+            resize: vertical;
+            margin-bottom: 10px;
+        }
+
+        .integration-usage {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #2196f3;
+        }
+
+        .integration-usage h4 {
+            margin-top: 0;
+            color: #1976d2;
+        }
+
+        .integration-usage ul {
+            margin: 10px 0 0 0;
+            padding-left: 20px;
+        }
+
+        .integration-usage li {
+            margin-bottom: 8px;
+            color: #555;
+        }
+
+        .integration-usage code {
+            background: rgba(0,0,0,0.1);
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
     </style>
 </head>
 <body>
@@ -1273,6 +1372,57 @@
                             <button onclick="saveShopSettings()" class="btn btn-primary">保存设置</button>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 集成代码模态框 -->
+    <div id="integrationModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>📋 集成代码</h3>
+                <button class="close-btn" onclick="hideModal('integrationModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="integration-info">
+                    <h4 id="integrationShopName">店铺名称</h4>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">店铺ID:</span>
+                            <span class="info-value" id="integrationShopId">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">API密钥:</span>
+                            <span class="info-value" id="integrationApiKey">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">生成时间:</span>
+                            <span class="info-value" id="integrationGeneratedAt">-</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="code-section">
+                    <div class="code-header">
+                        <h4>🔧 集成代码</h4>
+                        <div class="code-actions">
+                            <button class="btn btn-primary" onclick="copyIntegrationCode()">📋 复制代码</button>
+                            <button class="btn btn-warning" onclick="regenerateApiKey()">🔑 重新生成</button>
+                        </div>
+                    </div>
+                    <textarea id="integrationCode" class="code-textarea" readonly placeholder="正在生成集成代码..."></textarea>
+                </div>
+                
+                <div class="integration-usage">
+                    <h4>📝 使用说明:</h4>
+                    <ul>
+                        <li>✅ 将上方代码复制并粘贴到您网站的 HTML 页面中</li>
+                        <li>✅ 建议放在 <code>&lt;/body&gt;</code> 标签前</li>
+                        <li>✅ 代码将在右下角显示客服聊天按钮</li>
+                        <li>✅ 访客点击即可开始与您的客服对话</li>
+                        <li>✅ 如需更改样式或位置，请联系技术支持</li>
+                    </ul>
                 </div>
             </div>
         </div>
@@ -1674,6 +1824,7 @@
                             <div class="shop-actions">
                                 <button class="shop-btn primary" onclick="ShopManager.manageShop('${shop.id}')">管理</button>
                                 <button class="shop-btn success" onclick="MessageManager.viewShopConversations('${shop.id}')">消息</button>
+                                <button class="shop-btn info" onclick="showIntegrationCode('${shop.id}', '${shop.name}')">📋 代码</button>
                             </div>
                         </div>
                     `;
@@ -2356,6 +2507,100 @@
                 closeShopManageModal();
             }
         };
+
+        // ============ 集成代码功能 ============
+        
+        // 显示集成代码模态框
+        function showIntegrationCode(shopId, shopName) {
+            showModal('integrationModal');
+            document.getElementById('integrationShopName').textContent = shopName;
+            document.getElementById('integrationShopId').textContent = shopId;
+            document.getElementById('integrationGeneratedAt').textContent = new Date().toLocaleString();
+            
+            // 生成集成代码
+            generateIntegrationCode(shopId);
+        }
+
+        // 生成集成代码
+        async function generateIntegrationCode(shopId) {
+            try {
+                const response = await fetch('/api/integration/generate-code', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Session-Id': getSessionId()
+                    },
+                    body: JSON.stringify({ shopId })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    document.getElementById('integrationApiKey').textContent = result.apiKey;
+                    document.getElementById('integrationCode').value = result.integrationCode;
+                } else {
+                    alert('生成集成代码失败：' + result.error);
+                }
+            } catch (error) {
+                console.error('生成集成代码失败:', error);
+                alert('生成集成代码失败，请重试');
+            }
+        }
+
+        // 复制集成代码
+        function copyIntegrationCode() {
+            const codeTextarea = document.getElementById('integrationCode');
+            codeTextarea.select();
+            codeTextarea.setSelectionRange(0, 99999); // 兼容移动设备
+            
+            try {
+                document.execCommand('copy');
+                alert('✅ 集成代码已复制到剪贴板');
+            } catch (err) {
+                console.error('复制失败:', err);
+                alert('❌ 复制失败，请手动选择并复制代码');
+            }
+        }
+
+        // 重新生成API密钥
+        async function regenerateApiKey() {
+            if (!confirm('确定要重新生成API密钥吗？旧的密钥将失效。')) {
+                return;
+            }
+
+            try {
+                const shopId = document.getElementById('integrationShopId').textContent;
+                const response = await fetch('/api/integration/regenerate-key', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Session-Id': getSessionId()
+                    },
+                    body: JSON.stringify({ shopId })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    document.getElementById('integrationApiKey').textContent = result.apiKey;
+                    document.getElementById('integrationCode').value = result.integrationCode;
+                    document.getElementById('integrationGeneratedAt').textContent = new Date().toLocaleString();
+                    alert('✅ API密钥已重新生成');
+                } else {
+                    alert('重新生成失败：' + result.error);
+                }
+            } catch (error) {
+                console.error('重新生成API密钥失败:', error);
+                alert('重新生成失败，请重试');
+            }
+        }
+
+        // 显示和隐藏模态框的通用函数
+        function showModal(modalId) {
+            document.getElementById(modalId).style.display = 'flex';
+        }
+
+        function hideModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
     </script>
 </body>
 </html>

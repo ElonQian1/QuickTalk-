@@ -3102,15 +3102,24 @@
                             <button class="action-btn btn-primary" onclick="viewShopMessages('${shop.id}')">
                                 查看消息
                             </button>
-                            <button class="action-btn btn-secondary" onclick="manageShop('${shop.id}')">
-                                管理店铺
-                            </button>
-                            <button class="action-btn btn-info" onclick="generateIntegrationCode('${shop.id}')">
-                                📋 生成代码
-                            </button>
-                            <button class="action-btn btn-success" onclick="renewShop('${shop.id}')">
-                                💰 续费 (¥2000/年)
-                            </button>
+                            ${shop.userRole === 'owner' ? `
+                                <button class="action-btn btn-secondary" onclick="manageShop('${shop.id}')">
+                                    管理店铺
+                                </button>
+                                <button class="action-btn btn-warning" onclick="editShopInfo('${shop.id}')">
+                                    ✏️ 编辑店铺信息
+                                </button>
+                                <button class="action-btn btn-info" onclick="generateIntegrationCode('${shop.id}')">
+                                    📋 生成代码
+                                </button>
+                                <button class="action-btn btn-success" onclick="renewShop('${shop.id}')">
+                                    💰 续费 (¥2000/年)
+                                </button>
+                            ` : shop.userRole === 'manager' ? `
+                                <button class="action-btn btn-secondary" onclick="manageShop('${shop.id}')">
+                                    管理店铺
+                                </button>
+                            ` : ''}
                         ` : `
                             <button class="action-btn btn-secondary" onclick="viewShopMessages('${shop.id}')">
                                 查看消息
@@ -3198,6 +3207,78 @@
                     
                     // 重新加载用户信息和店铺列表
                     await loadUserInfo();
+                } else {
+                    const error = await response.json();
+                    alert('更新失败: ' + error.error);
+                }
+            } catch (error) {
+                console.error('更新店铺错误:', error);
+                alert('网络错误，请重试');
+            }
+        }
+
+        // 编辑已审核店铺信息
+        function editShopInfo(shopId) {
+            const shop = currentShops.find(s => s.id === shopId);
+            if (!shop) {
+                alert('店铺信息不存在');
+                return;
+            }
+
+            // 确保只有店主可以编辑
+            if (shop.userRole !== 'owner') {
+                alert('只有店主可以编辑店铺信息');
+                return;
+            }
+
+            // 预填充编辑表单
+            const form = document.getElementById('createShopForm');
+            form.querySelector('[name="shopName"]').value = shop.name;
+            form.querySelector('[name="shopDomain"]').value = shop.domain;
+            form.querySelector('[name="shopDescription"]').value = shop.description || '';
+            
+            // 修改模态框标题
+            document.querySelector('#createShopModal .modal-header h3').textContent = '✏️ 编辑店铺信息';
+            
+            // 修改表单提交行为
+            const originalHandler = form.onsubmit;
+            form.onsubmit = async (e) => {
+                e.preventDefault();
+                await updateApprovedShop(shopId);
+                form.onsubmit = originalHandler; // 恢复原始提交处理
+            };
+            
+            // 显示模态框
+            document.getElementById('createShopModal').style.display = 'block';
+        }
+
+        // 更新已审核店铺信息
+        async function updateApprovedShop(shopId) {
+            const form = document.getElementById('createShopForm');
+            const formData = new FormData(form);
+            
+            try {
+                const response = await fetch(`/api/shops/${shopId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Session-Id': currentSession
+                    },
+                    body: JSON.stringify({
+                        name: formData.get('shopName'),
+                        domain: formData.get('shopDomain'),
+                        description: formData.get('shopDescription')
+                    })
+                });
+
+                if (response.ok) {
+                    alert('✅ 店铺信息更新成功！\n\n您的店铺信息已成功更新。');
+                    
+                    // 关闭模态框
+                    document.getElementById('createShopModal').style.display = 'none';
+                    
+                    // 重新加载用户信息和店铺列表
+                    await validateSession(currentSession);
                 } else {
                     const error = await response.json();
                     alert('更新失败: ' + error.error);
@@ -4451,6 +4532,17 @@
 
         // 显示创建店铺模态框
         function showCreateShopModal() {
+            // 重置模态框标题
+            document.querySelector('#createShopModal .modal-header h3').textContent = '📝 创建新店铺';
+            
+            // 重置表单
+            const form = document.getElementById('createShopForm');
+            form.reset();
+            
+            // 恢复原始提交行为
+            form.onsubmit = null;
+            
+            // 显示模态框
             document.getElementById('createShopModal').style.display = 'block';
         }
 
