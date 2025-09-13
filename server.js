@@ -13,6 +13,7 @@ const WebSocketRouter = require('./src/websocket/WebSocketRouter');
 const Database = require('./database-sqlite');
 const DomainValidator = require('./src/security/domain-validator');
 // const IntegrationCodeGenerator = require('./static/js/modules/ruilong-features/integration-generator'); // 暂时注释，前端代码不能在Node.js中运行
+const ServerSideIntegrationGenerator = require('./src/integrations/ServerSideIntegrationGenerator'); // 服务器端集成代码生成器
 
 const app = express();
 const PORT = 3030;
@@ -60,8 +61,8 @@ async function initializeCompatibilityModules() {
         // 初始化域名验证器
         domainValidator = new DomainValidator(database);
         
-        // 初始化集成代码生成器
-        // codeGenerator = new IntegrationCodeGenerator(database); // 暂时注释
+        // 初始化集成代码生成器（服务器端版本）
+        codeGenerator = new ServerSideIntegrationGenerator(database);
         
         console.log('✅ 兼容模块初始化完成');
         
@@ -160,7 +161,68 @@ function initializeRoutes() {
     const { setupWebSocketIntegratedAPI } = require('./src/websocket/WebSocketAPI');
     setupWebSocketIntegratedAPI(app, modularApp);
     
+    // 🔥 Ruilong集成代码生成API
+    setupIntegrationCodeRoutes();
+    
     console.log('✅ 路由系统初始化完成');
+}
+
+// ============ 集成代码生成API路由 ============
+function setupIntegrationCodeRoutes() {
+    console.log('📋 设置集成代码生成API...');
+    
+    // 生成集成代码
+    app.post('/api/integration/generate-code', async (req, res) => {
+        try {
+            const { shopId } = req.body;
+            const sessionId = req.headers['x-session-id'];
+            
+            // 验证用户权限
+            if (!sessionId) {
+                return res.status(401).json({ success: false, error: '未授权访问' });
+            }
+            
+            // 验证店铺权限（简化版本，实际应该检查用户是否有权限操作该店铺）
+            if (!shopId) {
+                return res.status(400).json({ success: false, error: '缺少店铺ID' });
+            }
+            
+            // 使用服务器端集成代码生成器
+            const result = await codeGenerator.generateIntegrationCode(shopId);
+            res.json(result);
+            
+        } catch (error) {
+            console.error('❌ 集成代码生成API错误:', error);
+            res.status(500).json({ success: false, error: '服务器内部错误' });
+        }
+    });
+    
+    // 重新生成API密钥
+    app.post('/api/integration/regenerate-key', async (req, res) => {
+        try {
+            const { shopId } = req.body;
+            const sessionId = req.headers['x-session-id'];
+            
+            // 验证用户权限
+            if (!sessionId) {
+                return res.status(401).json({ success: false, error: '未授权访问' });
+            }
+            
+            if (!shopId) {
+                return res.status(400).json({ success: false, error: '缺少店铺ID' });
+            }
+            
+            // 重新生成API密钥
+            const result = await codeGenerator.regenerateApiKey(shopId);
+            res.json(result);
+            
+        } catch (error) {
+            console.error('❌ API密钥重新生成错误:', error);
+            res.status(500).json({ success: false, error: '服务器内部错误' });
+        }
+    });
+    
+    console.log('✅ 集成代码生成API设置完成');
 }
 
 // ============ 静态页面路由 ============

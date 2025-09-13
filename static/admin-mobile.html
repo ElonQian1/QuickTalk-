@@ -1853,13 +1853,33 @@
                     }
                     const statusClass = this.getStatusClass(shop.approvalStatus || shop.status);
                     const statusText = this.getStatusText(shop.approvalStatus || shop.status);
-                    const userRole = this.getUserRoleInShop(shop);
+                    
+                    // 🔥 使用Ruilong角色管理模块
+                    let userRole;
+                    let shopButtons;
+                    
+                    if (typeof window.RuilongRoleManager !== 'undefined') {
+                        // 使用Ruilong模块获取角色
+                        const userId = currentUser ? currentUser.id || currentUser.userId : null;
+                        userRole = window.RuilongRoleManager.getUserRoleInShop(userId, shop);
+                        
+                        // 使用Ruilong模块渲染按钮
+                        if (typeof window.RuilongShopButtons !== 'undefined') {
+                            shopButtons = window.RuilongShopButtons.renderShopButtons(shop, userRole);
+                        } else {
+                            shopButtons = this.renderTraditionalButtons(shop, userRole);
+                        }
+                    } else {
+                        // 回退到传统方式
+                        userRole = this.getUserRoleInShop(shop);
+                        shopButtons = this.renderTraditionalButtons(shop, userRole);
+                    }
 
                     return `
                         <div class="shop-item">
                             <div class="shop-avatar-container">
                                 <div class="shop-avatar">${shop.name.charAt(0)}</div>
-                                <div class="shop-role">${this.getRoleText(userRole)}</div>
+                                <div class="shop-role">${this.getRoleTextWithFallback(userRole)}</div>
                             </div>
                             <div class="shop-content">
                                 <div class="shop-info">
@@ -1868,49 +1888,7 @@
                                     <div class="shop-status ${statusClass}">${statusText}</div>
                                 </div>
                                 <div class="shop-actions">
-                                    ${(() => {
-                                        const approvalStatus = shop.approval_status || shop.approvalStatus;
-                                        
-                                        if (approvalStatus === 'approved') {
-                                            // 根据用户在店铺中的角色显示不同按钮
-                                            if (userRole === 'owner' || userRole === 'admin') {
-                                                // 店主/管理员：显示所有管理按钮
-                                                return `
-                                                    <button class="shop-btn primary" onclick="ShopManager.manageShop('${shop.id}')">管理</button>
-                                                    <button class="shop-btn success" onclick="MessageManager.viewShopConversations('${shop.id}')">💬 消息</button>
-                                                    <button class="shop-btn info" onclick="showIntegrationCode('${shop.id}', '${shop.name}')">📋 代码</button>
-                                                `;
-                                            } else if (userRole === 'manager') {
-                                                // 经理：显示部分管理按钮
-                                                return `
-                                                    <button class="shop-btn success" onclick="MessageManager.viewShopConversations('${shop.id}')">💬 消息</button>
-                                                    <button class="shop-btn info" onclick="showIntegrationCode('${shop.id}', '${shop.name}')">📋 代码</button>
-                                                `;
-                                            } else if (userRole === 'employee') {
-                                                // 员工：只显示消息相关按钮
-                                                return `
-                                                    <button class="shop-btn success" onclick="MessageManager.viewShopConversations('${shop.id}')">💬 消息</button>
-                                                `;
-                                            } else {
-                                                // 其他角色：基本查看权限
-                                                return `
-                                                    <button class="shop-btn success" onclick="MessageManager.viewShopConversations('${shop.id}')">💬 消息</button>
-                                                `;
-                                            }
-                                        } else if (approvalStatus === 'pending') {
-                                            return `
-                                                <button class="shop-btn warning" disabled>等待审核</button>
-                                            `;
-                                        } else if (approvalStatus === 'rejected') {
-                                            return `
-                                                <button class="shop-btn danger" disabled>已拒绝</button>
-                                            `;
-                                        } else {
-                                            return `
-                                                <button class="shop-btn secondary" onclick="ShopManager.manageShop('${shop.id}')">查看</button>
-                                            `;
-                                        }
-                                    })()}
+                                    ${shopButtons}
                                 </div>
                             </div>
                         </div>
@@ -1973,6 +1951,59 @@
                 
                 // 默认返回
                 return 'member';
+            }
+
+            // 获取角色显示文本（优先使用Ruilong模块）
+            static getRoleTextWithFallback(role) {
+                if (typeof window.RuilongRoleManager !== 'undefined') {
+                    return window.RuilongRoleManager.getRoleText(role);
+                }
+                return this.getRoleText(role);
+            }
+
+            // 传统按钮渲染（向后兼容）
+            static renderTraditionalButtons(shop, userRole) {
+                const approvalStatus = shop.approval_status || shop.approvalStatus;
+                
+                if (approvalStatus === 'approved') {
+                    // 根据用户在店铺中的角色显示不同按钮
+                    if (userRole === 'owner' || userRole === 'admin') {
+                        // 店主/管理员：显示所有管理按钮
+                        return `
+                            <button class="shop-btn primary" onclick="ShopManager.manageShop('${shop.id}')">管理</button>
+                            <button class="shop-btn success" onclick="MessageManager.viewShopConversations('${shop.id}')">💬 消息</button>
+                            <button class="shop-btn info" onclick="showIntegrationCode('${shop.id}', '${shop.name}')">📋 代码</button>
+                        `;
+                    } else if (userRole === 'manager') {
+                        // 经理：显示部分管理按钮
+                        return `
+                            <button class="shop-btn success" onclick="MessageManager.viewShopConversations('${shop.id}')">💬 消息</button>
+                            <button class="shop-btn info" onclick="showIntegrationCode('${shop.id}', '${shop.name}')">📋 代码</button>
+                        `;
+                    } else if (userRole === 'employee') {
+                        // 员工：只显示消息相关按钮
+                        return `
+                            <button class="shop-btn success" onclick="MessageManager.viewShopConversations('${shop.id}')">💬 消息</button>
+                        `;
+                    } else {
+                        // 其他角色：基本查看权限
+                        return `
+                            <button class="shop-btn success" onclick="MessageManager.viewShopConversations('${shop.id}')">💬 消息</button>
+                        `;
+                    }
+                } else if (approvalStatus === 'pending') {
+                    return `
+                        <button class="shop-btn warning" disabled>等待审核</button>
+                    `;
+                } else if (approvalStatus === 'rejected') {
+                    return `
+                        <button class="shop-btn danger" disabled>已拒绝</button>
+                    `;
+                } else {
+                    return `
+                        <button class="shop-btn secondary" onclick="ShopManager.manageShop('${shop.id}')">查看</button>
+                    `;
+                }
             }
 
             // 获取角色显示文本（与桌面版保持一致）
@@ -2289,10 +2320,40 @@
     <script src="/js/message-search-manager.js"></script>
     <!-- 引入多店铺客服系统 -->
     <script src="/src/multi-shop-customer-service-manager.js"></script>
+    
+    <!-- 🚀 Ruilong功能模块系统 -->
+    <script src="/js/modules/ruilong-features/module-loader.js"></script>
     <script>
         // 初始化新的模块化系统
         window.addEventListener('DOMContentLoaded', async function() {
             console.log('🚀🚀🚀 DOMContentLoaded 事件触发 - 版本4.0（多店铺客服） 🚀🚀🚀');
+            
+            // 🔥 初始化Ruilong模块系统
+            if (typeof window.RuilongLoader !== 'undefined') {
+                console.log('🎯 开始初始化Ruilong功能模块...');
+                try {
+                    await window.RuilongLoader.init();
+                    console.log('✅ Ruilong模块系统初始化完成');
+                    
+                    // 设置全局访问点以支持传统onclick调用
+                    if (typeof window.RuilongMobile !== 'undefined') {
+                        window.RuilongMobile = window.RuilongMobile;
+                        console.log('📱 Ruilong移动端功能已就绪');
+                    }
+                    if (typeof window.RuilongIntegration !== 'undefined') {
+                        window.RuilongIntegration = window.RuilongIntegration;
+                        console.log('📋 Ruilong集成工具已就绪');
+                    }
+                    if (typeof window.RuilongPayment !== 'undefined') {
+                        window.RuilongPayment = window.RuilongPayment;
+                        console.log('💰 Ruilong支付系统已就绪');
+                    }
+                } catch (error) {
+                    console.error('❌ Ruilong模块初始化失败:', error);
+                }
+            } else {
+                console.warn('⚠️ Ruilong模块加载器未找到，使用传统模式');
+            }
             
             // 初始化店铺管理器
             if (typeof MobileShopManager !== 'undefined') {
