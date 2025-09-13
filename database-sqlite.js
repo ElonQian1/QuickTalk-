@@ -634,6 +634,63 @@ class SQLiteDatabase {
         return true;
     }
     
+    // 检查用户是否是店铺的店主
+    async isShopOwner(userId, shopId) {
+        const shop = await this.getAsync('SELECT owner_id FROM shops WHERE id = ?', [shopId]);
+        return shop && shop.owner_id === userId;
+    }
+    
+    // 获取用户在店铺中的角色
+    async getUserShopRole(userId, shopId) {
+        // 首先检查是否是店主
+        const isOwner = await this.isShopOwner(userId, shopId);
+        if (isOwner) {
+            return 'owner';
+        }
+        
+        // 检查是否是员工
+        const userShop = await this.getAsync(`
+            SELECT role FROM user_shops WHERE user_id = ? AND shop_id = ?
+        `, [userId, shopId]);
+        
+        return userShop ? userShop.role : null;
+    }
+    
+    // 获取店铺员工列表
+    async getShopEmployees(shopId) {
+        const employees = await this.allAsync(`
+            SELECT u.id, u.username, us.role, us.joined_at as joinedAt, us.permissions
+            FROM user_shops us
+            JOIN users u ON us.user_id = u.id
+            WHERE us.shop_id = ?
+        `, [shopId]);
+        
+        return employees.map(emp => {
+            let permissions = [];
+            
+            // 安全地解析权限字段，兼容不同格式
+            if (emp.permissions) {
+                try {
+                    // 尝试解析JSON格式
+                    permissions = JSON.parse(emp.permissions);
+                } catch (parseError) {
+                    // 如果解析失败，尝试按逗号分割字符串格式
+                    if (typeof emp.permissions === 'string') {
+                        permissions = emp.permissions.split(',').map(p => p.trim());
+                    }
+                }
+            }
+            
+            return {
+                id: emp.id,
+                username: emp.username,
+                role: emp.role,
+                joinedAt: emp.joinedAt,
+                permissions: permissions
+            };
+        });
+    }
+    
     // 店铺审核方法
     async reviewShop(shopId, reviewData, reviewerId) {
         const { approved, note = '' } = reviewData;

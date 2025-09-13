@@ -580,6 +580,17 @@
             color: white;
         }
 
+        .shop-pending-note {
+            padding: 8px 12px;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            color: #6c757d;
+            font-size: 12px;
+            text-align: center;
+            margin: 4px 0;
+        }
+
         /* 消息列表样式 */
         .conversation-item {
             display: flex;
@@ -3187,19 +3198,19 @@
                         <form onsubmit="addEmployee(event)">
                             <div class="form-group">
                                 <label for="employeeUsername">用户名</label>
-                                <input type="text" id="employeeUsername" required>
+                                <input type="text" id="employeeUsername" name="employeeUsername" required>
                             </div>
                             <div class="form-group">
                                 <label for="employeeEmail">邮箱</label>
-                                <input type="email" id="employeeEmail" required>
+                                <input type="email" id="employeeEmail" name="employeeEmail" required>
                             </div>
                             <div class="form-group">
                                 <label for="employeePassword">密码</label>
-                                <input type="password" id="employeePassword" required>
+                                <input type="password" id="employeePassword" name="employeePassword" required>
                             </div>
                             <div class="form-group">
                                 <label for="employeeRole">角色</label>
-                                <select id="employeeRole" required>
+                                <select id="employeeRole" name="employeeRole" required>
                                     <option value="staff">员工</option>
                                     <option value="manager">经理</option>
                                 </select>
@@ -3674,28 +3685,59 @@
                                 <div class="shop-actions">
                                     ${(() => {
                                         const approvalStatus = shop.approval_status || shop.approvalStatus;
-                                        console.log('🔍 店铺按钮渲染:', shop.name, 'approval_status:', shop.approval_status, 'approvalStatus:', shop.approvalStatus, '最终使用:', approvalStatus);
+                                        console.log('🔍 店铺按钮渲染:', shop.name, 'approval_status:', shop.approval_status, 'approvalStatus:', shop.approvalStatus, '最终使用:', approvalStatus, '用户角色:', userRole);
                                         
                                         if (approvalStatus === 'approved') {
-                                            return `
-                                                <button class="shop-btn primary" onclick="ShopManager.manageShop('${shop.id}')">管理</button>
-                                                <button class="shop-btn success" onclick="MessageManager.viewShopConversations('${shop.id}')">💬 消息</button>
-                                                <button class="shop-btn primary" onclick="viewMobileShopMessages('${shop.id}')">📄 消息详情</button>
-                                                <button class="shop-btn info" onclick="generateMobileIntegrationCode('${shop.id}')">📋 代码</button>
-                                                <button class="shop-btn warning" onclick="editMobileShopInfo('${shop.id}')">✏️ 编辑</button>
-                                                <button class="shop-btn info" onclick="renewShop('${shop.id}')">🔄 续费</button>
-                                            `;
+                                            // 根据用户在店铺中的角色显示不同按钮
+                                            if (userRole === 'owner') {
+                                                // 店主：显示所有管理按钮
+                                                return `
+                                                    <button class="shop-btn primary" onclick="ShopManager.manageShop('${shop.id}')">管理</button>
+                                                    <button class="shop-btn success" onclick="MessageManager.viewShopConversations('${shop.id}')">💬 消息</button>
+                                                    <button class="shop-btn primary" onclick="viewMobileShopMessages('${shop.id}')">📄 消息详情</button>
+                                                    <button class="shop-btn info" onclick="generateMobileIntegrationCode('${shop.id}')">📋 代码</button>
+                                                    <button class="shop-btn warning" onclick="editMobileShopInfo('${shop.id}')">✏️ 编辑</button>
+                                                    <button class="shop-btn info" onclick="renewShop('${shop.id}')">🔄 续费</button>
+                                                `;
+                                            } else if (userRole === 'manager') {
+                                                // 经理：显示部分管理按钮
+                                                return `
+                                                    <button class="shop-btn success" onclick="MessageManager.viewShopConversations('${shop.id}')">💬 消息</button>
+                                                    <button class="shop-btn primary" onclick="viewMobileShopMessages('${shop.id}')">📄 消息详情</button>
+                                                    <button class="shop-btn info" onclick="generateMobileIntegrationCode('${shop.id}')">📋 代码</button>
+                                                `;
+                                            } else if (userRole === 'employee') {
+                                                // 员工：只显示消息相关按钮
+                                                return `
+                                                    <button class="shop-btn success" onclick="MessageManager.viewShopConversations('${shop.id}')">💬 消息</button>
+                                                `;
+                                            } else {
+                                                // 其他角色：基本查看权限
+                                                return `
+                                                    <button class="shop-btn success" onclick="MessageManager.viewShopConversations('${shop.id}')">💬 消息</button>
+                                                `;
+                                            }
                                         } else if (approvalStatus === 'pending') {
-                                            return `
-                                                <button class="shop-btn warning" onclick="payToActivateShop('${shop.id}')">💰 付费开通</button>
-                                                <button class="shop-btn secondary" onclick="editMobilePendingShop('${shop.id}')">📝 编辑</button>
-                                                <button class="shop-btn info" onclick="resubmitMobileShop('${shop.id}')">🔄 重新提交</button>
-                                            `;
+                                            // 待审核状态：只有店主可以操作
+                                            if (userRole === 'owner') {
+                                                return `
+                                                    <button class="shop-btn warning" onclick="payToActivateShop('${shop.id}')">💰 付费开通</button>
+                                                    <button class="shop-btn secondary" onclick="editMobilePendingShop('${shop.id}')">📝 编辑</button>
+                                                    <button class="shop-btn info" onclick="resubmitMobileShop('${shop.id}')">🔄 重新提交</button>
+                                                `;
+                                            } else {
+                                                return `<div class="shop-pending-note">店铺审核中，请等待店主处理</div>`;
+                                            }
                                         } else {
-                                            return `
-                                                <button class="shop-btn info" onclick="renewShop('${shop.id}')">🔄 续费</button>
-                                                <button class="shop-btn warning" onclick="editMobileShopInfo('${shop.id}')">✏️ 编辑</button>
-                                            `;
+                                            // 其他状态：只有店主可以续费和编辑
+                                            if (userRole === 'owner') {
+                                                return `
+                                                    <button class="shop-btn info" onclick="renewShop('${shop.id}')">🔄 续费</button>
+                                                    <button class="shop-btn warning" onclick="editMobileShopInfo('${shop.id}')">✏️ 编辑</button>
+                                                `;
+                                            } else {
+                                                return `<div class="shop-pending-note">店铺已过期，请联系店主</div>`;
+                                            }
                                         }
                                     })()}
                                 </div>
@@ -6354,8 +6396,9 @@
                 });
 
                 if (response.ok) {
-                    const employees = await response.json();
-                    console.log('📋 员工数据:', employees);
+                    const data = await response.json();
+                    console.log('📋 员工数据:', data);
+                    const employees = data.employees || data; // 兼容不同的响应格式
                     renderEmployees(employees);
                 } else {
                     throw new Error('获取员工列表失败: ' + response.status);
@@ -6429,7 +6472,8 @@
             const roleMap = {
                 'owner': '店主',
                 'manager': '经理',
-                'staff': '员工'
+                'staff': '员工',
+                'employee': '员工'
             };
             return roleMap[role] || role;
         }
@@ -6455,6 +6499,8 @@
                 role: formData.get('employeeRole')
             };
 
+            console.log('📤 发送员工数据:', employeeData);
+
             try {
                 const sessionId = localStorage.getItem('sessionId');
                 const response = await fetch(`/api/shops/${currentManageShopId}/employees`, {
@@ -6466,16 +6512,34 @@
                     body: JSON.stringify(employeeData)
                 });
 
+                console.log('📥 响应状态:', response.status);
+                
+                // 尝试获取响应体内容
+                let responseText;
+                let responseJson;
+                try {
+                    responseText = await response.text();
+                    console.log('📥 响应文本:', responseText);
+                    if (responseText) {
+                        responseJson = JSON.parse(responseText);
+                        console.log('📥 响应JSON:', responseJson);
+                    }
+                } catch (parseError) {
+                    console.log('📥 解析响应失败:', parseError.message);
+                }
+
                 if (response.ok) {
                     console.log('✅ 员工添加成功');
+                    showToast('员工添加成功', 'success');
                     hideAddEmployeeForm();
                     loadEmployees(currentManageShopId); // 重新加载员工列表
                 } else {
-                    throw new Error('添加员工失败: ' + response.status);
+                    const errorMessage = responseJson ? responseJson.error : `HTTP ${response.status}`;
+                    throw new Error(errorMessage);
                 }
             } catch (error) {
                 console.error('❌ 添加员工失败:', error);
-                alert('添加员工失败: ' + error.message);
+                showToast('添加员工失败: ' + error.message, 'error');
             }
         }
 

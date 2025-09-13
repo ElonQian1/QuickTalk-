@@ -315,31 +315,23 @@ app.post('/api/auth/logout', requireAuth, async (req, res) => {
 app.get('/api/shops/:shopId/employees', requireAuth, async (req, res) => {
     try {
         const { shopId } = req.params;
-        const shop = database.shops.get(shopId);
         
+        // 检查店铺是否存在
+        const shop = await database.getShopById(shopId);
         if (!shop) {
             return res.status(404).json({ error: '店铺不存在' });
         }
         
         // 检查权限：只有店主和管理员可以查看员工列表
-        const members = shop.members || [];
-        const userShop = members.find(m => m.userId === req.user.id);
-        if (!userShop || !['owner', 'manager'].includes(userShop.role)) {
+        const isOwner = await database.isShopOwner(req.user.id, shopId);
+        const userRole = await database.getUserShopRole(req.user.id, shopId);
+        
+        if (!isOwner && userRole !== 'manager') {
             return res.status(403).json({ error: '无权限查看员工列表' });
         }
         
-        // 获取员工信息
-        const employees = members
-            .filter(member => member.role !== 'owner')
-            .map(member => {
-                const user = database.users.get(member.userId);
-                return {
-                    id: member.userId,
-                    username: user.username,
-                    role: member.role,
-                    joinedAt: member.joinedAt
-                };
-            });
+        // 获取员工列表
+        const employees = await database.getShopEmployees(shopId);
         
         res.json({ success: true, employees });
     } catch (error) {
@@ -352,60 +344,73 @@ app.get('/api/shops/:shopId/employees', requireAuth, async (req, res) => {
 app.post('/api/shops/:shopId/employees', requireAuth, async (req, res) => {
     try {
         const { shopId } = req.params;
-        const { username, role } = req.body;
+        const { username, email, password, role } = req.body;
         
         if (!username || !role) {
             return res.status(400).json({ error: '用户名和角色为必填项' });
         }
         
-        if (!['employee', 'manager'].includes(role)) {
+        // 修正角色映射
+        const validRoles = ['staff', 'manager', 'employee'];
+        if (!validRoles.includes(role)) {
             return res.status(400).json({ error: '无效的角色类型' });
         }
         
-        const shop = database.shops.get(shopId);
+        // 规范化角色名称
+        const normalizedRole = role === 'staff' ? 'employee' : role;
+        
+        // 检查店铺是否存在
+        const shop = await database.getShopById(shopId);
         if (!shop) {
             return res.status(404).json({ error: '店铺不存在' });
         }
         
         // 检查权限：只有店主可以添加员工
-        const members = shop.members || [];
-        const userShop = members.find(m => m.userId === req.user.id);
-        if (!userShop || userShop.role !== 'owner') {
+        const isOwner = await database.isShopOwner(req.user.id, shopId);
+        if (!isOwner) {
             return res.status(403).json({ error: '只有店主可以添加员工' });
         }
         
-        // 查找要添加的用户
-        const targetUser = Array.from(database.users.values()).find(u => u.username === username);
+        // 查找要添加的用户（如果用户不存在，可能需要创建）
+        let targetUser = await database.getUserByUsername(username);
+        
         if (!targetUser) {
-            return res.status(404).json({ error: '用户不存在' });
+            // 如果提供了email和password，创建新用户
+            if (email && password) {
+                try {
+                    const userId = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                    const hashedPassword = database.hashPassword(password);
+                    
+                    await database.runAsync(`
+                        INSERT INTO users (id, username, email, password, role, created_at)
+                        VALUES (?, ?, ?, ?, ?, datetime('now'))
+                    `, [userId, username, email, hashedPassword, 'user']);
+                    
+                    targetUser = { id: userId, username, email };
+                    console.log(`👤 创建新用户: ${username} (${userId})`);
+                } catch (createError) {
+                    console.error('创建用户失败:', createError);
+                    return res.status(500).json({ error: '创建用户失败' });
+                }
+            } else {
+                return res.status(404).json({ error: '用户不存在，请提供邮箱和密码创建新用户' });
+            }
         }
         
-        // 检查用户是否已经是该店铺成员
-        const existingMember = members.find(m => m.userId === targetUser.id);
-        if (existingMember) {
-            return res.status(400).json({ error: '用户已经是该店铺成员' });
+        // 检查用户是否已经是该店铺的员工
+        const existingRole = await database.getUserShopRole(targetUser.id, shopId);
+        if (existingRole) {
+            return res.status(400).json({ error: '该用户已经是店铺员工' });
         }
         
-        // 添加员工
-        shop.members.push({
-            userId: targetUser.id,
-            role: role,
-            joinedAt: new Date(),
-            permissions: role === 'manager' ? ['manage_chat', 'view_reports'] : ['manage_chat']
-        });
+        // 设置员工权限
+        const permissions = normalizedRole === 'manager' ? ['manage_staff', 'view_chats', 'handle_chats'] : ['view_chats', 'handle_chats'];
         
-        // 同时在用户-店铺关联表中添加关系
-        const userShops = database.userShops.get(targetUser.id) || [];
-        userShops.push({
-            shopId: shopId,
-            role: role,
-            joinedAt: new Date(),
-            permissions: role === 'manager' ? ['manage_chat', 'view_reports'] : ['manage_chat']
-        });
-        database.userShops.set(targetUser.id, userShops);
+        // 添加员工到店铺
+        await database.addStaffToShop(shopId, targetUser.id, normalizedRole, permissions);
         
-        console.log(`👥 添加员工: ${username} 加入店铺 ${shop.name} (角色: ${role})`);
-        res.json({ success: true, message: '员工添加成功' });
+        console.log(`👥 添加员工: ${username} 加入店铺 ${shop.name} (角色: ${normalizedRole})`);
+        res.json({ success: true, message: '员工添加成功', user: { id: targetUser.id, username } });
     } catch (error) {
         console.error('添加员工错误:', error.message);
         res.status(500).json({ error: error.message });
