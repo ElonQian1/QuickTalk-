@@ -6,6 +6,9 @@ const { v4: uuidv4 } = require('uuid');
 // 引入新的模块化应用管理器
 const ModularApp = require('./src/modules/ModularApp');
 
+// 引入新的WebSocket路由系统
+const WebSocketRouter = require('./src/websocket/WebSocketRouter');
+
 // 引入旧系统的兼容模块
 const Database = require('./database-sqlite');
 const DomainValidator = require('./domain-validator');
@@ -153,6 +156,10 @@ function initializeRoutes() {
     // 引入认证路由，传入模块化应用实例
     require('./auth-routes')(app, database, modularApp);
     
+    // 引入WebSocket集成API
+    const { setupWebSocketIntegratedAPI } = require('./src/websocket/WebSocketAPI');
+    setupWebSocketIntegratedAPI(app, modularApp);
+    
     console.log('✅ 路由系统初始化完成');
 }
 
@@ -200,14 +207,22 @@ function initializeStaticRoutes() {
     });
 }
 
-// ============ WebSocket 连接处理 ============
-function initializeWebSocket(server) {
-    // 创建 WebSocket 服务器
-    const wss = new WebSocket.Server({ server, path: '/ws' });
-    global.wss = wss;
+// ============ 模块化 WebSocket 系统 ============
+function initializeWebSocket(server, messageAdapter) {
+    console.log('🚀 初始化模块化WebSocket系统...');
     
-    console.log('🔌 WebSocket服务器初始化完成');
-    return wss;
+    // 使用新的模块化WebSocket路由
+    const wsManager = WebSocketRouter.initialize(server, messageAdapter);
+    
+    // 设置WebSocket相关的HTTP API路由
+    WebSocketRouter.setupRoutes(app);
+    
+    // 将WebSocket管理器设为全局可访问（兼容性）
+    global.wsManager = wsManager;
+    global.wss = wsManager.wss;
+    
+    console.log('✅ 模块化WebSocket系统初始化完成');
+    return wsManager;
 }
 
 // ============ 服务器启动 ============
@@ -234,8 +249,9 @@ async function startServer() {
         // 7. 创建 HTTP 服务器
         const server = require('http').createServer(app);
         
-        // 8. 初始化 WebSocket
-        initializeWebSocket(server);
+        // 8. 初始化模块化 WebSocket (传入messageAdapter)
+        const messageAdapter = modularApp.getMessageAdapter();
+        initializeWebSocket(server, messageAdapter);
         
         // 9. 启动服务器
         server.listen(PORT, () => {

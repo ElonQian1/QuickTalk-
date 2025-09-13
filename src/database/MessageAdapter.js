@@ -30,7 +30,17 @@ class MessageAdapter {
             
             const shopId = conversationId.substring(0, userIndex);
             const userId = senderId;
-            const sender = senderType === 'customer' ? 'user' : senderType;
+            // 映射senderType到数据库允许的值
+            let sender;
+            if (senderType === 'customer') {
+                sender = 'user';
+            } else if (senderType === 'admin' || senderType === 'staff') {
+                sender = 'admin';
+            } else if (senderType === 'system') {
+                sender = 'system';
+            } else {
+                sender = 'admin'; // 默认值
+            }
 
             console.log(`🔍 调试信息: conversationId=${conversationId}, shopId=${shopId}, userId=${userId}, content=${content}`);
 

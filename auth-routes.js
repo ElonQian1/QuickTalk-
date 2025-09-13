@@ -860,7 +860,9 @@ app.post('/api/conversations/:conversationId/messages', requireAuth, async (req,
         }
         
         const shopId = conversationId.substring(0, userIndex);
-        const userId = conversationId.substring(userIndex + 1); // 去掉前面的下划线
+        const userId = conversationId.substring(userIndex + 6); // 跳过"_user_"（6个字符）
+        
+        console.log(`🔍 解析对话ID: conversationId=${conversationId}, shopId=${shopId}, userId=${userId}`);
         
         // 检查用户是否有权限访问该店铺
         const userShops = await database.getUserShops(req.user.id);
@@ -886,6 +888,17 @@ app.post('/api/conversations/:conversationId/messages', requireAuth, async (req,
             WHERE shop_id = ? AND user_id = ?
         `, [content.trim(), shopId, userId]);
         
+        // 🚀 新增：通过WebSocket推送消息给客户端
+        let webSocketPushed = false;
+        if (global.wsManager) {
+            try {
+                webSocketPushed = await global.wsManager.pushMessageToUser(userId, content.trim(), 'admin');
+                console.log(`📨 管理后台消息WebSocket推送: ${userId} -> "${content.trim()}" (${webSocketPushed ? '成功' : '失败'})`);
+            } catch (error) {
+                console.error('❌ WebSocket推送失败:', error);
+            }
+        }
+        
         res.json({
             success: true,
             message: {
@@ -894,7 +907,9 @@ app.post('/api/conversations/:conversationId/messages', requireAuth, async (req,
                 sender_type: 'admin',
                 sender_id: req.user.id,
                 created_at: new Date().toISOString()
-            }
+            },
+            // 添加WebSocket推送状态信息
+            webSocketPushed: webSocketPushed
         });
     } catch (error) {
         console.error('发送消息失败:', error.message);

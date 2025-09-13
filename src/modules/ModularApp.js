@@ -166,6 +166,16 @@ class ModularApp {
     }
 
     /**
+     * 获取消息适配器
+     */
+    getMessageAdapter() {
+        if (!this.initialized) {
+            throw new Error('模块化应用尚未初始化');
+        }
+        return this.messageRepo;
+    }
+
+    /**
      * 关闭应用
      */
     async shutdown() {
