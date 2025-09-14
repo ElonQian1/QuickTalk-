@@ -1098,6 +1098,9 @@ app.post('/api/conversations/:conversationId/messages/media', requireAuth, (req,
                     fileId: fileId, // 同时保留驼峰格式兼容性
                     sender_type: 'admin',
                     sender: 'admin',
+                    conversation_id: conversationId, // 添加对话ID
+                    shop_id: shopId, // 添加店铺ID
+                    user_id: userId, // 添加用户ID
                     created_at: new Date().toISOString()
                 };
                 

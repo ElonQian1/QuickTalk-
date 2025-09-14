@@ -1043,9 +1043,10 @@ class SQLiteDatabase {
     async getConversationMessages(shopId, userId, limit = 100) {
         try {
             const messages = await this.allAsync(`
-                SELECT m.*, u.username as admin_name
+                SELECT m.*, u.username as admin_name, uf.filename, uf.original_name, uf.file_size, uf.mime_type
                 FROM messages m
                 LEFT JOIN users u ON m.admin_id = u.id
+                LEFT JOIN uploaded_files uf ON m.file_id = uf.id
                 WHERE m.shop_id = ? AND m.user_id = ?
                 ORDER BY m.created_at ASC
                 LIMIT ?
@@ -1056,11 +1057,18 @@ class SQLiteDatabase {
                 shop_id: msg.shop_id,
                 user_id: msg.user_id,
                 content: msg.message,
+                message_type: msg.message_type, // 添加消息类型
                 sender_type: msg.sender,
                 sender_id: msg.admin_id,
                 admin_name: msg.admin_name,
                 created_at: msg.created_at,
-                is_read: msg.is_read
+                is_read: msg.is_read,
+                // 文件相关字段
+                file_id: msg.file_id,
+                file_url: msg.filename ? `/uploads/image/${msg.filename}` : null,
+                file_name: msg.original_name,
+                file_size: msg.file_size,
+                mime_type: msg.mime_type
             }));
         } catch (error) {
             console.error('获取对话消息失败:', error);
