@@ -1,4 +1,38 @@
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
 module.exports = function(app, database, modularApp = null) {
+
+// 配置multer用于文件上传
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        const uploadDir = 'uploads/images';
+        if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
+        }
+        cb(null, uploadDir);
+    },
+    filename: function (req, file, cb) {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+    }
+});
+
+const upload = multer({ 
+    storage: storage,
+    fileFilter: (req, file, cb) => {
+        // 只允许图片文件
+        if (file.mimetype.startsWith('image/')) {
+            cb(null, true);
+        } else {
+            cb(new Error('只允许上传图片文件'));
+        }
+    },
+    limits: {
+        fileSize: 5 * 1024 * 1024 // 5MB限制
+    }
+});
 
 // ========== 集成新的模块化客户端API ==========
 if (modularApp && modularApp.initialized) {
@@ -914,6 +948,152 @@ app.post('/api/conversations/:conversationId/messages', requireAuth, async (req,
     } catch (error) {
         console.error('发送消息失败:', error.message);
         res.status(500).json({ error: '发送消息失败' });
+    }
+});
+
+// 发送多媒体消息（图片、文件等）
+app.post('/api/conversations/:conversationId/messages/media', requireAuth, upload.single('file'), async (req, res) => {
+    try {
+        const { conversationId } = req.params;
+        let { fileId, messageType, content } = req.body;
+
+        console.log('📤 收到多媒体消息请求:', { conversationId, fileId, messageType, content, file: req.file });
+
+        // 如果没有fileId但有上传的文件，处理文件上传
+        if (!fileId && req.file) {
+            const fileInfo = {
+                id: `file_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                originalName: req.file.originalname,
+                filename: req.file.filename,
+                path: req.file.path,
+                size: req.file.size,
+                mimetype: req.file.mimetype,
+                uploadTime: new Date().toISOString()
+            };
+            
+            console.log('✅ 文件上传成功:', fileInfo);
+            fileId = fileInfo.id;
+            
+            // 保存文件信息到数据库
+            await database.runAsync(`
+                INSERT INTO uploaded_files (id, original_name, filename, file_path, file_size, mime_type, upload_time)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            `, [fileInfo.id, fileInfo.originalName, fileInfo.filename, fileInfo.path, fileInfo.size, fileInfo.mimetype, fileInfo.uploadTime]);
+        }
+
+        // 解析对话ID获取店铺ID和用户ID
+        console.log('🔍 解析对话ID:', conversationId);
+        const parts = conversationId.split('_');
+        if (parts.length < 4) {
+            return res.status(400).json({ error: '无效的对话ID格式' });
+        }
+        
+        // 修复解析逻辑：shop_xxxxx_x_user_xxxxx_xxxxx
+        // 正确的格式：shop_{timestamp}_{shopNumber}_user_{userId}_{timestamp}
+        const shopId = parts[0] + '_' + parts[1] + '_' + parts[2]; // shop_1757591780450_1
+        const userId = parts.slice(3).join('_'); // user_8op6wb347_1757835048035
+        
+        console.log('🔍 [DEBUG] 权限验证信息:', {
+            requestUserId: req.user.id,
+            requestUserRole: req.user.role,
+            parsedShopId: shopId,
+            parsedUserId: userId
+        });
+        
+        // 验证用户权限
+        if (req.user.role === 'shop_owner') {
+            console.log('🔍 [DEBUG] 查询用户店铺...');
+            const userShops = await database.allAsync('SELECT id FROM shops WHERE owner_id = ?', [req.user.id]);
+            console.log('🔍 [DEBUG] 用户店铺列表:', userShops);
+            
+            const hasAccess = userShops.some(shop => shop.id === shopId);
+            console.log('🔍 [DEBUG] 权限检查结果:', { 
+                targetShopId: shopId, 
+                userShops: userShops.map(s => s.id),
+                hasAccess 
+            });
+            
+            if (!hasAccess) {
+                console.log('❌ [DEBUG] 权限验证失败');
+                return res.status(403).json({ error: '无权限访问该对话' });
+            }
+        }
+
+        const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        console.log('🔍 [DEBUG] 准备插入消息:', {
+            messageId,
+            shopId,
+            userId,
+            adminId: req.user.id,
+            content: content || `[${messageType || '图片'}]`,
+            messageType: messageType || 'image',
+            fileId
+        });
+        
+        // 保存多媒体消息到数据库
+        await database.runAsync(`
+            INSERT INTO messages (id, shop_id, user_id, admin_id, message, message_type, file_id, sender, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'admin', CURRENT_TIMESTAMP)
+        `, [messageId, shopId, userId, req.user.id, content || `[${messageType || '图片'}]`, messageType || 'image', fileId]);
+        
+        // 更新对话的最后消息
+        await database.runAsync(`
+            UPDATE conversations 
+            SET last_message = ?, last_message_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+            WHERE shop_id = ? AND user_id = ?
+        `, [content || `[${messageType || '图片'}]`, shopId, userId]);
+        
+        // 通过WebSocket推送消息
+        let webSocketPushed = false;
+        if (global.wsManager) {
+            try {
+                const messageData = {
+                    id: messageId,
+                    content: content || `[${messageType || '图片'}]`,
+                    messageType: messageType || 'image',
+                    fileId: fileId,
+                    sender_type: 'admin'
+                };
+                webSocketPushed = await global.wsManager.pushMessageToUser(userId, messageData, 'admin');
+                console.log(`📨 多媒体消息WebSocket推送: ${userId} -> [${messageType || '图片'}] (${webSocketPushed ? '成功' : '失败'})`);
+            } catch (error) {
+                console.error('❌ WebSocket推送失败:', error);
+            }
+        }
+        
+        res.json({
+            success: true,
+            message: {
+                id: messageId,
+                content: content || `[${messageType || '图片'}]`,
+                messageType: messageType || 'image',
+                fileId: fileId,
+                sender_type: 'admin',
+                sender_id: req.user.id,
+                created_at: new Date().toISOString()
+            },
+            webSocketPushed: webSocketPushed
+        });
+    } catch (error) {
+        console.error('❌ 发送多媒体消息失败:', error);
+        console.error('❌ 错误代码:', error.code);
+        console.error('❌ 错误信息:', error.message);
+        console.error('❌ 完整错误:', JSON.stringify(error, null, 2));
+        
+        // 检查数据库连接状态
+        if (database && typeof database.allAsync === 'function') {
+            try {
+                const tableCheck = await database.allAsync("PRAGMA table_info(messages)");
+                console.log('🔍 Messages表结构检查:', tableCheck.map(col => col.name));
+            } catch (pragmaError) {
+                console.error('❌ 数据库PRAGMA查询失败:', pragmaError);
+            }
+        } else {
+            console.error('❌ 数据库对象无效:', typeof database);
+        }
+        
+        res.status(500).json({ error: '发送多媒体消息失败: ' + error.message });
     }
 });
 

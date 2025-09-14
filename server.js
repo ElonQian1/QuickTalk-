@@ -11,8 +11,8 @@ const WebSocketRouter = require('./src/websocket/WebSocketRouter');
 
 // 引入旧系统的兼容模块
 const Database = require('./database-sqlite');
-const DomainValidator = require('./domain-validator');
-const IntegrationCodeGenerator = require('./integration-code-generator');
+const DomainValidator = require('./src/security/domain-validator');
+// const IntegrationCodeGenerator = require('./integration-code-generator'); // 已清理
 
 const app = express();
 const PORT = 3030;
@@ -26,6 +26,7 @@ let codeGenerator = null;
 // 中间件
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'static')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // 信任代理（用于获取真实IP）
 app.set('trust proxy', true);
@@ -60,8 +61,8 @@ async function initializeCompatibilityModules() {
         // 初始化域名验证器
         domainValidator = new DomainValidator(database);
         
-        // 初始化集成代码生成器
-        codeGenerator = new IntegrationCodeGenerator(database);
+        // 初始化集成代码生成器 (已清理)
+        // codeGenerator = new IntegrationCodeGenerator(database);
         
         console.log('✅ 兼容模块初始化完成');
         
@@ -160,11 +161,25 @@ function initializeRoutes() {
     const { setupWebSocketIntegratedAPI } = require('./src/websocket/WebSocketAPI');
     setupWebSocketIntegratedAPI(app, modularApp);
     
+    // 引入文件上传API
+    const FileUploadAPI = require('./src/api/FileUploadAPI');
+    const fileManager = null; // FileManager暂时不通过ModularApp提供
+    const authValidator = modularApp ? modularApp.getSecurityManager() : null;
+    
+    const fileUploadAPI = new FileUploadAPI(fileManager, authValidator);
+    app.use('/api/files', fileUploadAPI.getRouter());
+    
+    console.log('📤 文件上传API已配置: /api/files/upload');
+    
     console.log('✅ 路由系统初始化完成');
 }
 
 // ============ 静态页面路由 ============
 function initializeStaticRoutes() {
+    // 设置静态文件服务（用于文件上传）
+    const { setupStaticFileServing } = require('./src/api/StaticFileService');
+    setupStaticFileServing(app);
+    
     // 主页
     app.get('/', (req, res) => {
         res.sendFile(path.join(__dirname, 'static', 'index.html'));

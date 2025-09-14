@@ -21,6 +21,7 @@ class SQLiteDatabase {
 
             this.db = new sqlite3.Database(this.dbPath);
             await this.createTables();
+            await this.runMigrations();
             await this.initTestData();
             console.log('SQLite数据库初始化完成');
         } catch (error) {
@@ -133,12 +134,28 @@ class SQLiteDatabase {
                 user_id TEXT NOT NULL,
                 admin_id TEXT,
                 message TEXT NOT NULL,
+                message_type TEXT DEFAULT 'text',
+                file_id TEXT,
                 sender TEXT NOT NULL CHECK (sender IN ('user', 'admin', 'system')),
                 is_read BOOLEAN DEFAULT FALSE,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 read_at DATETIME,
                 FOREIGN KEY (shop_id) REFERENCES shops(id),
-                FOREIGN KEY (admin_id) REFERENCES users(id)
+                FOREIGN KEY (admin_id) REFERENCES users(id),
+                FOREIGN KEY (file_id) REFERENCES uploaded_files(id)
+            )`,
+            
+            // 上传文件表
+            `CREATE TABLE IF NOT EXISTS uploaded_files (
+                id TEXT PRIMARY KEY,
+                original_name TEXT NOT NULL,
+                filename TEXT NOT NULL,
+                file_path TEXT NOT NULL,
+                file_size INTEGER NOT NULL,
+                mime_type TEXT NOT NULL,
+                upload_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+                uploader_id TEXT,
+                FOREIGN KEY (uploader_id) REFERENCES users(id)
             )`,
             
             // 对话表 (用于管理用户会话)
@@ -217,6 +234,30 @@ class SQLiteDatabase {
                 else resolve(rows);
             });
         });
+    }
+
+    // 运行数据库迁移
+    async runMigrations() {
+        try {
+            // 检查messages表是否有message_type字段
+            const tableInfo = await this.allAsync("PRAGMA table_info(messages)");
+            const hasMessageType = tableInfo.some(col => col.name === 'message_type');
+            const hasFileId = tableInfo.some(col => col.name === 'file_id');
+            
+            if (!hasMessageType) {
+                console.log('🔄 添加message_type字段到messages表...');
+                await this.runAsync('ALTER TABLE messages ADD COLUMN message_type TEXT DEFAULT "text"');
+            }
+            
+            if (!hasFileId) {
+                console.log('🔄 添加file_id字段到messages表...');
+                await this.runAsync('ALTER TABLE messages ADD COLUMN file_id TEXT');
+            }
+            
+            console.log('✅ 数据库迁移完成');
+        } catch (error) {
+            console.error('❌ 数据库迁移失败:', error);
+        }
     }
 
     // 密码哈希
