@@ -83,8 +83,8 @@ class AdvancedNotificationSystem {
             console.log('📋 创建通知相关数据表...');
             
             if (this.db.prepare && typeof this.db.prepare === 'function') {
-                // SQLite数据库 - 使用runAsync代替exec
-                await this.db.runAsync(`
+                // SQLite数据库
+                await this.db.exec(`
                     -- 通知记录表
                     CREATE TABLE IF NOT EXISTS notifications (
                         id TEXT PRIMARY KEY,

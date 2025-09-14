@@ -103,8 +103,8 @@ class ComprehensiveSecurityModule {
             console.log('📋 创建安全相关数据表...');
             
             if (this.db.prepare && typeof this.db.prepare === 'function') {
-                // SQLite数据库 - 使用runAsync代替exec
-                await this.db.runAsync(`
+                // SQLite数据库
+                await this.db.exec(`
                     -- 安全事件日志表
                     CREATE TABLE IF NOT EXISTS security_audit_logs (
                         id TEXT PRIMARY KEY,

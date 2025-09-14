@@ -155,6 +155,17 @@ class SQLiteDatabase {
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (shop_id) REFERENCES shops(id),
                 UNIQUE(shop_id, user_id)
+            )`,
+            
+            // 店铺API密钥表
+            `CREATE TABLE IF NOT EXISTS shop_api_keys (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                shop_id TEXT NOT NULL,
+                api_key TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (shop_id) REFERENCES shops(id),
+                UNIQUE(shop_id)
             )`
         ];
 
@@ -188,6 +199,16 @@ class SQLiteDatabase {
         return {
             run: (params) => this.runAsync(sql, params)
         };
+    }
+
+    // 为兼容其他模块添加exec方法
+    exec(sql) {
+        return new Promise((resolve, reject) => {
+            this.db.exec(sql, (err) => {
+                if (err) reject(err);
+                else resolve();
+            });
+        });
     }
 
     getAsync(sql, params = []) {
@@ -527,42 +548,11 @@ class SQLiteDatabase {
     }
 
     async updateShopApiKey(shopId, apiKey) {
-        try {
-            // 尝试完整更新
-            await this.runAsync(`
-                UPDATE shops 
-                SET api_key = ?, api_key_created_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP 
-                WHERE id = ?
-            `, [apiKey, shopId]);
-        } catch (error) {
-            if (error.message.includes('api_key_created_at')) {
-                console.log('⚠️  api_key_created_at字段不存在，仅更新api_key字段');
-                // 如果api_key_created_at字段不存在，仅更新api_key
-                await this.runAsync(`
-                    UPDATE shops 
-                    SET api_key = ?, updated_at = CURRENT_TIMESTAMP 
-                    WHERE id = ?
-                `, [apiKey, shopId]);
-            } else {
-                throw error;
-            }
-        }
-        return await this.getShopById(shopId);
-    }
-
-    async updateShopActivation(shopId, activationData) {
-        const { status, approval_status, activated_at, expires_at } = activationData;
         await this.runAsync(`
             UPDATE shops 
-            SET status = ?, 
-                approval_status = ?, 
-                activated_at = ?, 
-                expires_at = ?, 
-                updated_at = CURRENT_TIMESTAMP 
+            SET api_key = ?, api_key_created_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP 
             WHERE id = ?
-        `, [status, approval_status, activated_at, expires_at, shopId]);
-        
-        console.log('✅ 店铺激活状态已更新:', { shopId, status, approval_status });
+        `, [apiKey, shopId]);
         return await this.getShopById(shopId);
     }
 
@@ -632,63 +622,6 @@ class SQLiteDatabase {
         `, [staffId, shopId, role, JSON.stringify(permissions)]);
         
         return true;
-    }
-    
-    // 检查用户是否是店铺的店主
-    async isShopOwner(userId, shopId) {
-        const shop = await this.getAsync('SELECT owner_id FROM shops WHERE id = ?', [shopId]);
-        return shop && shop.owner_id === userId;
-    }
-    
-    // 获取用户在店铺中的角色
-    async getUserShopRole(userId, shopId) {
-        // 首先检查是否是店主
-        const isOwner = await this.isShopOwner(userId, shopId);
-        if (isOwner) {
-            return 'owner';
-        }
-        
-        // 检查是否是员工
-        const userShop = await this.getAsync(`
-            SELECT role FROM user_shops WHERE user_id = ? AND shop_id = ?
-        `, [userId, shopId]);
-        
-        return userShop ? userShop.role : null;
-    }
-    
-    // 获取店铺员工列表
-    async getShopEmployees(shopId) {
-        const employees = await this.allAsync(`
-            SELECT u.id, u.username, us.role, us.joined_at as joinedAt, us.permissions
-            FROM user_shops us
-            JOIN users u ON us.user_id = u.id
-            WHERE us.shop_id = ?
-        `, [shopId]);
-        
-        return employees.map(emp => {
-            let permissions = [];
-            
-            // 安全地解析权限字段，兼容不同格式
-            if (emp.permissions) {
-                try {
-                    // 尝试解析JSON格式
-                    permissions = JSON.parse(emp.permissions);
-                } catch (parseError) {
-                    // 如果解析失败，尝试按逗号分割字符串格式
-                    if (typeof emp.permissions === 'string') {
-                        permissions = emp.permissions.split(',').map(p => p.trim());
-                    }
-                }
-            }
-            
-            return {
-                id: emp.id,
-                username: emp.username,
-                role: emp.role,
-                joinedAt: emp.joinedAt,
-                permissions: permissions
-            };
-        });
     }
     
     // 店铺审核方法
@@ -1179,6 +1112,40 @@ class SQLiteDatabase {
             totalConversations: stats?.total_conversations || 0,
             unreadMessages: stats?.unread_messages || 0
         };
+    }
+
+    // ========== API密钥相关方法 ==========
+    
+    // 获取店铺API密钥
+    async getShopApiKey(shopId) {
+        const result = await this.getAsync(
+            'SELECT api_key FROM shop_api_keys WHERE shop_id = ?', 
+            [shopId]
+        );
+        return result?.api_key || null;
+    }
+
+    // 保存店铺API密钥
+    async saveShopApiKey(shopId, apiKey) {
+        await this.runAsync(`
+            INSERT OR REPLACE INTO shop_api_keys (shop_id, api_key, updated_at)
+            VALUES (?, ?, CURRENT_TIMESTAMP)
+        `, [shopId, apiKey]);
+        
+        console.log(`🔑 保存店铺API密钥: ${shopId}`);
+        return true;
+    }
+
+    // 验证API密钥
+    async validateApiKey(apiKey) {
+        const result = await this.getAsync(`
+            SELECT s.id as shop_id, s.name as shop_name, s.domain, s.status
+            FROM shop_api_keys ak
+            JOIN shops s ON ak.shop_id = s.id
+            WHERE ak.api_key = ? AND s.status = 'active'
+        `, [apiKey]);
+        
+        return result || null;
     }
 
     // 关闭数据库连接
