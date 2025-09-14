@@ -149,9 +149,12 @@ class MobileMessageManager {
      */
     handleWebSocketMessage(data) {
         console.log('📨 收到WebSocket消息:', data);
+        console.log('📨 消息类型:', data.type);
+        console.log('📨 消息内容:', data.message);
 
         switch (data.type) {
             case 'new_message':
+                console.log('✅ 处理新消息');
                 this.handleNewMessage(data.message);
                 break;
             case 'message_read':
@@ -161,7 +164,7 @@ class MobileMessageManager {
                 this.handleConversationUpdate(data.conversation);
                 break;
             default:
-                console.log('🤔 未知消息类型:', data.type);
+                console.log('🤔 未知消息类型:', data.type, data);
         }
     }
 
@@ -487,21 +490,29 @@ class MobileMessageManager {
      * 渲染消息
      */
     renderMessage(message) {
+        console.log('🎨 渲染消息:', message);
         const isFromCustomer = message.sender_type === 'customer';
         const messageClass = isFromCustomer ? 'message-customer' : 'message-staff';
 
         let messageContent = '';
         
         // 根据消息类型渲染不同的内容
+        console.log('🎨 消息类型:', message.message_type);
         switch (message.message_type) {
             case 'image':
-                messageContent = `
-                    <div class="message-image">
-                        <img src="${message.file_url}" alt="${message.file_name || '图片'}" 
-                             onclick="previewImage('${message.file_url}')" />
-                        ${message.content && message.content !== '[图片]' ? `<div class="image-caption">${message.content}</div>` : ''}
-                    </div>
-                `;
+                console.log('🖼️ 渲染图片消息, file_url:', message.file_url);
+                if (message.file_url) {
+                    messageContent = `
+                        <div class="message-image">
+                            <img src="${message.file_url}" alt="${message.file_name || '图片'}" 
+                                 onclick="previewImage('${message.file_url}')" />
+                            ${message.content && message.content !== '[图片]' ? `<div class="image-caption">${message.content}</div>` : ''}
+                        </div>
+                    `;
+                } else {
+                    console.log('⚠️ 图片消息缺少file_url，显示占位符');
+                    messageContent = `<div class="message-text">${message.content || '[图片]'}</div>`;
+                }
                 break;
             
             case 'file':
@@ -598,6 +609,8 @@ class MobileMessageManager {
     // 处理新消息
     handleNewMessage(message) {
         console.log('📨 收到新消息:', message);
+        console.log('📨 消息类型:', message.message_type);
+        console.log('📨 文件URL:', message.file_url);
         
         // 更新未读计数
         if (!this.unreadCounts[message.shop_id]) {
@@ -610,6 +623,7 @@ class MobileMessageManager {
         
         // 如果当前在对话中，实时添加消息
         if (this.currentConversation && this.currentConversation.id === message.conversation_id) {
+            console.log('📨 添加消息到当前聊天');
             this.addMessageToCurrentChat(message);
         }
         
