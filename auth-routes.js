@@ -1077,13 +1077,44 @@ app.post('/api/conversations/:conversationId/messages/media', requireAuth, (req,
         let webSocketPushed = false;
         if (global.wsManager) {
             try {
+                // 获取文件信息以构建完整的消息数据
+                let fileInfo = null;
+                if (fileId) {
+                    fileInfo = await new Promise((resolve, reject) => {
+                        database.db.get(
+                            'SELECT * FROM uploaded_files WHERE id = ?',
+                            [fileId],
+                            (err, row) => {
+                                if (err) reject(err);
+                                else resolve(row);
+                            }
+                        );
+                    });
+                }
+                
                 const messageData = {
                     id: messageId,
+                    message: content || `[${messageType || '图片'}]`,
                     content: content || `[${messageType || '图片'}]`,
-                    messageType: messageType || 'image',
-                    fileId: fileId,
-                    sender_type: 'admin'
+                    message_type: messageType || 'image', // 使用下划线格式匹配前端
+                    messageType: messageType || 'image', // 同时保留驼峰格式兼容性
+                    file_id: fileId,
+                    fileId: fileId, // 同时保留驼峰格式兼容性
+                    sender_type: 'admin',
+                    sender: 'admin',
+                    created_at: new Date().toISOString()
                 };
+                
+                // 如果有文件信息，添加文件相关字段
+                if (fileInfo) {
+                    messageData.file_url = `/uploads/image/${fileInfo.filename}`;
+                    messageData.file_name = fileInfo.original_name;
+                    messageData.file_size = fileInfo.file_size;
+                    messageData.mime_type = fileInfo.mime_type;
+                }
+                
+                console.log('📨 准备推送的消息数据:', messageData);
+                
                 webSocketPushed = await global.wsManager.pushMessageToUser(userId, messageData, 'admin');
                 console.log(`📨 多媒体消息WebSocket推送: ${userId} -> [${messageType || '图片'}] (${webSocketPushed ? '成功' : '失败'})`);
             } catch (error) {

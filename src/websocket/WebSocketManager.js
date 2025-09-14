@@ -284,12 +284,28 @@ class WebSocketManager {
                 // 处理不同类型的消息
                 let messageData;
                 if (typeof message === 'object' && message !== null) {
-                    // 如果是对象（多媒体消息），直接使用
+                    // 如果是对象（多媒体消息），创建兼容格式
                     messageData = {
-                        type: 'staff_message',
-                        ...message, // 包含 id, content, messageType, fileId 等
+                        type: 'staff_message', // 用于客户端界面
+                        ...message,
                         timestamp: Date.now()
                     };
+                    
+                    // 同时发送管理端格式的消息
+                    const adminMessageData = {
+                        type: 'new_message',
+                        message: {
+                            ...message,
+                            timestamp: Date.now()
+                        }
+                    };
+                    
+                    // 发送客户端格式的消息
+                    this.sendMessage(ws, messageData);
+                    
+                    // 发送管理端格式的消息
+                    this.sendMessage(ws, adminMessageData);
+                    
                 } else {
                     // 如果是字符串（普通文本消息）
                     messageData = {
@@ -299,12 +315,25 @@ class WebSocketManager {
                         messageType: messageType,
                         timestamp: Date.now()
                     };
+                    
+                    // 同时发送管理端格式
+                    const adminMessageData = {
+                        type: 'new_message',
+                        message: {
+                            message: message,
+                            content: message,
+                            message_type: 'text',
+                            sender_type: 'admin',
+                            timestamp: Date.now()
+                        }
+                    };
+                    
+                    this.sendMessage(ws, messageData);
+                    this.sendMessage(ws, adminMessageData);
                 }
                 
-                this.sendMessage(ws, messageData);
-                
                 const displayMessage = typeof message === 'object' ? 
-                    `[${message.messageType || '消息'}]` : message;
+                    `[${message.messageType || message.message_type || '消息'}]` : message;
                 console.log(`📨 客服消息已推送: ${userId} -> "${displayMessage}"`);
                 return true;
                 
