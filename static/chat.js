@@ -150,8 +150,17 @@ class CustomerServiceChat {
         console.log('用户端处理消息:', data.type, data); // 添加调试信息
         switch (data.type) {
             case 'staff_message':
-                console.log('收到客服消息:', data.message);
-                this.addMessage('staff', data.message, data.staffName);
+                console.log('收到客服消息:', data);
+                
+                // 处理不同类型的消息
+                if (data.messageType === 'image' && data.fileId) {
+                    // 图片消息
+                    this.addImageMessage('staff', data, data.staffName);
+                } else {
+                    // 文本消息
+                    const messageContent = data.content || data.message || '';
+                    this.addMessage('staff', messageContent, data.staffName);
+                }
                 break;
             case 'system_notification':
                 this.showSystemMessage(data.message);
@@ -194,6 +203,86 @@ class CustomerServiceChat {
         
         this.chatMessages.appendChild(messageDiv);
         this.scrollToBottom();
+    }
+
+    addImageMessage(type, messageData, staffName = null) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${type}-message`;
+        
+        // 创建图片元素
+        const imageContainer = document.createElement('div');
+        imageContainer.className = 'message-image-container';
+        
+        const image = document.createElement('img');
+        image.className = 'message-image';
+        image.style.maxWidth = '200px';
+        image.style.maxHeight = '200px';
+        image.style.borderRadius = '8px';
+        image.style.cursor = 'pointer';
+        
+        // 构建图片URL - 需要根据fileId获取实际URL
+        if (messageData.fileId) {
+            // 假设图片存储在 /uploads/image/ 目录下
+            // 实际上需要调用API获取完整的文件信息
+            this.getFileUrl(messageData.fileId).then(url => {
+                if (url) {
+                    image.src = url;
+                    image.alt = '图片消息';
+                } else {
+                    // 如果无法获取图片，显示占位符
+                    image.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="%23ddd"/><text x="50" y="50" text-anchor="middle" dy=".3em">图片</text></svg>';
+                    image.alt = '图片加载失败';
+                }
+            }).catch(() => {
+                image.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="%23ddd"/><text x="50" y="50" text-anchor="middle" dy=".3em">图片</text></svg>';
+                image.alt = '图片加载失败';
+            });
+        }
+        
+        // 点击放大图片
+        image.onclick = () => {
+            if (image.src && !image.src.startsWith('data:')) {
+                window.open(image.src, '_blank');
+            }
+        };
+        
+        imageContainer.appendChild(image);
+        
+        const messageTime = document.createElement('span');
+        messageTime.className = 'message-time';
+        messageTime.textContent = this.formatTime(new Date());
+        
+        messageDiv.appendChild(imageContainer);
+        messageDiv.appendChild(messageTime);
+        
+        if (type === 'staff' && staffName) {
+            const staffLabel = document.createElement('span');
+            staffLabel.className = 'staff-name';
+            staffLabel.textContent = `客服 ${staffName}`;
+            staffLabel.style.fontSize = '12px';
+            staffLabel.style.color = '#666';
+            staffLabel.style.marginBottom = '5px';
+            messageDiv.insertBefore(staffLabel, imageContainer);
+        }
+        
+        this.chatMessages.appendChild(messageDiv);
+        this.scrollToBottom();
+    }
+
+    async getFileUrl(fileId) {
+        try {
+            // 调用API获取文件信息
+            const response = await fetch(`/api/files/${fileId}?info=true`);
+            if (response.ok) {
+                const result = await response.json();
+                if (result.success && result.file) {
+                    return result.file.url;
+                }
+            }
+        } catch (error) {
+            console.error('获取文件URL失败:', error);
+        }
+        return null;
     }
 
     showSystemMessage(message) {

@@ -281,14 +281,31 @@ class WebSocketManager {
         const ws = this.clients.get(userId);
         if (ws && ws.readyState === require('ws').OPEN && ws.authenticated) {
             try {
-                this.sendMessage(ws, {
-                    type: 'staff_message',
-                    message: message,
-                    messageType: messageType,
-                    timestamp: Date.now()
-                });
+                // 处理不同类型的消息
+                let messageData;
+                if (typeof message === 'object' && message !== null) {
+                    // 如果是对象（多媒体消息），直接使用
+                    messageData = {
+                        type: 'staff_message',
+                        ...message, // 包含 id, content, messageType, fileId 等
+                        timestamp: Date.now()
+                    };
+                } else {
+                    // 如果是字符串（普通文本消息）
+                    messageData = {
+                        type: 'staff_message',
+                        message: message,
+                        content: message,
+                        messageType: messageType,
+                        timestamp: Date.now()
+                    };
+                }
                 
-                console.log(`📨 客服消息已推送: ${userId} -> "${message}"`);
+                this.sendMessage(ws, messageData);
+                
+                const displayMessage = typeof message === 'object' ? 
+                    `[${message.messageType || '消息'}]` : message;
+                console.log(`📨 客服消息已推送: ${userId} -> "${displayMessage}"`);
                 return true;
                 
             } catch (e) {

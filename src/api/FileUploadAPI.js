@@ -429,22 +429,65 @@ class FileUploadAPI {
     async handleGetFile(req, res) {
         try {
             const { fileId } = req.params;
+            console.log('🔍 获取文件信息:', fileId);
             
-            // 这里应该从数据库获取文件信息
-            // 暂时返回示例数据
-            res.json({
-                success: true,
-                file: {
-                    id: fileId,
-                    message: '文件信息获取功能待实现'
-                }
+            // 从数据库获取文件信息
+            const db = this.app.get('database');
+            const fileInfo = await new Promise((resolve, reject) => {
+                db.db.get(
+                    'SELECT * FROM uploaded_files WHERE id = ?',
+                    [fileId],
+                    (err, row) => {
+                        if (err) reject(err);
+                        else resolve(row);
+                    }
+                );
             });
             
+            if (!fileInfo) {
+                return res.status(404).json({
+                    success: false,
+                    error: '文件不存在'
+                });
+            }
+            
+            console.log('📄 文件信息:', fileInfo);
+            
+            // 检查文件是否存在
+            const fs = require('fs');
+            if (!fs.existsSync(fileInfo.file_path)) {
+                return res.status(404).json({
+                    success: false,
+                    error: '文件已丢失'
+                });
+            }
+            
+            // 返回文件信息（用于前端显示）
+            if (req.query.info === 'true') {
+                return res.json({
+                    success: true,
+                    file: {
+                        id: fileInfo.id,
+                        originalName: fileInfo.original_name,
+                        filename: fileInfo.filename,
+                        mimeType: fileInfo.mime_type,
+                        size: fileInfo.file_size,
+                        uploadTime: fileInfo.upload_time,
+                        url: `/api/files/${fileId}` // 文件访问URL
+                    }
+                });
+            }
+            
+            // 直接返回文件内容
+            res.setHeader('Content-Type', fileInfo.mime_type);
+            res.setHeader('Content-Disposition', `inline; filename="${fileInfo.original_name}"`);
+            res.sendFile(path.resolve(fileInfo.file_path));
+            
         } catch (error) {
-            console.error('❌ 获取文件信息失败:', error);
+            console.error('❌ 获取文件失败:', error);
             res.status(500).json({
                 success: false,
-                error: '获取文件信息失败'
+                error: '获取文件失败'
             });
         }
     }
