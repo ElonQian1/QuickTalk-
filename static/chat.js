@@ -313,8 +313,8 @@ class CustomerServiceChat {
 
     async getFileUrl(fileId) {
         try {
-            // 调用API获取文件信息
-            const response = await fetch(`/api/files/${fileId}?info=true`);
+            // 调用API获取文件信息 - 修正路径
+            const response = await fetch(`/api/files/file/${fileId}?info=true`);
             if (response.ok) {
                 const result = await response.json();
                 if (result.success && result.file) {

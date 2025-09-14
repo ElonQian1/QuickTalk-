@@ -197,8 +197,19 @@
                     document.getElementById('testDisplayBtn').disabled = false;
                     document.getElementById('testMessageBtn').disabled = false;
                     
-                    // 自动测试图片显示
-                    setTimeout(testImageDisplay, 1000);
+                    // 直接使用上传响应中的URL显示图片
+                    const imageUrl = result.file.url;
+                    log(`🔗 图片URL: ${imageUrl}`, 'success');
+                    
+                    // 创建图片预览
+                    const previewDiv = document.getElementById('imagePreview');
+                    previewDiv.innerHTML = `
+                        <p>图片预览:</p>
+                        <img src="${imageUrl}" class="image-preview" onclick="window.open('${imageUrl}', '_blank')" alt="图片预览">
+                        <p style="font-size: 12px; color: #666;">点击图片可在新窗口查看大图</p>
+                    `;
+                    
+                    log('✅ 图片显示测试成功！(使用上传响应中的URL)', 'success');
                     
                 } else {
                     log(`❌ 文件上传失败: ${result.error}`, 'error');
@@ -218,8 +229,8 @@
             log(`🖼️ 测试图片显示，文件ID: ${currentFileId}`);
             
             try {
-                // 测试获取文件信息
-                const infoResponse = await fetch(`/api/files/${currentFileId}?info=true`);
+                // 测试获取文件信息 - 修正URL路径
+                const infoResponse = await fetch(`/api/files/file/${currentFileId}?info=true`);
                 const infoResult = await infoResponse.json();
                 
                 log(`📋 文件信息响应: ${JSON.stringify(infoResult, null, 2)}`);
