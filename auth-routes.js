@@ -952,22 +952,51 @@ app.post('/api/conversations/:conversationId/messages', requireAuth, async (req,
 });
 
 // 发送多媒体消息（图片、文件等）
-app.post('/api/conversations/:conversationId/messages/media', requireAuth, upload.single('file'), async (req, res) => {
+// 媒体消息发送 - 支持文件上传
+app.post('/api/conversations/:conversationId/messages/media', requireAuth, (req, res, next) => {
+    // 动态选择multer处理方式，支持多种字段名
+    const multerUpload = upload.fields([
+        { name: 'file', maxCount: 1 },
+        { name: 'files', maxCount: 1 }
+    ]);
+    
+    multerUpload(req, res, next);
+}, async (req, res) => {
     try {
         const { conversationId } = req.params;
         let { fileId, messageType, content } = req.body;
 
-        console.log('📤 收到多媒体消息请求:', { conversationId, fileId, messageType, content, file: req.file });
+        // 处理不同字段名的文件上传
+        let uploadedFile = null;
+        if (req.files) {
+            // 使用 upload.fields() 方式，检查不同字段名
+            uploadedFile = req.files.file?.[0] || req.files.files?.[0];
+        } else if (req.file) {
+            // 使用 upload.single() 方式
+            uploadedFile = req.file;
+        }
+
+        console.log('📤 收到多媒体消息请求:', { 
+            conversationId, 
+            fileId, 
+            messageType, 
+            content, 
+            uploadedFile: uploadedFile ? {
+                originalname: uploadedFile.originalname,
+                filename: uploadedFile.filename,
+                size: uploadedFile.size
+            } : null
+        });
 
         // 如果没有fileId但有上传的文件，处理文件上传
-        if (!fileId && req.file) {
+        if (!fileId && uploadedFile) {
             const fileInfo = {
                 id: `file_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                originalName: req.file.originalname,
-                filename: req.file.filename,
-                path: req.file.path,
-                size: req.file.size,
-                mimetype: req.file.mimetype,
+                originalName: uploadedFile.originalname,
+                filename: uploadedFile.filename,
+                path: uploadedFile.path,
+                size: uploadedFile.size,
+                mimetype: uploadedFile.mimetype,
                 uploadTime: new Date().toISOString()
             };
             

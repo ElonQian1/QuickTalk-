@@ -155,10 +155,12 @@ class CustomerServiceChat {
                 // 处理不同类型的消息
                 if (data.messageType === 'image' && data.fileId) {
                     // 图片消息
+                    console.log('处理图片消息，fileId:', data.fileId);
                     this.addImageMessage('staff', data, data.staffName);
                 } else {
-                    // 文本消息
-                    const messageContent = data.content || data.message || '';
+                    // 文本消息 - 优先使用content，然后是message，最后是默认文本
+                    const messageContent = data.content || data.message || data.text || '[消息]';
+                    console.log('处理文本消息，内容:', messageContent);
                     this.addMessage('staff', messageContent, data.staffName);
                 }
                 break;
@@ -206,8 +208,19 @@ class CustomerServiceChat {
     }
 
     addImageMessage(type, messageData, staffName = null) {
+        console.log('添加图片消息:', { type, messageData, staffName });
+        
         const messageDiv = document.createElement('div');
         messageDiv.className = `message ${type}-message`;
+        
+        // 如果有文本内容，先显示文本
+        if (messageData.content && messageData.content !== '[图片]') {
+            const textDiv = document.createElement('div');
+            textDiv.className = 'message-text';
+            textDiv.textContent = messageData.content;
+            textDiv.style.marginBottom = '8px';
+            messageDiv.appendChild(textDiv);
+        }
         
         // 创建图片元素
         const imageContainer = document.createElement('div');
@@ -219,24 +232,55 @@ class CustomerServiceChat {
         image.style.maxHeight = '200px';
         image.style.borderRadius = '8px';
         image.style.cursor = 'pointer';
+        image.style.border = '1px solid #e0e0e0';
         
-        // 构建图片URL - 需要根据fileId获取实际URL
+        // 添加加载状态
+        const loadingDiv = document.createElement('div');
+        loadingDiv.className = 'image-loading';
+        loadingDiv.textContent = '图片加载中...';
+        loadingDiv.style.display = 'flex';
+        loadingDiv.style.alignItems = 'center';
+        loadingDiv.style.justifyContent = 'center';
+        loadingDiv.style.width = '200px';
+        loadingDiv.style.height = '100px';
+        loadingDiv.style.border = '1px dashed #ccc';
+        loadingDiv.style.borderRadius = '8px';
+        loadingDiv.style.color = '#666';
+        loadingDiv.style.fontSize = '14px';
+        imageContainer.appendChild(loadingDiv);
+        
+        // 构建图片URL
         if (messageData.fileId) {
-            // 假设图片存储在 /uploads/image/ 目录下
-            // 实际上需要调用API获取完整的文件信息
+            console.log('开始获取图片URL，fileId:', messageData.fileId);
             this.getFileUrl(messageData.fileId).then(url => {
+                console.log('获取到图片URL:', url);
                 if (url) {
                     image.src = url;
                     image.alt = '图片消息';
+                    image.onload = () => {
+                        console.log('图片加载成功');
+                        loadingDiv.style.display = 'none';
+                        imageContainer.appendChild(image);
+                    };
+                    image.onerror = () => {
+                        console.error('图片加载失败');
+                        loadingDiv.textContent = '图片加载失败';
+                        loadingDiv.style.color = '#ff6b6b';
+                    };
                 } else {
-                    // 如果无法获取图片，显示占位符
-                    image.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="%23ddd"/><text x="50" y="50" text-anchor="middle" dy=".3em">图片</text></svg>';
-                    image.alt = '图片加载失败';
+                    console.error('无法获取图片URL');
+                    loadingDiv.textContent = '图片获取失败';
+                    loadingDiv.style.color = '#ff6b6b';
                 }
-            }).catch(() => {
-                image.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="%23ddd"/><text x="50" y="50" text-anchor="middle" dy=".3em">图片</text></svg>';
-                image.alt = '图片加载失败';
+            }).catch(error => {
+                console.error('获取图片URL异常:', error);
+                loadingDiv.textContent = '图片加载异常';
+                loadingDiv.style.color = '#ff6b6b';
             });
+        } else {
+            console.error('消息缺少fileId');
+            loadingDiv.textContent = '图片信息缺失';
+            loadingDiv.style.color = '#ff6b6b';
         }
         
         // 点击放大图片
@@ -245,8 +289,6 @@ class CustomerServiceChat {
                 window.open(image.src, '_blank');
             }
         };
-        
-        imageContainer.appendChild(image);
         
         const messageTime = document.createElement('span');
         messageTime.className = 'message-time';
@@ -262,7 +304,7 @@ class CustomerServiceChat {
             staffLabel.style.fontSize = '12px';
             staffLabel.style.color = '#666';
             staffLabel.style.marginBottom = '5px';
-            messageDiv.insertBefore(staffLabel, imageContainer);
+            messageDiv.insertBefore(staffLabel, messageDiv.firstChild);
         }
         
         this.chatMessages.appendChild(messageDiv);
