@@ -365,6 +365,29 @@ class FileUploadAPI {
             }
         }
 
+        // 保存文件信息到数据库
+        try {
+            if (global.database) {
+                await global.database.runAsync(`
+                    INSERT INTO uploaded_files (id, original_name, filename, file_path, file_size, mime_type, uploader_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                `, [
+                    fileInfo.id,
+                    fileInfo.originalName,
+                    fileInfo.filename,
+                    fileInfo.path,
+                    fileInfo.size,
+                    fileInfo.mimetype,
+                    fileInfo.userId
+                ]);
+                console.log(`💾 文件信息已保存到数据库: ${fileInfo.id}`);
+            } else {
+                console.warn('⚠️ 数据库未初始化，无法保存文件信息');
+            }
+        } catch (error) {
+            console.error('❌ 保存文件信息到数据库失败:', error);
+        }
+
         console.log(`✅ 文件处理完成: ${fileInfo.originalName}`);
         return fileInfo;
     }
