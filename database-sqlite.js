@@ -201,16 +201,6 @@ class SQLiteDatabase {
         };
     }
 
-    // 为兼容其他模块添加exec方法
-    exec(sql) {
-        return new Promise((resolve, reject) => {
-            this.db.exec(sql, (err) => {
-                if (err) reject(err);
-                else resolve();
-            });
-        });
-    }
-
     getAsync(sql, params = []) {
         return new Promise((resolve, reject) => {
             this.db.get(sql, params, (err, row) => {

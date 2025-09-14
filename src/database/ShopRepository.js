@@ -127,51 +127,6 @@ class ShopRepository {
         const shop = await this.getShopById(shopId);
         return shop && shop.status === 'active';
     }
-
-    /**
-     * 更新店铺状态（适配SQLite和内存数据库）
-     */
-    async updateShopStatus(shopId, status) {
-        try {
-            // 检查是否为SQLite数据库实例
-            if (this.db.run && typeof this.db.run === 'function') {
-                // SQLite数据库：更新shops表的approval_status字段
-                const stmt = this.db.prepare(`
-                    UPDATE shops 
-                    SET approval_status = ?, updated_at = datetime('now', 'localtime') 
-                    WHERE id = ?
-                `);
-                const result = stmt.run(status, shopId);
-                
-                if (result.changes > 0) {
-                    console.log(`✅ 店铺 ${shopId} 状态已更新为 ${status} (SQLite)`);
-                    return true;
-                } else {
-                    console.log(`⚠️ 店铺 ${shopId} 不存在 (SQLite)`);
-                    return false;
-                }
-            } else if (this.db.shops && this.db.shops instanceof Map) {
-                // database-memory.js 使用 Map 结构，直接更新
-                const shop = this.db.shops.get(shopId);
-                if (shop) {
-                    shop.approval_status = status;
-                    shop.updated_at = new Date();
-                    console.log(`✅ 店铺 ${shopId} 状态已更新为 ${status} (Memory)`);
-                    return true;
-                } else {
-                    console.log(`⚠️ 店铺 ${shopId} 不存在 (Memory)`);
-                    return false;
-                }
-            } else {
-                // 其他数据库类型，暂时跳过更新
-                console.log(`⚠️ 跳过店铺 ${shopId} 状态更新（不支持的数据库类型）`);
-                return true; // 返回true以避免阻塞主流程
-            }
-        } catch (error) {
-            console.error(`❌ 更新店铺 ${shopId} 状态失败:`, error);
-            return false;
-        }
-    }
 }
 
 module.exports = ShopRepository;

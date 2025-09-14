@@ -84,8 +84,8 @@ class RuilongModuleLoader {
             'role-manager.js',
             'shop-buttons.js',
             'mobile-functions.js',
-            'integration-generator.js'
-            // 注意：payment-system.js 被替换为开发中版本
+            'integration-generator.js',
+            'payment-system.js'
         ];
         
         const basePath = '/static/js/modules/ruilong-features/';
@@ -103,15 +103,6 @@ class RuilongModuleLoader {
             } catch (error) {
                 console.error(`❌ [Ruilong] 模块加载失败: ${moduleFile}`, error);
             }
-        }
-        
-        // 🔥 加载开发中版本的付费系统
-        try {
-            await this.loadScript('/src/modules/PaymentSystemDev.js');
-            this.loadedModules.add('PaymentSystemDev.js');
-            console.log('✅ [Ruilong] 开发中付费系统加载成功');
-        } catch (error) {
-            console.error('❌ [Ruilong] 开发中付费系统加载失败:', error);
         }
     }
     
