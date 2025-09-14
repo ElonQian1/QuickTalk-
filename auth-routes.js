@@ -1080,16 +1080,12 @@ app.post('/api/conversations/:conversationId/messages/media', requireAuth, (req,
                 // 获取文件信息以构建完整的消息数据
                 let fileInfo = null;
                 if (fileId) {
-                    fileInfo = await new Promise((resolve, reject) => {
-                        database.db.get(
-                            'SELECT * FROM uploaded_files WHERE id = ?',
-                            [fileId],
-                            (err, row) => {
-                                if (err) reject(err);
-                                else resolve(row);
-                            }
-                        );
-                    });
+                    console.log('🔍 查询文件信息, fileId:', fileId);
+                    fileInfo = await database.getAsync(
+                        'SELECT * FROM uploaded_files WHERE id = ?',
+                        [fileId]
+                    );
+                    console.log('📁 查询到的文件信息:', fileInfo);
                 }
                 
                 const messageData = {
@@ -1107,10 +1103,17 @@ app.post('/api/conversations/:conversationId/messages/media', requireAuth, (req,
                 
                 // 如果有文件信息，添加文件相关字段
                 if (fileInfo) {
+                    console.log('📁 构建文件URL, filename:', fileInfo.filename);
                     messageData.file_url = `/uploads/image/${fileInfo.filename}`;
                     messageData.file_name = fileInfo.original_name;
                     messageData.file_size = fileInfo.file_size;
                     messageData.mime_type = fileInfo.mime_type;
+                    console.log('✅ 文件信息已添加到消息:', {
+                        file_url: messageData.file_url,
+                        file_name: messageData.file_name
+                    });
+                } else {
+                    console.log('⚠️ 未找到文件信息, fileId:', fileId);
                 }
                 
                 console.log('📨 准备推送的消息数据:', messageData);
