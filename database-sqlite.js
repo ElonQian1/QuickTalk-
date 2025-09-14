@@ -155,6 +155,17 @@ class SQLiteDatabase {
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (shop_id) REFERENCES shops(id),
                 UNIQUE(shop_id, user_id)
+            )`,
+            
+            // 店铺API密钥表
+            `CREATE TABLE IF NOT EXISTS shop_api_keys (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                shop_id TEXT NOT NULL,
+                api_key TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (shop_id) REFERENCES shops(id),
+                UNIQUE(shop_id)
             )`
         ];
 
@@ -188,6 +199,16 @@ class SQLiteDatabase {
         return {
             run: (params) => this.runAsync(sql, params)
         };
+    }
+
+    // 为兼容其他模块添加exec方法
+    exec(sql) {
+        return new Promise((resolve, reject) => {
+            this.db.exec(sql, (err) => {
+                if (err) reject(err);
+                else resolve();
+            });
+        });
     }
 
     getAsync(sql, params = []) {
@@ -532,22 +553,6 @@ class SQLiteDatabase {
             SET api_key = ?, api_key_created_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP 
             WHERE id = ?
         `, [apiKey, shopId]);
-        return await this.getShopById(shopId);
-    }
-
-    async updateShopActivation(shopId, activationData) {
-        const { status, approval_status, activated_at, expires_at } = activationData;
-        await this.runAsync(`
-            UPDATE shops 
-            SET status = ?, 
-                approval_status = ?, 
-                activated_at = ?, 
-                expires_at = ?, 
-                updated_at = CURRENT_TIMESTAMP 
-            WHERE id = ?
-        `, [status, approval_status, activated_at, expires_at, shopId]);
-        
-        console.log('✅ 店铺激活状态已更新:', { shopId, status, approval_status });
         return await this.getShopById(shopId);
     }
 
@@ -1107,6 +1112,40 @@ class SQLiteDatabase {
             totalConversations: stats?.total_conversations || 0,
             unreadMessages: stats?.unread_messages || 0
         };
+    }
+
+    // ========== API密钥相关方法 ==========
+    
+    // 获取店铺API密钥
+    async getShopApiKey(shopId) {
+        const result = await this.getAsync(
+            'SELECT api_key FROM shop_api_keys WHERE shop_id = ?', 
+            [shopId]
+        );
+        return result?.api_key || null;
+    }
+
+    // 保存店铺API密钥
+    async saveShopApiKey(shopId, apiKey) {
+        await this.runAsync(`
+            INSERT OR REPLACE INTO shop_api_keys (shop_id, api_key, updated_at)
+            VALUES (?, ?, CURRENT_TIMESTAMP)
+        `, [shopId, apiKey]);
+        
+        console.log(`🔑 保存店铺API密钥: ${shopId}`);
+        return true;
+    }
+
+    // 验证API密钥
+    async validateApiKey(apiKey) {
+        const result = await this.getAsync(`
+            SELECT s.id as shop_id, s.name as shop_name, s.domain, s.status
+            FROM shop_api_keys ak
+            JOIN shops s ON ak.shop_id = s.id
+            WHERE ak.api_key = ? AND s.status = 'active'
+        `, [apiKey]);
+        
+        return result || null;
     }
 
     // 关闭数据库连接
