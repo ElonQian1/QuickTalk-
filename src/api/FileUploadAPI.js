@@ -381,11 +381,34 @@ class FileUploadAPI {
                     fileInfo.userId
                 ]);
                 console.log(`💾 文件信息已保存到数据库: ${fileInfo.id}`);
+                
+                // 添加文件完整性验证
+                const savedRecord = await global.database.getAsync(
+                    'SELECT * FROM uploaded_files WHERE id = ?',
+                    [fileInfo.id]
+                );
+                
+                if (!savedRecord) {
+                    throw new Error('文件记录保存失败，无法查询到保存的记录');
+                }
+                
+                console.log(`✅ 文件记录验证通过: ${fileInfo.id}`);
+                
             } else {
                 console.warn('⚠️ 数据库未初始化，无法保存文件信息');
+                throw new Error('数据库连接不可用');
             }
         } catch (error) {
             console.error('❌ 保存文件信息到数据库失败:', error);
+            // 如果数据库保存失败，删除已上传的物理文件
+            try {
+                const fs = require('fs').promises;
+                await fs.unlink(fileInfo.path);
+                console.log(`🗑️  已清理失败的文件: ${fileInfo.path}`);
+            } catch (cleanupError) {
+                console.error('❌ 清理文件失败:', cleanupError);
+            }
+            throw error;
         }
 
         console.log(`✅ 文件处理完成: ${fileInfo.originalName}`);
