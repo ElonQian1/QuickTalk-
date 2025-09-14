@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#667eea">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="QuickTalk客服">
+    
+    <!-- PWA 清单文件 -->
+    <link rel="manifest" href="/manifest.json">
+    
+    <!-- iOS 图标 -->
+    <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-180x180.png">
+    
+    <!-- 启动画面 -->
+    <link rel="apple-touch-startup-image" href="/icons/splash-640x1136.png" media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2)">
+    <link rel="apple-touch-startup-image" href="/icons/splash-750x1334.png" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)">
+    <link rel="apple-touch-startup-image" href="/icons/splash-1242x2208.png" media="(device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3)">
+    
+    <title>增强移动客服 - QuickTalk</title>
+    <link rel="stylesheet" href="/css/enhanced-mobile-customer-service.css">
+</head>
+<body>
+    <!-- 状态栏占位 -->
+    <div class="status-bar"></div>
+
+    <!-- 主容器 -->
+    <div id="app" class="app-container">
+        
+        <!-- 首页 - 消息总览 -->
+        <div id="homePage" class="page active">
+            <!-- 头部 -->
+            <div class="page-header">
+                <div class="header-content">
+                    <h1 class="page-title">客服消息</h1>
+                    <div class="header-actions">
+                        <button class="header-btn" onclick="showSettings()">⚙️</button>
+                        <button class="header-btn" onclick="refreshData()">🔄</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 统计卡片 -->
+            <div class="stats-summary">
+                <div class="stats-item highlight">
+                    <div class="stats-number" id="totalUnreadCount">0</div>
+                    <div class="stats-label">未读消息</div>
+                </div>
+                <div class="stats-item">
+                    <div class="stats-number" id="totalShopsCount">0</div>
+                    <div class="stats-label">店铺数量</div>
+                </div>
+            </div>
+
+            <!-- 店铺列表 -->
+            <div class="shop-list-container">
+                <div class="section-header">
+                    <h2>店铺消息</h2>
+                </div>
+                <div id="shopList" class="shop-list">
+                    <!-- 动态加载店铺列表 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 店铺对话列表页 -->
+        <div id="shopPage" class="page">
+            <div class="page-header">
+                <div class="header-content">
+                    <button class="back-btn" onclick="goBack()">‹</button>
+                    <div class="header-info">
+                        <h1 class="page-title" id="shopPageTitle">店铺对话</h1>
+                        <div class="page-subtitle" id="shopPageSubtitle">查看所有对话</div>
+                    </div>
+                    <div class="header-actions">
+                        <button class="header-btn" onclick="refreshConversations()">🔄</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="conversation-list-container">
+                <div id="conversationList" class="conversation-list">
+                    <!-- 动态加载对话列表 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 聊天页面 -->
+        <div id="chatPage" class="page">
+            <div class="chat-header">
+                <div class="header-content">
+                    <button class="back-btn" onclick="goBack()">‹</button>
+                    <div class="chat-info">
+                        <div class="chat-title" id="chatTitle">客户聊天</div>
+                        <div class="chat-subtitle" id="chatSubtitle">在线</div>
+                    </div>
+                    <div class="header-actions">
+                        <button class="header-btn" onclick="showChatMenu()">⋯</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 聊天消息区域 -->
+            <div class="chat-messages" id="chatMessages">
+                <!-- 动态加载消息 -->
+            </div>
+
+            <!-- 增强输入区域 -->
+            <div class="enhanced-input-area">
+                <div class="input-tools">
+                    <button class="tool-btn" id="cameraBtn" onclick="enhancedMobileService.takePhoto()" title="拍照">📷</button>
+                    <button class="tool-btn" id="voiceBtn" onclick="toggleVoiceRecording()" title="语音">🎤</button>
+                    <button class="tool-btn" id="locationBtn" onclick="enhancedMobileService.shareLocation()" title="位置">📍</button>
+                </div>
+                
+                <div class="input-container">
+                    <textarea 
+                        id="messageInput" 
+                        class="enhanced-input" 
+                        placeholder="输入消息..."
+                        rows="1"
+                        maxlength="1000"
+                    ></textarea>
+                </div>
+                
+                <button class="tool-btn send-btn" id="sendBtn" onclick="sendMessage()" disabled>➤</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 模态框容器 -->
+    <div id="modalContainer"></div>
+
+    <!-- PWA 安装提示 -->
+    <div id="installPrompt" class="install-prompt" style="display: none;">
+        <div class="install-content">
+            <div class="install-icon">📱</div>
+            <div class="install-text">
+                <div class="install-title">安装到主屏幕</div>
+                <div class="install-subtitle">获得更好的使用体验</div>
+            </div>
+            <div class="install-actions">
+                <button class="install-btn dismiss" onclick="dismissInstallPrompt()">稍后</button>
+                <button class="install-btn install" onclick="installPWA()">安装</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/enhanced-mobile-customer-service.js"></script>
+    <script>
+        // 页面导航管理
+        let pageStack = ['home'];
+        let currentShop = null;
+        let currentConversation = null;
+
+        // 页面切换
+        function showPage(pageId) {
+            document.querySelectorAll('.page').forEach(page => {
+                page.classList.remove('active');
+            });
+            document.getElementById(pageId).classList.add('active');
+        }
+
+        function goBack() {
+            if (pageStack.length > 1) {
+                pageStack.pop();
+                const previousPage = pageStack[pageStack.length - 1];
+                showPage(previousPage + 'Page');
+                
+                // 更新页面状态
+                if (previousPage === 'home') {
+                    currentShop = null;
+                    currentConversation = null;
+                } else if (previousPage === 'shop') {
+                    currentConversation = null;
+                }
+            }
+        }
+
+        // 进入店铺页面
+        function enterShop(shopId, shopName) {
+            currentShop = { id: shopId, name: shopName };
+            pageStack.push('shop');
+            
+            document.getElementById('shopPageTitle').textContent = shopName;
+            document.getElementById('shopPageSubtitle').textContent = '查看所有对话';
+            
+            showPage('shopPage');
+            loadConversations(shopId);
+        }
+
+        // 进入聊天页面
+        function enterChat(conversationId, customerName) {
+            currentConversation = { id: conversationId, customerName: customerName };
+            pageStack.push('chat');
+            
+            document.getElementById('chatTitle').textContent = customerName;
+            document.getElementById('chatSubtitle').textContent = '在线';
+            
+            showPage('chatPage');
+            loadMessages(conversationId);
+        }
+
+        // 语音录制切换
+        let isRecording = false;
+        function toggleVoiceRecording() {
+            if (isRecording) {
+                enhancedMobileService.stopVoiceRecording();
+                isRecording = false;
+                document.getElementById('voiceBtn').classList.remove('active');
+            } else {
+                enhancedMobileService.startVoiceRecording();
+                isRecording = true;
+                document.getElementById('voiceBtn').classList.add('active');
+            }
+        }
+
+        // 发送消息
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (message && currentConversation) {
+                // 发送消息逻辑
+                enhancedMobileService.sendMessage(message, 'text');
+                input.value = '';
+                updateSendButton();
+                
+                // 添加消息到界面
+                addMessageToChat(message, 'sent');
+            }
+        }
+
+        // 输入框事件处理
+        document.addEventListener('DOMContentLoaded', function() {
+            const messageInput = document.getElementById('messageInput');
+            const sendBtn = document.getElementById('sendBtn');
+            
+            // 自动调整输入框高度
+            messageInput.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = Math.min(this.scrollHeight, 100) + 'px';
+                updateSendButton();
+            });
+            
+            // 回车发送消息
+            messageInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+            
+            function updateSendButton() {
+                const hasText = messageInput.value.trim().length > 0;
+                sendBtn.disabled = !hasText;
+                sendBtn.style.opacity = hasText ? '1' : '0.5';
+            }
+        });
+
+        // 添加消息到聊天界面
+        function addMessageToChat(content, type, messageType = 'text') {
+            const messagesContainer = document.getElementById('chatMessages');
+            const messageElement = document.createElement('div');
+            messageElement.className = 'message-item';
+            
+            let messageContent = '';
+            const timestamp = new Date().toLocaleTimeString('zh-CN', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+            
+            switch (messageType) {
+                case 'image':
+                    messageContent = `<img src="${content}" class="message-image" onclick="showImagePreview('${content}')" alt="图片">`;
+                    break;
+                case 'audio':
+                    messageContent = `
+                        <div class="voice-message">
+                            <button class="voice-play-btn" onclick="playVoice('${content}')">▶</button>
+                            <div class="voice-waveform"></div>
+                            <div class="voice-duration">0:05</div>
+                        </div>
+                    `;
+                    break;
+                case 'location':
+                    const locationData = JSON.parse(content);
+                    messageContent = `
+                        <div class="location-message">
+                            <div class="location-preview" onclick="showLocationMap(${locationData.latitude}, ${locationData.longitude})">
+                                <div class="location-preview-icon">📍</div>
+                                <div class="location-preview-text">
+                                    <div class="location-preview-address">${locationData.address}</div>
+                                    <div class="location-preview-coords">坐标: ${locationData.latitude.toFixed(4)}, ${locationData.longitude.toFixed(4)}</div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    break;
+                default:
+                    messageContent = `<div class="message-content">${content}</div>`;
+            }
+            
+            messageElement.innerHTML = `
+                <div class="message-bubble ${type}">
+                    ${messageContent}
+                    <div class="message-time">${timestamp}</div>
+                </div>
+            `;
+            
+            messagesContainer.appendChild(messageElement);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        // 数据加载函数
+        async function loadShops() {
+            // 模拟店铺数据
+            const shops = [
+                { id: '1', name: '测试店铺1', unreadCount: 3, lastMessage: '你好，有什么可以帮助您的吗？', lastTime: '10:30' },
+                { id: '2', name: '测试店铺2', unreadCount: 0, lastMessage: '好的，谢谢您', lastTime: '昨天' },
+                { id: '3', name: '测试店铺3', unreadCount: 1, lastMessage: '我想咨询一下产品', lastTime: '09:15' }
+            ];
+            
+            const shopList = document.getElementById('shopList');
+            shopList.innerHTML = shops.map(shop => `
+                <div class="shop-item" onclick="enterShop('${shop.id}', '${shop.name}')">
+                    <div class="shop-avatar">🏪</div>
+                    <div class="shop-info">
+                        <div class="shop-header">
+                            <div class="shop-name">${shop.name}</div>
+                            <div class="shop-time">${shop.lastTime}</div>
+                        </div>
+                        <div class="shop-message">${shop.lastMessage}</div>
+                    </div>
+                    ${shop.unreadCount > 0 ? `<div class="unread-badge">${shop.unreadCount}</div>` : ''}
+                </div>
+            `).join('');
+            
+            // 更新统计
+            const totalUnread = shops.reduce((sum, shop) => sum + shop.unreadCount, 0);
+            document.getElementById('totalUnreadCount').textContent = totalUnread;
+            document.getElementById('totalShopsCount').textContent = shops.length;
+        }
+
+        async function loadConversations(shopId) {
+            // 模拟对话数据
+            const conversations = [
+                { id: '1', customerName: '张三', unreadCount: 2, lastMessage: '产品质量怎么样？', lastTime: '10:30', status: 'active' },
+                { id: '2', customerName: '李四', unreadCount: 0, lastMessage: '好的，谢谢', lastTime: '09:15', status: 'inactive' },
+                { id: '3', customerName: '王五', unreadCount: 1, lastMessage: '我要退货', lastTime: '昨天', status: 'waiting' }
+            ];
+            
+            const conversationList = document.getElementById('conversationList');
+            conversationList.innerHTML = conversations.map(conv => `
+                <div class="conversation-item ${conv.status}" onclick="enterChat('${conv.id}', '${conv.customerName}')">
+                    <div class="customer-avatar">${conv.customerName.charAt(0)}</div>
+                    <div class="conversation-info">
+                        <div class="conversation-header">
+                            <div class="customer-name">${conv.customerName}</div>
+                            <div class="conversation-time">${conv.lastTime}</div>
+                        </div>
+                        <div class="conversation-message">${conv.lastMessage}</div>
+                    </div>
+                    ${conv.unreadCount > 0 ? `<div class="unread-badge">${conv.unreadCount}</div>` : ''}
+                    <div class="status-indicator ${conv.status}"></div>
+                </div>
+            `).join('');
+        }
+
+        async function loadMessages(conversationId) {
+            // 模拟消息数据
+            const messages = [
+                { content: '你好，有什么可以帮助您的吗？', type: 'received', time: '10:25', messageType: 'text' },
+                { content: '我想了解一下你们的产品', type: 'sent', time: '10:26', messageType: 'text' },
+                { content: '好的，请稍等，我为您介绍一下', type: 'received', time: '10:27', messageType: 'text' },
+                { content: '/images/product-demo.jpg', type: 'received', time: '10:28', messageType: 'image' }
+            ];
+            
+            const messagesContainer = document.getElementById('chatMessages');
+            messagesContainer.innerHTML = '';
+            
+            messages.forEach(msg => {
+                addMessageToChat(msg.content, msg.type, msg.messageType);
+            });
+        }
+
+        // 工具函数
+        function refreshData() {
+            enhancedMobileService.triggerRefresh();
+        }
+
+        function refreshConversations() {
+            if (currentShop) {
+                loadConversations(currentShop.id);
+            }
+        }
+
+        function showSettings() {
+            // 显示设置页面
+            console.log('显示设置');
+        }
+
+        function showChatMenu() {
+            // 显示聊天菜单
+            console.log('显示聊天菜单');
+        }
+
+        function showImagePreview(imageUrl) {
+            // 显示图片预览
+            console.log('预览图片:', imageUrl);
+        }
+
+        function playVoice(audioUrl) {
+            // 播放语音
+            console.log('播放语音:', audioUrl);
+        }
+
+        function showLocationMap(lat, lng) {
+            // 显示地图
+            console.log('显示地图:', lat, lng);
+        }
+
+        // PWA 安装相关
+        let deferredPrompt;
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            document.getElementById('installPrompt').style.display = 'block';
+        });
+
+        function installPWA() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        console.log('PWA安装成功');
+                    }
+                    deferredPrompt = null;
+                    dismissInstallPrompt();
+                });
+            }
+        }
+
+        function dismissInstallPrompt() {
+            document.getElementById('installPrompt').style.display = 'none';
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            loadShops();
+        });
+    </script>
+</body>
+</html>

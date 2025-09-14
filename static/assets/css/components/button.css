@@ -1,0 +1,633 @@
+/**
+ * Button 组件样式
+ * 提供按钮的视觉样式和交互效果
+ */
+
+/* 基础按钮样式 */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 16px;
+    margin: 0;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.5;
+    text-align: center;
+    text-decoration: none;
+    white-space: nowrap;
+    vertical-align: middle;
+    cursor: pointer;
+    user-select: none;
+    background-color: transparent;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    transition: all 0.15s ease-in-out;
+    position: relative;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+.btn:focus {
+    outline: 2px solid #007bff;
+    outline-offset: 2px;
+}
+
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* 按钮尺寸 */
+.btn-xs {
+    padding: 4px 8px;
+    font-size: 11px;
+    line-height: 1.4;
+}
+
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.btn-md {
+    padding: 8px 16px;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.btn-lg {
+    padding: 12px 24px;
+    font-size: 16px;
+    line-height: 1.5;
+}
+
+.btn-xl {
+    padding: 16px 32px;
+    font-size: 18px;
+    line-height: 1.5;
+}
+
+/* 按钮变体 */
+.btn-primary {
+    color: #fff;
+    background-color: #007bff;
+    border-color: #007bff;
+}
+
+.btn-primary:hover {
+    color: #fff;
+    background-color: #0056b3;
+    border-color: #004085;
+}
+
+.btn-primary:focus {
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.5);
+}
+
+.btn-primary:active {
+    background-color: #004085;
+    border-color: #003d82;
+}
+
+.btn-secondary {
+    color: #fff;
+    background-color: #6c757d;
+    border-color: #6c757d;
+}
+
+.btn-secondary:hover {
+    color: #fff;
+    background-color: #545b62;
+    border-color: #4e555b;
+}
+
+.btn-secondary:focus {
+    box-shadow: 0 0 0 2px rgba(108, 117, 125, 0.5);
+}
+
+.btn-secondary:active {
+    background-color: #4e555b;
+    border-color: #485055;
+}
+
+.btn-success {
+    color: #fff;
+    background-color: #28a745;
+    border-color: #28a745;
+}
+
+.btn-success:hover {
+    color: #fff;
+    background-color: #1e7e34;
+    border-color: #1c7430;
+}
+
+.btn-success:focus {
+    box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.5);
+}
+
+.btn-success:active {
+    background-color: #1c7430;
+    border-color: #1a6929;
+}
+
+.btn-danger {
+    color: #fff;
+    background-color: #dc3545;
+    border-color: #dc3545;
+}
+
+.btn-danger:hover {
+    color: #fff;
+    background-color: #c82333;
+    border-color: #bd2130;
+}
+
+.btn-danger:focus {
+    box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.5);
+}
+
+.btn-danger:active {
+    background-color: #bd2130;
+    border-color: #b21f2d;
+}
+
+.btn-warning {
+    color: #212529;
+    background-color: #ffc107;
+    border-color: #ffc107;
+}
+
+.btn-warning:hover {
+    color: #212529;
+    background-color: #e0a800;
+    border-color: #d39e00;
+}
+
+.btn-warning:focus {
+    box-shadow: 0 0 0 2px rgba(255, 193, 7, 0.5);
+}
+
+.btn-warning:active {
+    background-color: #d39e00;
+    border-color: #c69500;
+}
+
+.btn-info {
+    color: #fff;
+    background-color: #17a2b8;
+    border-color: #17a2b8;
+}
+
+.btn-info:hover {
+    color: #fff;
+    background-color: #117a8b;
+    border-color: #10707f;
+}
+
+.btn-info:focus {
+    box-shadow: 0 0 0 2px rgba(23, 162, 184, 0.5);
+}
+
+.btn-info:active {
+    background-color: #10707f;
+    border-color: #0f6674;
+}
+
+.btn-light {
+    color: #212529;
+    background-color: #f8f9fa;
+    border-color: #f8f9fa;
+}
+
+.btn-light:hover {
+    color: #212529;
+    background-color: #e2e6ea;
+    border-color: #dae0e5;
+}
+
+.btn-light:focus {
+    box-shadow: 0 0 0 2px rgba(248, 249, 250, 0.5);
+}
+
+.btn-light:active {
+    background-color: #dae0e5;
+    border-color: #d3d9df;
+}
+
+.btn-dark {
+    color: #fff;
+    background-color: #343a40;
+    border-color: #343a40;
+}
+
+.btn-dark:hover {
+    color: #fff;
+    background-color: #23272b;
+    border-color: #1d2124;
+}
+
+.btn-dark:focus {
+    box-shadow: 0 0 0 2px rgba(52, 58, 64, 0.5);
+}
+
+.btn-dark:active {
+    background-color: #1d2124;
+    border-color: #171a1d;
+}
+
+/* 轮廓按钮 */
+.btn-outline-primary {
+    color: #007bff;
+    border-color: #007bff;
+}
+
+.btn-outline-primary:hover {
+    color: #fff;
+    background-color: #007bff;
+    border-color: #007bff;
+}
+
+.btn-outline-secondary {
+    color: #6c757d;
+    border-color: #6c757d;
+}
+
+.btn-outline-secondary:hover {
+    color: #fff;
+    background-color: #6c757d;
+    border-color: #6c757d;
+}
+
+.btn-outline-success {
+    color: #28a745;
+    border-color: #28a745;
+}
+
+.btn-outline-success:hover {
+    color: #fff;
+    background-color: #28a745;
+    border-color: #28a745;
+}
+
+.btn-outline-danger {
+    color: #dc3545;
+    border-color: #dc3545;
+}
+
+.btn-outline-danger:hover {
+    color: #fff;
+    background-color: #dc3545;
+    border-color: #dc3545;
+}
+
+.btn-outline-warning {
+    color: #ffc107;
+    border-color: #ffc107;
+}
+
+.btn-outline-warning:hover {
+    color: #212529;
+    background-color: #ffc107;
+    border-color: #ffc107;
+}
+
+.btn-outline-info {
+    color: #17a2b8;
+    border-color: #17a2b8;
+}
+
+.btn-outline-info:hover {
+    color: #fff;
+    background-color: #17a2b8;
+    border-color: #17a2b8;
+}
+
+.btn-outline-light {
+    color: #f8f9fa;
+    border-color: #f8f9fa;
+}
+
+.btn-outline-light:hover {
+    color: #212529;
+    background-color: #f8f9fa;
+    border-color: #f8f9fa;
+}
+
+.btn-outline-dark {
+    color: #343a40;
+    border-color: #343a40;
+}
+
+.btn-outline-dark:hover {
+    color: #fff;
+    background-color: #343a40;
+    border-color: #343a40;
+}
+
+/* 文本按钮 */
+.btn-text {
+    color: #007bff;
+    background-color: transparent;
+    border-color: transparent;
+    padding-left: 0;
+    padding-right: 0;
+}
+
+.btn-text:hover {
+    color: #0056b3;
+    background-color: rgba(0, 123, 255, 0.1);
+}
+
+.btn-text:focus {
+    color: #0056b3;
+    box-shadow: none;
+    text-decoration: underline;
+}
+
+/* 链接按钮 */
+.btn-link {
+    color: #007bff;
+    background-color: transparent;
+    border-color: transparent;
+    text-decoration: underline;
+}
+
+.btn-link:hover {
+    color: #0056b3;
+    text-decoration: none;
+}
+
+.btn-link:focus {
+    box-shadow: none;
+}
+
+/* 圆形按钮 */
+.btn-circle {
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-circle.btn-xs {
+    width: 24px;
+    height: 24px;
+}
+
+.btn-circle.btn-sm {
+    width: 32px;
+    height: 32px;
+}
+
+.btn-circle.btn-lg {
+    width: 48px;
+    height: 48px;
+}
+
+.btn-circle.btn-xl {
+    width: 56px;
+    height: 56px;
+}
+
+/* 块级按钮 */
+.btn-block {
+    display: flex;
+    width: 100%;
+}
+
+/* 按钮组 */
+.btn-group {
+    position: relative;
+    display: inline-flex;
+    vertical-align: middle;
+}
+
+.btn-group .btn {
+    position: relative;
+    flex: 1 1 auto;
+}
+
+.btn-group .btn:not(:first-child) {
+    margin-left: -1px;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+.btn-group .btn:not(:last-child) {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.btn-group .btn:hover,
+.btn-group .btn:focus,
+.btn-group .btn:active {
+    z-index: 1;
+}
+
+/* 加载状态 */
+.btn-loading {
+    position: relative;
+    pointer-events: none;
+}
+
+.btn-loading .btn-text {
+    opacity: 0;
+}
+
+.btn-loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 16px;
+    height: 16px;
+    margin: -8px 0 0 -8px;
+    border: 2px solid transparent;
+    border-top-color: currentColor;
+    border-radius: 50%;
+    animation: btn-spin 1s linear infinite;
+}
+
+@keyframes btn-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* 图标 */
+.btn-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    font-size: 16px;
+    line-height: 1;
+}
+
+.btn-icon.icon-left {
+    margin-right: 6px;
+}
+
+.btn-icon.icon-right {
+    margin-left: 6px;
+}
+
+/* 波纹效果 */
+.btn-ripple {
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-ripple::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.5);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+}
+
+.btn-ripple:active::before {
+    width: 300px;
+    height: 300px;
+}
+
+/* 浮动操作按钮 */
+.btn-fab {
+    position: fixed;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    bottom: 24px;
+    right: 24px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-fab:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    transform: translateY(-1px);
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .btn-group {
+        flex-direction: column;
+        width: 100%;
+    }
+    
+    .btn-group .btn {
+        width: 100%;
+        margin-left: 0;
+        margin-top: -1px;
+        border-radius: 4px;
+    }
+    
+    .btn-group .btn:not(:first-child) {
+        margin-left: 0;
+        margin-top: -1px;
+        border-top-left-radius: 0;
+        border-top-right-radius: 0;
+        border-bottom-left-radius: 4px;
+        border-bottom-right-radius: 4px;
+    }
+    
+    .btn-group .btn:not(:last-child) {
+        border-top-right-radius: 4px;
+        border-bottom-right-radius: 0;
+        border-bottom-left-radius: 0;
+    }
+    
+    .btn-fab {
+        bottom: 16px;
+        right: 16px;
+        width: 48px;
+        height: 48px;
+    }
+}
+
+/* 深色主题支持 */
+@media (prefers-color-scheme: dark) {
+    .btn-light {
+        color: #f8f9fa;
+        background-color: #495057;
+        border-color: #495057;
+    }
+    
+    .btn-light:hover {
+        color: #f8f9fa;
+        background-color: #5a6268;
+        border-color: #545b62;
+    }
+    
+    .btn-outline-light {
+        color: #f8f9fa;
+        border-color: #f8f9fa;
+    }
+    
+    .btn-text {
+        color: #80bdff;
+    }
+    
+    .btn-text:hover {
+        color: #66a3ff;
+        background-color: rgba(128, 189, 255, 0.1);
+    }
+    
+    .btn-link {
+        color: #80bdff;
+    }
+    
+    .btn-link:hover {
+        color: #66a3ff;
+    }
+}
+
+/* 高对比度模式支持 */
+@media (prefers-contrast: high) {
+    .btn {
+        border-width: 2px;
+    }
+    
+    .btn:focus {
+        outline-width: 3px;
+        outline-offset: 3px;
+    }
+}
+
+/* 减少动画模式 */
+@media (prefers-reduced-motion: reduce) {
+    .btn {
+        transition: none;
+    }
+    
+    .btn-ripple::before {
+        transition: none;
+    }
+    
+    .btn-fab:hover {
+        transform: none;
+    }
+    
+    @keyframes btn-spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+}

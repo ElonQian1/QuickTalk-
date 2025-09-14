@@ -48,29 +48,12 @@ function requireSuperAdmin(req, res, next) {
     next();
 }
 
-// 店主权限检查 - 修改为支持店铺所有者权限
-async function requireShopOwner(req, res, next) {
-    try {
-        // 超级管理员和全局店主角色可以直接通过
-        if (['super_admin', 'shop_owner'].includes(req.user.role)) {
-            return next();
-        }
-        
-        // 如果是针对特定店铺的操作，检查用户是否是该店铺的所有者
-        const shopId = req.params.shopId;
-        if (shopId) {
-            const shop = await database.getShopById(shopId);
-            if (shop && shop.owner_id === req.user.id) {
-                console.log('✅ 用户是店铺所有者，允许操作:', { userId: req.user.id, shopId: shopId });
-                return next();
-            }
-        }
-        
+// 店主权限检查
+function requireShopOwner(req, res, next) {
+    if (!['super_admin', 'shop_owner'].includes(req.user.role)) {
         return res.status(403).json({ error: '需要店主权限' });
-    } catch (error) {
-        console.error('权限检查失败:', error.message);
-        return res.status(500).json({ error: '权限验证失败' });
     }
+    next();
 }
 
 // 用户注册
@@ -245,34 +228,6 @@ app.get('/api/admin/shops', requireAuth, requireSuperAdmin, async (req, res) => 
     }
 });
 
-// 管理员 - 获取统计信息
-app.get('/api/admin/stats', requireAuth, async (req, res) => {
-    try {
-        // 获取用户的店铺数量
-        const userShops = await database.getUserShops(req.user.id);
-        let totalShops = userShops.length;
-        
-        // 如果是超级管理员，获取所有店铺数量
-        if (req.user.role === 'super_admin') {
-            const allShops = await database.getAllShops();
-            totalShops = allShops.length;
-        }
-        
-        // 获取未读消息数量 (暂时返回0，后续可以扩展)
-        const unreadMessages = 0;
-        
-        res.json({
-            success: true,
-            totalShops,
-            unreadMessages,
-            userRole: req.user.role
-        });
-    } catch (error) {
-        console.error('获取统计信息失败:', error.message);
-        res.status(500).json({ error: error.message });
-    }
-});
-
 // 根据店铺过滤客服消息
 app.get('/api/messages', requireAuth, (req, res) => {
     const { shopId, userId, lastId = 0 } = req.query;
@@ -315,23 +270,31 @@ app.post('/api/auth/logout', requireAuth, async (req, res) => {
 app.get('/api/shops/:shopId/employees', requireAuth, async (req, res) => {
     try {
         const { shopId } = req.params;
+        const shop = database.shops.get(shopId);
         
-        // 检查店铺是否存在
-        const shop = await database.getShopById(shopId);
         if (!shop) {
             return res.status(404).json({ error: '店铺不存在' });
         }
         
         // 检查权限：只有店主和管理员可以查看员工列表
-        const isOwner = await database.isShopOwner(req.user.id, shopId);
-        const userRole = await database.getUserShopRole(req.user.id, shopId);
-        
-        if (!isOwner && userRole !== 'manager') {
+        const members = shop.members || [];
+        const userShop = members.find(m => m.userId === req.user.id);
+        if (!userShop || !['owner', 'manager'].includes(userShop.role)) {
             return res.status(403).json({ error: '无权限查看员工列表' });
         }
         
-        // 获取员工列表
-        const employees = await database.getShopEmployees(shopId);
+        // 获取员工信息
+        const employees = members
+            .filter(member => member.role !== 'owner')
+            .map(member => {
+                const user = database.users.get(member.userId);
+                return {
+                    id: member.userId,
+                    username: user.username,
+                    role: member.role,
+                    joinedAt: member.joinedAt
+                };
+            });
         
         res.json({ success: true, employees });
     } catch (error) {
@@ -344,73 +307,60 @@ app.get('/api/shops/:shopId/employees', requireAuth, async (req, res) => {
 app.post('/api/shops/:shopId/employees', requireAuth, async (req, res) => {
     try {
         const { shopId } = req.params;
-        const { username, email, password, role } = req.body;
+        const { username, role } = req.body;
         
         if (!username || !role) {
             return res.status(400).json({ error: '用户名和角色为必填项' });
         }
         
-        // 修正角色映射
-        const validRoles = ['staff', 'manager', 'employee'];
-        if (!validRoles.includes(role)) {
+        if (!['employee', 'manager'].includes(role)) {
             return res.status(400).json({ error: '无效的角色类型' });
         }
         
-        // 规范化角色名称
-        const normalizedRole = role === 'staff' ? 'employee' : role;
-        
-        // 检查店铺是否存在
-        const shop = await database.getShopById(shopId);
+        const shop = database.shops.get(shopId);
         if (!shop) {
             return res.status(404).json({ error: '店铺不存在' });
         }
         
         // 检查权限：只有店主可以添加员工
-        const isOwner = await database.isShopOwner(req.user.id, shopId);
-        if (!isOwner) {
+        const members = shop.members || [];
+        const userShop = members.find(m => m.userId === req.user.id);
+        if (!userShop || userShop.role !== 'owner') {
             return res.status(403).json({ error: '只有店主可以添加员工' });
         }
         
-        // 查找要添加的用户（如果用户不存在，可能需要创建）
-        let targetUser = await database.getUserByUsername(username);
-        
+        // 查找要添加的用户
+        const targetUser = Array.from(database.users.values()).find(u => u.username === username);
         if (!targetUser) {
-            // 如果提供了email和password，创建新用户
-            if (email && password) {
-                try {
-                    const userId = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-                    const hashedPassword = database.hashPassword(password);
-                    
-                    await database.runAsync(`
-                        INSERT INTO users (id, username, email, password, role, created_at)
-                        VALUES (?, ?, ?, ?, ?, datetime('now'))
-                    `, [userId, username, email, hashedPassword, 'user']);
-                    
-                    targetUser = { id: userId, username, email };
-                    console.log(`👤 创建新用户: ${username} (${userId})`);
-                } catch (createError) {
-                    console.error('创建用户失败:', createError);
-                    return res.status(500).json({ error: '创建用户失败' });
-                }
-            } else {
-                return res.status(404).json({ error: '用户不存在，请提供邮箱和密码创建新用户' });
-            }
+            return res.status(404).json({ error: '用户不存在' });
         }
         
-        // 检查用户是否已经是该店铺的员工
-        const existingRole = await database.getUserShopRole(targetUser.id, shopId);
-        if (existingRole) {
-            return res.status(400).json({ error: '该用户已经是店铺员工' });
+        // 检查用户是否已经是该店铺成员
+        const existingMember = members.find(m => m.userId === targetUser.id);
+        if (existingMember) {
+            return res.status(400).json({ error: '用户已经是该店铺成员' });
         }
         
-        // 设置员工权限
-        const permissions = normalizedRole === 'manager' ? ['manage_staff', 'view_chats', 'handle_chats'] : ['view_chats', 'handle_chats'];
+        // 添加员工
+        shop.members.push({
+            userId: targetUser.id,
+            role: role,
+            joinedAt: new Date(),
+            permissions: role === 'manager' ? ['manage_chat', 'view_reports'] : ['manage_chat']
+        });
         
-        // 添加员工到店铺
-        await database.addStaffToShop(shopId, targetUser.id, normalizedRole, permissions);
+        // 同时在用户-店铺关联表中添加关系
+        const userShops = database.userShops.get(targetUser.id) || [];
+        userShops.push({
+            shopId: shopId,
+            role: role,
+            joinedAt: new Date(),
+            permissions: role === 'manager' ? ['manage_chat', 'view_reports'] : ['manage_chat']
+        });
+        database.userShops.set(targetUser.id, userShops);
         
-        console.log(`👥 添加员工: ${username} 加入店铺 ${shop.name} (角色: ${normalizedRole})`);
-        res.json({ success: true, message: '员工添加成功', user: { id: targetUser.id, username } });
+        console.log(`👥 添加员工: ${username} 加入店铺 ${shop.name} (角色: ${role})`);
+        res.json({ success: true, message: '员工添加成功' });
     } catch (error) {
         console.error('添加员工错误:', error.message);
         res.status(500).json({ error: error.message });
@@ -724,46 +674,7 @@ app.get('/api/admin/pending-shops', requireAuth, requireSuperAdmin, async (req, 
     }
 });
 
-// 审核店铺通过
-app.post('/api/admin/approve-shop/:shopId', requireAuth, requireSuperAdmin, async (req, res) => {
-    try {
-        const { shopId } = req.params;
-        
-        const reviewedShop = await database.reviewShop(shopId, { approved: true, note: '审核通过' }, req.user.id);
-        
-        console.log(`✅ 超级管理员通过店铺审核: ${reviewedShop.name}`);
-        res.json({
-            success: true,
-            message: '店铺审核通过',
-            shop: reviewedShop
-        });
-    } catch (error) {
-        console.error('审核通过店铺错误:', error.message);
-        res.status(400).json({ error: error.message });
-    }
-});
-
-// 审核店铺拒绝
-app.post('/api/admin/reject-shop/:shopId', requireAuth, requireSuperAdmin, async (req, res) => {
-    try {
-        const { shopId } = req.params;
-        const { reason } = req.body;
-        
-        const reviewedShop = await database.reviewShop(shopId, { approved: false, note: reason || '审核拒绝' }, req.user.id);
-        
-        console.log(`❌ 超级管理员拒绝店铺审核: ${reviewedShop.name}, 原因: ${reason || '无'}`);
-        res.json({
-            success: true,
-            message: '店铺审核拒绝',
-            shop: reviewedShop
-        });
-    } catch (error) {
-        console.error('审核拒绝店铺错误:', error.message);
-        res.status(400).json({ error: error.message });
-    }
-});
-
-// 审核店铺（通用）
+// 审核店铺（通过/拒绝）
 app.put('/api/admin/review-shop/:shopId', requireAuth, requireSuperAdmin, async (req, res) => {
     try {
         const { shopId } = req.params;
@@ -949,7 +860,7 @@ app.post('/api/conversations/:conversationId/messages', requireAuth, async (req,
         }
         
         const shopId = conversationId.substring(0, userIndex);
-        const userId = conversationId.substring(userIndex + 6); // 跳过"_user_"（6个字符）
+        const userId = conversationId.substring(userIndex + 1); // 只跳过开头的"_"，保留"user_"前缀
         
         console.log(`🔍 解析对话ID: conversationId=${conversationId}, shopId=${shopId}, userId=${userId}`);
         
@@ -1100,209 +1011,167 @@ app.post('/api/conversations/:conversationId/mark-read', requireAuth, async (req
     }
 });
 
-// ============ 付费开通功能 ============
+// ========== 集成代码相关API ==========
 
-// 创建付费开通订单
-app.post('/api/shops/:shopId/activate', requireAuth, requireShopOwner, async (req, res) => {
+// 生成集成代码
+app.post('/api/integration/generate-code', requireAuth, async (req, res) => {
     try {
-        const shopId = req.params.shopId; // 保持字符串格式，不要parseInt
-        const userId = req.user.id;
+        const { shopId } = req.body;
         
-        console.log('💎 创建付费开通订单:', { shopId, userId });
-        
-        // 检查店铺是否存在
-        const shop = await database.getShopById(shopId);
-        if (!shop) {
-            return res.status(404).json({ error: '店铺不存在' });
+        if (!shopId) {
+            return res.status(400).json({ error: '店铺ID不能为空' });
         }
         
-        // 权限检查已经在requireShopOwner中间件中完成，这里不需要重复检查
+        // 检查用户是否有权限访问该店铺
+        const userShops = await database.getUserShops(req.user.id);
+        const hasAccess = req.user.role === 'super_admin' || 
+                        userShops.some(shop => shop.id === shopId);
         
-        // 检查店铺是否已经激活
-        if (shop.status === 'active' && shop.approval_status === 'approved') {
-            return res.status(400).json({ error: '店铺已经激活，无需重复开通' });
+        if (!hasAccess) {
+            return res.status(403).json({ error: '没有权限访问该店铺' });
         }
         
-        // 生成订单ID
-        const orderId = 'ACT' + Date.now() + Math.random().toString(36).substr(2, 9);
+        // 生成或获取API密钥
+        let apiKey = await database.getShopApiKey(shopId);
+        if (!apiKey) {
+            apiKey = generateApiKey();
+            await database.saveShopApiKey(shopId, apiKey);
+        }
         
-        // 创建订单数据
-        const order = {
-            orderId: orderId,
-            shopId: shopId,
-            shopName: shop.name,
-            userId: userId,
-            amount: 2000, // 固定价格2000元
-            status: 'pending',
-            createdAt: new Date().toISOString(),
-            expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString() // 30分钟后过期
-        };
-        
-        // 存储订单（简化实现，实际应该存储到数据库）
-        global.activationOrders = global.activationOrders || {};
-        global.activationOrders[orderId] = order;
-        
-        console.log('✅ 付费开通订单创建成功:', order);
+        // 生成集成代码
+        const integrationCode = generateIntegrationCodeTemplate(shopId, apiKey);
         
         res.json({
             success: true,
-            order: order
-        });
-        
-    } catch (error) {
-        console.error('创建付费开通订单失败:', error.message);
-        res.status(500).json({ error: '创建付费开通订单失败' });
-    }
-});
-
-// 生成付费开通支付二维码
-app.post('/api/activation-orders/:orderId/qrcode', requireAuth, async (req, res) => {
-    try {
-        const orderId = req.params.orderId;
-        const { paymentMethod } = req.body;
-        
-        console.log('💳 生成付费开通支付二维码:', { orderId, paymentMethod });
-        
-        // 检查订单是否存在
-        const order = global.activationOrders?.[orderId];
-        if (!order) {
-            return res.status(404).json({ error: '订单不存在或已过期' });
-        }
-        
-        // 检查订单是否过期
-        if (new Date() > new Date(order.expiresAt)) {
-            return res.status(400).json({ error: '订单已过期，请重新创建' });
-        }
-        
-        // 生成二维码数据（模拟实现）
-        const qrData = {
-            orderId: orderId,
-            amount: order.amount,
-            paymentMethod: paymentMethod,
-            qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`${paymentMethod}://pay?orderId=${orderId}&amount=${order.amount}&shopName=${order.shopName}`)}`
-        };
-        
-        console.log('✅ 付费开通二维码生成成功:', qrData.qrCodeUrl);
-        
-        res.json({
-            success: true,
-            qrData: qrData
-        });
-        
-    } catch (error) {
-        console.error('生成付费开通二维码失败:', error.message);
-        res.status(500).json({ error: '生成付费开通二维码失败' });
-    }
-});
-
-// 查询付费开通订单状态
-app.get('/api/activation-orders/:orderId/status', requireAuth, async (req, res) => {
-    try {
-        const orderId = req.params.orderId;
-        
-        console.log('🔍 查询付费开通订单状态:', orderId);
-        
-        // 检查订单是否存在
-        const order = global.activationOrders?.[orderId];
-        if (!order) {
-            return res.status(404).json({ error: '订单不存在' });
-        }
-        
-        // 检查订单是否过期
-        if (new Date() > new Date(order.expiresAt)) {
-            order.status = 'expired';
-        }
-        
-        res.json({
-            success: true,
-            order: order
-        });
-        
-    } catch (error) {
-        console.error('查询付费开通订单状态失败:', error.message);
-        res.status(500).json({ error: '查询付费开通订单状态失败' });
-    }
-});
-
-// 模拟付费开通支付成功（测试功能）
-app.post('/api/activation-orders/:orderId/mock-success', requireAuth, async (req, res) => {
-    try {
-        const orderId = req.params.orderId;
-        
-        console.log('🧪 模拟付费开通支付成功:', orderId);
-        
-        // 检查订单是否存在
-        const order = global.activationOrders?.[orderId];
-        if (!order) {
-            return res.status(404).json({ error: '订单不存在' });
-        }
-        
-        // 更新订单状态为已支付
-        order.status = 'paid';
-        order.paidAt = new Date().toISOString();
-        
-        // 激活店铺
-        await database.updateShopActivation(order.shopId, {
-            status: 'active',
-            approval_status: 'approved',
-            activated_at: new Date().toISOString(),
-            expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() // 1年有效期
-        });
-        
-        console.log('✅ 付费开通支付成功，店铺已激活');
-        
-        res.json({
-            success: true,
-            message: '付费开通成功，店铺已激活',
-            order: order
-        });
-        
-    } catch (error) {
-        console.error('模拟付费开通支付失败:', error.message);
-        res.status(500).json({ error: '模拟付费开通支付失败' });
-    }
-});
-
-// ============ 集成代码生成功能 ============
-
-// 生成店铺集成代码
-app.post('/api/shops/:shopId/integration-code', requireAuth, requireShopOwner, async (req, res) => {
-    try {
-        const shopId = req.params.shopId;
-        const { serverUrl } = req.body;
-        
-        console.log('📋 生成集成代码请求:', { shopId, serverUrl });
-        
-        // 检查店铺是否存在
-        const shop = await database.getShopById(shopId);
-        if (!shop) {
-            return res.status(404).json({ error: '店铺不存在' });
-        }
-        
-        // 使用集成代码生成器生成代码
-        const IntegrationCodeGenerator = require('./integration-code-generator');
-        const codeGenerator = new IntegrationCodeGenerator(database);
-        
-        const integrationCode = await codeGenerator.generateIntegrationCode(shopId, {
-            serverUrl: serverUrl || `${req.protocol}://${req.get('host')}`
-        });
-        
-        console.log('✅ 集成代码生成成功');
-        
-        res.json({
-            success: true,
-            shop: {
-                id: shop.id,
-                name: shop.name,
-                domain: shop.domain
-            },
+            apiKey: apiKey,
             integrationCode: integrationCode
         });
-        
     } catch (error) {
         console.error('生成集成代码失败:', error.message);
-        res.status(500).json({ error: '生成集成代码失败: ' + error.message });
+        res.status(500).json({ error: '生成集成代码失败' });
     }
 });
+
+// 重新生成API密钥
+app.post('/api/integration/regenerate-key', requireAuth, async (req, res) => {
+    try {
+        const { shopId } = req.body;
+        
+        if (!shopId) {
+            return res.status(400).json({ error: '店铺ID不能为空' });
+        }
+        
+        // 检查用户是否有权限访问该店铺
+        const userShops = await database.getUserShops(req.user.id);
+        const hasAccess = req.user.role === 'super_admin' || 
+                        userShops.some(shop => shop.id === shopId);
+        
+        if (!hasAccess) {
+            return res.status(403).json({ error: '没有权限访问该店铺' });
+        }
+        
+        // 生成新的API密钥
+        const newApiKey = generateApiKey();
+        await database.saveShopApiKey(shopId, newApiKey);
+        
+        // 生成新的集成代码
+        const integrationCode = generateIntegrationCodeTemplate(shopId, newApiKey);
+        
+        res.json({
+            success: true,
+            apiKey: newApiKey,
+            integrationCode: integrationCode
+        });
+    } catch (error) {
+        console.error('重新生成API密钥失败:', error.message);
+        res.status(500).json({ error: '重新生成API密钥失败' });
+    }
+});
+
+// 生成API密钥的辅助函数
+function generateApiKey() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let result = '';
+    for (let i = 0; i < 32; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+}
+
+// 生成集成代码模板的辅助函数
+function generateIntegrationCodeTemplate(shopId, apiKey) {
+    const serverUrl = process.env.SERVER_URL || 'http://localhost:3030';
+    
+    return `<!-- QuickTalk客服系统集成代码 -->
+<script>
+(function() {
+    // 配置
+    var config = {
+        shopId: '${shopId}',
+        apiKey: '${apiKey}',
+        serverUrl: '${serverUrl}',
+        chatButtonText: '💬 在线客服',
+        chatButtonColor: '#007AFF',
+        position: 'bottom-right'
+    };
+    
+    // 创建聊天按钮
+    var chatButton = document.createElement('div');
+    chatButton.id = 'quicktalk-chat-button';
+    chatButton.innerHTML = config.chatButtonText;
+    chatButton.style.cssText = \`
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background: \${config.chatButtonColor};
+        color: white;
+        padding: 12px 20px;
+        border-radius: 25px;
+        cursor: pointer;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+        font-size: 14px;
+        font-weight: 600;
+        z-index: 10000;
+        transition: all 0.3s ease;
+    \`;
+    
+    // 鼠标悬停效果
+    chatButton.onmouseover = function() {
+        this.style.transform = 'scale(1.05)';
+        this.style.boxShadow = '0 6px 20px rgba(0,0,0,0.2)';
+    };
+    
+    chatButton.onmouseout = function() {
+        this.style.transform = 'scale(1)';
+        this.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+    };
+    
+    // 点击打开聊天窗口
+    chatButton.onclick = function() {
+        openChatWindow();
+    };
+    
+    // 打开聊天窗口
+    function openChatWindow() {
+        var chatUrl = config.serverUrl + '/chat?shop=' + encodeURIComponent(config.shopId) + 
+                     '&key=' + encodeURIComponent(config.apiKey);
+        
+        window.open(chatUrl, 'quicktalk-chat', 
+                   'width=400,height=600,resizable=yes,scrollbars=yes');
+    }
+    
+    // 页面加载完成后添加按钮
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+            document.body.appendChild(chatButton);
+        });
+    } else {
+        document.body.appendChild(chatButton);
+    }
+})();
+</script>
+<!-- End QuickTalk客服系统集成代码 -->`;
+}
 
 };
