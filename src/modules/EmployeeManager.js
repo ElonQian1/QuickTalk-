@@ -504,9 +504,15 @@ class EmployeeManager {
      */
     async createEmployeeTableIfNotExists() {
         try {
+            console.log('🔍 调试信息 - this.db类型:', this.db?.constructor?.name);
+            console.log('🔍 调试信息 - exec方法存在:', typeof this.db?.exec);
+            console.log('🔍 调试信息 - prepare方法存在:', typeof this.db?.prepare);
+            console.log('🔍 调试信息 - this.db所有方法:', Object.getOwnPropertyNames(Object.getPrototypeOf(this.db)));
+            console.log('🔍 调试信息 - this.db实例方法:', Object.getOwnPropertyNames(this.db));
+            
             if (this.db.prepare && typeof this.db.prepare === 'function') {
-                // SQLite数据库
-                this.db.exec(`
+                // SQLite数据库 - 使用runAsync代替exec
+                await this.db.runAsync(`
                     CREATE TABLE IF NOT EXISTS employees (
                         id TEXT PRIMARY KEY,
                         shop_id TEXT NOT NULL,
