@@ -299,7 +299,7 @@
                 
                 // 先上传到文件系统
                 const formData = new FormData();
-                formData.append('files', file);
+                formData.append('file', file); // 修正字段名为 'file'
                 
                 const uploadResponse = await fetch('/api/files/upload', {
                     method: 'POST',
@@ -309,11 +309,12 @@
                 const uploadResult = await uploadResponse.json();
                 debugLog(`文件上传响应: ${JSON.stringify(uploadResult)}`);
                 
-                if (!uploadResult.success || !uploadResult.files || !uploadResult.files[0]) {
+                if (!uploadResult.success) {
                     throw new Error(uploadResult.error || '文件上传失败');
                 }
                 
-                const fileId = uploadResult.files[0].id;
+                // FileUploadAPI 返回的是单个文件对象，不是数组
+                const fileId = uploadResult.file.id;
                 debugLog(`文件上传成功, fileId: ${fileId}`);
                 
                 // 发送图片消息
