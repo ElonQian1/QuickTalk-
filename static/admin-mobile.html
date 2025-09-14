@@ -1093,6 +1093,655 @@
             border-radius: 3px;
             font-family: monospace;
         }
+
+        /* ============ 付费开通系统样式 ============ */
+        .activation-info {
+            margin-bottom: 20px;
+        }
+
+        .activation-info .info-item {
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+            padding: 8px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .activation-info .info-item:last-child {
+            border-bottom: none;
+        }
+
+        .activation-info .info-item strong {
+            color: #333;
+            font-weight: 600;
+        }
+
+        .amount {
+            color: #e74c3c;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .benefit-text {
+            color: #28a745;
+            font-weight: bold;
+        }
+
+        .activation-benefit {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 6px;
+            border-left: 4px solid #28a745;
+        }
+
+        .payment-methods {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .payment-methods h4 {
+            margin-bottom: 20px;
+            color: #333;
+            font-size: 18px;
+        }
+
+        .payment-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .payment-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px 15px;
+            border: 2px solid #ddd;
+            border-radius: 12px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 120px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .payment-btn::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            transition: left 0.5s;
+        }
+
+        .payment-btn:hover::before {
+            left: 100%;
+        }
+
+        .payment-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(0,0,0,0.15);
+        }
+
+        .alipay-btn {
+            background: linear-gradient(135deg, #fff 0%, #f0f8ff 100%);
+        }
+
+        .alipay-btn:hover {
+            border-color: #1677ff;
+            background: linear-gradient(135deg, #f0f8ff 0%, #e6f7ff 100%);
+            box-shadow: 0 6px 15px rgba(22,119,255,0.25);
+        }
+
+        .wechat-btn {
+            background: linear-gradient(135deg, #fff 0%, #f0fff4 100%);
+        }
+
+        .wechat-btn:hover {
+            border-color: #07c160;
+            background: linear-gradient(135deg, #f0fff4 0%, #e6f7ec 100%);
+            box-shadow: 0 6px 15px rgba(7,193,96,0.25);
+        }
+
+        .payment-icon {
+            font-size: 28px;
+            margin-bottom: 10px;
+            transition: transform 0.3s ease;
+        }
+
+        .payment-btn:hover .payment-icon {
+            transform: scale(1.1) rotate(5deg);
+        }
+
+        .payment-text {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            transition: color 0.3s ease;
+        }
+
+        .alipay-btn:hover .payment-text {
+            color: #1677ff;
+        }
+
+        .wechat-btn:hover .payment-text {
+            color: #07c160;
+        }
+
+        .qr-code-section {
+            text-align: center;
+        }
+
+        .qr-code-section h4 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .qr-code-section h4::before {
+            content: "💰";
+            font-size: 20px;
+        }
+
+        .qr-code-section[data-method="wechat"] h4::before {
+            content: "💚";
+        }
+
+        .qr-code-container {
+            display: inline-block;
+            padding: 20px;
+            background: white;
+            border: 3px solid #eee;
+            border-radius: 12px;
+            margin: 20px 0;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .qr-code-container::before {
+            content: "";
+            position: absolute;
+            top: -3px;
+            left: -3px;
+            right: -3px;
+            bottom: -3px;
+            border-radius: 12px;
+            background: linear-gradient(45deg, #1677ff, #52c41a);
+            z-index: -1;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .qr-code-container:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+        }
+
+        .qr-code-container:hover::before {
+            opacity: 1;
+        }
+
+        .qr-code-container.alipay-style {
+            border-color: #1677ff;
+        }
+
+        .qr-code-container.alipay-style::before {
+            background: linear-gradient(45deg, #1677ff, #40a9ff);
+        }
+
+        .qr-code-container.wechat-style {
+            border-color: #07c160;
+        }
+
+        .qr-code-container.wechat-style::before {
+            background: linear-gradient(45deg, #07c160, #52c41a);
+        }
+
+        .qr-code-container img {
+            width: 180px;
+            height: 180px;
+            border: none;
+            display: block;
+            margin: 0 auto;
+            border-radius: 8px;
+            transition: transform 0.3s ease;
+        }
+
+        .qr-code-container:hover img {
+            transform: scale(1.02);
+        }
+
+        .qr-tips {
+            margin-top: 15px;
+        }
+
+        .qr-tips p {
+            margin: 8px 0;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .tip-text {
+            color: #666 !important;
+            font-size: 12px;
+        }
+
+        .qr-actions {
+            margin-top: 15px;
+        }
+
+        .refresh-btn {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background-color 0.3s;
+        }
+
+        .refresh-btn:hover {
+            background: #5a6268;
+        }
+
+        .refresh-btn:disabled {
+            background: #adb5bd;
+            cursor: not-allowed;
+        }
+
+        .test-buttons {
+            margin-top: 15px;
+        }
+
+        .test-btn {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 10px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background-color 0.3s;
+        }
+
+        .test-btn:hover {
+            background: #5a6268;
+        }
+
+        .payment-success {
+            text-align: center;
+            padding: 30px 20px;
+        }
+
+        .success-icon {
+            font-size: 42px;
+            margin-bottom: 15px;
+        }
+
+        .payment-success h4 {
+            color: #28a745;
+            margin-bottom: 10px;
+        }
+
+        .payment-success p {
+            color: #666;
+            margin-bottom: 20px;
+        }
+
+        .success-actions {
+            margin-top: 20px;
+        }
+
+        .shop-pending-note {
+            padding: 8px 12px;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            color: #6c757d;
+            font-size: 12px;
+            text-align: center;
+            margin: 4px 0;
+        }
+
+        /* 移动端响应式优化 */
+        @media (max-width: 480px) {
+            .payment-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .payment-btn {
+                width: 100%;
+                max-width: 200px;
+            }
+
+            .qr-code-container img {
+                width: 160px;
+                height: 160px;
+            }
+        }
+
+        /* =============== 员工管理样式 =============== */
+        .employees-container {
+            margin-top: 20px;
+        }
+
+        .employee-card {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border: 1px solid #f0f0f0;
+            transition: all 0.3s;
+        }
+
+        .employee-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+        }
+
+        .employee-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+
+        .employee-info {
+            flex: 1;
+        }
+
+        .employee-name {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 4px;
+        }
+
+        .employee-role {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+
+        .employee-contact {
+            font-size: 13px;
+            color: #999;
+        }
+
+        .employee-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .status-indicator.online {
+            background: #28a745;
+            box-shadow: 0 0 0 2px rgba(40,167,69,0.2);
+        }
+
+        .status-indicator.offline {
+            background: #6c757d;
+        }
+
+        .status-indicator.busy {
+            background: #ffc107;
+            box-shadow: 0 0 0 2px rgba(255,193,7,0.2);
+        }
+
+        .status-indicator.away {
+            background: #fd7e14;
+            box-shadow: 0 0 0 2px rgba(253,126,20,0.2);
+        }
+
+        .status-text {
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .status-text.online {
+            color: #28a745;
+        }
+
+        .status-text.offline {
+            color: #6c757d;
+        }
+
+        .status-text.busy {
+            color: #ffc107;
+        }
+
+        .status-text.away {
+            color: #fd7e14;
+        }
+
+        .employee-stats {
+            display: flex;
+            gap: 16px;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #f0f0f0;
+        }
+
+        .employee-stat {
+            text-align: center;
+            flex: 1;
+        }
+
+        .employee-stat-number {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .employee-stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 2px;
+        }
+
+        .employee-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #f0f0f0;
+        }
+
+        .employee-action-btn {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            background: white;
+            color: #333;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .employee-action-btn:hover {
+            background: #f8f9fa;
+            border-color: #007AFF;
+            color: #007AFF;
+        }
+
+        .employee-action-btn.danger {
+            border-color: #dc3545;
+            color: #dc3545;
+        }
+
+        .employee-action-btn.danger:hover {
+            background: #dc3545;
+            color: white;
+        }
+
+        .skills-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        .skill-tag {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .empty-employees {
+            text-align: center;
+            padding: 40px 20px;
+            color: #666;
+        }
+
+        .empty-employees-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        /* 添加员工模态框样式 */
+        .add-employee-modal {
+            padding: 24px;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .form-row .form-group {
+            flex: 1;
+            margin-bottom: 0;
+        }
+
+        .select-role {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            background: white;
+        }
+
+        .skills-input-container {
+            position: relative;
+        }
+
+        .skills-input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+        .skills-suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+            max-height: 150px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+        }
+
+        .skill-suggestion {
+            padding: 10px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .skill-suggestion:hover {
+            background: #f8f9fa;
+        }
+
+        .selected-skills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .selected-skill {
+            background: #007AFF;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 16px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .remove-skill {
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 0;
+            line-height: 1;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 480px) {
+            .employee-header {
+                flex-direction: column;
+                gap: 12px;
+            }
+
+            .employee-stats {
+                gap: 12px;
+            }
+
+            .employee-actions {
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .employee-action-btn {
+                flex: none;
+            }
+
+            .form-row {
+                flex-direction: column;
+                gap: 0;
+            }
+
+            .form-row .form-group {
+                margin-bottom: 16px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -1223,6 +1872,51 @@
                 </div>
             </div>
 
+            <!-- 员工管理页面 -->
+            <div class="page" id="employeesPage">
+                <div class="page-header">
+                    <button class="back-btn" onclick="goBack()">‹</button>
+                    <div class="page-title">员工管理</div>
+                    <button class="action-btn" onclick="showAddEmployeeModal()" style="background: #007AFF; color: white; border: none; padding: 8px 16px; border-radius: 20px; font-size: 14px;">
+                        ➕ 添加员工
+                    </button>
+                </div>
+                
+                <!-- 员工统计卡片 -->
+                <div style="padding: 20px;">
+                    <div class="stats-container" id="employeeStatsContainer">
+                        <div class="stat-card">
+                            <div class="stat-number" id="totalEmployees">-</div>
+                            <div class="stat-label">总员工数</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="onlineEmployees">-</div>
+                            <div class="stat-label">在线员工</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="busyEmployees">-</div>
+                            <div class="stat-label">繁忙员工</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="totalConversations">-</div>
+                            <div class="stat-label">处理对话</div>
+                        </div>
+                    </div>
+
+                    <!-- 店铺选择器 -->
+                    <div class="filter-container" style="margin: 20px 0;">
+                        <select id="employeeShopSelector" onchange="loadEmployeesForShop()" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px;">
+                            <option value="">选择店铺查看员工</option>
+                        </select>
+                    </div>
+
+                    <!-- 员工列表 -->
+                    <div class="employees-container" id="employeesContainer">
+                        <!-- 动态加载员工列表 -->
+                    </div>
+                </div>
+            </div>
+
             <!-- 设置页面 -->
             <div class="page" id="settingsPage">
                 <div class="page-header">
@@ -1260,6 +1954,10 @@
                 <div class="nav-icon">🏪</div>
                 <div class="nav-label">店铺</div>
             </div>
+            <div class="nav-item" data-page="employees" onclick="switchPage('employees')">
+                <div class="nav-icon">👥</div>
+                <div class="nav-label">员工</div>
+            </div>
             <div class="nav-item" data-page="settings" onclick="switchPage('settings')">
                 <div class="nav-icon">⚙️</div>
                 <div class="nav-label">设置</div>
@@ -1293,6 +1991,80 @@
             <div class="modal-footer">
                 <button class="btn-secondary" onclick="hideCreateShopModal()">取消</button>
                 <button class="btn-primary" onclick="createShop()">创建</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加员工模态框 -->
+    <div id="addEmployeeModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>添加员工</h2>
+                <button class="close-btn" onclick="hideAddEmployeeModal()">×</button>
+            </div>
+            <div class="modal-body add-employee-modal">
+                <form id="addEmployeeForm">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="employeeName">姓名 *</label>
+                            <input type="text" id="employeeName" name="employeeName" placeholder="员工姓名" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="employeeEmail">邮箱 *</label>
+                            <input type="email" id="employeeEmail" name="employeeEmail" placeholder="邮箱地址" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="employeePhone">电话</label>
+                            <input type="tel" id="employeePhone" name="employeePhone" placeholder="联系电话">
+                        </div>
+                        <div class="form-group">
+                            <label for="employeeRole">角色</label>
+                            <select id="employeeRole" name="employeeRole" class="select-role">
+                                <option value="customer_service">客服专员</option>
+                                <option value="supervisor">主管</option>
+                                <option value="admin">管理员</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="employeeSkills">技能标签</label>
+                        <div class="skills-input-container">
+                            <input type="text" id="employeeSkills" name="employeeSkills" class="skills-input" placeholder="输入技能后按回车添加">
+                            <div class="skills-suggestions" id="skillsSuggestions">
+                                <!-- 技能建议列表 -->
+                            </div>
+                        </div>
+                        <div class="selected-skills" id="selectedSkills">
+                            <!-- 已选择的技能标签 -->
+                        </div>
+                    </div>
+                    <input type="hidden" id="selectedShopId" name="selectedShopId">
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="hideAddEmployeeModal()">取消</button>
+                <button class="btn-primary" onclick="addEmployee()">添加员工</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 员工详情模态框 -->
+    <div id="employeeDetailModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>员工详情</h2>
+                <button class="close-btn" onclick="hideEmployeeDetailModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div id="employeeDetailContent">
+                    <!-- 动态加载员工详情 -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="hideEmployeeDetailModal()">关闭</button>
+                <button class="btn-primary" onclick="editEmployee()">编辑员工</button>
             </div>
         </div>
     </div>
@@ -1994,6 +2766,8 @@
                 } else if (approvalStatus === 'pending') {
                     return `
                         <button class="shop-btn warning" disabled>等待审核</button>
+                        <button class="shop-btn primary" onclick="payToActivateShop('${shop.id}', '${shop.name}')">💎 付费开通</button>
+                        <div class="shop-pending-note">付费开通可立即审核通过</div>
                     `;
                 } else if (approvalStatus === 'rejected') {
                     return `
@@ -2786,6 +3560,476 @@
 
         function hideModal(modalId) {
             document.getElementById(modalId).style.display = 'none';
+        }
+    </script>
+
+    <!-- 引入付费开通系统模块 -->
+    <script src="/src/modules/PaymentActivationSystem.js"></script>
+    <script>
+        // 初始化付费开通系统
+        let paymentActivationSystem;
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            // 等待页面加载完成后初始化付费开通系统
+            if (typeof PaymentActivationSystem !== 'undefined') {
+                paymentActivationSystem = new PaymentActivationSystem();
+                console.log('✅ 付费开通系统已初始化');
+            } else {
+                console.error('❌ PaymentActivationSystem 模块未加载');
+            }
+        });
+
+        // 店铺付费开通功能
+        function payToActivateShop(shopId, shopName) {
+            if (paymentActivationSystem) {
+                paymentActivationSystem.startActivation(shopId, shopName);
+            } else {
+                console.error('付费开通系统未初始化');
+                alert('付费开通功能暂时不可用，请刷新页面重试');
+            }
+        }
+
+        // ============ 员工管理功能 ============
+        let currentEmployees = [];
+        let selectedEmployeeSkills = [];
+        let currentShopIdForEmployee = '';
+
+        // 预定义技能建议
+        const skillSuggestions = [
+            '售后服务', '产品咨询', '技术支持', '订单处理', '投诉处理',
+            '客户关怀', '英语客服', '退换货', '支付问题', '物流查询',
+            '产品介绍', '价格咨询', '库存查询', '活动推广', '会员服务'
+        ];
+
+        // 显示添加员工模态框
+        function showAddEmployeeModal() {
+            // 获取当前选择的店铺
+            const shopSelector = document.getElementById('employeeShopSelector');
+            if (!shopSelector.value) {
+                alert('请先选择要添加员工的店铺');
+                return;
+            }
+            
+            currentShopIdForEmployee = shopSelector.value;
+            document.getElementById('selectedShopId').value = currentShopIdForEmployee;
+            
+            // 重置表单
+            document.getElementById('addEmployeeForm').reset();
+            selectedEmployeeSkills = [];
+            updateSelectedSkillsDisplay();
+            
+            document.getElementById('addEmployeeModal').style.display = 'flex';
+        }
+
+        // 隐藏添加员工模态框
+        function hideAddEmployeeModal() {
+            document.getElementById('addEmployeeModal').style.display = 'none';
+        }
+
+        // 技能输入处理
+        document.addEventListener('DOMContentLoaded', function() {
+            const skillsInput = document.getElementById('employeeSkills');
+            const suggestionContainer = document.getElementById('skillsSuggestions');
+
+            skillsInput.addEventListener('input', function() {
+                const value = this.value.toLowerCase();
+                if (value.length > 0) {
+                    const matches = skillSuggestions.filter(skill => 
+                        skill.toLowerCase().includes(value) && 
+                        !selectedEmployeeSkills.includes(skill)
+                    );
+                    showSkillSuggestions(matches);
+                } else {
+                    hideSkillSuggestions();
+                }
+            });
+
+            skillsInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const skill = this.value.trim();
+                    if (skill && !selectedEmployeeSkills.includes(skill)) {
+                        selectedEmployeeSkills.push(skill);
+                        updateSelectedSkillsDisplay();
+                        this.value = '';
+                        hideSkillSuggestions();
+                    }
+                }
+            });
+        });
+
+        // 显示技能建议
+        function showSkillSuggestions(suggestions) {
+            const container = document.getElementById('skillsSuggestions');
+            container.innerHTML = '';
+            
+            suggestions.forEach(skill => {
+                const div = document.createElement('div');
+                div.className = 'skill-suggestion';
+                div.textContent = skill;
+                div.onclick = () => selectSkill(skill);
+                container.appendChild(div);
+            });
+            
+            container.style.display = suggestions.length > 0 ? 'block' : 'none';
+        }
+
+        // 隐藏技能建议
+        function hideSkillSuggestions() {
+            document.getElementById('skillsSuggestions').style.display = 'none';
+        }
+
+        // 选择技能
+        function selectSkill(skill) {
+            if (!selectedEmployeeSkills.includes(skill)) {
+                selectedEmployeeSkills.push(skill);
+                updateSelectedSkillsDisplay();
+                document.getElementById('employeeSkills').value = '';
+                hideSkillSuggestions();
+            }
+        }
+
+        // 更新已选技能显示
+        function updateSelectedSkillsDisplay() {
+            const container = document.getElementById('selectedSkills');
+            container.innerHTML = '';
+            
+            selectedEmployeeSkills.forEach(skill => {
+                const div = document.createElement('div');
+                div.className = 'selected-skill';
+                div.innerHTML = `
+                    ${skill}
+                    <button type="button" class="remove-skill" onclick="removeSkill('${skill}')">×</button>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        // 移除技能
+        function removeSkill(skill) {
+            const index = selectedEmployeeSkills.indexOf(skill);
+            if (index > -1) {
+                selectedEmployeeSkills.splice(index, 1);
+                updateSelectedSkillsDisplay();
+            }
+        }
+
+        // 添加员工
+        async function addEmployee() {
+            const form = document.getElementById('addEmployeeForm');
+            const formData = new FormData(form);
+            
+            if (!formData.get('employeeName') || !formData.get('employeeEmail')) {
+                alert('请填写必填项');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/shops/${currentShopIdForEmployee}/employees`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Session-Id': localStorage.getItem('sessionId')
+                    },
+                    body: JSON.stringify({
+                        name: formData.get('employeeName'),
+                        email: formData.get('employeeEmail'),
+                        phone: formData.get('employeePhone'),
+                        role: formData.get('employeeRole'),
+                        skills: selectedEmployeeSkills
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('员工添加成功！');
+                    hideAddEmployeeModal();
+                    await loadEmployeesForShop();
+                } else {
+                    throw new Error(result.error || '添加员工失败');
+                }
+            } catch (error) {
+                console.error('添加员工失败:', error);
+                alert('添加员工失败: ' + error.message);
+            }
+        }
+
+        // 加载店铺员工
+        async function loadEmployeesForShop() {
+            const shopSelector = document.getElementById('employeeShopSelector');
+            const shopId = shopSelector.value;
+            
+            if (!shopId) {
+                document.getElementById('employeesContainer').innerHTML = `
+                    <div class="empty-employees">
+                        <div class="empty-employees-icon">👥</div>
+                        <p>请选择店铺查看员工</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/shops/${shopId}/employees`, {
+                    headers: {
+                        'X-Session-Id': localStorage.getItem('sessionId')
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    currentEmployees = result.employees;
+                    displayEmployees(result.employees);
+                    updateEmployeeStats(result.stats);
+                } else {
+                    throw new Error(result.error || '加载员工失败');
+                }
+            } catch (error) {
+                console.error('加载员工失败:', error);
+                document.getElementById('employeesContainer').innerHTML = `
+                    <div class="empty-employees">
+                        <div class="empty-employees-icon">❌</div>
+                        <p>加载员工失败: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        // 显示员工列表
+        function displayEmployees(employees) {
+            const container = document.getElementById('employeesContainer');
+            
+            if (employees.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-employees">
+                        <div class="empty-employees-icon">👥</div>
+                        <p>暂无员工，点击上方按钮添加员工</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = employees.map(employee => `
+                <div class="employee-card">
+                    <div class="employee-header">
+                        <div class="employee-info">
+                            <div class="employee-name">${employee.name}</div>
+                            <div class="employee-role">${getRoleDisplayName(employee.role)}</div>
+                            <div class="employee-contact">${employee.email}</div>
+                            ${employee.phone ? `<div class="employee-contact">${employee.phone}</div>` : ''}
+                        </div>
+                        <div class="employee-status">
+                            <div class="status-indicator ${employee.statusInfo?.status || 'offline'}"></div>
+                            <div class="status-text ${employee.statusInfo?.status || 'offline'}">
+                                ${getStatusDisplayName(employee.statusInfo?.status || 'offline')}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    ${employee.skills && employee.skills.length > 0 ? `
+                        <div class="skills-container">
+                            ${employee.skills.map(skill => `<span class="skill-tag">${skill}</span>`).join('')}
+                        </div>
+                    ` : ''}
+                    
+                    <div class="employee-stats">
+                        <div class="employee-stat">
+                            <div class="employee-stat-number">${employee.statusInfo?.currentConversations?.length || 0}</div>
+                            <div class="employee-stat-label">处理对话</div>
+                        </div>
+                        <div class="employee-stat">
+                            <div class="employee-stat-number">${employee.statusInfo?.messageCount || 0}</div>
+                            <div class="employee-stat-label">消息数</div>
+                        </div>
+                        <div class="employee-stat">
+                            <div class="employee-stat-number">${employee.statusInfo?.lastActivity ? 
+                                getTimeDiff(new Date(employee.statusInfo.lastActivity)) : '-'}</div>
+                            <div class="employee-stat-label">最后活动</div>
+                        </div>
+                    </div>
+                    
+                    <div class="employee-actions">
+                        <button class="employee-action-btn" onclick="setEmployeeStatus('${employee.id}', '${
+                            employee.statusInfo?.status === 'online' ? 'offline' : 'online'
+                        }')">
+                            ${employee.statusInfo?.status === 'online' ? '下线' : '上线'}
+                        </button>
+                        <button class="employee-action-btn" onclick="showEmployeeDetail('${employee.id}')">详情</button>
+                        <button class="employee-action-btn danger" onclick="removeEmployee('${employee.id}', '${employee.name}')">删除</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 更新员工统计
+        function updateEmployeeStats(stats) {
+            document.getElementById('totalEmployees').textContent = stats.total || 0;
+            document.getElementById('onlineEmployees').textContent = stats.online || 0;
+            document.getElementById('busyEmployees').textContent = stats.busy || 0;
+            document.getElementById('totalConversations').textContent = stats.totalConversations || 0;
+        }
+
+        // 获取角色显示名称
+        function getRoleDisplayName(role) {
+            const roleNames = {
+                'customer_service': '客服专员',
+                'supervisor': '主管',
+                'admin': '管理员'
+            };
+            return roleNames[role] || role;
+        }
+
+        // 获取状态显示名称
+        function getStatusDisplayName(status) {
+            const statusNames = {
+                'online': '在线',
+                'offline': '离线',
+                'busy': '繁忙',
+                'away': '离开'
+            };
+            return statusNames[status] || status;
+        }
+
+        // 获取时间差显示
+        function getTimeDiff(date) {
+            const now = new Date();
+            const diff = Math.floor((now - date) / 1000 / 60); // 分钟
+            
+            if (diff < 1) return '刚刚';
+            if (diff < 60) return `${diff}分钟前`;
+            if (diff < 1440) return `${Math.floor(diff / 60)}小时前`;
+            return `${Math.floor(diff / 1440)}天前`;
+        }
+
+        // 设置员工状态
+        async function setEmployeeStatus(employeeId, status) {
+            try {
+                const response = await fetch(`/api/employees/${employeeId}/status`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Session-Id': localStorage.getItem('sessionId')
+                    },
+                    body: JSON.stringify({ status })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    await loadEmployeesForShop();
+                } else {
+                    throw new Error(result.error || '设置状态失败');
+                }
+            } catch (error) {
+                console.error('设置员工状态失败:', error);
+                alert('设置状态失败: ' + error.message);
+            }
+        }
+
+        // 删除员工
+        async function removeEmployee(employeeId, employeeName) {
+            if (!confirm(`确定要删除员工 "${employeeName}" 吗？此操作不可撤销。`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/employees/${employeeId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-Session-Id': localStorage.getItem('sessionId')
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('员工删除成功');
+                    await loadEmployeesForShop();
+                } else {
+                    throw new Error(result.error || '删除员工失败');
+                }
+            } catch (error) {
+                console.error('删除员工失败:', error);
+                alert('删除员工失败: ' + error.message);
+            }
+        }
+
+        // 显示员工详情
+        function showEmployeeDetail(employeeId) {
+            const employee = currentEmployees.find(emp => emp.id === employeeId);
+            if (!employee) return;
+            
+            document.getElementById('employeeDetailContent').innerHTML = `
+                <div class="employee-detail">
+                    <h3>${employee.name}</h3>
+                    <p><strong>角色:</strong> ${getRoleDisplayName(employee.role)}</p>
+                    <p><strong>邮箱:</strong> ${employee.email}</p>
+                    ${employee.phone ? `<p><strong>电话:</strong> ${employee.phone}</p>` : ''}
+                    <p><strong>状态:</strong> ${getStatusDisplayName(employee.statusInfo?.status || 'offline')}</p>
+                    <p><strong>创建时间:</strong> ${new Date(employee.createdAt).toLocaleString('zh-CN')}</p>
+                    
+                    ${employee.skills && employee.skills.length > 0 ? `
+                        <div style="margin-top: 16px;">
+                            <strong>技能标签:</strong>
+                            <div class="skills-container" style="margin-top: 8px;">
+                                ${employee.skills.map(skill => `<span class="skill-tag">${skill}</span>`).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+                    
+                    <div style="margin-top: 16px;">
+                        <strong>工作统计:</strong>
+                        <ul style="margin-top: 8px;">
+                            <li>处理对话: ${employee.statusInfo?.currentConversations?.length || 0} 个</li>
+                            <li>消息总数: ${employee.statusInfo?.messageCount || 0} 条</li>
+                            <li>最后活动: ${employee.statusInfo?.lastActivity ? 
+                                new Date(employee.statusInfo.lastActivity).toLocaleString('zh-CN') : '无记录'}</li>
+                        </ul>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('employeeDetailModal').style.display = 'flex';
+        }
+
+        // 隐藏员工详情
+        function hideEmployeeDetailModal() {
+            document.getElementById('employeeDetailModal').style.display = 'none';
+        }
+
+        // 页面切换时加载员工数据
+        const originalSwitchPage = switchPage;
+        switchPage = function(pageName) {
+            originalSwitchPage(pageName);
+            
+            if (pageName === 'employees') {
+                loadEmployeeShopOptions();
+            }
+        };
+
+        // 加载店铺选项
+        async function loadEmployeeShopOptions() {
+            try {
+                const response = await fetch('/api/admin/shops', {
+                    headers: {
+                        'X-Session-Id': localStorage.getItem('sessionId')
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    const selector = document.getElementById('employeeShopSelector');
+                    selector.innerHTML = '<option value="">选择店铺查看员工</option>' +
+                        result.shops.map(shop => `
+                            <option value="${shop.id}">${shop.name} (${shop.domain})</option>
+                        `).join('');
+                }
+            } catch (error) {
+                console.error('加载店铺选项失败:', error);
+            }
         }
     </script>
 </body>
