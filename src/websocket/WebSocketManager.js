@@ -131,7 +131,69 @@ class WebSocketManager {
      */
     async handleAuth(ws, data) {
         try {
-            // 验证必需字段
+            // 支持两种认证方式：
+            // 1. sessionId 认证（用于管理端）
+            // 2. shopKey + shopId + userId 认证（用于客户端）
+            
+            if (data.sessionId) {
+                // 通过 sessionId 认证（管理端）
+                console.log('🔐 [WEBSOCKET] 尝试通过sessionId认证:', data.sessionId);
+                
+                // 验证session并获取用户信息
+                if (global.database) {
+                    try {
+                        const session = await global.database.getAsync(
+                            'SELECT * FROM sessions WHERE id = ? AND expires_at > datetime("now")',
+                            [data.sessionId]
+                        );
+                        
+                        if (session) {
+                            const user = await global.database.getAsync(
+                                'SELECT * FROM users WHERE id = ?',
+                                [session.user_id]
+                            );
+                            
+                            if (user) {
+                                // 设置连接信息
+                                ws.userId = user.id;
+                                ws.sessionId = data.sessionId;
+                                ws.userRole = user.role;
+                                ws.authenticated = true;
+                                
+                                // 注册客户端
+                                this.registerClient(ws);
+                                
+                                // 发送认证成功消息
+                                this.sendMessage(ws, {
+                                    type: 'auth_success',
+                                    message: 'WebSocket认证成功',
+                                    userId: user.id,
+                                    userRole: user.role,
+                                    timestamp: Date.now()
+                                });
+                                
+                                console.log(`✅ [WEBSOCKET] SessionId认证成功: ${user.id} (${user.role})`);
+                                return;
+                            }
+                        }
+                        
+                        console.log('❌ [WEBSOCKET] SessionId认证失败: 无效的session或用户');
+                        this.sendError(ws, 'SessionId认证失败: 无效的session');
+                        return;
+                        
+                    } catch (error) {
+                        console.error('❌ [WEBSOCKET] SessionId认证数据库错误:', error);
+                        this.sendError(ws, 'SessionId认证失败: 数据库错误');
+                        return;
+                    }
+                } else {
+                    console.error('❌ [WEBSOCKET] SessionId认证失败: 数据库不可用');
+                    this.sendError(ws, 'SessionId认证失败: 数据库不可用');
+                    return;
+                }
+            }
+            
+            // 传统认证方式（客户端）
             if (!data.shopKey || !data.shopId || !data.userId) {
                 this.sendError(ws, '认证信息不完整');
                 return;

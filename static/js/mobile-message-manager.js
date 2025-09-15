@@ -117,10 +117,12 @@ class MobileMessageManager {
                 console.log('🔌 [WEBSOCKET] ✅ WebSocket连接已建立');
                 console.log('🔌 [WEBSOCKET] 发送身份验证，sessionId:', localStorage.getItem('sessionId'));
                 // 发送身份验证
-                this.websocket.send(JSON.stringify({
+                const authMessage = {
                     type: 'auth',
                     sessionId: localStorage.getItem('sessionId')
-                }));
+                };
+                console.log('🔌 [WEBSOCKET] 发送认证消息:', authMessage);
+                this.websocket.send(JSON.stringify(authMessage));
             };
 
             this.websocket.onmessage = (event) => {
@@ -159,6 +161,9 @@ class MobileMessageManager {
         console.log('📨 [WEBSOCKET] 完整数据结构:', JSON.stringify(data, null, 2));
 
         switch (data.type) {
+            case 'auth_success':
+                console.log('✅ [WEBSOCKET] 认证成功:', data);
+                break;
             case 'new_message':
                 console.log('✅ [WEBSOCKET] 处理新消息，消息对象:', data.message);
                 console.log('📨 [WEBSOCKET] 消息文件URL:', data.message?.file_url);
@@ -172,6 +177,9 @@ class MobileMessageManager {
             case 'conversation_update':
                 console.log('✅ [WEBSOCKET] 处理对话更新');
                 this.handleConversationUpdate(data.conversation);
+                break;
+            case 'error':
+                console.error('❌ [WEBSOCKET] 服务器错误:', data.message);
                 break;
             default:
                 console.log('🤔 [WEBSOCKET] 未知消息类型:', data.type, data);
