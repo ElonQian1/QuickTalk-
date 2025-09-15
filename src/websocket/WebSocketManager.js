@@ -290,14 +290,33 @@ class WebSocketManager {
         try {
             console.log(`📷 用户 ${ws.userId} 发送多媒体消息: ${data.fileName} (${data.messageType})`);
             
-            // 保存多媒体消息到数据库
+            // 🔍 调试信息
+            console.log('🔍 调试信息:', `conversationId=${data.shopId}_${data.userId}, shopId=${data.shopId}, userId=${data.userId}, content=${data.content || data.fileName}`);
+            
+            // 保存多媒体消息到数据库 - 🔧 修复消息内容和类型
             const conversationId = `${data.shopId}_${data.userId}`;
+            
+            // 🔧 智能识别消息类型
+            let messageType = data.messageType || data.message_type || 'file';
+            if (messageType === 'file' && data.fileType) {
+                // 如果前端发送的是file类型，但fileType是image/*，则修正为image
+                if (data.fileType.startsWith('image/')) {
+                    messageType = 'image';
+                    console.log('🔧 修正消息类型: file -> image (基于fileType)');
+                }
+            }
+            // 也可以通过URL路径判断
+            if (messageType === 'file' && data.fileUrl && data.fileUrl.includes('/uploads/image/')) {
+                messageType = 'image';
+                console.log('🔧 修正消息类型: file -> image (基于URL路径)');
+            }
+            
             const messageData = {
                 conversationId: conversationId,
                 senderType: 'customer',
                 senderId: data.userId,
-                content: data.fileName || '[多媒体文件]',
-                messageType: data.messageType || 'file',
+                content: data.fileUrl || data.fileName || '[多媒体文件]', // 🔧 优先使用fileUrl
+                messageType: messageType, // 🔧 使用修正后的类型
                 fileUrl: data.fileUrl,
                 fileName: data.fileName,
                 fileId: data.fileId,
@@ -305,6 +324,7 @@ class WebSocketManager {
                 timestamp: new Date().toISOString()
             };
             
+            console.log('💾 即将保存的消息数据:', messageData);
             await this.messageAdapter.addMessage(messageData);
             
             // 发送确认

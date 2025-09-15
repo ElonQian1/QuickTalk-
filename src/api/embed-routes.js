@@ -8,7 +8,7 @@ const path = require('path');
 
 class EmbedCodeManager {
     constructor() {
-        this.version = '1.3.0'; // 🎨 完整文件上传功能：现代化UI、多媒体支持、拖拽上传
+        this.version = '1.3.1'; // � 简化文件上传：单文件上传、移动端友好、简洁UI
         this.lastModified = new Date().toISOString();
     }
     
@@ -45,11 +45,15 @@ class EmbedCodeManager {
 .cs-staff .cs-msg-text{background:#f8f9fa;color:#333;border:1px solid #e9ecef;align-self:flex-start}
 .cs-staff .cs-msg-time{text-align:left}
 
-/* 图片消息样式 - 动态版本支持 */
+/* 图片消息样式 - 支持三阶段上传显示 */
 .cs-msg-image{max-width:80%;align-self:flex-start;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1)}
 .cs-msg-image img{width:100%;height:auto;display:block;cursor:pointer;transition:transform 0.2s ease}
 .cs-msg-image img:hover{transform:scale(1.02)}
 .cs-msg-image .cs-image-info{padding:8px 12px;background:#f8f9fa;font-size:12px;color:#666;border-top:1px solid #e9ecef}
+
+/* 上传状态显示 */
+.cs-upload-status{padding:6px 12px;background:#fff3cd;color:#856404;font-size:11px;border-top:1px solid #ffeaa7;display:flex;align-items:center;gap:4px}
+.cs-upload-status:before{content:'⏳';font-size:12px}
 
 /* 图片预览模态框 */
 .cs-image-preview{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:none;align-items:center;justify-content:center;z-index:9999999;cursor:pointer}
@@ -69,32 +73,42 @@ class EmbedCodeManager {
 .cs-file-option:last-child{border-bottom:none}
 .cs-file-option:hover{background:#f8f9fa}
 
-/* 文件上传模态框 */
+/* 文件上传模态框 - 简化版 */
 .cs-file-modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999999}
-.cs-modal-content{background:white;border-radius:12px;width:90%;max-width:500px;max-height:80%;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,0.3)}
+.cs-modal-content{background:white;border-radius:12px;width:90%;max-width:400px;box-shadow:0 10px 30px rgba(0,0,0,0.3);overflow:hidden}
 .cs-modal-header{padding:16px 20px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center}
 .cs-modal-header h4{margin:0;font-size:18px;color:#333}
-.cs-modal-close{background:none;border:none;font-size:24px;cursor:pointer;color:#999;padding:0;width:30px;height:30px;display:flex;align-items:center;justify-content:center}
-.cs-modal-close:hover{color:#666}
+.cs-modal-close{background:none;border:none;font-size:20px;cursor:pointer;color:#999;padding:4px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:4px}
+.cs-modal-close:hover{background:#f5f5f5;color:#666}
 
 .cs-modal-body{padding:20px}
-.cs-drop-zone{border:2px dashed #ddd;border-radius:8px;padding:40px 20px;text-align:center;transition:all 0.3s ease}
-.cs-drop-zone.dragover{border-color:#667eea;background:#f8f9ff}
-.cs-drop-content{display:flex;flex-direction:column;align-items:center;gap:12px}
-.cs-drop-icon{font-size:48px;opacity:0.5}
-.cs-drop-content p{margin:0;color:#666;font-size:14px}
-.cs-select-btn{background:#667eea;color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:14px}
+.cs-file-select-area{border:2px dashed #ddd;border-radius:8px;padding:30px 20px;text-align:center;cursor:pointer;transition:all 0.3s ease}
+.cs-file-select-area:hover{border-color:#667eea;background:#f8f9ff}
+.cs-file-icon{font-size:32px;margin-bottom:8px;opacity:0.6}
+.cs-file-select-area p{margin:8px 0 4px 0;color:#333;font-size:16px;font-weight:500}
+.cs-file-select-area small{color:#666;font-size:12px}
 
-.cs-file-preview{margin-top:16px;padding:12px;border:1px solid #eee;border-radius:6px;background:#f9f9f9}
-.cs-upload-progress{margin-top:16px}
-.cs-progress-bar{width:100%;height:8px;background:#f0f0f0;border-radius:4px;overflow:hidden}
-.cs-progress-fill{height:100%;background:linear-gradient(90deg,#667eea,#764ba2);width:0%;transition:width 0.3s ease}
-.cs-progress-text{text-align:center;margin-top:8px;font-size:12px;color:#666}
+.cs-file-preview{margin-top:16px;padding:12px;border:1px solid #eee;border-radius:6px;background:#f9f9f9;display:flex;align-items:center;gap:12px}
+.cs-file-preview img{width:50px;height:50px;object-fit:cover;border-radius:4px}
+.cs-file-preview .cs-file-info{flex:1}
+.cs-file-preview .cs-file-name{font-weight:600;margin-bottom:4px;word-break:break-all}
+.cs-file-preview .cs-file-size{font-size:12px;color:#666}
 
 .cs-modal-footer{padding:16px 20px;border-top:1px solid #eee;display:flex;gap:12px;justify-content:flex-end}
-.cs-btn-cancel{background:#f8f9fa;color:#666;border:1px solid #ddd;padding:8px 16px;border-radius:6px;cursor:pointer}
-.cs-btn-confirm{background:#667eea;color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:600}
+.cs-btn-cancel{background:#f8f9fa;color:#666;border:1px solid #ddd;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:14px}
+.cs-btn-cancel:hover{background:#e9ecef}
+.cs-btn-confirm{background:#667eea;color:white;border:none;padding:8px 20px;border-radius:6px;cursor:pointer;font-weight:600;font-size:14px}
+.cs-btn-confirm:hover{background:#5a6fd8}
 .cs-btn-confirm:disabled{background:#ccc;cursor:not-allowed}
+
+/* 手机端优化 */
+@media (max-width:768px){
+    .cs-modal-content{width:95%;max-width:none;margin:20px auto}
+    .cs-modal-body{padding:16px}
+    .cs-file-select-area{padding:20px 16px}
+    .cs-file-icon{font-size:28px}
+    .cs-modal-footer{padding:12px 16px}
+}
 .cs-status{padding:8px 20px;background:#f8f9fa;border-top:1px solid #eee;display:flex;align-items:center;gap:8px;font-size:12px}
 .cs-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
 .cs-connected{background:#28a745;animation:pulse 2s infinite}
@@ -132,6 +146,25 @@ window.QuickTalkCustomerService = {
         console.log('🔧 初始化QuickTalk客服系统...');
         this.config = config;
         this.userId = 'user_' + Math.random().toString(36).substr(2,9) + '_' + Date.now();
+        
+        // 🔧 确保服务器URL配置正确
+        if (!this.config.serverUrl) {
+            // 根据当前脚本加载地址推断服务器URL
+            const scripts = document.getElementsByTagName('script');
+            for (let script of scripts) {
+                if (script.src && script.src.includes('/embed/customer-service.js')) {
+                    const url = new URL(script.src);
+                    this.config.serverUrl = url.origin;
+                    console.log('🔍 自动检测服务器URL:', this.config.serverUrl);
+                    break;
+                }
+            }
+            // 如果还是没有，使用默认值
+            if (!this.config.serverUrl) {
+                this.config.serverUrl = 'http://localhost:3030';
+                console.log('⚠️ 使用默认服务器URL:', this.config.serverUrl);
+            }
+        }
         
         // 🔧 添加消息去重机制
         this.processedMessages = new Set();
@@ -196,29 +229,21 @@ window.QuickTalkCustomerService = {
                     </div>
                 </div>
                 
-                <!-- 文件上传模态框 -->
+                <!-- 文件上传模态框 - 简化版 -->
                 <div class="cs-file-modal" id="cs-file-modal" style="display: none;">
                     <div class="cs-modal-content">
                         <div class="cs-modal-header">
-                            <h4>上传文件</h4>
+                            <h4>选择文件</h4>
                             <button class="cs-modal-close" onclick="QuickTalkCustomerService.closeFileModal()">×</button>
                         </div>
                         <div class="cs-modal-body">
-                            <div class="cs-drop-zone" id="cs-drop-zone">
-                                <div class="cs-drop-content">
-                                    <div class="cs-drop-icon">📁</div>
-                                    <p>拖拽文件到这里或点击选择</p>
-                                    <input type="file" id="cs-file-input" style="display: none;" onchange="QuickTalkCustomerService.handleFileSelect(this.files[0])">
-                                    <button onclick="document.getElementById('cs-file-input').click()" class="cs-select-btn">选择文件</button>
-                                </div>
+                            <input type="file" id="cs-file-input" style="display: none;" onchange="QuickTalkCustomerService.handleFileSelect(this.files[0])">
+                            <div class="cs-file-select-area" onclick="document.getElementById('cs-file-input').click()">
+                                <div class="cs-file-icon">📁</div>
+                                <p>点击选择文件</p>
+                                <small>支持图片、文档、音频、视频</small>
                             </div>
                             <div class="cs-file-preview" id="cs-file-preview" style="display: none;"></div>
-                            <div class="cs-upload-progress" id="cs-upload-progress" style="display: none;">
-                                <div class="cs-progress-bar">
-                                    <div class="cs-progress-fill" id="cs-progress-fill"></div>
-                                </div>
-                                <div class="cs-progress-text" id="cs-progress-text">上传中...</div>
-                            </div>
                         </div>
                         <div class="cs-modal-footer">
                             <button onclick="QuickTalkCustomerService.closeFileModal()" class="cs-btn-cancel">取消</button>
@@ -327,6 +352,10 @@ window.QuickTalkCustomerService = {
                 console.log('✅ WebSocket认证成功');
                 break;
                 
+            case 'connection_established':
+                console.log('🔗 WebSocket连接已建立');
+                break;
+                
             case 'staff_message':
                 // 🔧 添加消息去重检查
                 const messageId = data.id || data.timestamp || JSON.stringify(data);
@@ -369,6 +398,21 @@ window.QuickTalkCustomerService = {
                 }
                 break;
                 
+            case 'multimedia_message_sent':
+                console.log('📷 收到多媒体消息发送确认:', data);
+                // 图片已在上传时显示，这里只是确认消息，无需重复显示
+                break;
+                
+            case 'multimedia_message':
+                console.log('📷 收到多媒体消息:', data);
+                this.handleMultimediaMessage(data);
+                
+                if (!this.isOpen) {
+                    this.open();
+                    this.showNotification('收到新的图片消息');
+                }
+                break;
+                
             default:
                 console.log('📩 未知消息类型:', data);
         }
@@ -392,6 +436,28 @@ window.QuickTalkCustomerService = {
             this.addMsg('staff', message);
         }
     },
+
+    // 🖼️ 处理多媒体消息
+    handleMultimediaMessage(messageData) {
+        console.log('🖼️ 处理多媒体消息:', messageData);
+        
+        const fileUrl = messageData.fileUrl || messageData.file_url;
+        const fileName = messageData.fileName || messageData.file_name;
+        const messageType = messageData.messageType || messageData.message_type;
+        const senderType = messageData.senderType || 'staff';
+        
+        if (messageType === 'image' && fileUrl) {
+            console.log('🖼️ 显示图片消息:', fileUrl);
+            const fullImageUrl = this.ensureFullImageUrl(fileUrl);
+            this.addImageMsg(senderType, fullImageUrl, fileName || '图片', messageData.content || '');
+        } else if (fileUrl) {
+            console.log('📎 显示文件消息:', fileName);
+            this.addMsg(senderType, '📎 ' + (fileName || '文件'));
+        } else {
+            console.log('⚠️ 多媒体消息缺少文件信息:', messageData);
+            this.addMsg(senderType, '[多媒体消息]');
+        }
+    },
     
     addMsg(type, text) {
         const body = document.getElementById('cs-body');
@@ -402,19 +468,24 @@ window.QuickTalkCustomerService = {
         body.scrollTop = body.scrollHeight;
     },
     
-    // 🖼️ 添加图片消息 - 最新实现
-    addImageMsg(type, imageUrl, fileName, caption) {
+    // 🖼️ 添加图片消息 - 支持状态更新的最新实现
+    addImageMsg(type, imageUrl, fileName, caption, messageId) {
         const body = document.getElementById('cs-body');
         const div = document.createElement('div');
         div.className = 'cs-msg cs-' + type;
+        if (messageId) {
+            div.setAttribute('data-message-id', messageId);
+        }
+        
+        const statusHtml = caption && caption !== '[图片]' ? \`<div class="cs-upload-status">\${this.escapeHtml(caption)}</div>\` : '';
         
         let imageHtml = \`
             <div class="cs-msg-image">
                 <img src="\${imageUrl}" alt="\${this.escapeHtml(fileName || '图片')}" onclick="QuickTalkCustomerService.previewImage('\${imageUrl}')">
                 <div class="cs-image-info">
                     📷 \${this.escapeHtml(fileName || '图片')}
-                    \${caption && caption !== '[图片]' ? '<br>' + this.escapeHtml(caption) : ''}
                 </div>
+                \${statusHtml}
             </div>
             <span class="cs-msg-time">\${new Date().toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit'})}</span>
         \`;
@@ -424,6 +495,38 @@ window.QuickTalkCustomerService = {
         body.scrollTop = body.scrollHeight;
     },
     
+    // 🔧 更新图片消息URL和状态
+    updateImageMessage(messageId, newImageUrl, newCaption) {
+        const msgElement = document.querySelector('[data-message-id="' + messageId + '"]');
+        if (msgElement) {
+            const img = msgElement.querySelector('img');
+            const statusDiv = msgElement.querySelector('.cs-upload-status');
+            
+            if (img) {
+                img.src = newImageUrl;
+                img.onclick = function() { QuickTalkCustomerService.previewImage(newImageUrl); };
+                console.log('🔄 图片URL已更新:', newImageUrl);
+            }
+            
+            if (statusDiv) {
+                if (newCaption) {
+                    statusDiv.textContent = newCaption;
+                } else {
+                    statusDiv.remove();
+                }
+            }
+        }
+    },
+    
+    // 🗑️ 移除消息
+    removeMessage(messageId) {
+        const msgElement = document.querySelector('[data-message-id="' + messageId + '"]');
+        if (msgElement) {
+            msgElement.remove();
+            console.log('🗑️ 临时消息已移除:', messageId);
+        }
+    },
+    
     escapeHtml(text) {
         if (!text) return '';
         const div = document.createElement('div');
@@ -431,16 +534,23 @@ window.QuickTalkCustomerService = {
         return div.innerHTML;
     },
     
-    // 🔧 工具函数：确保图片URL是完整的
+    // 🔧 工具函数：确保图片URL是完整的，并且协议匹配当前页面
     ensureFullImageUrl(url) {
         if (!url) return '';
+        
+        // 如果是完整URL，直接返回
         if (url.startsWith('http://') || url.startsWith('https://')) {
-            return url; // 已经是完整URL
+            return url;
         }
+        
+        // 🔧 关键修复：对于相对路径，使用文件服务器的完整地址
+        // 不要使用当前页面的域名，因为文件在后端服务器上
+        const serverBaseUrl = this.config.serverUrl || 'http://localhost:3030';
+        
         if (url.startsWith('/')) {
-            return this.config.serverUrl + url; // 相对路径转完整URL
+            return serverBaseUrl + url;
         }
-        return this.config.serverUrl + '/' + url; // 添加前缀
+        return serverBaseUrl + '/' + url;
     },
     
     previewImage(imageUrl) {
@@ -498,7 +608,12 @@ window.QuickTalkCustomerService = {
         }
 
         console.log('📤 开始上传文件:', file.name);
-        this.addMsg('system', '正在上传文件: ' + file.name + '...');
+        
+        // 🎯 第1阶段：立即显示本地预览
+        const localPreviewUrl = URL.createObjectURL(file);
+        const tempMessageId = 'temp_' + Date.now();
+        console.log('📱 显示本地预览:', localPreviewUrl);
+        this.addImageMsg('user', localPreviewUrl, file.name, '上传中...', tempMessageId);
 
         try {
             // 创建FormData
@@ -519,16 +634,27 @@ window.QuickTalkCustomerService = {
             const result = await response.json();
 
             if (response.ok && result.success) {
-                // 上传成功，发送多媒体消息
+                // 🎯 第2阶段：更新为服务器URL
+                console.log('🔄 更新为服务器图片URL:', result.file.url);
+                const serverUrl = this.ensureFullImageUrl(result.file.url);
+                this.updateImageMessage(tempMessageId, serverUrl, '');
+                
+                // 清理本地预览URL
+                URL.revokeObjectURL(localPreviewUrl);
+                
+                // 🎯 第3阶段：发送WebSocket消息通知服务器
                 await this.sendMultimediaMessage(result.file);
-                this.addMsg('system', '文件发送成功！');
+                console.log('✅ 三阶段图片上传完成');
             } else {
                 throw new Error(result.error || '上传失败');
             }
 
         } catch (error) {
             console.error('❌ 文件上传失败:', error);
+            // 移除临时消息并显示错误
+            this.removeMessage(tempMessageId);
             this.addMsg('system', '文件上传失败: ' + error.message);
+            URL.revokeObjectURL(localPreviewUrl);
         }
     },
 
@@ -548,16 +674,14 @@ window.QuickTalkCustomerService = {
             fileType: fileInfo.type,
             fileSize: fileInfo.size,
             messageType: this.getMessageTypeFromFile(fileInfo),
+            content: fileInfo.originalName, // 🔧 确保content是文件名
+            message_type: this.getMessageTypeFromFile(fileInfo), // 🔧 添加message_type字段
             timestamp: Date.now()
         };
 
-        // 在界面显示消息
-        if (messageData.messageType === 'image') {
-            this.addImageMsg('user', fileInfo.url, fileInfo.originalName, '');
-        } else {
-            this.addMsg('user', '📎 ' + fileInfo.originalName);
-        }
+        console.log('� 发送多媒体消息数据:', messageData);
 
+        // 🔧 不在这里显示消息，因为已经在上传阶段显示了
         // 通过WebSocket发送
         this.ws.send(JSON.stringify(messageData));
         console.log('✅ 多媒体消息发送成功 (WebSocket)');
@@ -603,7 +727,6 @@ window.QuickTalkCustomerService = {
             fileInput.accept = acceptMap[fileType] || '*/*';
             
             modal.style.display = 'flex';
-            this.setupDragAndDrop();
         }
     },
 
@@ -618,7 +741,6 @@ window.QuickTalkCustomerService = {
     resetFileModal() {
         const fileInput = document.getElementById('cs-file-input');
         const preview = document.getElementById('cs-file-preview');
-        const progress = document.getElementById('cs-upload-progress');
         const confirmBtn = document.getElementById('cs-confirm-btn');
         
         if (fileInput) fileInput.value = '';
@@ -626,35 +748,9 @@ window.QuickTalkCustomerService = {
             preview.style.display = 'none';
             preview.innerHTML = '';
         }
-        if (progress) progress.style.display = 'none';
         if (confirmBtn) confirmBtn.disabled = true;
         
         this.selectedFile = null;
-    },
-
-    setupDragAndDrop() {
-        const dropZone = document.getElementById('cs-drop-zone');
-        if (!dropZone) return;
-
-        dropZone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            dropZone.classList.add('dragover');
-        });
-
-        dropZone.addEventListener('dragleave', (e) => {
-            e.preventDefault();
-            dropZone.classList.remove('dragover');
-        });
-
-        dropZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropZone.classList.remove('dragover');
-            
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                this.handleFileSelect(files[0]);
-            }
-        });
     },
 
     handleFileSelect(file) {
@@ -678,32 +774,28 @@ window.QuickTalkCustomerService = {
         const fileSize = (file.size / 1024 / 1024).toFixed(2);
         const isImage = file.type.startsWith('image/');
         
-        let previewHTML = '<div style="display: flex; align-items: center; gap: 12px;">';
-        
         if (isImage) {
             const reader = new FileReader();
             reader.onload = (e) => {
-                preview.innerHTML = '<div style="display: flex; align-items: center; gap: 12px;">' +
-                    '<img src="' + e.target.result + '" style="width: 60px; height: 60px; object-fit: cover; border-radius: 6px;">' +
-                    '<div>' +
-                        '<div style="font-weight: 600; margin-bottom: 4px;">' + file.name + '</div>' +
-                        '<div style="font-size: 12px; color: #666;">' + fileSize + ' MB</div>' +
-                    '</div>' +
-                '</div>';
+                preview.innerHTML = 
+                    '<img src="' + e.target.result + '" alt="预览">' +
+                    '<div class="cs-file-info">' +
+                        '<div class="cs-file-name">' + file.name + '</div>' +
+                        '<div class="cs-file-size">' + fileSize + ' MB</div>' +
+                    '</div>';
             };
             reader.readAsDataURL(file);
         } else {
             const fileIcon = this.getFileIcon(file.type);
-            previewHTML += '<div style="font-size: 24px;">' + fileIcon + '</div>' +
-                '<div>' +
-                    '<div style="font-weight: 600; margin-bottom: 4px;">' + file.name + '</div>' +
-                    '<div style="font-size: 12px; color: #666;">' + fileSize + ' MB</div>' +
-                '</div>' +
-            '</div>';
-            preview.innerHTML = previewHTML;
+            preview.innerHTML = 
+                '<div style="font-size: 32px; display: flex; align-items: center; justify-content: center; width: 50px; height: 50px; background: #f0f0f0; border-radius: 4px;">' + fileIcon + '</div>' +
+                '<div class="cs-file-info">' +
+                    '<div class="cs-file-name">' + file.name + '</div>' +
+                    '<div class="cs-file-size">' + fileSize + ' MB</div>' +
+                '</div>';
         }
         
-        preview.style.display = 'block';
+        preview.style.display = 'flex';
     },
 
     getFileIcon(fileType) {
@@ -719,14 +811,20 @@ window.QuickTalkCustomerService = {
         if (!this.selectedFile) return;
         
         const sendBtn = document.getElementById('cs-confirm-btn');
-        if (sendBtn) sendBtn.disabled = true;
+        if (!sendBtn) return;
+        
+        // 显示上传状态
+        const originalText = sendBtn.textContent;
+        sendBtn.disabled = true;
+        sendBtn.textContent = '上传中...';
         
         try {
             await this.uploadAndSendFile(this.selectedFile);
             this.closeFileModal();
         } catch (error) {
             console.error('上传确认失败:', error);
-            if (sendBtn) sendBtn.disabled = false;
+            sendBtn.textContent = originalText;
+            sendBtn.disabled = false;
         }
     },
     
@@ -814,6 +912,54 @@ window.addEventListener('beforeunload', () => {
 });
 
 console.log('📦 QuickTalk客服系统模块加载完成，等待初始化...');
+
+// 🔧 兼容性类：CustomerServiceWidget
+class CustomerServiceWidget {
+    constructor(config) {
+        console.log('🚀 CustomerServiceWidget 构造函数调用，配置:', config);
+        
+        // 配置继承和兼容性处理
+        this.config = {
+            shopKey: config.shopKey || config.shopId || 'default',
+            shopId: config.shopId || config.shopKey || 'default',
+            position: config.position || 'bottom-right',
+            serverUrl: config.serverUrl || window.location.origin,
+            userId: config.userId || ('user_' + Math.random().toString(36).substr(2,9) + '_' + Date.now())
+        };
+        
+        console.log('🔧 CustomerServiceWidget 最终配置:', this.config);
+        
+        // 使用主模块初始化
+        if (window.QuickTalkCustomerService) {
+            window.QuickTalkCustomerService.init(this.config);
+            // 传递关键方法的引用
+            this.ws = window.QuickTalkCustomerService.ws;
+            this.handleWebSocketMessage = window.QuickTalkCustomerService.handleWebSocketMessage?.bind(window.QuickTalkCustomerService);
+            this.ensureFullImageUrl = window.QuickTalkCustomerService.ensureFullImageUrl?.bind(window.QuickTalkCustomerService);
+            console.log('✅ CustomerServiceWidget 成功关联到主模块');
+        } else {
+            console.error('❌ QuickTalkCustomerService 主模块未找到');
+            throw new Error('主模块未找到');
+        }
+    }
+    
+    // 代理方法
+    open() {
+        return window.QuickTalkCustomerService?.open();
+    }
+    
+    close() {
+        return window.QuickTalkCustomerService?.close();
+    }
+    
+    send(message) {
+        return window.QuickTalkCustomerService?.send(message);
+    }
+}
+
+// 将 CustomerServiceWidget 暴露给全局
+window.CustomerServiceWidget = CustomerServiceWidget;
+console.log('✅ CustomerServiceWidget 类已定义并暴露到全局');
         `;
     }
 }

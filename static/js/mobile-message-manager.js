@@ -540,16 +540,29 @@ class MobileMessageManager {
                 break;
             
             case 'file':
-                messageContent = `
-                    <div class="message-file">
-                        <div class="file-icon">📄</div>
-                        <div class="file-info">
-                            <div class="file-name">${message.file_name || '未知文件'}</div>
-                            <div class="file-size">${this.formatFileSize(message.file_size || 0)}</div>
+                // 🔧 智能识别：如果是图片文件，直接显示图片
+                if (this.isImageFile(message.file_url, message.file_name)) {
+                    console.log('🖼️ [RENDER] file类型检测为图片，直接显示');
+                    messageContent = `
+                        <div class="message-image">
+                            <img src="${message.file_url}" alt="${message.file_name || '图片'}" 
+                                 onclick="previewImage('${message.file_url}')" />
+                            ${message.content && message.content !== message.file_name ? `<div class="image-caption">${message.content}</div>` : ''}
                         </div>
-                        <a href="${message.file_url}" download="${message.file_name}" class="file-download">下载</a>
-                    </div>
-                `;
+                    `;
+                } else {
+                    // 非图片文件显示下载按钮
+                    messageContent = `
+                        <div class="message-file">
+                            <div class="file-icon">📄</div>
+                            <div class="file-info">
+                                <div class="file-name">${message.file_name || '未知文件'}</div>
+                                <div class="file-size">${this.formatFileSize(message.file_size || 0)}</div>
+                            </div>
+                            <a href="${message.file_url}" download="${message.file_name}" class="file-download">下载</a>
+                        </div>
+                    `;
+                }
                 break;
             
             case 'audio':
@@ -978,6 +991,23 @@ class MobileMessageManager {
         const sizes = ['B', 'KB', 'MB', 'GB'];
         const i = Math.floor(Math.log(bytes) / Math.log(k));
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    // 🔧 智能识别图片文件
+    isImageFile(fileUrl, fileName) {
+        if (!fileUrl && !fileName) return false;
+        
+        // 1. 通过URL路径判断（如 /uploads/image/xxx.png）
+        if (fileUrl && fileUrl.includes('/uploads/image/')) {
+            return true;
+        }
+        
+        // 2. 通过文件扩展名判断
+        const name = fileName || fileUrl || '';
+        const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg'];
+        const lowerName = name.toLowerCase();
+        
+        return imageExtensions.some(ext => lowerName.endsWith(ext));
     }
 
     // 绑定事件监听器

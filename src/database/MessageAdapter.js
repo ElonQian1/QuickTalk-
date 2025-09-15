@@ -44,21 +44,26 @@ class MessageAdapter {
 
             console.log(`🔍 调试信息: conversationId=${conversationId}, shopId=${shopId}, userId=${userId}, content=${content}`);
 
-            // 插入到现有messages表
+            // 插入到现有messages表 - 🔧 支持message_type和file_id
             const sql = `
                 INSERT INTO messages (
-                    id, shop_id, user_id, message, sender, is_read
-                ) VALUES (?, ?, ?, ?, ?, ?)
+                    id, shop_id, user_id, message, message_type, file_id, sender, is_read
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             `;
 
+            const messageType = data.messageType || 'text';
+            const fileId = data.fileId || null;
+            
             console.log(`🔍 执行SQL: ${sql}`);
-            console.log(`🔍 参数: [${messageId}, ${shopId}, ${userId}, ${content}, ${sender}, false]`);
+            console.log(`🔍 参数: [${messageId}, ${shopId}, ${userId}, ${content}, ${messageType}, ${fileId}, ${sender}, false]`);
 
             await this.db.runAsync(sql, [
                 messageId,
                 shopId,
                 userId,
                 content,
+                messageType, // 🔧 添加消息类型
+                fileId,      // 🔧 添加文件ID
                 sender,
                 false // is_read
             ]);
