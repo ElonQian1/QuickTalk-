@@ -707,6 +707,42 @@ class MessageRepository {
 
         console.log(`🗑️ 对话已删除: ${conversationId}`);
     }
+
+    // ===== MessageAdapter 兼容性方法 =====
+    // 为了平滑迁移，提供与 MessageAdapter 相同的接口
+
+    /**
+     * 兼容方法：getConversationMessages (对应 MessageAdapter.getConversationMessages)
+     * 此方法提供与 MessageAdapter 相同的接口，内部调用 getMessages
+     */
+    async getConversationMessages(conversationId, options = {}) {
+        console.log(`🔄 兼容模式：getConversationMessages -> getMessages`);
+        return await this.getMessages(conversationId, options);
+    }
+
+    /**
+     * 兼容方法：ensureConversationExists (对应 MessageAdapter.ensureConversationExists)
+     * 此方法提供与 MessageAdapter 相同的接口，内部调用 createOrGetConversation
+     */
+    async ensureConversationExists(shopId, userId, lastMessage) {
+        console.log(`🔄 兼容模式：ensureConversationExists -> createOrGetConversation`);
+        
+        // 构造用户数据
+        const userData = {
+            name: `用户_${userId}`,
+            lastMessage: lastMessage
+        };
+        
+        return await this.createOrGetConversation(shopId, userId, userData);
+    }
+
+    /**
+     * 兼容方法：generateId (对应 MessageAdapter.generateId)
+     * 提供简单的ID生成功能
+     */
+    generateId() {
+        return Date.now().toString(36) + Math.random().toString(36).substr(2);
+    }
 }
 
 module.exports = MessageRepository;

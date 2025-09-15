@@ -1,7 +1,7 @@
 // 模块化应用管理器
 const DatabaseCore = require('../../database-sqlite');
 const ShopRepository = require('../database/ShopRepository');
-const MessageAdapter = require('../database/MessageAdapter'); // 消息数据库适配器
+const MessageAdapter = require('../database/UnifiedMessageAdapter'); // 统一消息适配器（过渡版本）
 const SecurityManager = require('../security/SecurityManager');
 const ClientApiHandler = require('../client-api/ClientApiHandler');
 
