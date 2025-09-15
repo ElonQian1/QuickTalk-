@@ -23,6 +23,7 @@ class WebSocketManager {
      * 初始化WebSocket服务器
      */
     initialize() {
+        console.log('🔍 [NEW-WS] 使用新版模块化WebSocket管理器初始化...');
         if (this.isInitialized) {
             console.log('⚠️ WebSocket管理器已经初始化');
             return this.wss;

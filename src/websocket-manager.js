@@ -14,6 +14,7 @@ class WebSocketManager {
     }
     
     initialize() {
+        console.log('🔍 [OLD-WS] 使用旧版WebSocket管理器初始化...');
         // 创建WebSocket服务器
         this.wss = new WebSocket.Server({ 
             server: this.server,
