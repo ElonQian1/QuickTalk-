@@ -110,10 +110,12 @@ class MobileMessageManager {
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             const wsUrl = `${protocol}//${window.location.host}/ws`;
             
+            console.log('🔌 [WEBSOCKET] 开始初始化WebSocket连接:', wsUrl);
             this.websocket = new WebSocket(wsUrl);
             
             this.websocket.onopen = () => {
-                console.log('🔌 WebSocket连接已建立');
+                console.log('🔌 [WEBSOCKET] ✅ WebSocket连接已建立');
+                console.log('🔌 [WEBSOCKET] 发送身份验证，sessionId:', localStorage.getItem('sessionId'));
                 // 发送身份验证
                 this.websocket.send(JSON.stringify({
                     type: 'auth',
@@ -123,24 +125,27 @@ class MobileMessageManager {
 
             this.websocket.onmessage = (event) => {
                 try {
+                    console.log('🔌 [WEBSOCKET] 收到原始消息:', event.data);
                     const data = JSON.parse(event.data);
                     this.handleWebSocketMessage(data);
                 } catch (error) {
-                    console.error('❌ WebSocket消息解析失败:', error);
+                    console.error('❌ [WEBSOCKET] 消息解析失败:', error, '原始数据:', event.data);
                 }
             };
 
-            this.websocket.onclose = () => {
-                console.log('🔌 WebSocket连接已断开，5秒后重连...');
+            this.websocket.onclose = (event) => {
+                console.log('🔌 [WEBSOCKET] ❌ 连接已断开，代码:', event.code, '原因:', event.reason);
+                console.log('🔌 [WEBSOCKET] 5秒后重连...');
                 setTimeout(() => this.initWebSocket(), 5000);
             };
 
             this.websocket.onerror = (error) => {
-                console.error('❌ WebSocket连接错误:', error);
+                console.error('❌ [WEBSOCKET] 连接错误:', error);
+                console.log('🔌 [WEBSOCKET] 连接状态:', this.websocket.readyState);
             };
 
         } catch (error) {
-            console.error('❌ WebSocket初始化失败:', error);
+            console.error('❌ [WEBSOCKET] 初始化失败:', error);
         }
     }
 
@@ -889,6 +894,34 @@ class MobileMessageManager {
         }
 
         console.log('✅ 多媒体消息发送成功');
+        
+        // 检查WebSocket连接状态
+        this.checkWebSocketStatus();
+    }
+    
+    // 检查WebSocket连接状态
+    checkWebSocketStatus() {
+        console.log('🔌 [WEBSOCKET_STATUS] 检查WebSocket连接状态:');
+        if (!this.websocket) {
+            console.log('🔌 [WEBSOCKET_STATUS] ❌ WebSocket对象不存在');
+            return;
+        }
+        
+        const states = {
+            0: 'CONNECTING (连接中)',
+            1: 'OPEN (已连接)',
+            2: 'CLOSING (关闭中)',
+            3: 'CLOSED (已关闭)'
+        };
+        
+        console.log('🔌 [WEBSOCKET_STATUS] 连接状态:', states[this.websocket.readyState]);
+        console.log('🔌 [WEBSOCKET_STATUS] URL:', this.websocket.url);
+        console.log('🔌 [WEBSOCKET_STATUS] 协议:', this.websocket.protocol);
+        
+        if (this.websocket.readyState !== 1) {
+            console.log('⚠️ [WEBSOCKET_STATUS] WebSocket未连接，尝试重连...');
+            this.initWebSocket();
+        }
     }
 
     // 获取消息类型文本
@@ -981,6 +1014,43 @@ class MobileMessageManager {
 
 // 导出到全局作用域
 window.MobileMessageManager = MobileMessageManager;
+
+// 全局调试功能
+window.checkWebSocketStatus = function() {
+    if (window.mobileMessageManager) {
+        window.mobileMessageManager.checkWebSocketStatus();
+    } else {
+        console.log('❌ MobileMessageManager 实例不存在');
+    }
+};
+
+window.testWebSocketMessage = function() {
+    console.log('🧪 [TEST] 测试WebSocket消息处理...');
+    if (window.mobileMessageManager) {
+        // 模拟一个图片消息
+        const testMessage = {
+            type: 'new_message',
+            message: {
+                id: 'test_msg_' + Date.now(),
+                message: '[图片]',
+                content: '[图片]',
+                message_type: 'image',
+                file_url: '/uploads/image/test.png',
+                file_name: 'test.png',
+                sender_type: 'admin',
+                conversation_id: window.mobileMessageManager.currentConversation?.id || 'test_conversation',
+                shop_id: 'test_shop',
+                user_id: 'test_user',
+                created_at: new Date().toISOString()
+            }
+        };
+        
+        console.log('🧪 [TEST] 发送测试消息:', testMessage);
+        window.mobileMessageManager.handleWebSocketMessage(testMessage);
+    } else {
+        console.log('❌ MobileMessageManager 实例不存在');
+    }
+};
 
 // 全局函数
 window.previewImage = function(imageUrl) {
