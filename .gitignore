@@ -42,5 +42,10 @@ dist/
 *.bak
 *.backup
 
+# 上传文件目录（测试图片等）
+uploads/
+uploads/*
+uploads/**/*
+
 # 参考文件夹（包含个人文档）
 参考/

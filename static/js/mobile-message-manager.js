@@ -170,6 +170,13 @@ class MobileMessageManager {
                 console.log('📨 [WEBSOCKET] 消息类型:', data.message?.message_type);
                 this.handleNewMessage(data.message);
                 break;
+            case 'staff_message':
+                console.log('✅ [WEBSOCKET] 处理员工消息，消息对象:', data);
+                console.log('📨 [WEBSOCKET] 消息文件URL:', data.file_url);
+                console.log('📨 [WEBSOCKET] 消息类型:', data.message_type);
+                // staff_message 的数据结构直接就是消息对象，不像 new_message 包装在 message 属性中
+                this.handleNewMessage(data);
+                break;
             case 'message_read':
                 console.log('✅ [WEBSOCKET] 处理消息已读');
                 this.handleMessageRead(data.messageId);

@@ -33,6 +33,9 @@ class MobileShopManager {
             // 绑定事件监听器
             this.bindEvents();
             
+            // 🔧 添加实时消息监听
+            this.setupRealtimeUpdates();
+            
             // 加载店铺数据
             await this.loadShops();
             
@@ -128,6 +131,109 @@ class MobileShopManager {
     }
 
     /**
+     * 🔧 设置实时更新监听
+     */
+    setupRealtimeUpdates() {
+        // 1. 检查是否有全局WebSocket连接
+        if (window.ws && window.ws.readyState === WebSocket.OPEN) {
+            console.log('🔗 检测到WebSocket连接，添加消息监听');
+            this.attachWebSocketListener(window.ws);
+        }
+
+        // 2. 检查是否有MobileMessageManager的WebSocket
+        if (window.messageManager && window.messageManager.ws) {
+            console.log('🔗 检测到MessageManager WebSocket，添加消息监听');
+            this.attachWebSocketListener(window.messageManager.ws);
+        }
+
+        // 3. 如果没有WebSocket，使用轮询机制
+        if (!this.hasWebSocketListener) {
+            console.log('⏰ 启动轮询机制检测新消息');
+            this.startPolling();
+        }
+
+        // 4. 监听页面中可能的WebSocket事件
+        document.addEventListener('websocket-message', (event) => {
+            this.handleRealtimeMessage(event.detail);
+        });
+    }
+
+    /**
+     * 添加WebSocket消息监听
+     */
+    attachWebSocketListener(ws) {
+        const originalOnMessage = ws.onmessage;
+        
+        ws.onmessage = (event) => {
+            // 先执行原有的消息处理
+            if (originalOnMessage) {
+                originalOnMessage.call(ws, event);
+            }
+            
+            // 处理店铺管理相关的消息
+            try {
+                const data = JSON.parse(event.data);
+                this.handleRealtimeMessage(data);
+            } catch (e) {
+                // 忽略解析错误
+            }
+        };
+        
+        this.hasWebSocketListener = true;
+        console.log('✅ WebSocket消息监听已添加');
+    }
+
+    /**
+     * 处理实时消息
+     */
+    handleRealtimeMessage(data) {
+        if (!data || !data.type) return;
+
+        // 处理可能触发店铺列表更新的消息类型
+        const updateTriggers = [
+            'new_message',
+            'staff_message', 
+            'multimedia_message',
+            'new_multimedia_message',
+            'message_sent'
+        ];
+
+        if (updateTriggers.includes(data.type)) {
+            console.log('🔄 检测到新消息，刷新店铺列表:', data.type);
+            // 延迟一点刷新，避免频繁更新
+            clearTimeout(this.refreshTimeout);
+            this.refreshTimeout = setTimeout(() => {
+                this.loadShops(false); // 不显示加载动画
+            }, 500);
+        }
+    }
+
+    /**
+     * 启动轮询机制
+     */
+    startPolling() {
+        // 每30秒检查一次新消息
+        this.pollingInterval = setInterval(() => {
+            if (!document.hidden) { // 只在页面可见时轮询
+                this.loadShops(false);
+            }
+        }, 30000);
+        
+        console.log('⏰ 轮询机制已启动 (30秒间隔)');
+    }
+
+    /**
+     * 停止轮询
+     */
+    stopPolling() {
+        if (this.pollingInterval) {
+            clearInterval(this.pollingInterval);
+            this.pollingInterval = null;
+            console.log('⏸️ 轮询机制已停止');
+        }
+    }
+
+    /**
      * 加载店铺列表 - 核心功能
      */
     async loadShops(showLoading = true) {
@@ -178,8 +284,16 @@ class MobileShopManager {
                 throw new Error(`请求失败: ${response.status} ${errorText}`);
             }
 
-            this.shops = await response.json();
-            console.log(`✅ 成功加载 ${this.shops.length} 个店铺:`, this.shops);
+            const responseData = await response.json();
+            console.log(`✅ 成功加载 ${responseData.shops ? responseData.shops.length : 0} 个店铺:`, responseData);
+
+            // 🔧 修复：正确提取shops数组
+            if (responseData.success && Array.isArray(responseData.shops)) {
+                this.shops = responseData.shops;
+            } else {
+                console.warn('⚠️ API响应格式异常，shops不是数组:', responseData);
+                this.shops = [];
+            }
 
             // 渲染店铺列表
             await this.renderShops();
@@ -599,9 +713,19 @@ class MobileShopManager {
      */
     destroy() {
         console.log('🗑️ 销毁店铺管理模块');
+        
+        // 🔧 清理实时更新相关资源
+        this.stopPolling();
+        
+        if (this.refreshTimeout) {
+            clearTimeout(this.refreshTimeout);
+            this.refreshTimeout = null;
+        }
+        
         this.shops = [];
         this.currentUser = null;
         this.isLoading = false;
+        this.hasWebSocketListener = false;
     }
 }
 
@@ -610,5 +734,12 @@ window.MobileShopManager = MobileShopManager;
 
 // 创建全局实例
 window.mobileShopManager = new MobileShopManager();
+
+// 🔧 页面卸载时清理资源
+window.addEventListener('beforeunload', () => {
+    if (window.mobileShopManager) {
+        window.mobileShopManager.destroy();
+    }
+});
 
 console.log('📦 手机端店铺管理模块已加载');
