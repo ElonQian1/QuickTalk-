@@ -58,6 +58,9 @@ async function initializeCompatibilityModules() {
         // 初始化旧数据库系统（用于现有功能兼容）
         database = new Database();
         
+        // 设置全局数据库实例
+        global.database = database;
+        
         // 初始化域名验证器
         domainValidator = new DomainValidator(database);
         
@@ -166,10 +169,11 @@ function initializeRoutes() {
     const fileManager = null; // FileManager暂时不通过ModularApp提供
     const authValidator = modularApp ? modularApp.getSecurityManager() : null;
     
-    const fileUploadAPI = new FileUploadAPI(fileManager, authValidator);
+    // 传递数据库实例到FileUploadAPI
+    const fileUploadAPI = new FileUploadAPI(fileManager, authValidator, database);
     app.use('/api/files', fileUploadAPI.getRouter());
     
-    console.log('📤 文件上传API已配置: /api/files/upload');
+    console.log('📤 文件上传API已配置: /api/files/upload (数据库:', !!database, ')');
     
     console.log('✅ 路由系统初始化完成');
 }

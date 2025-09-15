@@ -10,9 +10,10 @@ const path = require('path');
 const fs = require('fs');
 
 class FileUploadAPI {
-    constructor(fileManager, authValidator) {
+    constructor(fileManager, authValidator, database = null) {
         this.fileManager = fileManager;
         this.authValidator = authValidator;
+        this.database = database || global.database; // 优先使用传入的数据库实例
         this.router = express.Router();
         
         // 配置multer中间件
@@ -367,8 +368,9 @@ class FileUploadAPI {
 
         // 保存文件信息到数据库
         try {
-            if (global.database) {
-                await global.database.runAsync(`
+            const database = this.database || global.database;
+            if (database) {
+                await database.runAsync(`
                     INSERT INTO uploaded_files (id, original_name, filename, file_path, file_size, mime_type, uploader_id)
                     VALUES (?, ?, ?, ?, ?, ?, ?)
                 `, [
@@ -383,7 +385,7 @@ class FileUploadAPI {
                 console.log(`💾 文件信息已保存到数据库: ${fileInfo.id}`);
                 
                 // 添加文件完整性验证
-                const savedRecord = await global.database.getAsync(
+                const savedRecord = await database.getAsync(
                     'SELECT * FROM uploaded_files WHERE id = ?',
                     [fileInfo.id]
                 );
@@ -395,7 +397,7 @@ class FileUploadAPI {
                 console.log(`✅ 文件记录验证通过: ${fileInfo.id}`);
                 
             } else {
-                console.warn('⚠️ 数据库未初始化，无法保存文件信息');
+                console.warn('⚠️ 数据库实例不可用 (this.database:', !!this.database, ', global.database:', !!global.database, ')');
                 throw new Error('数据库连接不可用');
             }
         } catch (error) {
