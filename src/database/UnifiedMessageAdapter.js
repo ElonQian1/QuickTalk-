@@ -23,13 +23,12 @@ class UnifiedMessageAdapter {
 
     /**
      * 添加消息 - 兼容 MessageAdapter 接口
-     * 内部使用 MessageRepository.addMessage
+     * 直接使用旧表结构，避免 conversation_id 字段问题
      */
     async addMessage(data) {
         try {
-            console.log('🔄 [统一适配器] addMessage 调用 -> MessageRepository.addMessage');
+            console.log('🔄 [统一适配器] addMessage - 使用旧表结构直接插入');
             
-            // 将 MessageAdapter 的数据格式转换为 MessageRepository 格式
             const {
                 conversationId,
                 senderType,
@@ -39,25 +38,55 @@ class UnifiedMessageAdapter {
                 fileId = null
             } = data;
 
-            // 转换数据格式
-            const repositoryData = {
-                conversationId,
-                senderType,
-                senderId,
-                senderName: data.senderName || `${senderType}_${senderId}`,
-                message: content,
-                messageType,
-                attachments: fileId ? [{ fileId }] : [],
-                metadata: {
-                    originalSource: 'MessageAdapter',
-                    migrationVersion: '1.0'
-                }
-            };
-
-            const result = await this.messageRepo.addMessage(repositoryData);
+            // 从 conversationId 中解析 shop_id 和 user_id (兼容旧格式)
+            const userIndex = conversationId.lastIndexOf('_user_');
+            if (userIndex === -1) {
+                console.error('❌ 无效的conversationId格式:', conversationId);
+                throw new Error('无效的conversationId格式');
+            }
             
-            // 返回与 MessageAdapter 相同格式的结果
-            return result.lastID || result.id || this.generateId();
+            const shopId = conversationId.substring(0, userIndex);
+            const userId = conversationId.substring(userIndex + 6); // 跳过 '_user_'
+
+            // 映射 senderType 到数据库的 sender 字段
+            let sender;
+            if (senderType === 'customer') {
+                sender = 'user';
+            } else if (senderType === 'admin' || senderType === 'staff') {
+                sender = 'admin';
+            } else if (senderType === 'system') {
+                sender = 'system';
+            } else {
+                sender = 'user'; // 默认值
+            }
+
+            console.log(`🔍 解析结果: shopId=${shopId}, userId=${userId}, sender=${sender}`);
+
+            // 使用旧表结构直接插入 (兼容现有数据库)
+            const messageId = this.generateId();
+            const sql = `
+                INSERT INTO messages (
+                    id, shop_id, user_id, message, message_type, file_id, sender, is_read
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `;
+
+            await this.db.runAsync(sql, [
+                messageId,
+                shopId,
+                userId,
+                content,
+                messageType,
+                fileId,
+                sender,
+                false // is_read
+            ]);
+
+            console.log(`✅ [统一适配器] 消息已保存到旧表结构: ${messageId}`);
+
+            // 确保对话记录存在 (使用原有的 ensureConversationExists 逻辑)
+            await this.ensureConversationExists(shopId, userId, content);
+
+            return messageId;
 
         } catch (error) {
             console.error('❌ [统一适配器] addMessage 失败:', error);
@@ -67,19 +96,60 @@ class UnifiedMessageAdapter {
 
     /**
      * 获取对话消息 - 兼容 MessageAdapter 接口
-     * 内部使用 MessageRepository.getMessages
+     * 直接使用旧表结构查询
      */
     async getConversationMessages(conversationId, options = {}) {
         try {
-            console.log('🔄 [统一适配器] getConversationMessages 调用 -> MessageRepository.getMessages');
+            console.log('🔄 [统一适配器] getConversationMessages - 使用旧表结构查询');
             
-            const result = await this.messageRepo.getMessages(conversationId, options);
+            const {
+                limit = 50,
+                offset = 0,
+                orderBy = 'created_at',
+                orderDirection = 'ASC'
+            } = options;
+
+            // 从 conversationId 中解析 shop_id 和 user_id
+            const userIndex = conversationId.lastIndexOf('_user_');
+            if (userIndex === -1) {
+                console.error('❌ 无效的conversationId格式:', conversationId);
+                throw new Error('无效的conversationId格式');
+            }
             
+            const shopId = conversationId.substring(0, userIndex);
+            const userId = conversationId.substring(userIndex + 6); // 跳过 '_user_'
+
+            console.log(`🔍 查询消息: shopId=${shopId}, userId=${userId}`);
+
+            // 使用旧表结构查询
+            const sql = `
+                SELECT 
+                    id,
+                    shop_id,
+                    user_id,
+                    admin_id,
+                    message as content,
+                    message_type,
+                    file_id,
+                    sender,
+                    is_read,
+                    created_at,
+                    read_at
+                FROM messages
+                WHERE shop_id = ? AND user_id = ?
+                ORDER BY ${orderBy} ${orderDirection}
+                LIMIT ? OFFSET ?
+            `;
+
+            const messages = await this.db.getAllAsync(sql, [shopId, userId, limit, offset]);
+            
+            console.log(`✅ [统一适配器] 查询到 ${messages.length} 条消息`);
+
             // 确保返回格式与 MessageAdapter 兼容
             return {
-                messages: result.messages || result,
-                total: result.total || (result.messages ? result.messages.length : result.length),
-                hasMore: result.hasMore || false
+                messages: messages || [],
+                total: messages ? messages.length : 0,
+                hasMore: messages ? messages.length === limit : false
             };
 
         } catch (error) {
@@ -90,22 +160,60 @@ class UnifiedMessageAdapter {
 
     /**
      * 确保对话存在 - 兼容 MessageAdapter 接口
-     * 内部使用 MessageRepository.createOrGetConversation
+     * 使用旧表结构的 conversations 表
      */
     async ensureConversationExists(shopId, userId, lastMessage) {
         try {
-            console.log('🔄 [统一适配器] ensureConversationExists 调用 -> MessageRepository.createOrGetConversation');
+            console.log('🔄 [统一适配器] ensureConversationExists - 检查/创建对话记录');
             
-            const userData = {
-                name: `用户_${userId}`,
-                lastMessage: lastMessage
-            };
+            const conversationId = `${shopId}_${userId}`;
+            const userName = `用户_${userId}`;
+            const now = new Date().toISOString();
             
-            return await this.messageRepo.createOrGetConversation(shopId, userId, userData);
+            // 检查对话是否已存在
+            const existing = await this.db.getAsync(
+                'SELECT * FROM conversations WHERE id = ?',
+                [conversationId]
+            );
 
+            if (existing) {
+                // 更新现有对话
+                await this.db.runAsync(`
+                    UPDATE conversations 
+                    SET 
+                        updated_at = ?,
+                        last_message_at = ?,
+                        last_message_content = ?
+                    WHERE id = ?
+                `, [now, now, lastMessage, conversationId]);
+                
+                console.log(`🔄 [统一适配器] 更新对话: ${conversationId}`);
+            } else {
+                // 创建新对话
+                await this.db.runAsync(`
+                    INSERT INTO conversations (
+                        id, shop_id, customer_id, customer_name, 
+                        last_message_content, created_at, updated_at, 
+                        unread_count, status, last_message_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                `, [
+                    conversationId,
+                    shopId,
+                    userId,
+                    userName,
+                    lastMessage,
+                    now,
+                    now,
+                    1, // 新对话有1条未读消息
+                    'active',
+                    now
+                ]);
+                
+                console.log(`🆕 [统一适配器] 创建新对话: ${conversationId}`);
+            }
         } catch (error) {
             console.error('❌ [统一适配器] ensureConversationExists 失败:', error);
-            // 不抛出错误，避免影响消息保存（与原 MessageAdapter 行为一致）
+            // 不抛出错误，避免影响消息保存
         }
     }
 
