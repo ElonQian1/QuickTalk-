@@ -8,7 +8,7 @@ const path = require('path');
 
 class EmbedCodeManager {
     constructor() {
-        this.version = '1.0.9'; // 🔧 彻底修复重复消息问题：前端去重+后端单条发送
+        this.version = '1.3.0'; // 🎨 完整文件上传功能：现代化UI、多媒体支持、拖拽上传
         this.lastModified = new Date().toISOString();
     }
     
@@ -56,9 +56,45 @@ class EmbedCodeManager {
 .cs-image-preview img{max-width:90%;max-height:90%;object-fit:contain;border-radius:8px;box-shadow:0 10px 40px rgba(0,0,0,0.5)}
 .cs-image-preview .cs-close{position:absolute;top:20px;right:20px;color:white;font-size:30px;cursor:pointer;background:rgba(0,0,0,0.5);width:50px;height:50px;border-radius:50%;display:flex;align-items:center;justify-content:center}
 
-.cs-input{padding:15px 20px;border-top:1px solid #eee;display:flex;gap:10px;background:white}
-.cs-input input{flex:1;padding:10px 15px;border:1px solid #ddd;border-radius:20px;outline:none;font-size:14px}
-.cs-input button{background:#667eea;color:white;border:none;padding:10px 20px;border-radius:20px;cursor:pointer;font-weight:600}
+.cs-input{padding:15px 20px;border-top:1px solid #eee;background:white;position:relative}
+.cs-input-container{display:flex;gap:10px;align-items:center;margin-bottom:10px}
+.cs-input-container input{flex:1;padding:10px 15px;border:1px solid #ddd;border-radius:20px;outline:none;font-size:14px}
+.cs-file-btn{background:#f8f9fa;color:#666;border:1px solid #ddd;padding:8px 12px;border-radius:50%;cursor:pointer;font-size:16px;transition:all 0.2s ease}
+.cs-file-btn:hover{background:#e9ecef;transform:scale(1.1)}
+.cs-input button:not(.cs-file-btn){background:#667eea;color:white;border:none;padding:10px 20px;border-radius:20px;cursor:pointer;font-weight:600;width:100%}
+
+/* 文件选择菜单 */
+.cs-file-menu{position:absolute;bottom:60px;right:20px;background:white;border:1px solid #ddd;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:1000;min-width:120px}
+.cs-file-option{padding:12px 16px;cursor:pointer;border-bottom:1px solid #f0f0f0;font-size:14px;display:flex;align-items:center;gap:8px;transition:background 0.2s ease}
+.cs-file-option:last-child{border-bottom:none}
+.cs-file-option:hover{background:#f8f9fa}
+
+/* 文件上传模态框 */
+.cs-file-modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999999}
+.cs-modal-content{background:white;border-radius:12px;width:90%;max-width:500px;max-height:80%;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,0.3)}
+.cs-modal-header{padding:16px 20px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center}
+.cs-modal-header h4{margin:0;font-size:18px;color:#333}
+.cs-modal-close{background:none;border:none;font-size:24px;cursor:pointer;color:#999;padding:0;width:30px;height:30px;display:flex;align-items:center;justify-content:center}
+.cs-modal-close:hover{color:#666}
+
+.cs-modal-body{padding:20px}
+.cs-drop-zone{border:2px dashed #ddd;border-radius:8px;padding:40px 20px;text-align:center;transition:all 0.3s ease}
+.cs-drop-zone.dragover{border-color:#667eea;background:#f8f9ff}
+.cs-drop-content{display:flex;flex-direction:column;align-items:center;gap:12px}
+.cs-drop-icon{font-size:48px;opacity:0.5}
+.cs-drop-content p{margin:0;color:#666;font-size:14px}
+.cs-select-btn{background:#667eea;color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:14px}
+
+.cs-file-preview{margin-top:16px;padding:12px;border:1px solid #eee;border-radius:6px;background:#f9f9f9}
+.cs-upload-progress{margin-top:16px}
+.cs-progress-bar{width:100%;height:8px;background:#f0f0f0;border-radius:4px;overflow:hidden}
+.cs-progress-fill{height:100%;background:linear-gradient(90deg,#667eea,#764ba2);width:0%;transition:width 0.3s ease}
+.cs-progress-text{text-align:center;margin-top:8px;font-size:12px;color:#666}
+
+.cs-modal-footer{padding:16px 20px;border-top:1px solid #eee;display:flex;gap:12px;justify-content:flex-end}
+.cs-btn-cancel{background:#f8f9fa;color:#666;border:1px solid #ddd;padding:8px 16px;border-radius:6px;cursor:pointer}
+.cs-btn-confirm{background:#667eea;color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:600}
+.cs-btn-confirm:disabled{background:#ccc;cursor:not-allowed}
 .cs-status{padding:8px 20px;background:#f8f9fa;border-top:1px solid #eee;display:flex;align-items:center;gap:8px;font-size:12px}
 .cs-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
 .cs-connected{background:#28a745;animation:pulse 2s infinite}
@@ -137,8 +173,58 @@ window.QuickTalkCustomerService = {
                     </div>
                 </div>
                 <div class="cs-input">
-                    <input type="text" id="cs-input" placeholder="请输入您的消息..." onkeypress="if(event.key==='Enter')QuickTalkCustomerService.send()">
+                    <div class="cs-input-container">
+                        <input type="text" id="cs-input" placeholder="请输入您的消息..." onkeypress="if(event.key==='Enter')QuickTalkCustomerService.send()">
+                        <button class="cs-file-btn" onclick="QuickTalkCustomerService.showFileOptions()" title="发送文件">📎</button>
+                    </div>
                     <button onclick="QuickTalkCustomerService.send()">发送</button>
+                    
+                    <!-- 文件选择菜单 -->
+                    <div class="cs-file-menu" id="cs-file-menu" style="display: none;">
+                        <div class="cs-file-option" onclick="QuickTalkCustomerService.selectFileType('image')">
+                            📷 图片
+                        </div>
+                        <div class="cs-file-option" onclick="QuickTalkCustomerService.selectFileType('document')">
+                            📄 文档
+                        </div>
+                        <div class="cs-file-option" onclick="QuickTalkCustomerService.selectFileType('video')">
+                            🎥 视频
+                        </div>
+                        <div class="cs-file-option" onclick="QuickTalkCustomerService.selectFileType('audio')">
+                            🎵 音频
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 文件上传模态框 -->
+                <div class="cs-file-modal" id="cs-file-modal" style="display: none;">
+                    <div class="cs-modal-content">
+                        <div class="cs-modal-header">
+                            <h4>上传文件</h4>
+                            <button class="cs-modal-close" onclick="QuickTalkCustomerService.closeFileModal()">×</button>
+                        </div>
+                        <div class="cs-modal-body">
+                            <div class="cs-drop-zone" id="cs-drop-zone">
+                                <div class="cs-drop-content">
+                                    <div class="cs-drop-icon">📁</div>
+                                    <p>拖拽文件到这里或点击选择</p>
+                                    <input type="file" id="cs-file-input" style="display: none;" onchange="QuickTalkCustomerService.handleFileSelect(this.files[0])">
+                                    <button onclick="document.getElementById('cs-file-input').click()" class="cs-select-btn">选择文件</button>
+                                </div>
+                            </div>
+                            <div class="cs-file-preview" id="cs-file-preview" style="display: none;"></div>
+                            <div class="cs-upload-progress" id="cs-upload-progress" style="display: none;">
+                                <div class="cs-progress-bar">
+                                    <div class="cs-progress-fill" id="cs-progress-fill"></div>
+                                </div>
+                                <div class="cs-progress-text" id="cs-progress-text">上传中...</div>
+                            </div>
+                        </div>
+                        <div class="cs-modal-footer">
+                            <button onclick="QuickTalkCustomerService.closeFileModal()" class="cs-btn-cancel">取消</button>
+                            <button onclick="QuickTalkCustomerService.confirmUpload()" class="cs-btn-confirm" id="cs-confirm-btn" disabled>发送</button>
+                        </div>
+                    </div>
                 </div>
                 <div class="cs-status">
                     <span class="cs-dot" id="cs-dot"></span>
@@ -401,6 +487,246 @@ window.QuickTalkCustomerService = {
         } catch (e) {
             console.error('❌ WebSocket发送失败:', e);
             this.addMsg('system', '发送失败，请重试');
+        }
+    },
+
+    // 📤 文件上传模块 - 新增功能
+    async uploadAndSendFile(file) {
+        if (!file) {
+            this.addMsg('system', '请选择要上传的文件');
+            return;
+        }
+
+        console.log('📤 开始上传文件:', file.name);
+        this.addMsg('system', '正在上传文件: ' + file.name + '...');
+
+        try {
+            // 创建FormData
+            const formData = new FormData();
+            formData.append('file', file);
+
+            // 上传文件
+            const response = await fetch(this.config.serverUrl + '/api/files/upload', {
+                method: 'POST',
+                headers: {
+                    'X-Shop-Key': this.config.shopKey,
+                    'X-User-Id': this.userId,
+                    'X-Shop-Id': this.config.shopId
+                },
+                body: formData
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                // 上传成功，发送多媒体消息
+                await this.sendMultimediaMessage(result.file);
+                this.addMsg('system', '文件发送成功！');
+            } else {
+                throw new Error(result.error || '上传失败');
+            }
+
+        } catch (error) {
+            console.error('❌ 文件上传失败:', error);
+            this.addMsg('system', '文件上传失败: ' + error.message);
+        }
+    },
+
+    async sendMultimediaMessage(fileInfo) {
+        if (!this.isConnected || !this.ws) {
+            throw new Error('连接断开，无法发送消息');
+        }
+
+        const messageData = {
+            type: 'send_multimedia_message',
+            userId: this.userId,
+            shopKey: this.config.shopKey,
+            shopId: this.config.shopId,
+            fileId: fileInfo.id,
+            fileUrl: fileInfo.url,
+            fileName: fileInfo.originalName,
+            fileType: fileInfo.type,
+            fileSize: fileInfo.size,
+            messageType: this.getMessageTypeFromFile(fileInfo),
+            timestamp: Date.now()
+        };
+
+        // 在界面显示消息
+        if (messageData.messageType === 'image') {
+            this.addImageMsg('user', fileInfo.url, fileInfo.originalName, '');
+        } else {
+            this.addMsg('user', '📎 ' + fileInfo.originalName);
+        }
+
+        // 通过WebSocket发送
+        this.ws.send(JSON.stringify(messageData));
+        console.log('✅ 多媒体消息发送成功 (WebSocket)');
+    },
+
+    getMessageTypeFromFile(fileInfo) {
+        if (fileInfo.type.startsWith('image/')) return 'image';
+        if (fileInfo.type.startsWith('video/')) return 'video';
+        if (fileInfo.type.startsWith('audio/')) return 'audio';
+        return 'file';
+    },
+
+    // 🎨 文件上传UI交互方法
+    showFileOptions() {
+        const menu = document.getElementById('cs-file-menu');
+        if (menu) {
+            menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+        }
+    },
+
+    selectFileType(type) {
+        this.hideFileOptions();
+        this.showFileModal(type);
+    },
+
+    hideFileOptions() {
+        const menu = document.getElementById('cs-file-menu');
+        if (menu) menu.style.display = 'none';
+    },
+
+    showFileModal(fileType) {
+        const modal = document.getElementById('cs-file-modal');
+        const fileInput = document.getElementById('cs-file-input');
+        
+        if (modal && fileInput) {
+            // 设置文件类型过滤
+            const acceptMap = {
+                'image': 'image/*',
+                'document': '.pdf,.doc,.docx,.txt',
+                'video': 'video/*',
+                'audio': 'audio/*'
+            };
+            fileInput.accept = acceptMap[fileType] || '*/*';
+            
+            modal.style.display = 'flex';
+            this.setupDragAndDrop();
+        }
+    },
+
+    closeFileModal() {
+        const modal = document.getElementById('cs-file-modal');
+        if (modal) {
+            modal.style.display = 'none';
+            this.resetFileModal();
+        }
+    },
+
+    resetFileModal() {
+        const fileInput = document.getElementById('cs-file-input');
+        const preview = document.getElementById('cs-file-preview');
+        const progress = document.getElementById('cs-upload-progress');
+        const confirmBtn = document.getElementById('cs-confirm-btn');
+        
+        if (fileInput) fileInput.value = '';
+        if (preview) {
+            preview.style.display = 'none';
+            preview.innerHTML = '';
+        }
+        if (progress) progress.style.display = 'none';
+        if (confirmBtn) confirmBtn.disabled = true;
+        
+        this.selectedFile = null;
+    },
+
+    setupDragAndDrop() {
+        const dropZone = document.getElementById('cs-drop-zone');
+        if (!dropZone) return;
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                this.handleFileSelect(files[0]);
+            }
+        });
+    },
+
+    handleFileSelect(file) {
+        if (!file) return;
+        
+        console.log('文件选择:', file.name, file.type, file.size);
+        this.selectedFile = file;
+        
+        // 显示文件预览
+        this.showFilePreview(file);
+        
+        // 启用确认按钮
+        const confirmBtn = document.getElementById('cs-confirm-btn');
+        if (confirmBtn) confirmBtn.disabled = false;
+    },
+
+    showFilePreview(file) {
+        const preview = document.getElementById('cs-file-preview');
+        if (!preview) return;
+
+        const fileSize = (file.size / 1024 / 1024).toFixed(2);
+        const isImage = file.type.startsWith('image/');
+        
+        let previewHTML = '<div style="display: flex; align-items: center; gap: 12px;">';
+        
+        if (isImage) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                preview.innerHTML = '<div style="display: flex; align-items: center; gap: 12px;">' +
+                    '<img src="' + e.target.result + '" style="width: 60px; height: 60px; object-fit: cover; border-radius: 6px;">' +
+                    '<div>' +
+                        '<div style="font-weight: 600; margin-bottom: 4px;">' + file.name + '</div>' +
+                        '<div style="font-size: 12px; color: #666;">' + fileSize + ' MB</div>' +
+                    '</div>' +
+                '</div>';
+            };
+            reader.readAsDataURL(file);
+        } else {
+            const fileIcon = this.getFileIcon(file.type);
+            previewHTML += '<div style="font-size: 24px;">' + fileIcon + '</div>' +
+                '<div>' +
+                    '<div style="font-weight: 600; margin-bottom: 4px;">' + file.name + '</div>' +
+                    '<div style="font-size: 12px; color: #666;">' + fileSize + ' MB</div>' +
+                '</div>' +
+            '</div>';
+            preview.innerHTML = previewHTML;
+        }
+        
+        preview.style.display = 'block';
+    },
+
+    getFileIcon(fileType) {
+        if (fileType.startsWith('image/')) return '🖼️';
+        if (fileType.startsWith('video/')) return '🎥';
+        if (fileType.startsWith('audio/')) return '🎵';
+        if (fileType.includes('pdf')) return '📄';
+        if (fileType.includes('word') || fileType.includes('document')) return '📝';
+        return '📁';
+    },
+
+    async confirmUpload() {
+        if (!this.selectedFile) return;
+        
+        const sendBtn = document.getElementById('cs-confirm-btn');
+        if (sendBtn) sendBtn.disabled = true;
+        
+        try {
+            await this.uploadAndSendFile(this.selectedFile);
+            this.closeFileModal();
+        } catch (error) {
+            console.error('上传确认失败:', error);
+            if (sendBtn) sendBtn.disabled = false;
         }
     },
     

@@ -111,6 +111,10 @@ class WebSocketManager {
                     await this.handleSendMessage(ws, data);
                     break;
                     
+                case 'send_multimedia_message':
+                    await this.handleSendMultimediaMessage(ws, data);
+                    break;
+                    
                 case 'ping':
                     this.handlePing(ws, data);
                     break;
@@ -271,6 +275,67 @@ class WebSocketManager {
         } catch (e) {
             console.error('❌ 保存用户消息失败:', e);
             this.sendError(ws, '消息发送失败');
+        }
+    }
+
+    /**
+     * 处理用户发送多媒体消息
+     */
+    async handleSendMultimediaMessage(ws, data) {
+        if (!ws.authenticated) {
+            this.sendError(ws, '请先进行认证');
+            return;
+        }
+        
+        try {
+            console.log(`📷 用户 ${ws.userId} 发送多媒体消息: ${data.fileName} (${data.messageType})`);
+            
+            // 保存多媒体消息到数据库
+            const conversationId = `${data.shopId}_${data.userId}`;
+            const messageData = {
+                conversationId: conversationId,
+                senderType: 'customer',
+                senderId: data.userId,
+                content: data.fileName || '[多媒体文件]',
+                messageType: data.messageType || 'file',
+                fileUrl: data.fileUrl,
+                fileName: data.fileName,
+                fileId: data.fileId,
+                fileSize: data.fileSize,
+                timestamp: new Date().toISOString()
+            };
+            
+            await this.messageAdapter.addMessage(messageData);
+            
+            // 发送确认
+            this.sendMessage(ws, {
+                type: 'multimedia_message_sent',
+                message: '多媒体消息发送成功',
+                fileInfo: {
+                    id: data.fileId,
+                    url: data.fileUrl,
+                    name: data.fileName,
+                    type: data.messageType
+                },
+                timestamp: Date.now()
+            });
+            
+            console.log(`✅ 用户多媒体消息已保存: ${data.userId} -> ${data.fileName}`);
+            
+            // 通知店铺管理员（如果在线）
+            this.notifyShopStaff(data.shopId, {
+                type: 'new_multimedia_message',
+                userId: data.userId,
+                messageType: data.messageType,
+                fileUrl: data.fileUrl,
+                fileName: data.fileName,
+                fileId: data.fileId,
+                timestamp: Date.now()
+            });
+            
+        } catch (e) {
+            console.error('❌ 保存用户多媒体消息失败:', e);
+            this.sendError(ws, '多媒体消息发送失败');
         }
     }
     

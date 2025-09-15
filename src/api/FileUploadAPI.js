@@ -343,6 +343,11 @@ class FileUploadAPI {
      * 处理已上传的文件
      */
     async processUploadedFile(file, req) {
+        // 从请求头获取用户信息
+        const userId = req.headers['x-user-id'] || req.session?.userId || 'anonymous';
+        const shopKey = req.headers['x-shop-key'] || req.session?.shopKey || '';
+        const shopId = req.headers['x-shop-id'] || req.session?.shopId || 'default_shop';
+
         const fileInfo = {
             id: 'file_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
             originalName: file.originalname,
@@ -353,8 +358,9 @@ class FileUploadAPI {
             type: this.getFileType(file.originalname),
             mimetype: file.mimetype,
             uploadedAt: new Date().toISOString(),
-            userId: req.session?.userId || 'anonymous',
-            shopId: req.session?.shopId || 'default_shop'
+            userId: userId,
+            shopId: shopId,
+            shopKey: shopKey
         };
 
         // 如果是图片，生成缩略图
