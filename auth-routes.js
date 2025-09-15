@@ -926,8 +926,31 @@ app.post('/api/conversations/:conversationId/messages', requireAuth, async (req,
         let webSocketPushed = false;
         if (global.wsManager) {
             try {
+                // 推送给客户端用户
                 webSocketPushed = await global.wsManager.pushMessageToUser(userId, content.trim(), 'admin');
-                console.log(`📨 管理后台消息WebSocket推送: ${userId} -> "${content.trim()}" (${webSocketPushed ? '成功' : '失败'})`);
+                console.log(`📨 管理后台消息WebSocket推送给客户: ${userId} -> "${content.trim()}" (${webSocketPushed ? '成功' : '失败'})`);
+                
+                // 同时推送给发送消息的管理员，用于实时更新管理员界面
+                if (req.user.id !== userId) { // 避免重复推送
+                    // 为管理员构建完整的消息数据
+                    const adminMessageData = {
+                        id: messageId,
+                        message: content.trim(),
+                        content: content.trim(),
+                        message_type: 'text',
+                        messageType: 'text',
+                        sender_type: 'admin',
+                        sender: 'admin',
+                        conversation_id: conversationId,
+                        shop_id: shopId,
+                        user_id: userId,
+                        created_at: new Date().toISOString()
+                    };
+                    
+                    const adminPushed = await global.wsManager.pushMessageToUser(req.user.id, adminMessageData, 'admin');
+                    console.log(`📨 管理后台消息WebSocket推送给管理员: ${req.user.id} -> "${content.trim()}" (${adminPushed ? '成功' : '失败'})`);
+                    webSocketPushed = webSocketPushed || adminPushed; // 任一成功即为成功
+                }
             } catch (error) {
                 console.error('❌ WebSocket推送失败:', error);
             }
@@ -1121,8 +1144,16 @@ app.post('/api/conversations/:conversationId/messages/media', requireAuth, (req,
                 
                 console.log('📨 准备推送的消息数据:', messageData);
                 
+                // 推送给客户端用户
                 webSocketPushed = await global.wsManager.pushMessageToUser(userId, messageData, 'admin');
-                console.log(`📨 多媒体消息WebSocket推送: ${userId} -> [${messageType || '图片'}] (${webSocketPushed ? '成功' : '失败'})`);
+                console.log(`📨 多媒体消息WebSocket推送给客户: ${userId} -> [${messageType || '图片'}] (${webSocketPushed ? '成功' : '失败'})`);
+                
+                // 同时推送给发送消息的管理员，用于实时更新管理员界面
+                if (req.user.id !== userId) { // 避免重复推送
+                    const adminPushed = await global.wsManager.pushMessageToUser(req.user.id, messageData, 'admin');
+                    console.log(`📨 多媒体消息WebSocket推送给管理员: ${req.user.id} -> [${messageType || '图片'}] (${adminPushed ? '成功' : '失败'})`);
+                    webSocketPushed = webSocketPushed || adminPushed; // 任一成功即为成功
+                }
             } catch (error) {
                 console.error('❌ WebSocket推送失败:', error);
             }
