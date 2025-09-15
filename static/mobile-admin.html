@@ -1326,6 +1326,10 @@
                     case 'new_message':
                         this.handleNewMessage(data);
                         break;
+                    case 'staff_message':
+                        // 处理管理员发送的消息确认
+                        this.handleStaffMessage(data);
+                        break;
                     case 'shop_update':
                         this.handleShopUpdate(data);
                         break;
@@ -1352,6 +1356,23 @@
 
                 // 播放提示音
                 this.playNotificationSound();
+            }
+
+            static handleStaffMessage(data) {
+                const { shopId, userId, message } = data;
+                
+                // 如果正在查看该对话，显示管理员发送的消息
+                if (currentChatShop === shopId && currentChatUser === userId) {
+                    const messagesContainer = document.getElementById('chatMessages');
+                    const messageHTML = `
+                        <div class="message admin">
+                            <div class="message-content">${message.content || message}</div>
+                            <div class="message-time">${this.formatTime(message.timestamp) || '刚刚'}</div>
+                        </div>
+                    `;
+                    messagesContainer.insertAdjacentHTML('beforeend', messageHTML);
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                }
             }
 
             static updateConnectionStatus(connected) {
@@ -1566,17 +1587,9 @@
                     message: message
                 }));
 
-                // 在界面上显示消息
-                const messagesContainer = document.getElementById('chatMessages');
-                const messageHTML = `
-                    <div class="message admin">
-                        <div class="message-content">${message}</div>
-                        <div class="message-time">刚刚</div>
-                    </div>
-                `;
-                messagesContainer.insertAdjacentHTML('beforeend', messageHTML);
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-
+                // 🔧 移除立即显示逻辑，等服务器确认后再显示
+                // 这样可以避免重复消息问题
+                
                 input.value = '';
             }
         }

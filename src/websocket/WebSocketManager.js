@@ -343,7 +343,7 @@ class WebSocketManager {
         const ws = this.clients.get(userId);
         if (ws && ws.readyState === require('ws').OPEN && ws.authenticated) {
             try {
-                // 处理不同类型的消息
+                // 🔧 修复重复消息问题：只发送一种格式的消息
                 let messageData;
                 if (typeof message === 'object' && message !== null) {
                     // 如果是对象（多媒体消息），创建兼容格式
@@ -352,22 +352,6 @@ class WebSocketManager {
                         ...message,
                         timestamp: Date.now()
                     };
-                    
-                    // 同时发送管理端格式的消息
-                    const adminMessageData = {
-                        type: 'new_message',
-                        message: {
-                            ...message,
-                            timestamp: Date.now()
-                        }
-                    };
-                    
-                    // 发送客户端格式的消息
-                    this.sendMessage(ws, messageData);
-                    
-                    // 发送管理端格式的消息
-                    this.sendMessage(ws, adminMessageData);
-                    
                 } else {
                     // 如果是字符串（普通文本消息）
                     messageData = {
@@ -377,22 +361,10 @@ class WebSocketManager {
                         messageType: messageType,
                         timestamp: Date.now()
                     };
-                    
-                    // 同时发送管理端格式
-                    const adminMessageData = {
-                        type: 'new_message',
-                        message: {
-                            message: message,
-                            content: message,
-                            message_type: 'text',
-                            sender_type: 'admin',
-                            timestamp: Date.now()
-                        }
-                    };
-                    
-                    this.sendMessage(ws, messageData);
-                    this.sendMessage(ws, adminMessageData);
                 }
+                
+                // 🔧 只发送一条消息，避免重复
+                this.sendMessage(ws, messageData);
                 
                 const displayMessage = typeof message === 'object' ? 
                     `[${message.messageType || message.message_type || '消息'}]` : message;
@@ -461,6 +433,31 @@ class WebSocketManager {
         // 这里可以实现通知店铺管理员的逻辑
         // 比如发送到管理员的WebSocket连接
         console.log(`🔔 店铺 ${shopId} 有新用户消息，等待客服回复`);
+    }
+
+    /**
+     * 通知管理端消息发送成功
+     */
+    notifyAdminMessageSent(shopId, userId, messageData) {
+        // 查找有sessionId认证的admin连接（管理端）
+        this.wss.clients.forEach((ws) => {
+            if (ws.authenticated && ws.sessionId && ws.readyState === require('ws').OPEN) {
+                try {
+                    const notification = {
+                        type: 'staff_message',
+                        shopId: shopId,
+                        userId: userId,
+                        message: messageData,
+                        timestamp: Date.now()
+                    };
+                    
+                    this.sendMessage(ws, notification);
+                    console.log(`🔔 已通知管理端消息发送成功: ${shopId}_${userId}`);
+                } catch (e) {
+                    console.error('❌ 通知管理端失败:', e);
+                }
+            }
+        });
     }
     
     /**

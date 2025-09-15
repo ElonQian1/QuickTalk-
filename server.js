@@ -173,7 +173,12 @@ function initializeRoutes() {
     const fileUploadAPI = new FileUploadAPI(fileManager, authValidator, database);
     app.use('/api/files', fileUploadAPI.getRouter());
     
+    // 配置动态嵌入代码API
+    const embedRoutes = require('./src/api/embed-routes');
+    app.use('/embed', embedRoutes);
+    
     console.log('📤 文件上传API已配置: /api/files/upload (数据库:', !!database, ')');
+    console.log('🌐 动态嵌入API已配置: /embed/customer-service.js, /embed/customer-service.css');
     
     console.log('✅ 路由系统初始化完成');
 }

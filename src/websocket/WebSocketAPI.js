@@ -31,8 +31,9 @@ function setupWebSocketIntegratedAPI(app, modularApp) {
                 timestamp: new Date().toISOString()
             });
             
-            // 2. 解析用户ID（从conversationId中提取）
+            // 2. 解析用户ID和店铺ID（从conversationId中提取）
             const userId = extractUserIdFromConversationId(conversationId);
+            const shopId = extractShopIdFromConversationId(conversationId);
             
             // 3. 通过WebSocket推送给用户
             let pushed = false;
@@ -40,7 +41,16 @@ function setupWebSocketIntegratedAPI(app, modularApp) {
                 pushed = await global.wsManager.pushMessageToUser(userId, content, messageType || 'admin');
             }
             
-            // 4. 返回响应
+            // 4. 🔧 通知管理端消息发送成功
+            if (global.wsManager && shopId && userId) {
+                global.wsManager.notifyAdminMessageSent(shopId, userId, {
+                    type: 'staff_message',
+                    content: content,
+                    timestamp: Date.now()
+                });
+            }
+            
+            // 5. 返回响应
             res.json({
                 success: true,
                 data: {
@@ -152,6 +162,34 @@ function extractUserIdFromConversationId(conversationId) {
         
     } catch (e) {
         console.error('❌ 提取用户ID失败:', e);
+        return null;
+    }
+}
+
+/**
+ * 从conversationId中提取店铺ID
+ * 格式：shop_xxx_user_yyy => shop_xxx
+ */
+function extractShopIdFromConversationId(conversationId) {
+    try {
+        // 尝试匹配 shop_xxx_user_yyy 格式
+        const match = conversationId.match(/^(shop_[^_]+(?:_[^_]+)*?)_user_/);
+        if (match) {
+            return match[1];
+        }
+        
+        // 如果是简单的 shop_xxx 格式
+        if (conversationId.startsWith('shop_')) {
+            const parts = conversationId.split('_');
+            if (parts.length >= 2) {
+                return `${parts[0]}_${parts[1]}`;
+            }
+        }
+        
+        console.log(`⚠️ 无法从conversationId提取店铺ID: ${conversationId}`);
+        return null;
+    } catch (e) {
+        console.error('❌ 提取店铺ID失败:', e);
         return null;
     }
 }

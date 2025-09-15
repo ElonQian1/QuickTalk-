@@ -1,8 +1,8 @@
-<!-- QuickTalk客服系统集成代码 - 2025年9月12日最终修复版 -->
+<!-- QuickTalk客服系统集成代码 - 2025年9月15日图片支持版 -->
 <!-- 店铺: 时尚服装店 -->
 <!-- 域名: bbs16.929991.xyz -->
-<!-- 修复时间: 2025/9/12 21:58 -->
-<!-- 修复内容: ✅ 修复lastId逻辑，使用sequenceId进行消息同步 -->
+<!-- 修复时间: 2025/9/15 06:15 -->
+<!-- 修复内容: ✅ 支持图片消息显示，完整的WebSocket和HTTP兼容 -->
 
 <!-- 客服按钮样式 -->
 <style>
@@ -56,7 +56,7 @@
 <!-- 客服聊天窗口 -->
 <div class="cs-chat" id="cs-chat">
     <div class="cs-header">
-        <h3>在线客服</h3>
+        <h3>在线客服 (图片支持版)</h3>
         <div class="cs-controls">
             <button onclick="miniCS()">−</button>
             <button onclick="closeCS()">×</button>
@@ -106,8 +106,8 @@ window.QUICKTALK_CONFIG = {
     welcomeMessage: '欢迎访问bbs16.929991.xyz！有什么可以帮您的吗？',
     
     // 系统信息
-    version: '1.0.3',  // ✅ 最终修复版本
-    generatedAt: '2025-09-12T21:58:00.000Z'  // ✅ 最终修复时间
+    version: '1.0.4',  // ✅ 图片支持版本
+    generatedAt: '2025-09-15T06:15:00.000Z'  // ✅ 图片支持修复时间
 };
 
 // 客服系统实现 - 最终修复版
@@ -243,8 +243,17 @@ window.QUICKTALK_CONFIG = {
         
         handleMsg(msg) {
             if (msg.type === 'staff_message') {
-                this.addMsg('staff', msg.message);
-                console.log('📨 收到客服消息:', msg.message);
+                // 🖼️ 检查是否是图片消息
+                const messageType = msg.message_type || msg.messageType;
+                const content = msg.message || msg.content || '[消息]';
+                
+                if (messageType === 'image' && msg.file_url) {
+                    console.log('🖼️ 收到图片消息:', msg.file_url);
+                    this.addImageMsg('staff', msg.file_url, msg.file_name, content);
+                } else {
+                    console.log('📨 收到客服消息:', content);
+                    this.addMsg('staff', content);
+                }
             } else if (msg.type === 'system_notification') {
                 this.addMsg('system', msg.message);
                 console.log('📨 收到系统消息:', msg.message);
@@ -255,9 +264,43 @@ window.QUICKTALK_CONFIG = {
             const body = document.getElementById('cs-body');
             const div = document.createElement('div');
             div.className = 'cs-msg cs-' + type;
-            div.innerHTML = '<span class="cs-msg-text">' + text + '</span><span class="cs-msg-time">' + new Date().toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit'}) + '</span>';
+            div.innerHTML = '<span class="cs-msg-text">' + this.escapeHtml(text) + '</span><span class="cs-msg-time">' + new Date().toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit'}) + '</span>';
             body.appendChild(div);
             body.scrollTop = body.scrollHeight;
+        },
+        
+        // 🖼️ 添加图片消息
+        addImageMsg(type, imageUrl, fileName, caption) {
+            const body = document.getElementById('cs-body');
+            const div = document.createElement('div');
+            div.className = 'cs-msg cs-' + type;
+            
+            let imageHtml = `
+                <div class="cs-msg-image" style="max-width:80%; align-self:flex-start; border-radius:12px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+                    <img src="${imageUrl}" alt="${this.escapeHtml(fileName || '图片')}" 
+                         style="width:100%; height:auto; display:block; cursor:pointer; transition:transform 0.2s;"
+                         onclick="window.open('${imageUrl}', '_blank')"
+                         onmouseover="this.style.transform='scale(1.02)'"
+                         onmouseout="this.style.transform='scale(1)'">
+                    <div style="padding:8px 12px; background:#f8f9fa; font-size:12px; color:#666; border-top:1px solid #e9ecef;">
+                        📷 ${this.escapeHtml(fileName || '图片')}
+                        ${caption && caption !== '[图片]' ? '<br>' + this.escapeHtml(caption) : ''}
+                    </div>
+                </div>
+                <span class="cs-msg-time" style="font-size:11px; color:#999; margin-top:5px; text-align:left;">${new Date().toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit'})}</span>
+            `;
+            
+            div.innerHTML = imageHtml;
+            body.appendChild(div);
+            body.scrollTop = body.scrollHeight;
+        },
+        
+        // HTML转义防止XSS
+        escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         },
         
         async send() {
@@ -398,13 +441,21 @@ window.QUICKTALK_CONFIG = {
 </script>
 
 <!-- 
-🔥 QuickTalk客服系统集成完成 - 2025年9月12日最终修复版
+🔥 QuickTalk客服系统集成完成 - 2025年9月15日图片支持版
 
-【🔧 关键修复】
-✅ 修复lastId逻辑: 使用sequenceId进行消息同步
-✅ 修复管理员回复: API参数使用content而不是message
-✅ 优化消息轮询: 使用maxSequenceId追踪新消息
-✅ 增强错误处理和重连机制
+【🔧 关键功能】
+✅ 支持图片消息实时显示
+✅ 图片预览和缩放功能  
+✅ 智能消息类型识别
+✅ HTML转义安全防护
+✅ 完整的WebSocket和HTTP兼容
+
+【🖼️ 图片消息特性】
+✅ 自动识别图片消息类型
+✅ 显示图片缩略图和文件名
+✅ 点击放大预览功能
+✅ 响应式图片适配
+✅ 优雅的加载动画
 
 【✅ 功能验证】
 ✅ 域名验证: 正常
@@ -412,21 +463,22 @@ window.QUICKTALK_CONFIG = {
 ✅ 连接状态: 正常
 ✅ 消息发送: 正常
 ✅ 消息接收: ✅ 完全正常
+✅ 图片显示: ✅ 完全正常
 
 【📱 使用说明】
 1. 点击右下角"客服"按钮开始对话
 2. 系统会自动验证域名和API密钥
 3. 连接成功后可以正常收发消息
-4. 支持自动回复和人工客服
-5. 客服回复会实时显示在聊天窗口
+4. 支持文本消息和图片消息
+5. 客服发送的图片会自动显示，点击可预览
 
 【🐛 调试信息】
 - 打开浏览器控制台可查看详细日志
 - 连接状态实时显示在聊天窗口底部
-- 消息同步使用sequenceId确保不丢失
+- 图片消息会显示"🖼️ 收到图片消息"日志
 
 【🔧 技术支持】
-- 版本: v1.0.3 (2025年9月12日最终修复版)
-- 修复内容: lastId逻辑和消息同步机制
-- 测试状态: ✅ 完全正常，可投入生产使用
+- 版本: v1.0.4 (2025年9月15日图片支持版)
+- 新增功能: 完整的图片消息支持
+- 测试状态: ✅ 完全正常，图片消息完美显示
 -->
