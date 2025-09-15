@@ -515,9 +515,56 @@ class WebSocketManager {
      * 通知店铺工作人员
      */
     notifyShopStaff(shopId, data) {
-        // 这里可以实现通知店铺管理员的逻辑
-        // 比如发送到管理员的WebSocket连接
         console.log(`🔔 店铺 ${shopId} 有新用户消息，等待客服回复`);
+        console.log(`🔍 [NOTIFY] 通知数据:`, data);
+        
+        // 统计连接
+        let totalConnections = 0;
+        let authenticatedConnections = 0;
+        let adminConnections = 0;
+        
+        // 向所有管理端连接推送新消息通知
+        this.wss.clients.forEach((ws) => {
+            totalConnections++;
+            
+            if (ws.authenticated) {
+                authenticatedConnections++;
+                console.log(`� [NOTIFY] 找到认证连接: userId=${ws.userId}, sessionId=${ws.sessionId ? '有' : '无'}, role=${ws.role}`);
+            }
+            
+            if (ws.authenticated && ws.sessionId && ws.readyState === require('ws').OPEN) {
+                adminConnections++;
+                try {
+                    // 构建消息数据
+                    const notification = {
+                        type: 'new_user_message',
+                        shopId: shopId,
+                        userId: data.userId,
+                        message: data.message,
+                        content: data.message,
+                        conversationId: `${shopId}_${data.userId}`,
+                        timestamp: data.timestamp || Date.now(),
+                        sender: 'customer',
+                        senderType: 'customer'
+                    };
+                    
+                    // 如果是多媒体消息，添加文件信息
+                    if (data.fileUrl) {
+                        notification.file_url = data.fileUrl;
+                        notification.file_name = data.fileName;
+                        notification.message_type = data.messageType || 'image';
+                        notification.messageType = data.messageType || 'image';
+                    }
+                    
+                    this.sendMessage(ws, notification);
+                    console.log(`📨 已向管理端推送新用户消息: ${shopId}_${data.userId} -> "${data.message}"`);
+                } catch (e) {
+                    console.error('❌ 向管理端推送消息失败:', e);
+                }
+            }
+        });
+        
+        console.log(`🔍 [NOTIFY] 连接统计: 总连接=${totalConnections}, 认证连接=${authenticatedConnections}, 管理端连接=${adminConnections}`);
     }
 
     /**

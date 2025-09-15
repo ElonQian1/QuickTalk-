@@ -170,6 +170,30 @@ class MobileMessageManager {
                 console.log('📨 [WEBSOCKET] 消息类型:', data.message?.message_type);
                 this.handleNewMessage(data.message);
                 break;
+            case 'new_user_message':
+                console.log('✅ [WEBSOCKET] 处理新用户消息:', data);
+                console.log('📨 [WEBSOCKET] 用户ID:', data.userId);
+                console.log('📨 [WEBSOCKET] 消息内容:', data.message);
+                // new_user_message 处理客户端发送的消息，构造合适的消息对象
+                const userMessage = {
+                    id: data.messageId || `msg_${Date.now()}`,
+                    content: data.message,
+                    message: data.message,
+                    message_type: data.messageType || 'text',
+                    messageType: data.messageType || 'text',
+                    sender_type: 'user',
+                    sender: 'user',
+                    sender_id: data.userId,
+                    conversation_id: data.conversationId,
+                    shop_id: data.shopId,
+                    user_id: data.userId,
+                    created_at: data.timestamp || new Date().toISOString(),
+                    timestamp: data.timestamp || Date.now(),
+                    file_url: data.file_url,
+                    file_id: data.file_id
+                };
+                this.handleNewMessage(userMessage);
+                break;
             case 'staff_message':
                 console.log('✅ [WEBSOCKET] 处理员工消息，消息对象:', data);
                 console.log('📨 [WEBSOCKET] 消息文件URL:', data.file_url);

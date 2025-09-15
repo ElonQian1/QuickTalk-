@@ -233,10 +233,54 @@ class WebSocketManager {
     
     // 通知客服后台有新消息
     notifyShopStaff(shopId, data) {
-        // 这里可以通过其他方式通知客服后台
-        // 比如发送到管理员的WebSocket连接
-        // 或者触发邮件/短信通知
         console.log(`🔔 店铺${shopId}有新用户消息`);
+        console.log(`🔍 [NOTIFY] 通知数据:`, data);
+        
+        // 统计连接
+        let totalConnections = 0;
+        let authenticatedConnections = 0;
+        let adminConnections = 0;
+        
+        // 查找管理端连接并推送通知
+        this.clients.forEach((ws, userId) => {
+            totalConnections++;
+            
+            if (ws && ws.readyState === 1) { // WebSocket.OPEN = 1
+                authenticatedConnections++;
+                console.log(`🔍 [NOTIFY] 检查连接: userId=${userId}, 状态=${ws.readyState}`);
+                
+                // 发送新用户消息通知给所有管理端
+                try {
+                    const notification = {
+                        type: 'new_user_message',
+                        shopId: shopId,
+                        userId: data.userId,
+                        message: data.message,
+                        content: data.message,
+                        conversationId: `${shopId}_${data.userId}`,
+                        timestamp: data.timestamp || Date.now(),
+                        sender: 'customer',
+                        senderType: 'customer'
+                    };
+                    
+                    // 如果是多媒体消息，添加文件信息
+                    if (data.fileUrl) {
+                        notification.file_url = data.fileUrl;
+                        notification.file_name = data.fileName;
+                        notification.message_type = data.messageType || 'image';
+                        notification.messageType = data.messageType || 'image';
+                    }
+                    
+                    ws.send(JSON.stringify(notification));
+                    adminConnections++;
+                    console.log(`� 已向管理端推送新用户消息: ${userId} <- ${shopId}_${data.userId} -> "${data.message}"`);
+                } catch (e) {
+                    console.error(`❌ 向管理端 ${userId} 推送消息失败:`, e.message);
+                }
+            }
+        });
+        
+        console.log(`🔍 [NOTIFY] 连接统计: 总连接=${totalConnections}, 有效连接=${authenticatedConnections}, 推送成功=${adminConnections}`);
     }
     
     // 获取在线用户统计
