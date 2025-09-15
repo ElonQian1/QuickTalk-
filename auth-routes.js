@@ -886,15 +886,22 @@ app.post('/api/conversations/:conversationId/messages', requireAuth, async (req,
             return res.status(400).json({ error: '消息内容不能为空' });
         }
         
-        // conversationId 格式: shopId_userId (例如: shop_1757591780450_1_user_1757591780450_3)
-        // 需要正确解析包含多个下划线的ID
-        const userIndex = conversationId.lastIndexOf('_user_');
-        if (userIndex === -1) {
-            return res.status(400).json({ error: '无效的对话ID格式' });
+        // conversationId 格式: shopId_userId (例如: shop_1757591780450_1_qepwyzo41_1757963248438)
+        // 其中shopId总是以 "shop_" 开头，后面跟着数字和下划线
+        // 找到最后一个符合shop格式的部分作为分界点
+        
+        // 从数据库查询来确定正确的shop_id和user_id
+        const conversation = await database.getAsync(
+            'SELECT shop_id, user_id FROM conversations WHERE id = ?',
+            [conversationId]
+        );
+        
+        if (!conversation) {
+            return res.status(404).json({ error: '对话不存在' });
         }
         
-        const shopId = conversationId.substring(0, userIndex);
-        const userId = conversationId.substring(userIndex + 1); // 只跳过开头的"_"，保留"user_"前缀
+        const shopId = conversation.shop_id;
+        const userId = conversation.user_id;
         
         console.log(`🔍 解析对话ID: conversationId=${conversationId}, shopId=${shopId}, userId=${userId}`);
         
@@ -926,31 +933,30 @@ app.post('/api/conversations/:conversationId/messages', requireAuth, async (req,
         let webSocketPushed = false;
         if (global.wsManager) {
             try {
-                // 推送给客户端用户
-                webSocketPushed = await global.wsManager.pushMessageToUser(userId, content.trim(), 'admin');
-                console.log(`📨 管理后台消息WebSocket推送给客户: ${userId} -> "${content.trim()}" (${webSocketPushed ? '成功' : '失败'})`);
+                // 首先推送给发送消息的管理员，用于实时更新管理员界面
+                const adminMessageData = {
+                    id: messageId,
+                    message: content.trim(),
+                    content: content.trim(),
+                    message_type: 'text',
+                    messageType: 'text',
+                    sender_type: 'admin',
+                    sender: 'admin',
+                    conversation_id: conversationId,
+                    shop_id: shopId,
+                    user_id: userId,
+                    created_at: new Date().toISOString()
+                };
                 
-                // 同时推送给发送消息的管理员，用于实时更新管理员界面
-                if (req.user.id !== userId) { // 避免重复推送
-                    // 为管理员构建完整的消息数据
-                    const adminMessageData = {
-                        id: messageId,
-                        message: content.trim(),
-                        content: content.trim(),
-                        message_type: 'text',
-                        messageType: 'text',
-                        sender_type: 'admin',
-                        sender: 'admin',
-                        conversation_id: conversationId,
-                        shop_id: shopId,
-                        user_id: userId,
-                        created_at: new Date().toISOString()
-                    };
-                    
-                    const adminPushed = await global.wsManager.pushMessageToUser(req.user.id, adminMessageData, 'admin');
-                    console.log(`📨 管理后台消息WebSocket推送给管理员: ${req.user.id} -> "${content.trim()}" (${adminPushed ? '成功' : '失败'})`);
-                    webSocketPushed = webSocketPushed || adminPushed; // 任一成功即为成功
-                }
+                const adminPushed = await global.wsManager.pushMessageToUser(req.user.id, adminMessageData, 'admin');
+                console.log(`📨 管理后台消息WebSocket推送给管理员: ${req.user.id} -> "${content.trim()}" (${adminPushed ? '成功' : '失败'})`);
+                
+                // 然后尝试推送给客户端用户（如果客户端有独立连接的话）
+                const clientPushed = await global.wsManager.pushMessageToUser(userId, content.trim(), 'admin');
+                console.log(`📨 管理后台消息WebSocket推送给客户: ${userId} -> "${content.trim()}" (${clientPushed ? '成功' : '无客户端连接'})`);
+                
+                // 只要管理员推送成功就认为推送成功（因为管理员界面是主要显示界面）
+                webSocketPushed = adminPushed;
             } catch (error) {
                 console.error('❌ WebSocket推送失败:', error);
             }

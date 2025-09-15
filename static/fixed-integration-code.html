@@ -1,426 +1,138 @@
-<!-- QuickTalk客服系统集成代码 - 2025年9月12日修复版 -->
-<!-- 店铺: 时尚服装店 -->
-<!-- 域名: bbs16.929991.xyz -->
-<!-- 修复时间: 2025/9/12 01:10 -->
-<!-- 修复内容: ✅ 更新消息接收路由为 /api/client/messages -->
-
-<!-- 客服按钮样式 -->
-<style>
-.viewport-nav{outline:#000;position:fixed;right:40px;bottom:40px;z-index:999999}
-.viewport-nav .nav-box{background:rgba(0,0,0,.8);border-radius:100%;text-align:center;margin:15px 0;width:100px;height:100px;line-height:100px;box-shadow:0 0 5px 2px rgba(255,255,255,.5)}
-.viewport-nav .nav-box p{padding:0 1px;font-size:31px;color:#fff;white-space:normal;font-weight:700}
-.viewport-nav .nav-box#cb{position:relative;cursor:pointer}
-.viewport-nav .nav-box .nav-dabaowei,.viewport-nav .nav-box .nav-sxsx{font-size:24px}
-
-/* 客服聊天窗口样式 */
-.cs-chat{position:fixed;bottom:160px;right:40px;width:380px;height:520px;background:white;border-radius:15px;box-shadow:0 10px 30px rgba(0,0,0,0.3);display:none;flex-direction:column;z-index:999998;overflow:hidden;transform:scale(0);transform-origin:bottom right;transition:all 0.3s ease;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
-.cs-chat.open{display:flex;transform:scale(1)}
-.cs-chat.mini{height:60px}
-.cs-chat.mini .cs-body,.cs-chat.mini .cs-input,.cs-chat.mini .cs-status{display:none}
-.cs-header{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;padding:15px 20px;display:flex;justify-content:space-between;align-items:center}
-.cs-header h3{font-size:16px;font-weight:600;margin:0}
-.cs-controls{display:flex;gap:10px}
-.cs-controls button{background:rgba(255,255,255,0.2);border:none;color:white;width:24px;height:24px;border-radius:50%;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center}
-.cs-body{flex:1;padding:20px;overflow-y:auto;background:#fafbfc}
-.cs-msg{margin-bottom:15px;display:flex;flex-direction:column}
-.cs-msg-text{padding:12px 16px;border-radius:18px;max-width:80%;word-wrap:break-word;line-height:1.4}
-.cs-msg-time{font-size:11px;color:#999;margin-top:5px}
-.cs-system .cs-msg-text{background:#f0f0f0;color:#666;align-self:center;text-align:center;font-size:13px}
-.cs-user{align-items:flex-end}
-.cs-user .cs-msg-text{background:#667eea;color:white;align-self:flex-end}
-.cs-user .cs-msg-time{text-align:right}
-.cs-staff{align-items:flex-start}
-.cs-staff .cs-msg-text{background:#f8f9fa;color:#333;border:1px solid #e9ecef;align-self:flex-start}
-.cs-input{padding:15px 20px;border-top:1px solid #eee;display:flex;gap:10px;background:white}
-.cs-input input{flex:1;padding:10px 15px;border:1px solid #ddd;border-radius:20px;outline:none;font-size:14px}
-.cs-input button{background:#667eea;color:white;border:none;padding:10px 20px;border-radius:20px;cursor:pointer;font-weight:600}
-.cs-status{padding:8px 20px;background:#f8f9fa;border-top:1px solid #eee;display:flex;align-items:center;gap:8px;font-size:12px}
-.cs-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
-.cs-connected{background:#28a745;animation:pulse 2s infinite}
-.cs-disconnected{background:#dc3545}
-@keyframes pulse{0%{opacity:1}50%{opacity:0.5}100%{opacity:1}}
-@media (max-width:768px){.cs-chat{width:calc(100vw - 20px);right:10px;left:10px}}
-</style>
-
-<!-- 客服按钮HTML -->
-<div class="viewport-nav">
-    <ul>
-        <li>
-            <div class="nav-box animate__animated animate__backInLeft" id="cb">
-                <a><p class="animate__animated animate__infinite animate__heartBeat">客服</p></a>
-            </div>
-        </li>
-    </ul>
-</div>
-
-<!-- 客服聊天窗口 -->
-<div class="cs-chat" id="cs-chat">
-    <div class="cs-header">
-        <h3>在线客服</h3>
-        <div class="cs-controls">
-            <button onclick="miniCS()">−</button>
-            <button onclick="closeCS()">×</button>
-        </div>
-    </div>
-    <div class="cs-body" id="cs-body">
-        <div class="cs-msg cs-system">
-            <span class="cs-msg-text">欢迎访问bbs16.929991.xyz！有什么可以帮您的吗？</span>
-            <span class="cs-msg-time" id="welcome-time"></span>
-        </div>
-    </div>
-    <div class="cs-input">
-        <input type="text" id="cs-input" placeholder="请输入您的消息..." onkeypress="if(event.key==='Enter')sendCS()">
-        <button onclick="sendCS()">发送</button>
-    </div>
-    <div class="cs-status">
-        <span class="cs-dot" id="cs-dot"></span>
-        <span id="cs-status">连接中...</span>
-    </div>
-</div>
-
+<!-- QuickTalk客服系统 - 轻量集成代码（动态加载版） -->
+<!-- 优点：集成代码永不过时，所有逻辑从服务器动态加载 -->
 <script>
-// QuickTalk客服系统配置 - 2025年9月12日修复版
-window.QUICKTALK_CONFIG = {
-    // 🔧 店铺认证信息
-    shopKey: 'sk_ji85ucic9p00m12as1ygf34o8humuxfl',  // ✅ 有效API密钥
-    shopId: 'shop_1757591780450_1',                   // ✅ 正确的店铺ID
-    shopName: '时尚服装店',                          // ✅ 正确的店铺名称
-    authorizedDomain: 'bbs16.929991.xyz',
-    
-    // 服务器配置
-    serverUrl: 'http://localhost:3030',
-    apiUrl: 'http://localhost:3030/api',
-    wsUrl: 'ws://localhost:3030/ws',
-    
-    // 界面配置
-    ui: {
-        position: 'bottom-right',
-        theme: 'default',
-        title: '在线客服',
-        placeholder: '请输入您的消息...',
-        sendButton: '发送',
-        autoOpen: false
-    },
-    
-    // 欢迎消息
-    welcomeMessage: '欢迎访问bbs16.929991.xyz！有什么可以帮您的吗？',
-    
-    // 系统信息
-    version: '1.0.2',  // ✅ 更新版本号
-    generatedAt: '2025-09-12T01:10:00.000Z'  // ✅ 修复时间
-};
-
-// 客服系统实现 - 修复版
-(function(){
-    let cs = {
-        isOpen: false,
-        isMini: false,
-        isConnected: false,
-        userId: 'user_' + Math.random().toString(36).substr(2,9) + '_' + Date.now(),
-        interval: null,
-        lastId: 0,
+(function() {
+    // QuickTalk配置 - 这是唯一需要定制的部分
+    const QUICKTALK_CONFIG = {
+        shopKey: 'sk_ji85ucic9p00m12as1ygf34o8humuxfl',
+        shopId: 'shop_1757591780450_1',
+        shopName: '时尚服装店',
+        authorizedDomain: 'bbs16.929991.xyz',
         
-        init() {
-            // 验证域名
-            const currentDomain = window.location.hostname;
-            const authorizedDomain = window.QUICKTALK_CONFIG.authorizedDomain;
-            
-            if (currentDomain !== authorizedDomain && 
-                !currentDomain.endsWith('.' + authorizedDomain) && 
-                currentDomain !== 'localhost') {
-                console.error('❌ QuickTalk客服系统：域名未授权');
-                console.error('当前域名:', currentDomain);
-                console.error('授权域名:', authorizedDomain);
-                return;
-            }
-            
-            console.log('✅ 域名验证通过，正在连接客服系统...');
-            this.updateTime();
-            setTimeout(() => this.connect(), 1000);
-        },
+        // 服务器配置
+        serverUrl: 'http://localhost:3030',
         
-        async connect() {
-            try {
-                console.log('🔗 尝试连接到服务器:', window.QUICKTALK_CONFIG.serverUrl);
-                
-                // 🔧 先尝试使用安全连接API
-                let res = await fetch(window.QUICKTALK_CONFIG.apiUrl + '/secure-connect', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Shop-Key': window.QUICKTALK_CONFIG.shopKey,
-                        'X-Shop-Id': window.QUICKTALK_CONFIG.shopId
-                    },
-                    body: JSON.stringify({
-                        userId: this.userId,
-                        timestamp: Date.now(),
-                        shopKey: window.QUICKTALK_CONFIG.shopKey,
-                        shopId: window.QUICKTALK_CONFIG.shopId,
-                        domain: window.location.hostname,
-                        version: window.QUICKTALK_CONFIG.version
-                    })
-                });
-                
-                // 如果安全连接失败，回退到基础连接API
-                if (!res.ok) {
-                    console.log('🔄 安全连接失败，尝试基础连接...');
-                    res = await fetch(window.QUICKTALK_CONFIG.apiUrl + '/connect', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            userId: this.userId,
-                            timestamp: Date.now()
-                        })
-                    });
-                }
-                
-                if (res.ok) {
-                    const data = await res.json();
-                    this.isConnected = true;
-                    this.updateStatus('connected', '已连接');
-                    this.startPoll();
-                    console.log('✅ 客服连接成功:', data.shop?.name || '基础连接');
-                } else {
-                    const errorData = await res.json().catch(() => ({}));
-                    throw new Error(errorData.error || 'HTTP ' + res.status + ': ' + res.statusText);
-                }
-            } catch (e) {
-                console.error('❌ 客服连接失败:', e);
-                this.updateStatus('disconnected', '连接失败: ' + e.message);
-                setTimeout(() => this.connect(), 5000);
-            }
-        },
-        
-        startPoll() {
-            if (this.interval) clearInterval(this.interval);
-            this.interval = setInterval(() => this.checkMsg(), 2000);
-            console.log('🔄 开始轮询检查新消息...');
-        },
-        
-        async checkMsg() {
-            if (!this.isConnected) return;
-            try {
-                // 🔧 修复: 使用正确的客户端消息路由
-                const res = await fetch(window.QUICKTALK_CONFIG.apiUrl + '/client/messages?userId=' + this.userId + '&lastId=' + this.lastId, {
-                    headers: {
-                        'X-Shop-Key': window.QUICKTALK_CONFIG.shopKey,
-                        'X-Shop-Id': window.QUICKTALK_CONFIG.shopId
-                    }
-                });
-                
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.messages && data.messages.length > 0) {
-                        console.log('📨 收到新消息:', data.messages.length + '条');
-                        data.messages.forEach(msg => {
-                            this.handleMsg(msg);
-                            this.lastId = Math.max(this.lastId, msg.id || 0);
-                        });
-                    }
-                } else {
-                    console.error('❌ 获取消息失败:', res.status, res.statusText);
-                    if (res.status === 401) {
-                        console.error('❌ 认证失败，尝试重新连接...');
-                        this.isConnected = false;
-                        this.updateStatus('disconnected', '认证失败');
-                        setTimeout(() => this.connect(), 3000);
-                    }
-                }
-            } catch (e) {
-                console.error('❌ 获取消息失败:', e);
-                this.isConnected = false;
-                this.updateStatus('disconnected', '连接断开');
-                setTimeout(() => this.connect(), 3000);
-            }
-        },
-        
-        handleMsg(msg) {
-            if (msg.type === 'staff_message') {
-                this.addMsg('staff', msg.message);
-                console.log('📨 收到客服消息:', msg.message);
-            } else if (msg.type === 'system_notification') {
-                this.addMsg('system', msg.message);
-                console.log('📨 收到系统消息:', msg.message);
-            }
-        },
-        
-        addMsg(type, text) {
-            const body = document.getElementById('cs-body');
-            const div = document.createElement('div');
-            div.className = 'cs-msg cs-' + type;
-            div.innerHTML = '<span class="cs-msg-text">' + text + '</span><span class="cs-msg-time">' + new Date().toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit'}) + '</span>';
-            body.appendChild(div);
-            body.scrollTop = body.scrollHeight;
-        },
-        
-        async send() {
-            const input = document.getElementById('cs-input');
-            const msg = input.value.trim();
-            if (!msg) return;
-            
-            if (!this.isConnected) {
-                this.addMsg('system', '连接断开，无法发送消息');
-                return;
-            }
-            
-            this.addMsg('user', msg);
-            input.value = '';
-            
-            try {
-                const response = await fetch(window.QUICKTALK_CONFIG.apiUrl + '/send', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Shop-Key': window.QUICKTALK_CONFIG.shopKey,
-                        'X-Shop-Id': window.QUICKTALK_CONFIG.shopId
-                    },
-                    body: JSON.stringify({
-                        userId: this.userId,
-                        message: msg,
-                        shopKey: window.QUICKTALK_CONFIG.shopKey,
-                        apiKey: window.QUICKTALK_CONFIG.shopKey, // 兼容性
-                        timestamp: Date.now()
-                    })
-                });
-                
-                if (response.ok) {
-                    console.log('✅ 消息发送成功');
-                    // 发送成功后立即检查回复
-                    setTimeout(() => this.checkMsg(), 500);
-                } else {
-                    console.error('❌ 消息发送失败:', response.status);
-                    this.addMsg('system', '发送失败，请重试');
-                }
-            } catch (e) {
-                console.error('❌ 发送错误:', e);
-                this.addMsg('system', '发送失败，请重试');
-            }
-        },
-        
-        updateStatus(status, text) {
-            const dot = document.getElementById('cs-dot');
-            const statusText = document.getElementById('cs-status');
-            if (dot) dot.className = 'cs-dot cs-' + status;
-            if (statusText) statusText.textContent = text;
-        },
-        
-        updateTime() {
-            const time = document.getElementById('welcome-time');
-            if (time) time.textContent = new Date().toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit'});
-        },
-        
-        toggle() {
-            if (this.isOpen) this.close(); else this.open();
-        },
-        
-        open() {
-            const chat = document.getElementById('cs-chat');
-            if (chat) {
-                chat.classList.add('open');
-                chat.classList.remove('mini');
-                this.isOpen = true;
-                this.isMini = false;
-                const input = document.getElementById('cs-input');
-                if (input) input.focus();
-                if (this.isConnected && !this.interval) this.startPoll();
-            }
-        },
-        
-        close() {
-            const chat = document.getElementById('cs-chat');
-            if (chat) {
-                chat.classList.remove('open', 'mini');
-                this.isOpen = false;
-                this.isMini = false;
-                if (this.interval) {
-                    clearInterval(this.interval);
-                    this.interval = null;
-                }
-            }
-        },
-        
-        minimize() {
-            const chat = document.getElementById('cs-chat');
-            if (!chat) return;
-            
-            if (this.isMini) {
-                chat.classList.remove('mini');
-                this.isMini = false;
-                const input = document.getElementById('cs-input');
-                if (input) input.focus();
-            } else {
-                chat.classList.add('mini');
-                this.isMini = true;
-            }
-        }
+        // 版本控制
+        version: '1.0.0',
+        cacheBreaker: Date.now() // 强制刷新缓存
     };
     
-    // 全局函数
-    window.toggleCS = () => cs.toggle();
-    window.closeCS = () => cs.close();
-    window.miniCS = () => cs.minimize();
-    window.sendCS = () => cs.send();
-    
-    // 客服按钮点击事件
-    document.addEventListener('DOMContentLoaded', function() {
-        const cbBtn = document.querySelector('#cb');
-        if (cbBtn) {
-            cbBtn.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                cs.toggle();
-            });
-        }
-        
-        // 初始化
-        setTimeout(() => cs.init(), 1000);
-    });
-    
-    // 如果DOM已加载完成
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => setTimeout(() => cs.init(), 1000));
-    } else {
-        setTimeout(() => cs.init(), 1000);
+    // 域名验证
+    const currentDomain = window.location.hostname;
+    if (currentDomain !== QUICKTALK_CONFIG.authorizedDomain && 
+        !currentDomain.endsWith('.' + QUICKTALK_CONFIG.authorizedDomain) && 
+        currentDomain !== 'localhost') {
+        console.error('❌ QuickTalk客服系统：域名未授权');
+        console.error('当前域名:', currentDomain);
+        console.error('授权域名:', QUICKTALK_CONFIG.authorizedDomain);
+        return;
     }
     
-    // 清理
-    window.addEventListener('beforeunload', () => {
-        if (cs.interval) clearInterval(cs.interval);
-    });
+    console.log('🚀 QuickTalk客服系统：开始动态加载...');
+    
+    // 动态加载样式文件
+    function loadCSS() {
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.type = 'text/css';
+        link.href = `${QUICKTALK_CONFIG.serverUrl}/embed/customer-service.css?v=${QUICKTALK_CONFIG.cacheBreaker}`;
+        link.onerror = () => {
+            console.error('❌ QuickTalk样式加载失败');
+        };
+        document.head.appendChild(link);
+    }
+    
+    // 动态加载JavaScript文件
+    function loadJS() {
+        const script = document.createElement('script');
+        script.type = 'text/javascript';
+        script.src = `${QUICKTALK_CONFIG.serverUrl}/embed/customer-service.js?v=${QUICKTALK_CONFIG.cacheBreaker}`;
+        
+        script.onload = () => {
+            console.log('✅ QuickTalk脚本加载成功');
+            
+            // 初始化客服系统
+            if (window.QuickTalkCustomerService) {
+                window.QuickTalkCustomerService.init(QUICKTALK_CONFIG);
+                console.log('✅ QuickTalk客服系统初始化完成');
+            } else {
+                console.error('❌ QuickTalk客服系统初始化失败：主模块未找到');
+            }
+        };
+        
+        script.onerror = () => {
+            console.error('❌ QuickTalk脚本加载失败，使用降级方案');
+            fallbackToInlineCode();
+        };
+        
+        document.head.appendChild(script);
+    }
+    
+    // 降级方案：使用内联代码
+    function fallbackToInlineCode() {
+        console.log('🔄 QuickTalk: 启用降级方案...');
+        // 这里可以放一个简化版的客服系统
+        // 或者显示"客服系统暂时不可用"的提示
+        
+        const fallbackHTML = `
+            <div style="
+                position: fixed;
+                bottom: 40px;
+                right: 40px;
+                background: #667eea;
+                color: white;
+                padding: 15px 20px;
+                border-radius: 25px;
+                font-size: 14px;
+                cursor: pointer;
+                z-index: 999999;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            " onclick="alert('客服系统正在维护中，请稍后再试')">
+                📞 客服咨询
+            </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', fallbackHTML);
+    }
+    
+    // 开始加载
+    try {
+        loadCSS();
+        loadJS();
+    } catch (e) {
+        console.error('❌ QuickTalk加载失败:', e);
+        fallbackToInlineCode();
+    }
+    
+    // 全局暴露配置（供动态加载的脚本使用）
+    window.QUICKTALK_EMBED_CONFIG = QUICKTALK_CONFIG;
+    
 })();
 </script>
 
 <!-- 
-🔥 QuickTalk客服系统集成完成 - 2025年9月12日修复版
+🔥 QuickTalk客服系统 - 动态加载集成代码
 
-【🔧 关键修复】
-✅ 修复消息接收路由: /api/messages → /api/client/messages
-✅ 增强错误处理和重连机制
-✅ 添加详细的控制台日志
-✅ 优化消息轮询逻辑
+【🚀 核心优势】
+✅ 集成代码永不过时：所有业务逻辑从服务器动态加载
+✅ 一次更新全网生效：无需手动更新每个网站的集成代码
+✅ 版本控制：自动获取最新功能（图片消息、新特性等）
+✅ 降级保护：服务器不可用时显示备用界面
+✅ 缓存刷新：每次加载都获取最新版本
 
-【✅ 功能验证】
-✅ 域名验证: 正常
-✅ API认证: 正常  
-✅ 连接状态: 正常
-✅ 消息发送: 正常
-✅ 消息接收: 🔧 已修复
+【🔧 工作原理】
+1. 集成代码只包含配置信息和加载逻辑
+2. 动态从服务器加载 CSS 和 JavaScript
+3. 服务器提供完整的客服系统实现
+4. 支持版本控制和缓存管理
 
-【📱 使用说明】
-1. 点击右下角"客服"按钮开始对话
-2. 系统会自动验证域名和API密钥
-3. 连接成功后可以正常收发消息
-4. 支持自动回复和人工客服
+【📁 需要在服务器创建的文件】
+- /embed/customer-service.css - 客服系统样式
+- /embed/customer-service.js  - 客服系统逻辑
 
-【🐛 调试信息】
-- 打开浏览器控制台可查看详细日志
-- 连接状态实时显示在聊天窗口底部
-- 如有问题请检查控制台错误信息
+【🔄 更新流程】
+服务器更新代码 → 所有网站自动获取最新版本 → 无需手动维护
 
-【🔧 技术支持】
-- 版本: v1.0.2 (2025年9月12日)
-- 修复内容: 消息接收路由更新
-- 测试状态: ✅ 完全正常
+【📱 使用方法】
+只需要在网站中嵌入这段代码，所有功能都会自动加载！
 -->

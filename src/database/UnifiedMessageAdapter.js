@@ -46,7 +46,9 @@ class UnifiedMessageAdapter {
             }
             
             const shopId = conversationId.substring(0, userIndex);
-            const userId = conversationId.substring(userIndex + 6); // 跳过 '_user_'
+            const userId = conversationId.substring(userIndex + '_user_'.length); // 正确跳过 '_user_'
+
+            console.log(`🔍 解析conversationId: "${conversationId}" -> shopId: "${shopId}", userId: "${userId}"`);
 
             // 映射 senderType 到数据库的 sender 字段
             let sender;
@@ -117,9 +119,9 @@ class UnifiedMessageAdapter {
             }
             
             const shopId = conversationId.substring(0, userIndex);
-            const userId = conversationId.substring(userIndex + 6); // 跳过 '_user_'
+            const userId = conversationId.substring(userIndex + '_user_'.length); // 正确跳过 '_user_'
 
-            console.log(`🔍 查询消息: shopId=${shopId}, userId=${userId}`);
+            console.log(`🔍 查询消息: conversationId="${conversationId}" -> shopId="${shopId}", userId="${userId}"`);
 
             // 使用旧表结构查询
             const sql = `
@@ -172,8 +174,8 @@ class UnifiedMessageAdapter {
             
             // 检查对话是否已存在
             const existing = await this.db.getAsync(
-                'SELECT * FROM conversations WHERE id = ?',
-                [conversationId]
+                'SELECT * FROM conversations WHERE shop_id = ? AND user_id = ?',
+                [shopId, userId]
             );
 
             if (existing) {
@@ -183,17 +185,17 @@ class UnifiedMessageAdapter {
                     SET 
                         updated_at = ?,
                         last_message_at = ?,
-                        last_message_content = ?
-                    WHERE id = ?
-                `, [now, now, lastMessage, conversationId]);
+                        last_message = ?
+                    WHERE shop_id = ? AND user_id = ?
+                `, [now, now, lastMessage, shopId, userId]);
                 
                 console.log(`🔄 [统一适配器] 更新对话: ${conversationId}`);
             } else {
-                // 创建新对话
+                // 创建新对话 (使用正确的字段名)
                 await this.db.runAsync(`
                     INSERT INTO conversations (
-                        id, shop_id, customer_id, customer_name, 
-                        last_message_content, created_at, updated_at, 
+                        id, shop_id, user_id, user_name, 
+                        last_message, created_at, updated_at, 
                         unread_count, status, last_message_at
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 `, [
@@ -209,7 +211,7 @@ class UnifiedMessageAdapter {
                     now
                 ]);
                 
-                console.log(`🆕 [统一适配器] 创建新对话: ${conversationId}`);
+                console.log(`🆕 [统一适配器] 创建新对话: ${conversationId} (用户: ${userName})`);
             }
         } catch (error) {
             console.error('❌ [统一适配器] ensureConversationExists 失败:', error);
