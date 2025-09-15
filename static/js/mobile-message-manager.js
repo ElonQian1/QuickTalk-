@@ -148,23 +148,28 @@ class MobileMessageManager {
      * 处理WebSocket消息
      */
     handleWebSocketMessage(data) {
-        console.log('📨 收到WebSocket消息:', data);
-        console.log('📨 消息类型:', data.type);
-        console.log('📨 消息内容:', data.message);
+        console.log('📨 [WEBSOCKET] 收到WebSocket消息:', data);
+        console.log('📨 [WEBSOCKET] 消息类型:', data.type);
+        console.log('📨 [WEBSOCKET] 消息内容:', data.message);
+        console.log('📨 [WEBSOCKET] 完整数据结构:', JSON.stringify(data, null, 2));
 
         switch (data.type) {
             case 'new_message':
-                console.log('✅ 处理新消息');
+                console.log('✅ [WEBSOCKET] 处理新消息，消息对象:', data.message);
+                console.log('📨 [WEBSOCKET] 消息文件URL:', data.message?.file_url);
+                console.log('📨 [WEBSOCKET] 消息类型:', data.message?.message_type);
                 this.handleNewMessage(data.message);
                 break;
             case 'message_read':
+                console.log('✅ [WEBSOCKET] 处理消息已读');
                 this.handleMessageRead(data.messageId);
                 break;
             case 'conversation_update':
+                console.log('✅ [WEBSOCKET] 处理对话更新');
                 this.handleConversationUpdate(data.conversation);
                 break;
             default:
-                console.log('🤔 未知消息类型:', data.type, data);
+                console.log('🤔 [WEBSOCKET] 未知消息类型:', data.type, data);
         }
     }
 
@@ -497,11 +502,16 @@ class MobileMessageManager {
         let messageContent = '';
         
         // 根据消息类型渲染不同的内容
-        console.log('🎨 消息类型:', message.message_type);
+        console.log('🎨 [RENDER] 消息类型:', message.message_type);
+        console.log('🎨 [RENDER] 文件URL:', message.file_url);
+        console.log('🎨 [RENDER] 文件名:', message.file_name);
         switch (message.message_type) {
             case 'image':
-                console.log('🖼️ 渲染图片消息, file_url:', message.file_url);
+                console.log('🖼️ [RENDER] 开始渲染图片消息');
+                console.log('🖼️ [RENDER] file_url:', message.file_url);
+                console.log('🖼️ [RENDER] file_name:', message.file_name);
                 if (message.file_url) {
+                    console.log('✅ [RENDER] 文件URL存在，生成图片HTML');
                     messageContent = `
                         <div class="message-image">
                             <img src="${message.file_url}" alt="${message.file_name || '图片'}" 
@@ -509,8 +519,9 @@ class MobileMessageManager {
                             ${message.content && message.content !== '[图片]' ? `<div class="image-caption">${message.content}</div>` : ''}
                         </div>
                     `;
+                    console.log('✅ [RENDER] 图片HTML生成完成:', messageContent);
                 } else {
-                    console.log('⚠️ 图片消息缺少file_url，显示占位符');
+                    console.log('⚠️ [RENDER] 图片消息缺少file_url，显示占位符');
                     messageContent = `<div class="message-text">${message.content || '[图片]'}</div>`;
                 }
                 break;
@@ -608,9 +619,11 @@ class MobileMessageManager {
 
     // 处理新消息
     handleNewMessage(message) {
-        console.log('📨 收到新消息:', message);
-        console.log('📨 消息类型:', message.message_type);
-        console.log('📨 文件URL:', message.file_url);
+        console.log('📨 [NEW_MESSAGE] 收到新消息:', message);
+        console.log('📨 [NEW_MESSAGE] 消息类型:', message.message_type);
+        console.log('📨 [NEW_MESSAGE] 文件URL:', message.file_url);
+        console.log('📨 [NEW_MESSAGE] 当前对话:', this.currentConversation?.id);
+        console.log('📨 [NEW_MESSAGE] 消息对话ID:', message.conversation_id);
         
         // 更新未读计数
         if (!this.unreadCounts[message.shop_id]) {
@@ -623,8 +636,13 @@ class MobileMessageManager {
         
         // 如果当前在对话中，实时添加消息
         if (this.currentConversation && this.currentConversation.id === message.conversation_id) {
-            console.log('📨 添加消息到当前聊天');
+            console.log('📨 [NEW_MESSAGE] ✅ 添加消息到当前聊天');
             this.addMessageToCurrentChat(message);
+        } else {
+            console.log('📨 [NEW_MESSAGE] ❌ 不是当前对话，跳过实时显示', {
+                currentConversation: this.currentConversation?.id,
+                messageConversation: message.conversation_id
+            });
         }
         
         // 🔍 如果搜索功能还未启用，现在有消息数据了，尝试启用
@@ -943,12 +961,21 @@ class MobileMessageManager {
 
     // 添加消息到当前聊天
     addMessageToCurrentChat(message) {
+        console.log('📨 [ADD_MESSAGE] 开始添加消息到聊天界面:', message);
+        
         const container = document.getElementById('messagesContainer');
-        if (!container) return;
-
+        if (!container) {
+            console.error('❌ [ADD_MESSAGE] 找不到消息容器 #messagesContainer');
+            return;
+        }
+        
+        console.log('📨 [ADD_MESSAGE] 找到消息容器，开始渲染消息');
         const messageHtml = this.renderMessage(message);
+        console.log('📨 [ADD_MESSAGE] 渲染的HTML:', messageHtml);
+        
         container.insertAdjacentHTML('beforeend', messageHtml);
         container.scrollTop = container.scrollHeight;
+        console.log('✅ [ADD_MESSAGE] 消息已添加到界面');
     }
 }
 
