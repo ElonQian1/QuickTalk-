@@ -541,7 +541,6 @@ class ConnectionHandler {
     /**
      * 创建服务层兼容的ConnectionHandler工厂方法
      * @param {Object} services - 服务层对象
-     * @param {Object} legacyServices - 兼容旧服务
      */
     static createWithServices(services) {
         return new ConnectionHandler(services);

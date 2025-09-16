@@ -1448,7 +1448,7 @@
                     <div class="code-header">
                         <h4>🔧 集成代码</h4>
                         <div class="code-actions">
-                            <button class="btn btn-primary" onclick="copyIntegrationCode()">📋 复制代码</button>
+                            <button class="btn btn-primary" onclick="window.integrationManager && window.integrationManager.copyCode ? window.integrationManager.copyCode(this) : UnifiedUtils.copyToClipboard(document.getElementById('integrationCode').value, this)">📋 复制代码</button>
                             <button class="btn btn-warning" onclick="regenerateApiKey()">🔑 重新生成</button>
                         </div>
                     </div>
@@ -1480,6 +1480,9 @@
     <!-- 引入店铺管理模块 -->
     <!-- 引入样式 -->
     <link rel="stylesheet" href="/css/integration-manager.css">
+    
+    <!-- 引入统一工具库 -->
+    <script src="/js/core/UnifiedUtils.js"></script>
     
     <!-- 引入集成代码管理器 -->
     <script src="/js/core/IntegrationManager.js"></script>

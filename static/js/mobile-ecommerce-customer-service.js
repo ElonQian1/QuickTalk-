@@ -16,6 +16,12 @@ if (typeof UnifiedWebSocketClient === 'undefined') {
     throw new Error('UnifiedWebSocketClient library is required');
 }
 
+// 检查统一消息管理器是否已加载
+if (typeof UnifiedMessageManager === 'undefined') {
+    console.error('错误: UnifiedMessageManager 未加载。请先引入 UnifiedMessageManager.js');
+    throw new Error('UnifiedMessageManager library is required');
+}
+
 class MobileEcommerceCustomerService {
     constructor() {
         this.currentUser = null;
@@ -32,6 +38,14 @@ class MobileEcommerceCustomerService {
             debug: true,
             reconnect: true,
             heartbeat: true
+        });
+        
+        // 初始化统一消息管理器
+        this.messageManager = new UnifiedMessageManager({
+            enableTimestamp: true,
+            enableSound: true,
+            autoScroll: true,
+            mobileMode: true
         });
         
         this.setupWebSocketHandlers();
@@ -970,15 +984,17 @@ class MobileEcommerceCustomerService {
     }
 
     /**
-     * 添加消息到聊天界面
+     * 添加消息到聊天界面 - 使用统一消息管理器
      */
     addMessageToChat(message) {
+        // 注册聊天容器（如果还未注册）
         const chatMessages = document.getElementById('chatMessages');
-        if (!chatMessages) return;
-
-        const messageHTML = this.renderMessage(message);
-        chatMessages.insertAdjacentHTML('beforeend', messageHTML);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
+        if (chatMessages) {
+            this.messageManager.registerContainer('mobile-chat', chatMessages);
+        }
+        
+        // 使用统一消息管理器添加消息
+        this.messageManager.addMessageToChat('mobile-chat', message);
         
         // 将消息添加到当前消息列表
         if (!this.currentMessages) {

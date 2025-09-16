@@ -21,6 +21,17 @@ class AIChatBot {
         this.autoReplyEnabled = options.autoReply !== false;
         this.humanHandoffThreshold = options.humanHandoffThreshold || 0.3;
         
+        // 初始化统一WebSocket客户端
+        if (typeof UnifiedWebSocketClient !== 'undefined') {
+            this.websocketClient = UnifiedWebSocketClient.createDesktop({
+                debug: true,
+                reconnect: true,
+                heartbeat: true
+            });
+        } else {
+            console.warn('⚠️ UnifiedWebSocketClient 未加载，将使用原生WebSocket');
+        }
+        
         console.log('🤖 AI聊天机器人初始化', { shopId: this.shopId });
         this.initialize();
     }
@@ -676,57 +687,87 @@ class AIChatBot {
     }
 
     /**
-     * 连接WebSocket
+     * 连接WebSocket - 使用统一WebSocket客户端
      */
     async connectWebSocket() {
         try {
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${protocol}//${window.location.host}/ws`;
-            
-            this.websocket = new WebSocket(wsUrl);
-            
-            this.websocket.onopen = () => {
-                console.log('🔗 AI聊天机器人WebSocket连接成功');
-                this.isConnected = true;
-                this.updateConnectionStatus('已连接', true);
+            if (this.websocketClient) {
+                // 使用统一WebSocket客户端
+                this.websocketClient.shopId = this.shopId;
                 
-                // 发送初始化消息
-                this.sendWebSocketMessage({
-                    type: 'ai_init',
-                    conversationId: this.conversationId,
-                    shopId: this.shopId
-                });
-            };
-
-            this.websocket.onmessage = (event) => {
-                try {
-                    const data = JSON.parse(event.data);
-                    this.handleWebSocketMessage(data);
-                } catch (error) {
-                    console.error('❌ WebSocket消息解析失败:', error);
-                }
-            };
-
-            this.websocket.onclose = () => {
-                console.log('🔌 AI聊天机器人WebSocket连接断开');
-                this.isConnected = false;
-                this.updateConnectionStatus('连接断开', false);
+                this.websocketClient
+                    .onOpen(() => {
+                        console.log('🔗 AI聊天机器人WebSocket连接成功');
+                        this.isConnected = true;
+                        this.updateConnectionStatus('已连接', true);
+                        
+                        // 发送初始化消息
+                        this.websocketClient.send({
+                            type: 'ai_init',
+                            conversationId: this.conversationId,
+                            shopId: this.shopId
+                        });
+                    })
+                    .onMessage((data) => {
+                        this.handleWebSocketMessage(data);
+                    })
+                    .onClose(() => {
+                        console.log('🔗 AI聊天机器人WebSocket连接断开');
+                        this.isConnected = false;
+                        this.updateConnectionStatus('已断开', false);
+                    })
+                    .onError((error) => {
+                        console.error('❌ AI聊天机器人WebSocket错误:', error);
+                        this.isConnected = false;
+                        this.updateConnectionStatus('连接错误', false);
+                    });
                 
-                // 尝试重连
-                setTimeout(() => {
-                    if (!this.isConnected) {
-                        this.connectWebSocket();
+                // 建立连接
+                await this.websocketClient.connect();
+            } else {
+                // 回退到原生WebSocket
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsUrl = `${protocol}//${window.location.host}/ws`;
+                
+                this.websocket = new WebSocket(wsUrl);
+                
+                this.websocket.onopen = () => {
+                    console.log('🔗 AI聊天机器人WebSocket连接成功');
+                    this.isConnected = true;
+                    this.updateConnectionStatus('已连接', true);
+                    
+                    // 发送初始化消息
+                    this.sendWebSocketMessage({
+                        type: 'ai_init',
+                        conversationId: this.conversationId,
+                        shopId: this.shopId
+                    });
+                };
+                
+                this.websocket.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        this.handleWebSocketMessage(data);
+                    } catch (error) {
+                        console.error('❌ 解析WebSocket消息失败:', error);
                     }
-                }, 3000);
-            };
-
-            this.websocket.onerror = (error) => {
-                console.error('❌ AI聊天机器人WebSocket错误:', error);
-                this.updateConnectionStatus('连接错误', false);
-            };
-
+                };
+                
+                this.websocket.onclose = () => {
+                    console.log('🔗 AI聊天机器人WebSocket连接断开');
+                    this.isConnected = false;
+                    this.updateConnectionStatus('已断开', false);
+                };
+                
+                this.websocket.onerror = (error) => {
+                    console.error('❌ AI聊天机器人WebSocket错误:', error);
+                    this.isConnected = false;
+                    this.updateConnectionStatus('连接错误', false);
+                };
+            }
         } catch (error) {
-            console.error('❌ WebSocket连接失败:', error);
+            console.error('❌ 连接WebSocket失败:', error);
+            this.isConnected = false;
             this.updateConnectionStatus('连接失败', false);
         }
     }

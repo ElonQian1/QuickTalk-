@@ -16,6 +16,18 @@ class MobileMessageManager {
         this.unreadCounts = {};
         this.websocket = null;
         
+        // 初始化统一消息管理器
+        if (typeof UnifiedMessageManager !== 'undefined') {
+            this.messageManager = new UnifiedMessageManager({
+                enableTimestamp: true,
+                enableSound: true,
+                autoScroll: true,
+                mobileMode: true
+            });
+        } else {
+            console.warn('⚠️ UnifiedMessageManager 未加载，使用传统消息处理');
+        }
+        
         console.log('📱 移动端消息管理器初始化');
     }
 
@@ -1040,7 +1052,7 @@ class MobileMessageManager {
         });
     }
 
-    // 添加消息到当前聊天
+    // 添加消息到当前聊天 - 使用统一消息管理器
     addMessageToCurrentChat(message) {
         console.log('📨 [ADD_MESSAGE] 开始添加消息到聊天界面:', message);
         
@@ -1050,12 +1062,19 @@ class MobileMessageManager {
             return;
         }
         
-        console.log('📨 [ADD_MESSAGE] 找到消息容器，开始渲染消息');
-        const messageHtml = this.renderMessage(message);
-        console.log('📨 [ADD_MESSAGE] 渲染的HTML:', messageHtml);
+        // 使用统一消息管理器
+        if (this.messageManager) {
+            console.log('📨 [ADD_MESSAGE] 使用统一消息管理器处理');
+            this.messageManager.registerContainer('mobile-messages', container);
+            this.messageManager.addMessageToChat('mobile-messages', message);
+        } else {
+            // 回退到传统方式
+            console.log('📨 [ADD_MESSAGE] 使用传统方式渲染消息');
+            const messageHtml = this.renderMessage(message);
+            container.insertAdjacentHTML('beforeend', messageHtml);
+            container.scrollTop = container.scrollHeight;
+        }
         
-        container.insertAdjacentHTML('beforeend', messageHtml);
-        container.scrollTop = container.scrollHeight;
         console.log('✅ [ADD_MESSAGE] 消息已添加到界面');
     }
 }

@@ -28,6 +28,17 @@ class EnhancedAnalyticsDashboard {
         this.notifications = [];
         this.filters = {};
         
+        // 初始化统一WebSocket客户端
+        if (typeof UnifiedWebSocketClient !== 'undefined') {
+            this.websocketClient = UnifiedWebSocketClient.createDesktop({
+                debug: true,
+                reconnect: true,
+                heartbeat: true
+            });
+        } else {
+            console.warn('⚠️ UnifiedWebSocketClient 未加载，将使用原生WebSocket');
+        }
+        
         console.log('📊 增强型数据分析仪表板初始化...');
         this.init();
     }
@@ -636,55 +647,81 @@ class EnhancedAnalyticsDashboard {
     }
 
     /**
-     * 初始化WebSocket连接
+     * 初始化WebSocket连接 - 使用统一WebSocket客户端
      */
     initializeWebSocket() {
         try {
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${protocol}//${window.location.host}/ws`;
-            
-            this.websocket = new WebSocket(wsUrl);
-            
-            this.websocket.onopen = () => {
-                console.log('📡 WebSocket连接已建立');
-                this.updateConnectionStatus('connected');
+            if (this.websocketClient) {
+                // 使用统一WebSocket客户端
+                this.websocketClient.userId = this.currentUser?.id;
+                this.websocketClient.shopId = this.shopId;
                 
-                // 订阅分析数据更新
-                this.websocket.send(JSON.stringify({
-                    type: 'subscribe',
-                    channel: 'analytics',
-                    shopId: this.shopId
-                }));
-            };
-            
-            this.websocket.onmessage = (event) => {
-                try {
-                    const data = JSON.parse(event.data);
-                    this.handleWebSocketMessage(data);
-                } catch (error) {
-                    console.error('❌ WebSocket消息解析失败:', error);
-                }
-            };
-            
-            this.websocket.onclose = () => {
-                console.log('📡 WebSocket连接已断开');
-                this.updateConnectionStatus('disconnected');
+                this.websocketClient
+                    .onOpen(() => {
+                        console.log('📡 WebSocket连接已建立');
+                        this.updateConnectionStatus('connected');
+                        
+                        // 订阅分析数据更新
+                        this.websocketClient.send({
+                            type: 'subscribe',
+                            channel: 'analytics',
+                            shopId: this.shopId
+                        });
+                    })
+                    .onMessage((data) => {
+                        this.handleWebSocketMessage(data);
+                    })
+                    .onClose(() => {
+                        console.log('📡 WebSocket连接已断开');
+                        this.updateConnectionStatus('disconnected');
+                    })
+                    .onError((error) => {
+                        console.error('❌ WebSocket连接错误:', error);
+                        this.updateConnectionStatus('error');
+                    });
                 
-                // 重连机制
-                setTimeout(() => {
-                    if (this.isRealTimeEnabled) {
-                        this.initializeWebSocket();
+                // 建立连接
+                this.websocketClient.connect();
+            } else {
+                // 回退到原生WebSocket
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsUrl = `${protocol}//${window.location.host}/ws`;
+                
+                this.websocket = new WebSocket(wsUrl);
+                
+                this.websocket.onopen = () => {
+                    console.log('📡 WebSocket连接已建立');
+                    this.updateConnectionStatus('connected');
+                    
+                    // 订阅分析数据更新
+                    this.websocket.send(JSON.stringify({
+                        type: 'subscribe',
+                        channel: 'analytics',
+                        shopId: this.shopId
+                    }));
+                };
+                
+                this.websocket.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        this.handleWebSocketMessage(data);
+                    } catch (error) {
+                        console.error('❌ 解析WebSocket消息失败:', error);
                     }
-                }, 5000);
-            };
-            
-            this.websocket.onerror = (error) => {
-                console.error('❌ WebSocket连接错误:', error);
-                this.updateConnectionStatus('error');
-            };
-            
+                };
+                
+                this.websocket.onclose = () => {
+                    console.log('📡 WebSocket连接已断开');
+                    this.updateConnectionStatus('disconnected');
+                };
+                
+                this.websocket.onerror = (error) => {
+                    console.error('❌ WebSocket连接错误:', error);
+                    this.updateConnectionStatus('error');
+                };
+            }
         } catch (error) {
-            console.error('❌ WebSocket初始化失败:', error);
+            console.error('❌ 初始化WebSocket失败:', error);
             this.updateConnectionStatus('error');
         }
     }

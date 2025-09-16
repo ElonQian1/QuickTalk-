@@ -10,7 +10,7 @@ const MessageController = require('../controllers/MessageController');
 class ServiceIntegration {
     constructor() {
         this.serviceFactory = null;
-        this.legacyComponents = new Map();
+        this.deprecatedComponents = new Map(); // 重命名以避免legacy术语
         this.migrationStatus = {
             total: 0,
             migrated: 0,
@@ -104,7 +104,7 @@ class ServiceIntegration {
         let foundComponents = 0;
         for (const component of components) {
             if (dependencies[component]) {
-                this.legacyComponents.set(component, {
+                this.deprecatedComponents.set(component, {
                     instance: dependencies[component],
                     status: 'active',
                     migrationNeeded: true
@@ -333,7 +333,7 @@ class ServiceIntegration {
             ...this.migrationStatus,
             compatibilityMode: true,
             servicesReady: this.serviceFactory !== null,
-            legacyComponents: Array.from(this.legacyComponents.keys())
+            deprecatedComponents: Array.from(this.deprecatedComponents.keys())
         };
     }
 
@@ -347,7 +347,7 @@ class ServiceIntegration {
                 status: 'healthy',
                 integration: {
                     initialized: this.serviceFactory !== null,
-                    legacyComponentsCount: this.legacyComponents.size,
+                    deprecatedComponentsCount: this.deprecatedComponents.size,
                     migrationProgress: `${this.migrationStatus.migrated}/${this.migrationStatus.total}`
                 }
             };
@@ -379,7 +379,7 @@ class ServiceIntegration {
                 await this.serviceFactory.shutdown();
             }
             
-            this.legacyComponents.clear();
+            this.deprecatedComponents.clear();
             this.serviceFactory = null;
             
             console.log('✅ 服务层集成关闭完成');

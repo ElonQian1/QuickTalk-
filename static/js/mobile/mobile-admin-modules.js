@@ -391,17 +391,12 @@ function removeEmployee(employeeId) {
 }
 
 function showIntegrationCode(shopId, shopName) {
-    // 使用统一的IntegrationManager代替Legacy版本
+    // 使用统一的IntegrationManager
     if (window.integrationManager) {
         window.integrationManager.generateCode(shopId, { mobile: true });
     } else {
         console.warn('IntegrationManager not available');
     }
-}
-
-function copyIntegrationCode() {
-    // 功能已由IntegrationManager内部处理
-    console.warn('copyIntegrationCode: 功能已集成到IntegrationManager中');
 }
 
 function regenerateApiKey() {

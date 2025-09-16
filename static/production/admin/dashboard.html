@@ -2061,6 +2061,9 @@
         </div>
     </div>
 
+    <!-- 引入统一工具库 -->
+    <script src="/static/js/core/UnifiedUtils.js"></script>
+    
     <script>
         let currentUser = null;
         let currentSession = null;
@@ -3910,31 +3913,25 @@
             console.log('📋 显示集成代码模态框');
         }
 
-        // 复制集成代码到剪贴板
+        // 复制集成代码到剪贴板 - 使用统一工具库
         function copyIntegrationCode() {
             const codeArea = document.getElementById('integrationCode');
-            codeArea.select();
-            codeArea.setSelectionRange(0, 99999); // 适配移动设备
-
-            try {
-                document.execCommand('copy');
-                
-                // 显示复制成功提示
-                const copyBtn = document.querySelector('.copy-btn');
-                const originalText = copyBtn.textContent;
-                copyBtn.textContent = '✅ 已复制';
-                copyBtn.classList.add('copied');
-                
-                setTimeout(() => {
-                    copyBtn.textContent = originalText;
-                    copyBtn.classList.remove('copied');
-                }, 2000);
-                
-                console.log('📋 集成代码已复制到剪贴板');
-            } catch (err) {
-                console.error('复制失败:', err);
-                alert('复制失败，请手动选择复制');
+            if (!codeArea) {
+                console.error('找不到集成代码文本区域');
+                return;
             }
+
+            const copyBtn = document.querySelector('.copy-btn');
+            
+            // 使用统一工具库复制文本
+            UnifiedUtils.copyToClipboard(codeArea.value, copyBtn)
+                .then(() => {
+                    console.log('📋 集成代码已复制到剪贴板');
+                })
+                .catch((err) => {
+                    console.error('复制失败:', err);
+                    alert('复制失败，请手动选择复制');
+                });
         }
 
         // 关闭集成代码模态框
