@@ -15,6 +15,12 @@
         return;
     }
     
+    // 检查统一消息管理器是否已加载
+    if (typeof UnifiedMessageManager === 'undefined') {
+        console.error('错误: UnifiedMessageManager 未加载。请先引入 UnifiedMessageManager.js');
+        return;
+    }
+    
     // 配置选项
     const CONFIG = {
         // WebSocket服务器地址 - 请修改为您的服务器地址  
@@ -468,31 +474,20 @@
         }
         
         addMessage(type, message, staffName = null) {
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `rcs-message rcs-${type}-message`;
-            
-            const messageText = document.createElement('span');
-            messageText.className = 'rcs-message-text';
-            messageText.textContent = message;
-            
-            const messageTime = document.createElement('span');
-            messageTime.className = 'rcs-message-time';
-            messageTime.textContent = Utils.formatTime(new Date(), 'HH:mm');
-            
-            messageDiv.appendChild(messageText);
-            messageDiv.appendChild(messageTime);
-            
-            if (type === 'staff' && staffName) {
-                const staffLabel = document.createElement('span');
-                staffLabel.textContent = `客服 ${staffName}`;
-                staffLabel.style.fontSize = '12px';
-                staffLabel.style.color = '#666';
-                staffLabel.style.marginBottom = '5px';
-                messageDiv.insertBefore(staffLabel, messageText);
+            // 使用统一消息管理器处理消息
+            if (!this.messageManager) {
+                this.messageManager = new UnifiedMessageManager({
+                    enableTimestamp: true,
+                    enableSound: this.config.enableSound,
+                    autoScroll: true
+                });
+                this.messageManager.registerContainer('rcs-chat', this.messagesDiv);
             }
             
-            this.chatMessages.appendChild(messageDiv);
-            this.scrollToBottom();
+            this.messageManager.addMessage('rcs-chat', type, message, {
+                staffName: staffName,
+                className: `rcs-message rcs-${type}-message`
+            });
         }
         
         showSystemMessage(message) {

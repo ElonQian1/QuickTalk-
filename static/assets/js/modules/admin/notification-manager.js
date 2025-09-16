@@ -192,34 +192,46 @@ class NotificationManagerUI {
      */
     setupWebSocketConnection() {
         try {
-            this.ws = new WebSocket(`ws://${window.location.host}/ws`);
+            // 使用统一的WebSocket客户端
+            if (typeof UnifiedWebSocketClient === 'undefined') {
+                console.error('错误: UnifiedWebSocketClient 未加载。请先引入 websocket-client.min.js');
+                return;
+            }
+
+            this.ws = UnifiedWebSocketClient.createAdminClient({
+                debug: true,
+                reconnect: true,
+                heartbeat: true
+            });
             
-            this.ws.onopen = () => {
+            this.ws.onOpen(() => {
                 console.log('📡 WebSocket连接已建立');
-            };
+            });
             
-            this.ws.onmessage = (event) => {
+            this.ws.onMessage((data) => {
                 try {
-                    const data = JSON.parse(event.data);
                     if (data.type === 'notification') {
                         this.displayNotification(data);
                     }
                 } catch (error) {
                     console.error('处理WebSocket消息失败:', error);
                 }
-            };
+            });
             
-            this.ws.onclose = () => {
+            this.ws.onClose(() => {
                 console.log('📡 WebSocket连接已关闭');
                 // 重连逻辑
                 setTimeout(() => {
                     this.setupWebSocketConnection();
                 }, 5000);
-            };
+            });
             
-            this.ws.onerror = (error) => {
+            this.ws.onError((error) => {
                 console.error('WebSocket错误:', error);
-            };
+            });
+
+            // 连接WebSocket
+            this.ws.connect();
             
         } catch (error) {
             console.error('建立WebSocket连接失败:', error);

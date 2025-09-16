@@ -89,7 +89,7 @@ class IntegrationManager {
                     <div class="code-content">
                         ${this.getDescriptionsHTML()}
                         <div class="code-display">
-                            <textarea class="code-textarea" readonly>${Utils.escapeHtml(data.scriptCode || data.integrationCode || data.code || '')}</textarea>
+                            <textarea class="code-textarea" readonly>${UnifiedUtils.escapeHtml(data.scriptCode || data.integrationCode || data.code || '')}</textarea>
                             <div class="code-actions">
                                 <button class="copy-btn" onclick="window.integrationManager.copyCode(this)">📋 复制代码</button>
                                 <button class="download-btn" onclick="window.integrationManager.downloadCode(this)">💾 下载文件</button>

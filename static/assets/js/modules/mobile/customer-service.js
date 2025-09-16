@@ -139,33 +139,42 @@ class MobileCustomerService {
      */
     initWebSocket() {
         try {
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${protocol}//${window.location.host}/ws`;
-            
-            this.websocket = new WebSocket(wsUrl);
-            
-            this.websocket.onopen = () => {
-                console.log('🔌 WebSocket连接已建立');
-                // 发送身份验证
-                this.websocket.send(JSON.stringify({
-                    type: 'auth',
-                    sessionId: localStorage.getItem('sessionId')
-                }));
-            };
+            // 使用统一的WebSocket客户端
+            if (typeof UnifiedWebSocketClient === 'undefined') {
+                console.error('错误: UnifiedWebSocketClient 未加载。请先引入 websocket-client.min.js');
+                return;
+            }
 
-            this.websocket.onmessage = (event) => {
+            this.websocket = UnifiedWebSocketClient.createCustomerClient({
+                debug: true,
+                reconnect: true,
+                heartbeat: true,
+                sessionId: localStorage.getItem('sessionId')
+            });
+
+            this.websocket.onOpen(() => {
+                console.log('🔌 WebSocket连接已建立');
+            });
+
+            this.websocket.onMessage((data) => {
                 try {
-                    const data = JSON.parse(event.data);
                     this.handleWebSocketMessage(data);
                 } catch (error) {
                     console.error('❌ WebSocket消息解析失败:', error);
                 }
-            };
+            });
 
-            this.websocket.onclose = () => {
+            this.websocket.onClose(() => {
                 console.log('🔌 WebSocket连接已断开，5秒后重连...');
                 setTimeout(() => this.initWebSocket(), 5000);
-            };
+            });
+
+            this.websocket.onError((error) => {
+                console.error('❌ WebSocket连接错误:', error);
+            });
+
+            // 连接WebSocket
+            this.websocket.connect();
 
             this.websocket.onerror = (error) => {
                 console.error('❌ WebSocket连接错误:', error);

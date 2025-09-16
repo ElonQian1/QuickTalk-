@@ -7,18 +7,12 @@
 const ErrorHandler = require('../utils/ErrorHandler');
 
 class ConnectionHandler {
-    constructor(services, legacyServices = {}) {
+    constructor(services) {
         // 新的服务层依赖
         this.shopService = services.shopService;
         this.conversationService = services.conversationService;
         this.notificationService = services.notificationService;
-        
-        // 保持向后兼容的依赖
-        this.shopRepository = legacyServices.shopRepository;
-        this.messageRepository = legacyServices.messageRepository;
-        this.authValidator = legacyServices.authValidator;
-        this.domainValidator = legacyServices.domainValidator;
-        this.securityLogger = legacyServices.securityLogger;
+        this.securityManager = services.securityManager;
         
         // 存储活跃连接
         this.activeConnections = new Map();
@@ -58,17 +52,12 @@ class ConnectionHandler {
             try {
                 authResult = await this.shopService.validateApiKey(shopKey);
             } catch (error) {
-                // 回退到传统验证器（向后兼容）
-                if (this.authValidator) {
-                    authResult = await this.authValidator.validateApiKey(shopKey);
-                } else {
-                    throw error;
-                }
+                throw error;
             }
 
             if (!authResult.valid) {
-                if (this.securityLogger) {
-                    await this.securityLogger.logApiKeyEvent('VALIDATION_FAILED', {
+                if (this.securityManager) {
+                    await this.securityManager.logSecurityEvent('API_VALIDATION_FAILED', {
                         apiKey: shopKey,
                         shopId,
                         userId,
@@ -102,21 +91,17 @@ class ConnectionHandler {
             if (domain) {
                 let domainValid = false;
                 try {
-                    // 使用店铺服务验证域名
-                    domainValid = await this.shopService.validateDomain(shop.id, domain);
+                    // 使用安全管理器验证域名
+                    const validationResult = await this.securityManager.validateApiKeyAndDomain(shopKey, domain, shopId);
+                    domainValid = validationResult.valid;
                 } catch (error) {
-                    // 回退到传统域名验证器
-                    if (this.domainValidator) {
-                        domainValid = await this.domainValidator.validateDomain(shop.id, domain);
-                    } else {
-                        console.warn('域名验证器不可用，跳过域名验证');
-                        domainValid = true;
-                    }
+                    console.warn('域名验证失败:', error);
+                    domainValid = false;
                 }
 
                 if (!domainValid) {
-                    if (this.securityLogger) {
-                        await this.securityLogger.logSecurityEvent('INVALID_DOMAIN', {
+                    if (this.securityManager) {
+                        await this.securityManager.logSecurityEvent('INVALID_DOMAIN', {
                             domain,
                             shopId: shop.id,
                             userId,
@@ -558,8 +543,8 @@ class ConnectionHandler {
      * @param {Object} services - 服务层对象
      * @param {Object} legacyServices - 兼容旧服务
      */
-    static createWithServices(services, legacyServices = {}) {
-        return new ConnectionHandler(services, legacyServices);
+    static createWithServices(services) {
+        return new ConnectionHandler(services);
     }
 
     /**
@@ -572,6 +557,7 @@ class ConnectionHandler {
         existingHandler.shopService = services.shopService;
         existingHandler.conversationService = services.conversationService;
         existingHandler.notificationService = services.notificationService;
+        existingHandler.securityManager = services.securityManager;
         
         console.log('✅ ConnectionHandler 已迁移到服务层架构');
         return existingHandler;
