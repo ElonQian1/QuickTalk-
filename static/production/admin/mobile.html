@@ -1469,7 +1469,11 @@
         </div>
     </div>
 
-    <!-- 引入外部JavaScript文件 -->
+    <!-- 引入统一消息API和组件管理器 -->
+    <script src="/src/api/UnifiedMessageAPI.js"></script>
+    <script src="/src/components/UnifiedComponentManager.js"></script>
+    
+    <!-- 引入统一版本的移动端管理应用 -->
     <script src="/js/mobile/mobile-admin-app.js"></script>
     <script src="/js/mobile/mobile-admin-modules.js"></script>
     
@@ -1479,9 +1483,9 @@
     
     <!-- 引入集成代码管理器 -->
     <script src="/js/core/IntegrationManager.js"></script>
-    <script src="/js/mobile-shop-manager.js"></script>
+    <!-- 移除重复的 mobile-shop-manager.js，使用统一组件管理器 -->
     <!-- 引入消息管理模块 -->
-    <script src="/js/mobile-message-manager.js"></script>
+    <!-- 移除重复的 mobile-message-manager.js，使用统一组件管理器 -->
     <!-- 引入搜索功能模块 -->
     <script src="/js/message-search-manager.js"></script>
     <!-- 引入多店铺客服系统 -->

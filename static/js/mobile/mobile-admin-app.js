@@ -1,6 +1,6 @@
 /**
- * 移动端管理后台主应用
- * 从admin-mobile.html中提取的JavaScript代码
+ * 移动端管理后台主应用 - 统一版本
+ * 使用统一组件管理器替代重复的MessageManager和ShopManager类
  */
 
 // 全局变量
@@ -53,86 +53,65 @@ class PageManager {
 
     static loadPageData(pageName, params) {
         switch (pageName) {
-            case 'home':
-                HomeManager.loadData();
-                break;
             case 'messages':
-                console.log('💬 切换到消息页面');
-                // 🎯 使用新版多店铺客服系统
-                if (window.customerServiceManager) {
-                    console.log('🏪 使用多店铺客服系统');
-                    const messageContainer = document.getElementById('messageContent');
-                    if (messageContainer) {
-                        window.customerServiceManager.renderToContainer(messageContainer);
-                    }
-                } else if (window.messageManager) {
-                    console.log('💬 使用备用消息管理器');
-                    window.messageManager.showMessageOverview();
+                if (params.shopId && params.userId) {
+                    MessageManager.loadChatMessages(params.shopId, params.userId);
                 } else {
-                    console.error('❌ 没有可用的消息管理器');
-                    const messageContainer = document.getElementById('messageContent');
-                    if (messageContainer) {
-                        messageContainer.innerHTML = `
-                            <div class="error-container">
-                                <div class="error-icon">⚠️</div>
-                                <div class="error-title">消息系统未初始化</div>
-                                <div class="error-message">请稍后重试或刷新页面</div>
-                            </div>
-                        `;
-                    }
+                    MessageManager.loadShopList();
                 }
                 break;
             case 'shops':
-                console.log('📱 切换到店铺页面');
-                // 确保sessionId全局可访问
-                window.sessionId = sessionId;
-                console.log('🔍 使用sessionId:', sessionId);
-                
-                // 直接使用已测试过的旧版店铺管理系统
-                console.log('🏪 调用 ShopManager.loadShops()');
                 ShopManager.loadShops();
                 break;
             case 'chat':
-                MessageManager.loadChatMessages(params.shopId, params.userId);
+                if (params.shopId && params.userId) {
+                    MessageManager.loadChatMessages(params.shopId, params.userId);
+                }
+                break;
+            case 'home':
+                this.loadHomeData();
                 break;
         }
     }
-}
 
-// 首页管理
-class HomeManager {
-    static async loadData() {
+    static async loadHomeData() {
         try {
             // 加载统计数据
-            const response = await fetch('/api/admin/stats', {
-                headers: { 'X-Session-Id': sessionId }
-            });
-            
-            if (response.ok) {
-                const stats = await response.json();
-                document.getElementById('totalShops').textContent = stats.totalShops || 0;
-                document.getElementById('totalMessages').textContent = stats.unreadMessages || 0;
-            }
+            const stats = {
+                totalShops: currentShops.length,
+                totalMessages: Object.values(messageCounters).reduce((sum, count) => sum + count, 0),
+                activeConversations: Object.keys(messageCounters).filter(key => messageCounters[key] > 0).length
+            };
 
-            // 显示管理员功能（如果是超级管理员）
-            if (currentUser && currentUser.role === 'super_admin') {
-                document.getElementById('adminActions').style.display = 'block';
-            }
+            // 更新首页统计卡片
+            document.getElementById('totalShops').textContent = stats.totalShops;
+            document.getElementById('totalMessages').textContent = stats.totalMessages;
+            document.getElementById('activeConversations').textContent = stats.activeConversations;
         } catch (error) {
             console.error('加载首页数据失败:', error);
         }
     }
 }
 
-// 消息管理系统 - 复用之前开发的代码
-class MessageManager {
-    static loadShopList() {
+// 使用统一组件管理器替代旧的重复类
+const MessageManager = {
+    loadShopList: () => {
+        if (window.UnifiedComponentManager) {
+            const messageManager = window.UnifiedComponentManager.createMessageManager('mobile');
+            messageManager.loadShopList();
+        } else {
+            console.warn('UnifiedComponentManager not loaded, using fallback');
+            MessageManager.fallbackLoadShopList();
+        }
+    },
+    
+    fallbackLoadShopList: () => {
         const content = document.getElementById('messagesContent');
         const title = document.getElementById('messagesTitle');
         
         title.textContent = '店铺列表';
         content.innerHTML = '<div class="loading">正在加载店铺...</div>';
-
+        
         setTimeout(() => {
             if (currentShops.length === 0) {
                 content.innerHTML = `
@@ -144,7 +123,7 @@ class MessageManager {
                 `;
                 return;
             }
-
+            
             const shopListHTML = currentShops.map(shop => {
                 const unreadCount = messageCounters[shop.id] || 0;
                 return `
@@ -158,12 +137,20 @@ class MessageManager {
                     </div>
                 `;
             }).join('');
-
-            content.innerHTML = `<div class="shop-list">${shopListHTML}</div>`;
+            content.innerHTML = shopListHTML;
         }, 500);
-    }
-
-    static viewShopConversations(shopId) {
+    },
+    
+    viewShopConversations: (shopId) => {
+        if (window.UnifiedComponentManager) {
+            const messageManager = window.UnifiedComponentManager.createMessageManager('mobile');
+            messageManager.viewShopConversations(shopId);
+        } else {
+            MessageManager.fallbackViewShopConversations(shopId);
+        }
+    },
+    
+    fallbackViewShopConversations: (shopId) => {
         const shop = currentShops.find(s => s.id === shopId);
         if (!shop) return;
 
@@ -173,7 +160,6 @@ class MessageManager {
         title.textContent = shop.name;
         content.innerHTML = '<div class="loading">正在加载对话...</div>';
 
-        // 模拟加载对话列表
         setTimeout(() => {
             const mockConversations = [
                 {
@@ -214,13 +200,30 @@ class MessageManager {
 
             content.innerHTML = conversationListHTML;
         }, 500);
-    }
-
-    static openChat(shopId, userId) {
-        PageManager.switchPage('chat', { shopId, userId });
-    }
-
-    static loadChatMessages(shopId, userId) {
+    },
+    
+    openChat: (shopId, userId) => {
+        currentChatShop = shopId;
+        currentChatUser = userId;
+        
+        const params = new URLSearchParams();
+        params.set('shopId', shopId);
+        params.set('userId', userId);
+        
+        history.pushState({shopId, userId}, '', `?${params.toString()}`);
+        PageManager.switchPage('chat', {shopId, userId});
+    },
+    
+    loadChatMessages: (shopId, userId) => {
+        if (window.UnifiedComponentManager) {
+            const messageManager = window.UnifiedComponentManager.createMessageManager('mobile');
+            messageManager.loadChatMessages(shopId, userId);
+        } else {
+            MessageManager.fallbackLoadChatMessages(shopId, userId);
+        }
+    },
+    
+    fallbackLoadChatMessages: (shopId, userId) => {
         currentChatShop = shopId;
         currentChatUser = userId;
         
@@ -231,7 +234,6 @@ class MessageManager {
         title.textContent = `${shop?.name || '店铺'} - 用户${userId}`;
         messagesContainer.innerHTML = '<div class="loading">正在加载消息...</div>';
 
-        // 模拟加载聊天消息
         setTimeout(() => {
             const mockMessages = [
                 {
@@ -248,11 +250,11 @@ class MessageManager {
                 }
             ];
 
-            this.renderChatMessages(mockMessages);
+            MessageManager.renderChatMessages(mockMessages);
         }, 500);
-    }
-
-    static renderChatMessages(messages) {
+    },
+    
+    renderChatMessages: (messages) => {
         const messagesContainer = document.getElementById('chatMessages');
         
         if (messages.length === 0) {
@@ -278,234 +280,117 @@ class MessageManager {
 
         messagesContainer.innerHTML = messagesHTML;
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    },
+    
+    formatTime: (timestamp) => {
+        return new Date(timestamp).toLocaleTimeString('zh-CN', {
+            hour: '2-digit',
+            minute: '2-digit'
+        });
     }
+};
 
-    // 改为使用统一的 Utils.formatRelativeTime 方法
-}
-
-// 店铺管理
-class ShopManager {
-    static async loadShops() {
+const ShopManager = {
+    loadShops: async () => {
+        if (window.UnifiedComponentManager) {
+            const shopManager = window.UnifiedComponentManager.createShopManager('mobile');
+            await shopManager.loadShops();
+        } else {
+            console.warn('UnifiedComponentManager not loaded, using fallback');
+            await ShopManager.fallbackLoadShops();
+        }
+    },
+    
+    fallbackLoadShops: async () => {
         const content = document.getElementById('shopsContent');
         content.innerHTML = '<div class="loading">正在加载店铺...</div>';
-
-        console.log('开始加载店铺, sessionId:', sessionId);
-
+        
         try {
-            // 根据用户角色选择正确的API端点
             const apiEndpoint = currentUser && currentUser.role === 'super_admin' 
-                ? '/api/admin/shops'  // 超级管理员看所有店铺
-                : '/api/shops';       // 普通用户看自己的店铺
-            
-            console.log(`📡 使用API端点: ${apiEndpoint} (用户角色: ${currentUser?.role || '未知'})`);
+                ? '/api/admin/shops'
+                : '/api/shops';
             
             const response = await fetch(apiEndpoint, {
-                headers: { 'X-Session-Id': sessionId }
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-session-id': sessionId
+                },
+                credentials: 'include'
             });
 
-            console.log('API响应状态:', response.status, response.statusText);
+            if (!response.ok) {
+                throw new Error(`加载店铺失败: ${response.status}`);
+            }
 
-            if (response.ok) {
-                const responseData = await response.json();
-                console.log('📦 API返回的原始数据:', responseData);
-                console.log('📦 数据类型:', typeof responseData);
-                
-                // 处理不同的响应格式
-                let currentShops;
-                if (Array.isArray(responseData)) {
-                    // 直接是数组格式 (来自 /api/shops)
-                    currentShops = responseData;
-                    console.log('📦 检测到数组格式响应');
-                } else if (responseData && responseData.shops && Array.isArray(responseData.shops)) {
-                    // 包装对象格式 (来自 /api/auth/me 或其他端点)
-                    currentShops = responseData.shops;
-                    console.log('📦 检测到对象包装格式响应，提取 shops 数组');
-                } else {
-                    console.error('❌ 无法识别的响应格式:', responseData);
-                    throw new Error(`API返回数据格式错误: 期望数组或包含shops的对象，实际收到 ${typeof responseData}`);
-                }
-                
-                console.log('📦 是否为数组:', Array.isArray(currentShops));
-                
-                // 确保数据是数组格式
-                if (!Array.isArray(currentShops)) {
-                    console.error('❌ 处理后的数据仍不是数组格式:', currentShops);
-                    content.innerHTML = '<div class="empty-state"><div class="empty-icon">❌</div><div>数据格式错误</div></div>';
-                    return;
-                }
-                
-                console.log('✅ 收到店铺数据:', currentShops.length, '个店铺');
-                if (currentShops.length > 0) {
-                    console.log('📄 店铺数据预览:', currentShops.slice(0, 2));
-                }
-                this.renderShops(currentShops);
+            const data = await response.json();
+            if (data.success && data.shops) {
+                currentShops = data.shops;
+                ShopManager.renderShops(data.shops);
             } else {
-                const errorText = await response.text();
-                console.error('API响应错误:', errorText);
-                content.innerHTML = '<div class="empty-state"><div class="empty-icon">❌</div><div>加载失败: ' + response.status + '</div></div>';
+                throw new Error(data.error || '加载店铺数据失败');
             }
         } catch (error) {
-            console.error('加载店铺失败:', error);
-            content.innerHTML = '<div class="empty-state"><div class="empty-icon">❌</div><div>网络错误</div></div>';
+            console.error('❌ 加载店铺失败:', error);
+            content.innerHTML = `
+                <div class="error-state">
+                    <div class="error-icon">⚠️</div>
+                    <div class="error-message">加载失败</div>
+                    <div class="error-detail">${error.message}</div>
+                    <button class="retry-btn" onclick="ShopManager.loadShops()">重试</button>
+                </div>
+            `;
         }
-    }
-
-    static renderShops(shops) {
+    },
+    
+    renderShops: (shops) => {
         const content = document.getElementById('shopsContent');
-
-        console.log('开始渲染店铺列表，店铺数量:', shops.length);
-
-        if (shops.length === 0) {
+        
+        if (!shops || shops.length === 0) {
             content.innerHTML = `
                 <div class="empty-state">
                     <div class="empty-icon">🏪</div>
                     <div>暂无店铺</div>
-                    <small>点击创建按钮添加第一个店铺</small>
+                    <small>请先创建店铺</small>
                 </div>
             `;
             return;
         }
-
-        const shopsHTML = shops.map((shop, index) => {
-            if (index < 3) {
-                console.log(`店铺${index}:`, shop.name, shop.domain, shop.approvalStatus);
-            }
-            const statusClass = this.getStatusClass(shop.approvalStatus || shop.status);
-            const statusText = this.getStatusText(shop.approvalStatus || shop.status);
-            const userRole = this.getUserRoleInShop(shop);
-
-            return `
-                <div class="shop-item">
-                    <div class="shop-avatar-container">
-                        <div class="shop-avatar">${shop.name.charAt(0)}</div>
-                        <div class="shop-role">${this.getRoleText(userRole)}</div>
-                    </div>
-                    <div class="shop-content">
-                        <div class="shop-info">
-                            <div class="shop-name">${shop.name}</div>
-                            <div class="shop-domain">${shop.domain}</div>
-                            <div class="shop-status ${statusClass}">${statusText}</div>
-                        </div>
-                        <div class="shop-actions">
-                            ${(() => {
-                                const approvalStatus = shop.approval_status || shop.approvalStatus;
-                                
-                                if (approvalStatus === 'approved') {
-                                    // 根据用户在店铺中的角色显示不同按钮
-                                    if (userRole === 'owner' || userRole === 'admin') {
-                                        // 店主/管理员：显示所有管理按钮
-                                        return `
-                                            <button class="shop-btn primary" onclick="ShopManager.manageShop('${shop.id}')">管理</button>
-                                            <button class="shop-btn success" onclick="MessageManager.viewShopConversations('${shop.id}')">💬 消息</button>
-                                            <button class="shop-btn info" onclick="showIntegrationCode('${shop.id}', '${shop.name}')">📋 代码</button>
-                                        `;
-                                    } else if (userRole === 'manager') {
-                                        // 经理：显示部分管理按钮
-                                        return `
-                                            <button class="shop-btn success" onclick="MessageManager.viewShopConversations('${shop.id}')">💬 消息</button>
-                                            <button class="shop-btn info" onclick="showIntegrationCode('${shop.id}', '${shop.name}')">📋 代码</button>
-                                        `;
-                                    } else if (userRole === 'employee') {
-                                        // 员工：只显示消息相关按钮
-                                        return `
-                                            <button class="shop-btn success" onclick="MessageManager.viewShopConversations('${shop.id}')">💬 消息</button>
-                                        `;
-                                    } else {
-                                        // 其他角色：基本查看权限
-                                        return `
-                                            <button class="shop-btn success" onclick="MessageManager.viewShopConversations('${shop.id}')">💬 消息</button>
-                                        `;
-                                    }
-                                } else if (approvalStatus === 'pending') {
-                                    return `
-                                        <button class="shop-btn warning" disabled>等待审核</button>
-                                    `;
-                                } else if (approvalStatus === 'rejected') {
-                                    return `
-                                        <button class="shop-btn danger" disabled>已拒绝</button>
-                                    `;
-                                } else {
-                                    return `
-                                        <button class="shop-btn secondary" onclick="ShopManager.manageShop('${shop.id}')">查看</button>
-                                    `;
-                                }
-                            })()}
-                        </div>
+        
+        const shopsHTML = shops.map(shop => `
+            <div class="shop-item" data-shop-id="${shop.id}">
+                <div class="shop-header">
+                    <div class="shop-info">
+                        <div class="shop-name">${shop.name}</div>
+                        <div class="shop-status">${shop.status || '正常'}</div>
                     </div>
                 </div>
-            `;
-        }).join('');
-
-        content.innerHTML = `<div class="shop-list">${shopsHTML}</div>`;
-    }
-
-    static getStatusClass(status) {
-        const statusMap = {
-            'approved': 'active',
-            'active': 'active',
-            'pending': 'pending', 
-            'expired': 'expired',
-            'inactive': 'expired',
-            'rejected': 'expired'
-        };
-        return statusMap[status] || 'pending';
-    }
-
-    static getStatusText(status) {
-        const statusMap = {
-            'approved': '✅ 已审核',
-            'active': '✅ 正常',
-            'pending': '⏳ 待审核',
-            'expired': '❌ 已过期',
-            'inactive': '⏸️ 未激活',
-            'rejected': '❌ 已拒绝'
-        };
-        return statusMap[status] || '未知状态';
-    }
-
-    static manageShop(shopId) {
-        console.log('🏪 打开店铺管理:', shopId);
-        openShopManageModal(shopId);
-    }
-
-    // 获取用户在店铺中的角色
-    static getUserRoleInShop(shop) {
-        // 如果店铺数据中已有userRole属性，直接使用
-        if (shop.userRole) {
-            return shop.userRole;
-        }
+                <div class="shop-actions">
+                    <button class="action-btn btn-primary" onclick="ShopManager.viewMessages('${shop.id}')">
+                        💬 查看消息
+                    </button>
+                    <button class="action-btn btn-secondary" onclick="ShopManager.manageShop('${shop.id}')">
+                        ⚙️ 管理店铺
+                    </button>
+                </div>
+            </div>
+        `).join('');
         
-        // 如果当前用户是超级管理员
-        if (currentUser && currentUser.role === 'super_admin') {
-            return 'admin';
-        }
-        
-        // 如果当前用户是店主
-        if (currentUser && currentUser.role === 'shop_owner') {
-            return 'owner';
-        }
-        
-        // 检查是否是员工
-        if (currentUser && (currentUser.role === 'employee' || currentUser.role === 'agent')) {
-            return 'employee';
-        }
-        
-        // 默认返回
-        return 'member';
+        content.innerHTML = shopsHTML;
+    },
+    
+    viewMessages: (shopId) => {
+        PageManager.switchPage('messages');
+        setTimeout(() => {
+            MessageManager.viewShopConversations(shopId);
+        }, 100);
+    },
+    
+    manageShop: (shopId) => {
+        console.log(`管理店铺 ${shopId}`);
+        alert('店铺管理功能开发中...');
     }
-
-    // 获取角色显示文本（与桌面版保持一致）
-    static getRoleText(role) {
-        const roleTexts = {
-            'owner': '店主',
-            'manager': '经理', 
-            'employee': '员工',
-            'admin': '管理员',
-            'member': '成员'
-        };
-        return roleTexts[role] || '未知';
-    }
-}
+};
 
 // 认证管理
 class AuthManager {
@@ -519,232 +404,90 @@ class AuthManager {
 
             const data = await response.json();
             
-            if (response.ok) {
-                currentUser = data.user;
+            if (data.success) {
                 sessionId = data.sessionId;
+                currentUser = data.user;
                 
-                // 持久化sessionId到localStorage
-                localStorage.setItem('sessionId', sessionId);
-                localStorage.setItem('currentUser', JSON.stringify(currentUser));
-                
-                // 全局设置sessionId供模块使用
-                window.sessionId = sessionId;
-                window.currentUser = currentUser;
-                
-                console.log('✅ 登录成功，用户:', currentUser.username, 'SessionId:', sessionId);
-                
+                // 切换到主界面
                 document.getElementById('loginContainer').style.display = 'none';
                 document.getElementById('appContainer').style.display = 'flex';
                 
-                // 更新用户信息显示
-                document.getElementById('userInfo').textContent = `${currentUser.username} (${this.getRoleText(currentUser.role)})`;
-                
                 // 加载初始数据
-                HomeManager.loadData();
-                
-                // 预初始化店铺管理模块
-                if (window.mobileShopManager) {
-                    console.log('🏪 预初始化店铺管理模块');
-                    // 先不加载数据，等切换到店铺页面时再加载
-                }
-                ShopManager.loadShops();
+                await ShopManager.loadShops();
                 
                 return { success: true };
             } else {
-                return { success: false, error: data.error };
+                return { success: false, error: data.error || '登录失败' };
             }
         } catch (error) {
+            console.error('登录请求失败:', error);
             return { success: false, error: '网络错误，请稍后重试' };
         }
     }
 
-    static getRoleText(role) {
-        const roleMap = {
-            'super_admin': '超级管理员',
-            'admin': '管理员',
-            'user': '店主'
-        };
-        return roleMap[role] || '用户';
-    }
-
     static logout() {
-        if (confirm('确定要退出登录吗？')) {
-            currentUser = null;
-            sessionId = null;
-            currentShops = [];
-            
-            // 清除localStorage中的会话数据
-            localStorage.removeItem('sessionId');
-            localStorage.removeItem('currentUser');
-            
-            document.getElementById('loginContainer').style.display = 'flex';
-            document.getElementById('appContainer').style.display = 'none';
-            
-            // 重置页面状态
-            PageManager.switchPage('home');
-            pageStack = ['home'];
-        }
+        currentUser = null;
+        sessionId = null;
+        currentShops = [];
+        
+        // 返回登录界面
+        document.getElementById('appContainer').style.display = 'none';
+        document.getElementById('loginContainer').style.display = 'flex';
+        
+        // 清空表单
+        document.getElementById('username').value = '';
+        document.getElementById('password').value = '';
+        document.getElementById('errorMessage').style.display = 'none';
     }
 }
 
-// 店铺创建
-async function createShop() {
-    const form = document.getElementById('createShopForm');
-    const formData = new FormData(form);
-    
-    try {
-        const response = await fetch('/api/shops/create', {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                'X-Session-Id': sessionId
-            },
-            body: JSON.stringify({
-                name: formData.get('shopName'),
-                domain: formData.get('shopDomain'),
-                description: formData.get('shopDescription')
-            })
-        });
-
-        const data = await response.json();
+// 工具类
+class Utils {
+    static formatRelativeTime(timestamp) {
+        const now = Date.now();
+        const time = new Date(timestamp).getTime();
+        const diff = now - time;
         
-        if (response.ok) {
-            alert('店铺创建成功！请等待审核。');
-            hideCreateShopModal();
-            form.reset();
-            ShopManager.loadShops(); // 重新加载店铺列表
+        if (diff < 60000) { // 1分钟内
+            return '刚刚';
+        } else if (diff < 3600000) { // 1小时内
+            return `${Math.floor(diff / 60000)}分钟前`;
+        } else if (diff < 86400000) { // 24小时内
+            return `${Math.floor(diff / 3600000)}小时前`;
         } else {
-            alert(data.error || '创建失败，请重试');
-        }
-    } catch (error) {
-        alert('网络错误，请稍后重试');
-    }
-}
-
-// 模态框管理
-function showCreateShopModal() {
-    document.getElementById('createShopModal').style.display = 'flex';
-}
-
-function hideCreateShopModal() {
-    document.getElementById('createShopModal').style.display = 'none';
-}
-
-function showProfileModal() {
-    const modal = document.getElementById('profileModal');
-    const content = document.getElementById('profileContent');
-    
-    content.innerHTML = `
-        <div style="text-align: center;">
-            <div style="font-size: 48px; margin-bottom: 15px;">👤</div>
-            <h3>${currentUser?.username || '未知用户'}</h3>
-            <p style="color: #666; margin: 10px 0;">${AuthManager.getRoleText(currentUser?.role)}</p>
-            <p style="color: #666; font-size: 14px;">登录时间: ${new Date().toLocaleString()}</p>
-        </div>
-    `;
-    
-    modal.style.display = 'flex';
-}
-
-function hideProfileModal() {
-    document.getElementById('profileModal').style.display = 'none';
-}
-
-function showAdminPanel() {
-    document.getElementById('adminPanelModal').style.display = 'flex';
-}
-
-function hideAdminPanel() {
-    document.getElementById('adminPanelModal').style.display = 'none';
-}
-
-function showReviewPanel() {
-    document.getElementById('reviewPanelModal').style.display = 'flex';
-}
-
-function hideReviewPanel() {
-    document.getElementById('reviewPanelModal').style.display = 'none';
-}
-
-function showPromotionModal() {
-    alert('推广功能开发中...');
-}
-
-// 全局函数
-function switchPage(pageName) {
-    PageManager.switchPage(pageName);
-}
-
-function goBack() {
-    PageManager.goBack();
-}
-
-// 检查现有会话
-async function checkExistingSession() {
-    const storedSessionId = localStorage.getItem('sessionId');
-    const storedUser = localStorage.getItem('currentUser');
-    
-    if (storedSessionId && storedUser) {
-        console.log('🔍 发现保存的会话，验证中...', storedSessionId);
-        
-        try {
-            // 验证会话是否仍然有效
-            const response = await fetch('/api/auth/me', {
-                headers: { 'X-Session-Id': storedSessionId }
-            });
-            
-            if (response.ok) {
-                const user = await response.json();
-                
-                // 恢复会话
-                sessionId = storedSessionId;
-                currentUser = user;
-                window.sessionId = sessionId;
-                window.currentUser = currentUser;
-                
-                console.log('✅ 会话恢复成功:', user.username);
-                
-                // 直接进入应用
-                document.getElementById('loginContainer').style.display = 'none';
-                document.getElementById('appContainer').style.display = 'flex';
-                document.getElementById('userInfo').textContent = `${user.username} (${AuthManager.getRoleText(user.role)})`;
-                
-                // 加载初始数据
-                HomeManager.loadData();
-                
-                return true;
-            } else {
-                console.log('⚠️ 保存的会话已过期');
-                // 清除过期的会话数据
-                localStorage.removeItem('sessionId');
-                localStorage.removeItem('currentUser');
-            }
-        } catch (error) {
-            console.error('验证会话失败:', error);
-            localStorage.removeItem('sessionId');
-            localStorage.removeItem('currentUser');
+            return new Date(timestamp).toLocaleDateString();
         }
     }
-    
-    return false;
 }
 
+// 发送消息函数 - 使用统一消息API
 function sendMessage() {
     const input = document.getElementById('messageInput');
     const message = input.value.trim();
     
     if (!message || !currentChatShop || !currentChatUser) return;
 
-    // 在界面上显示消息
-    const messagesContainer = document.getElementById('chatMessages');
-    const messageHTML = `
-        <div class="message admin">
-            <div class="message-content">${message}</div>
-            <div class="message-time">刚刚</div>
-        </div>
-    `;
-    messagesContainer.insertAdjacentHTML('beforeend', messageHTML);
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    // 使用统一消息API发送消息
+    if (window.UnifiedMessageAPI) {
+        window.UnifiedMessageAPI.sendMessage({
+            content: message,
+            shopId: currentChatShop,
+            userId: currentChatUser,
+            type: 'text',
+            sender: 'admin'
+        });
+    } else {
+        // 回退到旧的实现
+        const messagesContainer = document.getElementById('chatMessages');
+        const messageHTML = `
+            <div class="message admin">
+                <div class="message-content">${message}</div>
+                <div class="message-time">刚刚</div>
+            </div>
+        `;
+        messagesContainer.insertAdjacentHTML('beforeend', messageHTML);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
 
     input.value = '';
 }
@@ -753,71 +496,60 @@ function logout() {
     AuthManager.logout();
 }
 
+function checkExistingSession() {
+    // 检查是否有保存的会话
+    const savedSessionId = localStorage.getItem('sessionId');
+    if (savedSessionId) {
+        sessionId = savedSessionId;
+        // 验证会话是否仍然有效
+        // 这里可以添加会话验证逻辑
+    }
+}
+
 // 初始化
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('客服管理系统启动');
+    console.log('客服管理系统启动 - 统一版本');
     
     // 检查是否有保存的会话
     checkExistingSession();
     
     // 登录表单处理
-    document.getElementById('loginForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        
-        const username = document.getElementById('username').value;
-        const password = document.getElementById('password').value;
-        const loginBtn = document.getElementById('loginBtn');
-        
-        loginBtn.disabled = true;
-        loginBtn.textContent = '登录中...';
-        
-        const result = await AuthManager.login(username, password);
-        
-        if (!result.success) {
-            document.getElementById('errorMessage').textContent = result.error;
-            document.getElementById('errorMessage').style.display = 'block';
-        }
-        
-        loginBtn.disabled = false;
-        loginBtn.textContent = '登录';
-    });
-
-    // 消息输入框回车发送
-    document.getElementById('messageInput').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            sendMessage();
-        }
-    });
-
-    // 模态框点击外部关闭
-    document.querySelectorAll('.modal').forEach(modal => {
-        modal.addEventListener('click', function(e) {
-            if (e.target === this) {
-                this.style.display = 'none';
+    const loginForm = document.getElementById('loginForm');
+    if (loginForm) {
+        loginForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const loginBtn = document.getElementById('loginBtn');
+            
+            loginBtn.disabled = true;
+            loginBtn.textContent = '登录中...';
+            
+            const result = await AuthManager.login(username, password);
+            
+            if (!result.success) {
+                document.getElementById('errorMessage').textContent = result.error;
+                document.getElementById('errorMessage').style.display = 'block';
             }
+            
+            loginBtn.disabled = false;
+            loginBtn.textContent = '登录';
         });
-    });
+    }
+    
+    // 初始化页面
+    if (sessionId && currentUser) {
+        // 如果已登录，直接显示主界面
+        document.getElementById('loginContainer').style.display = 'none';
+        document.getElementById('appContainer').style.display = 'flex';
+        PageManager.switchPage('home');
+    }
 });
 
-// 全局导出
+// 导出供全局使用
 window.PageManager = PageManager;
-window.HomeManager = HomeManager;
 window.MessageManager = MessageManager;
 window.ShopManager = ShopManager;
 window.AuthManager = AuthManager;
-window.createShop = createShop;
-window.showCreateShopModal = showCreateShopModal;
-window.hideCreateShopModal = hideCreateShopModal;
-window.showProfileModal = showProfileModal;
-window.hideProfileModal = hideProfileModal;
-window.showAdminPanel = showAdminPanel;
-window.hideAdminPanel = hideAdminPanel;
-window.showReviewPanel = showReviewPanel;
-window.hideReviewPanel = hideReviewPanel;
-window.showPromotionModal = showPromotionModal;
-window.switchPage = switchPage;
-window.goBack = goBack;
-window.sendMessage = sendMessage;
-window.logout = logout;
-
-console.log('📱 [MobileAdminApp] 移动端管理后台应用已加载');
+window.Utils = Utils;
