@@ -1,0 +1,69 @@
+{
+  "timestamp": "2025-09-16T13:15:15.418Z",
+  "analysis": {
+    "status": "needs_improvement",
+    "score": 60,
+    "issues": 4,
+    "recommendations": [
+      "删除legacy utils文件，统一使用UnifiedUtils",
+      "统一使用UnifiedWebSocketClient",
+      "逐步迁移到新的服务结构",
+      "逐步迁移到新的服务结构"
+    ]
+  },
+  "duplicates": [
+    {
+      "type": "duplicate_utils",
+      "severity": "high",
+      "description": "发现重复的工具类实现",
+      "files": [
+        "static/js/core/UnifiedUtils.js",
+        "static/assets/js/core/utils.js"
+      ],
+      "methods": [
+        "deepClone",
+        "debounce",
+        "throttle",
+        "formatTime",
+        "escapeHtml",
+        "clearTimeout"
+      ],
+      "recommendation": "删除legacy utils文件，统一使用UnifiedUtils"
+    },
+    {
+      "type": "websocket_conflict",
+      "severity": "medium",
+      "description": "同时使用统一和原生WebSocket实现",
+      "files": [
+        "static/js/core/UnifiedWebSocketClient.js"
+      ],
+      "recommendation": "统一使用UnifiedWebSocketClient"
+    },
+    {
+      "type": "legacy_usage",
+      "severity": "low",
+      "description": "Legacy参数使用过多",
+      "files": [
+        "src/client-api/connection-handler.js"
+      ],
+      "matches": 9,
+      "recommendation": "逐步迁移到新的服务结构"
+    },
+    {
+      "type": "legacy_usage",
+      "severity": "low",
+      "description": "Legacy参数使用过多",
+      "files": [
+        "src/services/ServiceIntegration.js"
+      ],
+      "matches": 7,
+      "recommendation": "逐步迁移到新的服务结构"
+    }
+  ],
+  "summary": {
+    "totalIssues": 4,
+    "highSeverity": 1,
+    "mediumSeverity": 1,
+    "lowSeverity": 2
+  }
+}

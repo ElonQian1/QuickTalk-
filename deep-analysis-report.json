@@ -1,0 +1,154 @@
+{
+  "duplicateCode": {
+    "issues": [
+      {
+        "name": "函数定义",
+        "severity": "low",
+        "files": [
+          "static/chat.js",
+          "static/assets/js/modules/admin/file-manager.js"
+        ],
+        "matches": 6
+      },
+      {
+        "name": "类定义",
+        "severity": "high",
+        "files": [
+          "static/chat.js",
+          "static/realtime-customer-service.js",
+          "static/js/core/IntegrationManager.js",
+          "static/js/core/UnifiedUtils.js",
+          "static/js/core/UnifiedWebSocketClient.js",
+          "static/js/core/UnifiedMessageManager.js",
+          "static/assets/js/core/utils.js",
+          "static/assets/js/modules/message/mobile-manager.js",
+          "static/assets/js/modules/admin/file-manager.js",
+          "src/app/modular-app.js",
+          "src/websocket/WebSocketManager.js",
+          "src/client-api/connection-handler.js",
+          "src/client-api/message-handler.js",
+          "src/database/message-repository.js",
+          "src/services/ServiceIntegration.js"
+        ],
+        "matches": 15
+      },
+      {
+        "name": "静态方法",
+        "severity": "high",
+        "files": [
+          "static/js/core/UnifiedUtils.js",
+          "static/assets/js/core/utils.js",
+          "src/websocket/WebSocketManager.js",
+          "src/client-api/connection-handler.js",
+          "src/client-api/message-handler.js"
+        ],
+        "matches": 27
+      },
+      {
+        "name": "deepClone功能",
+        "severity": "low",
+        "files": [
+          "static/js/core/UnifiedUtils.js",
+          "static/assets/js/core/utils.js"
+        ],
+        "matches": 1
+      },
+      {
+        "name": "addMessage功能",
+        "severity": "high",
+        "files": [
+          "static/chat.js",
+          "static/realtime-customer-service.js",
+          "static/js/core/UnifiedMessageManager.js",
+          "static/assets/js/modules/message/mobile-manager.js",
+          "src/database/message-repository.js"
+        ],
+        "matches": 2
+      },
+      {
+        "name": "WebSocket相关",
+        "severity": "high",
+        "files": [
+          "static/chat.js",
+          "static/realtime-customer-service.js",
+          "static/js/core/UnifiedWebSocketClient.js",
+          "static/assets/js/modules/message/mobile-manager.js",
+          "src/websocket/WebSocketManager.js",
+          "src/services/ServiceIntegration.js"
+        ],
+        "matches": 4
+      },
+      {
+        "name": "复制功能",
+        "severity": "low",
+        "files": [
+          "static/js/core/IntegrationManager.js",
+          "static/js/core/UnifiedUtils.js"
+        ],
+        "matches": 2
+      },
+      {
+        "name": "文件大小格式化",
+        "severity": "medium",
+        "files": [
+          "static/js/core/UnifiedUtils.js",
+          "static/assets/js/modules/message/mobile-manager.js",
+          "static/assets/js/modules/admin/file-manager.js"
+        ],
+        "matches": 1
+      },
+      {
+        "name": "防抖节流",
+        "severity": "medium",
+        "files": [
+          "static/js/core/UnifiedUtils.js",
+          "static/assets/js/core/utils.js",
+          "static/assets/js/modules/admin/file-manager.js"
+        ],
+        "matches": 2
+      }
+    ],
+    "severity": "high"
+  },
+  "architectureProblems": {
+    "issues": [],
+    "severity": "low"
+  },
+  "legacyMixing": {
+    "issues": [
+      {
+        "name": "Legacy标识",
+        "severity": "high",
+        "matches": 16,
+        "files": [
+          "src/client-api/connection-handler.js",
+          "src/services/ServiceIntegration.js"
+        ]
+      },
+      {
+        "name": "版本标识",
+        "severity": "medium",
+        "matches": 5,
+        "files": [
+          "src/websocket/WebSocketManager.js",
+          "src/client-api/connection-handler.js",
+          "src/services/ServiceIntegration.js"
+        ]
+      },
+      {
+        "name": "Old标识",
+        "severity": "medium",
+        "matches": 7,
+        "files": [
+          "src/client-api/connection-handler.js",
+          "static/realtime-customer-service.js"
+        ]
+      }
+    ],
+    "severity": "high"
+  },
+  "overall": {
+    "score": 46.666666666666664,
+    "status": "poor"
+  }
+}
