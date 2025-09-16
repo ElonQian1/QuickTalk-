@@ -345,112 +345,6 @@ class ShopManagementManager {
 // 创建全局实例
 const shopManagementManager = new ShopManagementManager();
 
-// 集成代码管理类（使用新的IntegrationManager）
-class LegacyIntegrationCodeManager {
-    // 显示集成代码模态框 - 重定向到新的IntegrationManager
-    showIntegrationCode(shopId, shopName) {
-        if (window.integrationManager) {
-            // 使用新的统一IntegrationManager
-            window.integrationManager.generateCode(shopId, { mobile: true });
-        } else {
-            // 备用：显示旧模态框
-            this.showModal('integrationModal');
-            document.getElementById('integrationShopName').textContent = shopName;
-            document.getElementById('integrationShopId').textContent = shopId;
-            document.getElementById('integrationGeneratedAt').textContent = new Date().toLocaleString();
-            
-            // 生成集成代码
-            this.generateIntegrationCode(shopId);
-        }
-    }
-
-    // 生成集成代码（备用方法）
-    async generateIntegrationCode(shopId) {
-        try {
-            const response = await fetch('/api/integration/generate-code', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Session-Id': Utils.getSessionId()
-                },
-                body: JSON.stringify({ shopId })
-            });
-
-            const result = await response.json();
-            if (result.success) {
-                document.getElementById('integrationApiKey').textContent = result.apiKey;
-                document.getElementById('integrationCode').value = result.integrationCode;
-            } else {
-                alert('生成集成代码失败：' + result.error);
-            }
-        } catch (error) {
-            console.error('生成集成代码失败:', error);
-            alert('生成集成代码失败，请重试');
-        }
-    }
-
-    // 复制集成代码（备用方法）
-    copyIntegrationCode() {
-        const codeTextarea = document.getElementById('integrationCode');
-        codeTextarea.select();
-        codeTextarea.setSelectionRange(0, 99999); // 兼容移动设备
-        
-        try {
-            document.execCommand('copy');
-            alert('✅ 集成代码已复制到剪贴板');
-        } catch (err) {
-            console.error('复制失败:', err);
-            alert('❌ 复制失败，请手动选择并复制代码');
-        }
-    }
-
-    // 重新生成API密钥（备用方法）
-    async regenerateApiKey() {
-        if (!confirm('确定要重新生成API密钥吗？旧的密钥将失效。')) {
-            return;
-        }
-
-        try {
-            const shopId = document.getElementById('integrationShopId').textContent;
-            const response = await fetch('/api/integration/regenerate-key', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Session-Id': Utils.getSessionId()
-                },
-                body: JSON.stringify({ shopId })
-            });
-
-            const result = await response.json();
-            if (result.success) {
-                document.getElementById('integrationApiKey').textContent = result.apiKey;
-                document.getElementById('integrationCode').value = result.integrationCode;
-                document.getElementById('integrationGeneratedAt').textContent = new Date().toLocaleString();
-                alert('✅ API密钥已重新生成');
-            } else {
-                alert('重新生成失败：' + result.error);
-            }
-        } catch (error) {
-            console.error('重新生成API密钥失败:', error);
-            alert('重新生成失败，请重试');
-        }
-    }
-
-    // 改为使用统一的 Utils.getSessionId 方法
-
-    // 显示和隐藏模态框的通用函数
-    showModal(modalId) {
-        document.getElementById(modalId).style.display = 'flex';
-    }
-
-    hideModal(modalId) {
-        document.getElementById(modalId).style.display = 'none';
-    }
-}
-
-// 创建集成代码管理器实例
-const legacyIntegrationManager = new LegacyIntegrationCodeManager();
-
 // 全局函数（保持向后兼容）
 function openShopManageModal(shopId) {
     shopManagementManager.openShopManageModal(shopId);
@@ -497,23 +391,36 @@ function removeEmployee(employeeId) {
 }
 
 function showIntegrationCode(shopId, shopName) {
-    legacyIntegrationManager.showIntegrationCode(shopId, shopName);
+    // 使用统一的IntegrationManager代替Legacy版本
+    if (window.integrationManager) {
+        window.integrationManager.generateCode(shopId, { mobile: true });
+    } else {
+        console.warn('IntegrationManager not available');
+    }
 }
 
 function copyIntegrationCode() {
-    legacyIntegrationManager.copyIntegrationCode();
+    // 功能已由IntegrationManager内部处理
+    console.warn('copyIntegrationCode: 功能已集成到IntegrationManager中');
 }
 
 function regenerateApiKey() {
-    return legacyIntegrationManager.regenerateApiKey();
+    // 功能已由IntegrationManager内部处理
+    console.warn('regenerateApiKey: 功能已集成到IntegrationManager中');
 }
 
 function showModal(modalId) {
-    legacyIntegrationManager.showModal(modalId);
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.style.display = 'flex';
+    }
 }
 
 function hideModal(modalId) {
-    legacyIntegrationManager.hideModal(modalId);
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.style.display = 'none';
+    }
 }
 
 // 点击模态框外部关闭
@@ -526,8 +433,6 @@ window.onclick = function(event) {
 
 // 全局导出
 window.ShopManagementManager = ShopManagementManager;
-window.LegacyIntegrationCodeManager = LegacyIntegrationCodeManager;
 window.shopManagementManager = shopManagementManager;
-window.legacyIntegrationManager = legacyIntegrationManager;
 
 console.log('📱 [MobileAdminModules] 移动端管理后台模块初始化器已加载');

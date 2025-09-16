@@ -200,6 +200,20 @@ class ModularApp {
     }
 
     /**
+     * 获取安全管理器 - 兼容性方法
+     */
+    getSecurityManager() {
+        return this.getModule('authValidator');
+    }
+
+    /**
+     * 获取消息适配器 - 兼容性方法 
+     */
+    getMessageAdapter() {
+        return this.getModule('messageRepository');
+    }
+
+    /**
      * 创建默认测试数据
      */
     async createTestData() {

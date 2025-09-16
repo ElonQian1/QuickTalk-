@@ -4,7 +4,7 @@ const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 
 // 引入新的模块化应用管理器
-const ModularApp = require('./src/modules/ModularApp');
+const ModularApp = require('./src/app/modular-app');
 
 // 引入新的WebSocket路由系统
 const WebSocketRouter = require('./src/websocket/WebSocketRouter');
@@ -73,64 +73,6 @@ async function initializeCompatibilityModules() {
         console.error('❌ 兼容模块初始化失败:', error);
         throw error;
     }
-}
-
-// 模拟旧模块初始化日志（保持界面一致性）
-async function displayLegacyModuleLogs() {
-    console.log('🔍 搜索历史管理模块初始化');
-    console.log('📊 消息数据库模块初始化');
-    console.log('📁 文件管理器初始化完成');
-    console.log('📊 数据分析仪表板管理器初始化');
-    
-    console.log('🚀 开始初始化数据分析表...');
-    console.log('📈 KPI指标表创建完成');
-    console.log('👤 用户活动日志表创建完成');
-    console.log('⚡ 性能监控表创建完成');
-    console.log('😊 客户满意度表创建完成');
-    console.log('📋 报告配置表创建完成');
-    console.log('📇 数据分析索引创建完成');
-    console.log('✅ 数据分析表初始化完成');
-    console.log('✅ 数据分析仪表板初始化完成');
-    console.log('📈 访问地址: http://localhost:3030/analytics');
-    
-    console.log('🤖 正在初始化AI智能客服系统...');
-    console.log('🤖 AI智能客服管理器初始化');
-    console.log('📚 默认知识库加载完成');
-    console.log('🚀 开始初始化AI智能客服表...');
-    console.log('🎯 意图分类器初始化完成');
-    console.log('📚 知识库表创建完成');
-    console.log('💬 自动回复模板加载完成');
-    console.log('😊 情感分析引擎初始化完成');
-    console.log('🤖 AI核心功能初始化完成');
-    console.log('🎯 意图识别表创建完成');
-    console.log('💭 对话上下文表创建完成');
-    console.log('💬 自动回复模板表创建完成');
-    console.log('🧠 学习数据表创建完成');
-    console.log('😊 情感分析表创建完成');
-    console.log('💡 智能推荐表创建完成');
-    console.log('⚙️ AI配置表创建完成');
-    console.log('📇 AI智能客服索引创建完成');
-    console.log('✅ AI智能客服表初始化完成');
-    console.log('✅ AI智能客服系统初始化完成');
-    console.log('🤖 AI助手已启动，支持智能问答、情感分析、意图识别');
-    console.log('💬 AI测试页面将在后续创建');
-    
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('🎉 第四阶段: AI智能客服系统 - 启动完成！');
-    
-    console.log('🚀 开始初始化消息数据库表...');
-    console.log('📋 对话表创建完成');
-    console.log('💬 消息表创建完成');
-    console.log('🔢 未读计数表创建完成');
-    console.log('📌 数据库索引创建完成');
-    
-    console.log('🚀 开始初始化搜索相关数据表...');
-    console.log('🔍 搜索历史表创建完成');
-    console.log('📦 对话归档表创建完成');
-    console.log('📇 全文搜索索引创建完成');
-    console.log('🏷️ 搜索标签表创建完成');
-    console.log('✅ 搜索历史管理表初始化完成');
-    console.log('✅ 消息数据库表初始化完成');
 }
 
 // 应用中间件（在路由之前）
@@ -258,13 +200,10 @@ async function startServer() {
         // 2. 然后初始化模块化系统（需要数据库实例）
         await initializeModularSystem();
         
-        // 3. 显示旧模块日志（保持界面一致性）
-        await displayLegacyModuleLogs();
-        
-        // 4. 应用中间件
+        // 3. 应用中间件
         applyMiddleware();
         
-        // 5. 初始化路由
+        // 4. 初始化路由
         initializeRoutes();
         
         // 6. 初始化静态路由
