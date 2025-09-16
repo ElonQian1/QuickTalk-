@@ -1,18 +1,33 @@
+/**
+ * MessageHandler - 更新版消息处理器
+ * 使用新的服务层架构，符合 Controllers → Services → Repositories → Database 模式
+ * 替换直接的仓库访问，通过服务层处理业务逻辑
+ */
+
 const ErrorHandler = require('../utils/ErrorHandler');
 
-/**
- * 客户端消息处理模块
- * 处理消息发送和接收
- */
 class MessageHandler {
-    constructor(messageRepository, connectionHandler, securityLogger) {
-        this.messageRepository = messageRepository;
-        this.connectionHandler = connectionHandler;
-        this.securityLogger = securityLogger;
+    constructor(services, legacyServices = {}) {
+        // 新的服务层依赖
+        this.messageService = services.messageService;
+        this.conversationService = services.conversationService;
+        this.shopService = services.shopService;
+        this.notificationService = services.notificationService;
+        this.autoReplyService = services.autoReplyService;
+        
+        // 保持向后兼容的依赖
+        this.connectionHandler = legacyServices.connectionHandler;
+        this.securityLogger = legacyServices.securityLogger;
+        
+        // 向后兼容：保持原有的仓库访问（逐步迁移）
+        this.messageRepository = legacyServices.messageRepository;
+        
+        console.log('📝 MessageHandler 已更新到服务层架构');
     }
 
     /**
      * 处理发送消息请求
+     * 使用新的消息服务而非直接访问仓库
      */
     async handleSendMessage(req, res) {
         try {
@@ -39,16 +54,29 @@ class MessageHandler {
                 return ErrorHandler.sendError(res, ErrorHandler.ERROR_CODES.INVALID_API_KEY, '缺少API密钥');
             }
 
-            // 如果请求已经通过认证中间件，使用已验证的店铺信息
+            // 店铺验证和获取
             let shop = req.shop;
             
-            // 如果没有通过中间件，手动验证
             if (!shop) {
-                const authResult = await this.connectionHandler.authValidator.validateApiKey(finalApiKey);
-                if (!authResult.valid) {
-                    return ErrorHandler.sendError(res, ErrorHandler.ERROR_CODES.INVALID_API_KEY, authResult.error);
+                try {
+                    // 使用店铺服务进行验证
+                    const authResult = await this.shopService.validateApiKey(finalApiKey);
+                    if (!authResult.valid) {
+                        return ErrorHandler.sendError(res, ErrorHandler.ERROR_CODES.INVALID_API_KEY, authResult.error);
+                    }
+                    shop = authResult.shop;
+                } catch (error) {
+                    // 回退到连接处理器验证（向后兼容）
+                    if (this.connectionHandler?.authValidator) {
+                        const authResult = await this.connectionHandler.authValidator.validateApiKey(finalApiKey);
+                        if (!authResult.valid) {
+                            return ErrorHandler.sendError(res, ErrorHandler.ERROR_CODES.INVALID_API_KEY, authResult.error);
+                        }
+                        shop = authResult.shop;
+                    } else {
+                        throw error;
+                    }
                 }
-                shop = authResult.shop;
             }
 
             // 验证消息内容
@@ -56,44 +84,81 @@ class MessageHandler {
                 return ErrorHandler.sendError(res, ErrorHandler.ERROR_CODES.MESSAGE_TOO_LONG, '消息内容过长，最多5000字符');
             }
 
-            // 创建或获取对话
-            const conversation = await this.messageRepository.createOrGetConversation(
-                shop.id,
+            // 创建或获取对话（使用对话服务）
+            const conversation = await this.conversationService.createOrGetConversation({
+                shopId: shop.id,
                 userId,
-                {
+                metadata: {
                     ip: this.getClientIp(req),
                     userAgent: req.headers['user-agent']
                 }
-            );
+            });
 
-            // 添加消息
-            const messageData = {
+            // 发送消息（使用消息服务）
+            const messageResult = await this.messageService.sendMessage({
                 conversationId: conversation.id,
-                senderType: 'user',
                 senderId: userId,
-                senderName: userId,
-                message: message.trim(),
+                senderType: 'customer',
+                content: message.trim(),
                 messageType,
-                attachments,
                 metadata: {
+                    attachments,
                     ip: this.getClientIp(req),
                     userAgent: req.headers['user-agent'],
                     timestamp: timestamp || new Date().toISOString()
                 }
-            };
-
-            const result = await this.messageRepository.addMessage(messageData);
-
-            // 更新店铺使用统计
-            await this.connectionHandler.shopRepository.recordUsageStats(shop.id, {
-                requests: 1,
-                messages: 1
             });
+
+            // 更新店铺统计（使用店铺服务）
+            try {
+                await this.shopService.recordUsageStats(shop.id, {
+                    requests: 1,
+                    messages: 1
+                });
+            } catch (statsError) {
+                console.warn('更新店铺统计失败:', statsError);
+                // 不影响消息发送流程
+            }
+
+            // 尝试自动回复（如果启用）
+            if (this.autoReplyService) {
+                try {
+                    const autoReplyResult = await this.autoReplyService.processMessage({
+                        messageId: messageResult.message.id,
+                        conversationId: conversation.id,
+                        content: message,
+                        metadata: {
+                            shopId: shop.id,
+                            userId,
+                            messageType
+                        }
+                    });
+
+                    if (autoReplyResult.shouldReply) {
+                        // 发送自动回复
+                        await this.messageService.sendMessage({
+                            conversationId: conversation.id,
+                            senderId: 'system',
+                            senderType: 'assistant',
+                            content: autoReplyResult.replyContent,
+                            messageType: 'text',
+                            metadata: {
+                                isAutoReply: true,
+                                confidence: autoReplyResult.confidence,
+                                intent: autoReplyResult.intent
+                            }
+                        });
+                    }
+                } catch (autoReplyError) {
+                    console.warn('自动回复处理失败:', autoReplyError);
+                    // 不影响原消息发送
+                }
+            }
 
             console.log(`📨 消息已发送: ${shop.name} - ${userId}: ${message.substring(0, 50)}...`);
 
             ErrorHandler.sendSuccess(res, {
-                messageId: result.id,
+                messageId: messageResult.message.id,
                 conversationId: conversation.id,
                 timestamp: new Date().toISOString(),
                 status: 'sent'
@@ -101,11 +166,15 @@ class MessageHandler {
 
         } catch (error) {
             console.error('发送消息失败:', error);
-            await this.securityLogger.logError(error, {
-                endpoint: '/api/send',
-                body: req.body,
-                ip: this.getClientIp(req)
-            });
+            
+            // 安全日志记录
+            if (this.securityLogger) {
+                await this.securityLogger.logError(error, {
+                    endpoint: '/api/send',
+                    body: req.body,
+                    ip: this.getClientIp(req)
+                });
+            }
 
             ErrorHandler.sendError(res, ErrorHandler.ERROR_CODES.INTERNAL_ERROR, '消息发送失败');
         }
@@ -113,6 +182,7 @@ class MessageHandler {
 
     /**
      * 处理获取消息请求
+     * 使用新的消息服务获取消息历史
      */
     async handleGetMessages(req, res) {
         try {
@@ -130,16 +200,26 @@ class MessageHandler {
                 });
             }
 
-            // 如果请求已通过认证中间件，使用已验证的店铺信息
+            // 店铺认证和获取
             let shop = req.shop;
             
-            // 如果没有通过中间件，尝试从header获取并验证
             if (!shop) {
                 const apiKey = req.headers['x-shop-key'];
                 if (apiKey) {
-                    const authResult = await this.connectionHandler.authValidator.validateApiKey(apiKey);
-                    if (authResult.valid) {
-                        shop = authResult.shop;
+                    try {
+                        // 使用店铺服务验证
+                        const authResult = await this.shopService.validateApiKey(apiKey);
+                        if (authResult.valid) {
+                            shop = authResult.shop;
+                        }
+                    } catch (error) {
+                        // 回退到连接处理器验证（向后兼容）
+                        if (this.connectionHandler?.authValidator) {
+                            const authResult = await this.connectionHandler.authValidator.validateApiKey(apiKey);
+                            if (authResult.valid) {
+                                shop = authResult.shop;
+                            }
+                        }
                     }
                 }
             }
@@ -154,9 +234,12 @@ class MessageHandler {
                 });
             }
 
-            // 获取用户的对话
-            const conversation = await this.messageRepository.getConversationByUserId(shop.id, userId);
-            
+            // 获取或创建对话
+            const conversation = await this.conversationService.createOrGetConversation({
+                shopId: shop.id,
+                userId
+            });
+
             if (!conversation) {
                 return res.json({
                     success: true,
@@ -168,33 +251,46 @@ class MessageHandler {
                 });
             }
 
-            // 获取新消息（在lastId之后的消息）
-            const messages = await this.messageRepository.getNewMessages(conversation.id, lastId);
+            // 获取新消息（使用消息服务）
+            const messagesResult = await this.messageService.getConversationMessages({
+                conversationId: conversation.id,
+                afterId: lastId,
+                limit
+            });
 
-            // 标记客服发送的消息为已读
-            if (messages.length > 0) {
-                const staffMessageIds = messages
-                    .filter(msg => msg.sender_type === 'staff')
+            // 标记客服消息为已读
+            if (messagesResult.messages.length > 0) {
+                const staffMessageIds = messagesResult.messages
+                    .filter(msg => msg.senderType === 'staff')
                     .map(msg => msg.id);
                 
                 if (staffMessageIds.length > 0) {
-                    await this.messageRepository.markMessagesAsRead(conversation.id, 'user', staffMessageIds);
+                    try {
+                        await this.messageService.markMessagesAsRead({
+                            conversationId: conversation.id,
+                            userId: 'user',
+                            messageIds: staffMessageIds
+                        });
+                    } catch (markReadError) {
+                        console.warn('标记消息已读失败:', markReadError);
+                        // 不影响消息获取流程
+                    }
                 }
             }
 
-            // 格式化消息返回格式
-            const formattedMessages = messages.map(msg => ({
+            // 格式化消息返回格式（兼容原有API）
+            const formattedMessages = messagesResult.messages.map(msg => ({
                 id: msg.id,
-                type: msg.sender_type === 'user' ? 'user_message' : 'staff_message',
-                message: msg.message,
+                type: msg.senderType === 'customer' ? 'user_message' : 'staff_message',
+                message: msg.content,
                 sender: {
-                    type: msg.sender_type,
-                    id: msg.sender_id,
-                    name: msg.sender_name
+                    type: msg.senderType,
+                    id: msg.senderId,
+                    name: msg.senderName || msg.senderId
                 },
-                timestamp: msg.created_at,
-                messageType: msg.message_type,
-                attachments: msg.attachments,
+                timestamp: msg.createdAt,
+                messageType: msg.messageType,
+                attachments: msg.metadata?.attachments || [],
                 metadata: msg.metadata
             }));
 
@@ -203,18 +299,21 @@ class MessageHandler {
                 data: {
                     messages: formattedMessages,
                     conversationId: conversation.id,
-                    hasMore: messages.length === limit,
-                    lastMessageId: messages.length > 0 ? Math.max(...messages.map(m => m.id)) : lastId
+                    hasMore: messagesResult.hasMore,
+                    totalCount: messagesResult.totalCount
                 }
             });
 
         } catch (error) {
             console.error('获取消息失败:', error);
-            await this.securityLogger.logError(error, {
-                endpoint: '/api/client/messages',
-                query: req.query,
-                ip: this.getClientIp(req)
-            });
+            
+            if (this.securityLogger) {
+                await this.securityLogger.logError(error, {
+                    endpoint: '/api/messages',
+                    query: req.query,
+                    ip: this.getClientIp(req)
+                });
+            }
 
             res.status(500).json({
                 success: false,
@@ -227,201 +326,162 @@ class MessageHandler {
     }
 
     /**
-     * 处理消息历史请求
+     * 处理获取对话历史请求
+     * 使用新的对话服务
      */
-    async handleGetMessageHistory(req, res) {
+    async handleGetConversationHistory(req, res) {
         try {
-            const { userId } = req.params;
-            const {
-                limit = 50,
-                offset = 0,
-                beforeId,
-                afterId
-            } = req.query;
+            const { conversationId } = req.params;
+            const page = parseInt(req.query.page) || 1;
+            const limit = Math.min(parseInt(req.query.limit) || 50, 100);
 
-            if (!req.shop) {
+            if (!conversationId) {
+                return res.status(400).json({
+                    success: false,
+                    error: {
+                        code: 'MISSING_CONVERSATION_ID',
+                        message: '缺少对话ID'
+                    }
+                });
+            }
+
+            // 使用消息服务获取对话历史
+            const result = await this.messageService.getConversationMessages({
+                conversationId,
+                page,
+                limit
+            });
+
+            res.json({
+                success: true,
+                data: result
+            });
+
+        } catch (error) {
+            console.error('获取对话历史失败:', error);
+            
+            res.status(500).json({
+                success: false,
+                error: {
+                    code: 'INTERNAL_ERROR',
+                    message: '获取对话历史失败'
+                }
+            });
+        }
+    }
+
+    /**
+     * 处理连接状态检查
+     */
+    async handleConnectionCheck(req, res) {
+        try {
+            const { userId, apiKey } = req.query;
+
+            if (!userId || !apiKey) {
+                return res.status(400).json({
+                    success: false,
+                    error: {
+                        code: 'MISSING_PARAMETERS',
+                        message: '缺少必要参数'
+                    }
+                });
+            }
+
+            // 使用店铺服务验证API密钥
+            let authResult;
+            try {
+                authResult = await this.shopService.validateApiKey(apiKey);
+            } catch (error) {
+                // 回退到连接处理器验证
+                if (this.connectionHandler?.authValidator) {
+                    authResult = await this.connectionHandler.authValidator.validateApiKey(apiKey);
+                } else {
+                    throw error;
+                }
+            }
+
+            if (!authResult.valid) {
                 return res.status(401).json({
                     success: false,
                     error: {
-                        code: 'AUTHENTICATION_REQUIRED',
-                        message: '需要认证'
+                        code: 'INVALID_API_KEY',
+                        message: authResult.error || '无效的API密钥'
                     }
                 });
             }
 
-            // 获取对话
-            const conversation = await this.messageRepository.getConversationByUserId(req.shop.id, userId);
-            
-            if (!conversation) {
-                return res.json({
-                    success: true,
-                    data: {
-                        messages: [],
-                        hasMore: false
-                    }
-                });
-            }
-
-            // 获取消息历史
-            const messages = await this.messageRepository.getMessages(conversation.id, {
-                limit: Math.min(parseInt(limit), 100),
-                offset: parseInt(offset),
-                beforeId: beforeId ? parseInt(beforeId) : null,
-                afterId: afterId ? parseInt(afterId) : null,
-                orderBy: 'created_at',
-                orderDirection: 'DESC'
+            // 获取对话信息
+            const conversation = await this.conversationService.createOrGetConversation({
+                shopId: authResult.shop.id,
+                userId
             });
 
-            // 格式化消息
-            const formattedMessages = messages.map(msg => ({
-                id: msg.id,
-                type: msg.sender_type === 'user' ? 'user_message' : 'staff_message',
-                message: msg.message,
-                sender: {
-                    type: msg.sender_type,
-                    id: msg.sender_id,
-                    name: msg.sender_name
-                },
-                timestamp: msg.created_at,
-                messageType: msg.message_type,
-                attachments: msg.attachments,
-                isRead: msg.is_read,
-                readAt: msg.read_at
-            }));
+            // 获取未读消息数量
+            const unreadCount = await this.messageService.getUnreadMessageCount({
+                conversationId: conversation.id,
+                userId: 'user'
+            });
 
             res.json({
                 success: true,
                 data: {
-                    messages: formattedMessages,
+                    connected: true,
                     conversationId: conversation.id,
-                    hasMore: messages.length === parseInt(limit),
-                    totalMessages: await this.getTotalMessageCount(conversation.id)
+                    shopId: authResult.shop.id,
+                    shopName: authResult.shop.name,
+                    unreadCount: unreadCount.unreadCount,
+                    timestamp: new Date().toISOString()
                 }
             });
 
         } catch (error) {
-            console.error('获取消息历史失败:', error);
-            res.status(500).json({
-                success: false,
-                error: {
-                    code: 'INTERNAL_ERROR',
-                    message: '获取消息历史失败'
-                }
-            });
-        }
-    }
-
-    /**
-     * 处理消息状态更新
-     */
-    async handleUpdateMessageStatus(req, res) {
-        try {
-            const { userId } = req.params;
-            const { messageIds, status } = req.body;
-
-            if (!req.shop) {
-                return res.status(401).json({
-                    success: false,
-                    error: {
-                        code: 'AUTHENTICATION_REQUIRED',
-                        message: '需要认证'
-                    }
-                });
-            }
-
-            const conversation = await this.messageRepository.getConversationByUserId(req.shop.id, userId);
+            console.error('连接检查失败:', error);
             
-            if (!conversation) {
-                return res.status(404).json({
-                    success: false,
-                    error: {
-                        code: 'CONVERSATION_NOT_FOUND',
-                        message: '对话不存在'
-                    }
-                });
-            }
-
-            if (status === 'read') {
-                await this.messageRepository.markMessagesAsRead(conversation.id, 'user', messageIds);
-            }
-
-            res.json({
-                success: true,
-                message: '消息状态更新成功'
-            });
-
-        } catch (error) {
-            console.error('更新消息状态失败:', error);
             res.status(500).json({
                 success: false,
                 error: {
                     code: 'INTERNAL_ERROR',
-                    message: '更新消息状态失败'
+                    message: '连接检查失败'
                 }
             });
         }
     }
 
     /**
-     * 获取消息总数
-     */
-    async getTotalMessageCount(conversationId) {
-        try {
-            const result = await this.messageRepository.db.get(
-                'SELECT COUNT(*) as count FROM messages WHERE conversation_id = ?',
-                [conversationId]
-            );
-            return result ? result.count : 0;
-        } catch (error) {
-            console.error('获取消息总数失败:', error);
-            return 0;
-        }
-    }
-
-    /**
-     * 获取客户端IP
+     * 获取客户端IP地址
+     * @private
      */
     getClientIp(req) {
-        return req.ip ||
-               req.connection?.remoteAddress ||
-               req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
-               req.headers['x-real-ip'] ||
-               '127.0.0.1';
+        return req.headers['x-forwarded-for'] || 
+               req.connection.remoteAddress || 
+               req.socket.remoteAddress ||
+               (req.connection.socket ? req.connection.socket.remoteAddress : null);
     }
 
     /**
-     * 验证消息内容
+     * 创建服务层兼容的MessageHandler工厂方法
+     * @param {Object} services - 服务层对象
+     * @param {Object} legacyServices - 兼容旧服务
      */
-    validateMessageContent(message) {
-        if (!message || typeof message !== 'string') {
-            return { valid: false, error: '消息内容无效' };
-        }
-
-        if (message.trim().length === 0) {
-            return { valid: false, error: '消息内容不能为空' };
-        }
-
-        if (message.length > 5000) {
-            return { valid: false, error: '消息内容过长' };
-        }
-
-        return { valid: true };
+    static createWithServices(services, legacyServices = {}) {
+        return new MessageHandler(services, legacyServices);
     }
 
     /**
-     * 过滤敏感内容
+     * 迁移辅助方法：逐步迁移现有实例到服务层
+     * @param {MessageHandler} existingHandler - 现有处理器
+     * @param {Object} services - 新服务层对象
      */
-    filterSensitiveContent(message) {
-        // 简单的敏感词过滤，实际项目中可以使用专业的内容审核服务
-        const sensitiveWords = ['fuck', '傻逼', '垃圾', '骗子'];
-        let filteredMessage = message;
-
-        sensitiveWords.forEach(word => {
-            const regex = new RegExp(word, 'gi');
-            filteredMessage = filteredMessage.replace(regex, '*'.repeat(word.length));
-        });
-
-        return filteredMessage;
+    static migrateToServices(existingHandler, services) {
+        // 注入服务依赖
+        existingHandler.messageService = services.messageService;
+        existingHandler.conversationService = services.conversationService;
+        existingHandler.shopService = services.shopService;
+        existingHandler.notificationService = services.notificationService;
+        existingHandler.autoReplyService = services.autoReplyService;
+        
+        console.log('✅ MessageHandler 已迁移到服务层架构');
+        return existingHandler;
     }
 }
 

@@ -1,13 +1,16 @@
 /**
  * 数据库核心操作模块
  * 提供统一的数据库连接和基础操作
+ * 替换旧的database-sqlite.js，统一使用Repository模式
  */
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
+const fs = require('fs');
 
 class DatabaseCore {
-    constructor(dbPath = './data/customer_service.db') {
-        this.dbPath = dbPath;
+    constructor(dbPath = null) {
+        // 使用默认路径或传入路径
+        this.dbPath = dbPath || path.join(__dirname, '..', '..', 'data', 'customer_service.db');
         this.db = null;
         this.isInitialized = false;
     }
@@ -16,18 +19,29 @@ class DatabaseCore {
      * 初始化数据库连接
      */
     async initialize() {
-        return new Promise((resolve, reject) => {
-            this.db = new sqlite3.Database(this.dbPath, (err) => {
-                if (err) {
-                    console.error('❌ 数据库连接失败:', err.message);
-                    reject(err);
-                } else {
-                    console.log('✅ 数据库连接成功');
-                    this.isInitialized = true;
-                    resolve();
-                }
+        try {
+            // 确保data目录存在
+            const dataDir = path.dirname(this.dbPath);
+            if (!fs.existsSync(dataDir)) {
+                fs.mkdirSync(dataDir, { recursive: true });
+            }
+
+            return new Promise((resolve, reject) => {
+                this.db = new sqlite3.Database(this.dbPath, (err) => {
+                    if (err) {
+                        console.error('❌ 数据库连接失败:', err.message);
+                        reject(err);
+                    } else {
+                        console.log('✅ 数据库连接成功');
+                        this.isInitialized = true;
+                        resolve();
+                    }
+                });
             });
-        });
+        } catch (error) {
+            console.error('❌ 数据库初始化失败:', error);
+            throw error;
+        }
     }
 
     /**

@@ -1,16 +1,24 @@
+/**
+ * ConnectionHandler - 更新版连接处理器
+ * 使用新的服务层架构，符合 Controllers → Services → Repositories → Database 模式
+ * 替换直接的仓库访问，通过服务层处理业务逻辑
+ */
+
 const ErrorHandler = require('../utils/ErrorHandler');
 
-/**
- * 客户端连接处理模块
- * 处理客户端的连接建立和认证
- */
 class ConnectionHandler {
-    constructor(shopRepository, messageRepository, authValidator, domainValidator, securityLogger) {
-        this.shopRepository = shopRepository;
-        this.messageRepository = messageRepository;
-        this.authValidator = authValidator;
-        this.domainValidator = domainValidator;
-        this.securityLogger = securityLogger;
+    constructor(services, legacyServices = {}) {
+        // 新的服务层依赖
+        this.shopService = services.shopService;
+        this.conversationService = services.conversationService;
+        this.notificationService = services.notificationService;
+        
+        // 保持向后兼容的依赖
+        this.shopRepository = legacyServices.shopRepository;
+        this.messageRepository = legacyServices.messageRepository;
+        this.authValidator = legacyServices.authValidator;
+        this.domainValidator = legacyServices.domainValidator;
+        this.securityLogger = legacyServices.securityLogger;
         
         // 存储活跃连接
         this.activeConnections = new Map();
@@ -19,10 +27,13 @@ class ConnectionHandler {
         this.cleanupInterval = setInterval(() => {
             this.cleanupExpiredSessions();
         }, 5 * 60 * 1000); // 每5分钟清理一次
+        
+        console.log('🔗 ConnectionHandler 已更新到服务层架构');
     }
 
     /**
      * 处理安全连接请求
+     * 使用新的店铺服务进行认证和验证
      */
     async handleSecureConnect(req, res) {
         try {
@@ -42,19 +53,31 @@ class ConnectionHandler {
                 return ErrorHandler.sendError(res, validationError.code, validationError.message);
             }
 
-            // 验证API密钥
-            const authResult = await this.authValidator.validateApiKey(shopKey);
-            if (!authResult.valid) {
-                await this.securityLogger.logApiKeyEvent('VALIDATION_FAILED', {
-                    apiKey: shopKey,
-                    shopId,
-                    ip: this.getClientIp(req),
-                    userAgent: req.headers['user-agent'],
-                    success: false,
-                    error: authResult.error,
-                    timestamp: new Date().toISOString()
-                });
+            // 使用店铺服务验证API密钥
+            let authResult;
+            try {
+                authResult = await this.shopService.validateApiKey(shopKey);
+            } catch (error) {
+                // 回退到传统验证器（向后兼容）
+                if (this.authValidator) {
+                    authResult = await this.authValidator.validateApiKey(shopKey);
+                } else {
+                    throw error;
+                }
+            }
 
+            if (!authResult.valid) {
+                if (this.securityLogger) {
+                    await this.securityLogger.logApiKeyEvent('VALIDATION_FAILED', {
+                        apiKey: shopKey,
+                        shopId,
+                        userId,
+                        ip: this.getClientIp(req),
+                        userAgent: req.headers['user-agent'],
+                        timestamp: new Date().toISOString()
+                    });
+                }
+                
                 return ErrorHandler.sendError(res, ErrorHandler.ERROR_CODES.INVALID_API_KEY, authResult.error);
             }
 
@@ -62,309 +85,496 @@ class ConnectionHandler {
 
             // 验证店铺ID匹配
             if (shop.id !== shopId) {
-                return ErrorHandler.sendError(res, ErrorHandler.ERROR_CODES.UNAUTHORIZED_ACCESS, '店铺ID不匹配');
+                if (this.securityLogger) {
+                    await this.securityLogger.logSecurityEvent('SHOP_ID_MISMATCH', {
+                        providedShopId: shopId,
+                        actualShopId: shop.id,
+                        apiKey: shopKey,
+                        userId,
+                        ip: this.getClientIp(req)
+                    });
+                }
+                
+                return ErrorHandler.sendError(res, ErrorHandler.ERROR_CODES.INVALID_SHOP_ID, '店铺ID不匹配');
             }
 
-            // 验证域名
-            const requestDomain = domain || this.domainValidator.extractDomainFromRequest(req);
-            const domainResult = this.domainValidator.validateDomain(requestDomain, shop.domain);
-            
-            if (!domainResult.valid) {
-                await this.securityLogger.logDomainEvent('VALIDATION_FAILED', {
-                    requestDomain,
-                    authorizedDomain: shop.domain,
-                    shopId: shop.id,
-                    ip: this.getClientIp(req),
-                    success: false,
-                    error: domainResult.reason
-                });
+            // 域名验证（如果提供了域名）
+            if (domain) {
+                let domainValid = false;
+                try {
+                    // 使用店铺服务验证域名
+                    domainValid = await this.shopService.validateDomain(shop.id, domain);
+                } catch (error) {
+                    // 回退到传统域名验证器
+                    if (this.domainValidator) {
+                        domainValid = await this.domainValidator.validateDomain(shop.id, domain);
+                    } else {
+                        console.warn('域名验证器不可用，跳过域名验证');
+                        domainValid = true;
+                    }
+                }
 
-                return ErrorHandler.sendError(res, ErrorHandler.ERROR_CODES.UNAUTHORIZED_ACCESS, domainResult.reason, {
-                    requestDomain,
-                    authorizedDomain: shop.domain
-                });
+                if (!domainValid) {
+                    if (this.securityLogger) {
+                        await this.securityLogger.logSecurityEvent('INVALID_DOMAIN', {
+                            domain,
+                            shopId: shop.id,
+                            userId,
+                            ip: this.getClientIp(req)
+                        });
+                    }
+                    
+                    return ErrorHandler.sendError(res, ErrorHandler.ERROR_CODES.INVALID_DOMAIN, '域名验证失败');
+                }
             }
 
-            // 生成会话ID
-            const sessionId = this.generateSessionId(shopId, userId);
+            // 创建或获取对话（使用对话服务）
+            const conversation = await this.conversationService.createOrGetConversation({
+                shopId: shop.id,
+                userId,
+                metadata: {
+                    userInfo,
+                    connectionInfo: {
+                        ip: this.getClientIp(req),
+                        userAgent: req.headers['user-agent'],
+                        domain,
+                        version,
+                        timestamp: timestamp || new Date().toISOString()
+                    }
+                }
+            });
+
+            // 生成会话令牌
+            const sessionToken = this.generateSessionToken(shop.id, userId, conversation.id);
             
-            // 创建或获取对话
-            const conversation = await this.messageRepository.createOrGetConversation(
-                shopId, 
-                userId, 
-                {
-                    ...userInfo,
+            // 存储活跃连接信息
+            this.activeConnections.set(sessionToken, {
+                shopId: shop.id,
+                userId,
+                conversationId: conversation.id,
+                connectedAt: new Date(),
+                lastActivity: new Date(),
+                metadata: {
+                    userInfo,
+                    domain,
+                    version,
                     ip: this.getClientIp(req),
                     userAgent: req.headers['user-agent']
                 }
-            );
-
-            // 记录连接信息
-            this.activeConnections.set(sessionId, {
-                shopId,
-                userId,
-                conversationId: conversation.id,
-                shop,
-                connectedAt: new Date(),
-                lastActivity: new Date(),
-                ip: this.getClientIp(req),
-                userAgent: req.headers['user-agent'],
-                domain: requestDomain,
-                version
             });
 
-            // 更新店铺使用统计
-            await this.shopRepository.recordUsageStats(shopId, {
-                requests: 1,
-                uniqueVisitors: 1
-            });
+            // 更新店铺连接统计（使用店铺服务）
+            try {
+                await this.shopService.recordUsageStats(shop.id, {
+                    connections: 1,
+                    activeUsers: this.getActiveUserCount(shop.id)
+                });
+            } catch (statsError) {
+                console.warn('更新连接统计失败:', statsError);
+                // 不影响连接建立流程
+            }
 
-            // 记录成功日志
-            await this.securityLogger.logApiKeyEvent('VALIDATION_SUCCESS', {
-                apiKey: shopKey,
-                shopId,
-                ip: this.getClientIp(req),
-                userAgent: req.headers['user-agent'],
-                success: true,
-                timestamp: new Date().toISOString()
-            });
+            // 发送连接建立通知（使用通知服务）
+            if (this.notificationService) {
+                try {
+                    await this.notificationService.notifyNewConnection({
+                        shopId: shop.id,
+                        userId,
+                        conversationId: conversation.id,
+                        userInfo,
+                        timestamp: new Date()
+                    });
+                } catch (notificationError) {
+                    console.warn('发送连接通知失败:', notificationError);
+                    // 不影响连接建立流程
+                }
+            }
 
-            console.log(`🔗 安全连接建立成功: ${shop.name} - ${userId}`);
+            // 记录成功连接日志
+            if (this.securityLogger) {
+                await this.securityLogger.logConnectionEvent('CONNECT_SUCCESS', {
+                    shopId: shop.id,
+                    userId,
+                    conversationId: conversation.id,
+                    sessionToken,
+                    ip: this.getClientIp(req),
+                    userAgent: req.headers['user-agent'],
+                    timestamp: new Date().toISOString()
+                });
+            }
+
+            console.log(`🔗 客户端连接成功: ${shop.name} - ${userId}`);
 
             ErrorHandler.sendSuccess(res, {
-                sessionId,
-                shop: {
+                sessionToken,
+                conversationId: conversation.id,
+                shopInfo: {
                     id: shop.id,
                     name: shop.name,
-                    domain: shop.domain
+                    config: shop.config || {}
                 },
-                conversation: {
-                    id: conversation.id,
-                    status: conversation.status
-                },
-                connected: true,
-                version: version || '1.0.0'
+                connectionStatus: 'connected',
+                timestamp: new Date().toISOString()
             }, '连接建立成功');
 
         } catch (error) {
-            console.error('安全连接失败:', error);
-            await this.securityLogger.logError(error, {
-                endpoint: '/api/secure-connect',
-                body: req.body,
-                ip: this.getClientIp(req)
-            });
-
-            ErrorHandler.sendError(res, ErrorHandler.ERROR_CODES.INTERNAL_ERROR, '服务器内部错误');
-        }
-    }
-
-    /**
-     * 处理基础连接请求（向后兼容）
-     */
-    async handleConnect(req, res) {
-        try {
-            const { userId, timestamp } = req.body;
-
-            const validationError = ErrorHandler.validateRequiredParams(req.body, ['userId']);
-            if (validationError) {
-                return ErrorHandler.sendError(res, validationError.code, validationError.message);
-            }
-
-            // 生成临时会话ID
-            const sessionId = this.generateSessionId('guest', userId);
+            console.error('安全连接建立失败:', error);
             
-            // 记录基础连接
-            this.activeConnections.set(sessionId, {
-                shopId: 'guest',
-                userId,
-                connectedAt: new Date(),
-                lastActivity: new Date(),
-                ip: this.getClientIp(req),
-                userAgent: req.headers['user-agent'],
-                type: 'basic'
-            });
-
-            console.log(`🔗 基础连接建立: ${userId}`);
-
-            ErrorHandler.sendSuccess(res, {
-                sessionId,
-                connected: true,
-                type: 'basic'
-            }, '基础连接建立成功');
-
-        } catch (error) {
-            console.error('基础连接失败:', error);
-            await this.securityLogger.logError(error, {
-                endpoint: '/api/connect',
-                body: req.body,
-                ip: this.getClientIp(req)
-            });
-
-            ErrorHandler.sendError(res, ErrorHandler.ERROR_CODES.INTERNAL_ERROR, '服务器内部错误');
-        }
-    }
-
-    /**
-     * 检查连接状态
-     */
-    async handleConnectionStatus(req, res) {
-        try {
-            const { sessionId } = req.params;
-            const connection = this.activeConnections.get(sessionId);
-
-            if (!connection) {
-                return ErrorHandler.sendError(res, ErrorHandler.ERROR_CODES.CONVERSATION_NOT_FOUND, '会话不存在');
+            if (this.securityLogger) {
+                await this.securityLogger.logError(error, {
+                    endpoint: '/api/connect',
+                    body: req.body,
+                    ip: this.getClientIp(req)
+                });
             }
 
-            // 更新最后活动时间
-            connection.lastActivity = new Date();
-
-            ErrorHandler.sendSuccess(res, {
-                sessionId,
-                connected: true,
-                shopId: connection.shopId,
-                userId: connection.userId,
-                connectedAt: connection.connectedAt,
-                lastActivity: connection.lastActivity
-            }, '连接状态正常');
-
-        } catch (error) {
-            console.error('状态检查失败:', error);
-            ErrorHandler.sendError(res, ErrorHandler.ERROR_CODES.INTERNAL_ERROR, '服务器内部错误');
+            ErrorHandler.sendError(res, ErrorHandler.ERROR_CODES.INTERNAL_ERROR, '连接建立失败');
         }
     }
 
     /**
-     * 断开连接
+     * 处理断开连接请求
      */
     async handleDisconnect(req, res) {
         try {
-            const { sessionId } = req.body;
+            const { sessionToken, userId, reason } = req.body;
 
-            const validationError = ErrorHandler.validateRequiredParams(req.body, ['sessionId']);
-            if (validationError) {
-                return ErrorHandler.sendError(res, validationError.code, validationError.message);
+            if (!sessionToken) {
+                return ErrorHandler.sendError(res, ErrorHandler.ERROR_CODES.MISSING_SESSION_TOKEN, '缺少会话令牌');
             }
 
-            const connection = this.activeConnections.get(sessionId);
-            if (connection) {
-                this.activeConnections.delete(sessionId);
-                console.log(`🔌 连接已断开: ${connection.shopId} - ${connection.userId}`);
+            // 获取连接信息
+            const connectionInfo = this.activeConnections.get(sessionToken);
+            
+            if (!connectionInfo) {
+                return ErrorHandler.sendError(res, ErrorHandler.ERROR_CODES.INVALID_SESSION_TOKEN, '无效的会话令牌');
             }
 
-            ErrorHandler.sendSuccess(res, {}, '连接已断开');
+            // 验证用户身份
+            if (userId && connectionInfo.userId !== userId) {
+                return ErrorHandler.sendError(res, ErrorHandler.ERROR_CODES.UNAUTHORIZED, '用户身份不匹配');
+            }
+
+            // 更新对话状态（使用对话服务）
+            try {
+                await this.conversationService.updateConversationStatus({
+                    conversationId: connectionInfo.conversationId,
+                    status: 'disconnected',
+                    metadata: {
+                        disconnectReason: reason,
+                        disconnectTime: new Date()
+                    }
+                });
+            } catch (error) {
+                console.warn('更新对话状态失败:', error);
+                // 不影响断开连接流程
+            }
+
+            // 发送断开连接通知（使用通知服务）
+            if (this.notificationService) {
+                try {
+                    await this.notificationService.notifyConnectionClosed({
+                        shopId: connectionInfo.shopId,
+                        userId: connectionInfo.userId,
+                        conversationId: connectionInfo.conversationId,
+                        reason,
+                        timestamp: new Date()
+                    });
+                } catch (notificationError) {
+                    console.warn('发送断开连接通知失败:', notificationError);
+                }
+            }
+
+            // 移除活跃连接
+            this.activeConnections.delete(sessionToken);
+
+            // 更新店铺连接统计
+            if (this.shopService) {
+                try {
+                    await this.shopService.recordUsageStats(connectionInfo.shopId, {
+                        disconnections: 1,
+                        activeUsers: this.getActiveUserCount(connectionInfo.shopId)
+                    });
+                } catch (statsError) {
+                    console.warn('更新断开连接统计失败:', statsError);
+                }
+            }
+
+            // 记录断开连接日志
+            if (this.securityLogger) {
+                await this.securityLogger.logConnectionEvent('DISCONNECT_SUCCESS', {
+                    shopId: connectionInfo.shopId,
+                    userId: connectionInfo.userId,
+                    conversationId: connectionInfo.conversationId,
+                    sessionToken,
+                    reason,
+                    duration: Date.now() - connectionInfo.connectedAt.getTime(),
+                    timestamp: new Date().toISOString()
+                });
+            }
+
+            console.log(`🔌 客户端断开连接: ${connectionInfo.userId}, 原因: ${reason}`);
+
+            ErrorHandler.sendSuccess(res, {
+                disconnected: true,
+                timestamp: new Date().toISOString()
+            }, '断开连接成功');
 
         } catch (error) {
             console.error('断开连接失败:', error);
-            ErrorHandler.sendError(res, ErrorHandler.ERROR_CODES.INTERNAL_ERROR, '服务器内部错误');
-        }
-    }
-
-    /**
-     * 获取活跃连接列表
-     */
-    getActiveConnections(shopId = null) {
-        const connections = Array.from(this.activeConnections.entries()).map(([sessionId, connection]) => ({
-            sessionId,
-            ...connection
-        }));
-
-        if (shopId) {
-            return connections.filter(conn => conn.shopId === shopId);
-        }
-
-        return connections;
-    }
-
-    /**
-     * 获取连接统计
-     */
-    getConnectionStats() {
-        const connections = Array.from(this.activeConnections.values());
-        const shopStats = new Map();
-
-        connections.forEach(conn => {
-            if (!shopStats.has(conn.shopId)) {
-                shopStats.set(conn.shopId, 0);
+            
+            if (this.securityLogger) {
+                await this.securityLogger.logError(error, {
+                    endpoint: '/api/disconnect',
+                    body: req.body,
+                    ip: this.getClientIp(req)
+                });
             }
-            shopStats.set(conn.shopId, shopStats.get(conn.shopId) + 1);
-        });
 
-        return {
-            totalConnections: connections.length,
-            shopConnections: Object.fromEntries(shopStats),
-            uptime: process.uptime()
-        };
+            ErrorHandler.sendError(res, ErrorHandler.ERROR_CODES.INTERNAL_ERROR, '断开连接失败');
+        }
     }
 
     /**
-     * 生成会话ID
+     * 获取连接状态
      */
-    generateSessionId(shopId, userId) {
-        const timestamp = Date.now();
-        const random = Math.random().toString(36).substr(2, 9);
-        return `sess_${timestamp}_${random}`;
+    async handleGetConnectionStatus(req, res) {
+        try {
+            const { sessionToken } = req.query;
+
+            if (!sessionToken) {
+                return ErrorHandler.sendError(res, ErrorHandler.ERROR_CODES.MISSING_SESSION_TOKEN, '缺少会话令牌');
+            }
+
+            const connectionInfo = this.activeConnections.get(sessionToken);
+            
+            if (!connectionInfo) {
+                return res.json({
+                    success: true,
+                    data: {
+                        connected: false,
+                        status: 'disconnected'
+                    }
+                });
+            }
+
+            // 更新最后活动时间
+            connectionInfo.lastActivity = new Date();
+
+            // 获取对话统计信息（使用对话服务）
+            let conversationStats = {};
+            if (this.conversationService) {
+                try {
+                    conversationStats = await this.conversationService.getConversationStats(connectionInfo.conversationId);
+                } catch (error) {
+                    console.warn('获取对话统计失败:', error);
+                }
+            }
+
+            res.json({
+                success: true,
+                data: {
+                    connected: true,
+                    status: 'active',
+                    connectionInfo: {
+                        shopId: connectionInfo.shopId,
+                        userId: connectionInfo.userId,
+                        conversationId: connectionInfo.conversationId,
+                        connectedAt: connectionInfo.connectedAt,
+                        lastActivity: connectionInfo.lastActivity,
+                        duration: Date.now() - connectionInfo.connectedAt.getTime()
+                    },
+                    conversationStats
+                }
+            });
+
+        } catch (error) {
+            console.error('获取连接状态失败:', error);
+            
+            ErrorHandler.sendError(res, ErrorHandler.ERROR_CODES.INTERNAL_ERROR, '获取连接状态失败');
+        }
     }
 
     /**
-     * 获取客户端IP
+     * 生成会话令牌
+     * @private
+     */
+    generateSessionToken(shopId, userId, conversationId) {
+        const timestamp = Date.now();
+        const random = Math.random().toString(36).substring(2);
+        return `${shopId}-${userId}-${conversationId}-${timestamp}-${random}`;
+    }
+
+    /**
+     * 获取客户端IP地址
+     * @private
      */
     getClientIp(req) {
-        return req.ip ||
-               req.connection?.remoteAddress ||
-               req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
-               req.headers['x-real-ip'] ||
-               '127.0.0.1';
+        return req.headers['x-forwarded-for'] || 
+               req.connection.remoteAddress || 
+               req.socket.remoteAddress ||
+               (req.connection.socket ? req.connection.socket.remoteAddress : null);
+    }
+
+    /**
+     * 获取指定店铺的活跃用户数量
+     * @private
+     */
+    getActiveUserCount(shopId) {
+        return Array.from(this.activeConnections.values())
+            .filter(conn => conn.shopId === shopId)
+            .length;
     }
 
     /**
      * 清理过期会话
+     * @private
      */
     cleanupExpiredSessions() {
         const now = new Date();
-        const expireTime = 30 * 60 * 1000; // 30分钟
+        const expiredTokens = [];
 
-        for (const [sessionId, connection] of this.activeConnections.entries()) {
-            if (now - connection.lastActivity > expireTime) {
-                this.activeConnections.delete(sessionId);
-                console.log(`🧹 清理过期会话: ${sessionId}`);
+        for (const [token, connectionInfo] of this.activeConnections.entries()) {
+            // 超过30分钟无活动的会话被认为是过期的
+            const inactiveTime = now.getTime() - connectionInfo.lastActivity.getTime();
+            if (inactiveTime > 30 * 60 * 1000) {
+                expiredTokens.push(token);
             }
         }
+
+        for (const token of expiredTokens) {
+            const connectionInfo = this.activeConnections.get(token);
+            this.activeConnections.delete(token);
+            
+            console.log(`🧹 清理过期会话: ${connectionInfo.userId}`);
+            
+            // 记录会话过期日志
+            if (this.securityLogger) {
+                this.securityLogger.logConnectionEvent('SESSION_EXPIRED', {
+                    shopId: connectionInfo.shopId,
+                    userId: connectionInfo.userId,
+                    conversationId: connectionInfo.conversationId,
+                    sessionToken: token,
+                    inactiveTime,
+                    timestamp: new Date().toISOString()
+                }).catch(error => {
+                    console.warn('记录会话过期日志失败:', error);
+                });
+            }
+        }
+
+        if (expiredTokens.length > 0) {
+            console.log(`🧹 已清理 ${expiredTokens.length} 个过期会话`);
+        }
     }
 
     /**
-     * 验证会话
+     * 获取活跃连接统计
      */
-    validateSession(sessionId) {
-        const connection = this.activeConnections.get(sessionId);
-        if (!connection) {
-            return { valid: false, error: '会话不存在' };
+    getActiveConnectionStats() {
+        const stats = {
+            totalConnections: this.activeConnections.size,
+            shopStats: {},
+            oldestConnection: null,
+            newestConnection: null
+        };
+
+        for (const connectionInfo of this.activeConnections.values()) {
+            const shopId = connectionInfo.shopId;
+            
+            if (!stats.shopStats[shopId]) {
+                stats.shopStats[shopId] = {
+                    activeUsers: 0,
+                    connections: []
+                };
+            }
+            
+            stats.shopStats[shopId].activeUsers++;
+            stats.shopStats[shopId].connections.push({
+                userId: connectionInfo.userId,
+                conversationId: connectionInfo.conversationId,
+                connectedAt: connectionInfo.connectedAt,
+                lastActivity: connectionInfo.lastActivity
+            });
+
+            // 跟踪最老和最新的连接
+            if (!stats.oldestConnection || connectionInfo.connectedAt < stats.oldestConnection.connectedAt) {
+                stats.oldestConnection = connectionInfo;
+            }
+            
+            if (!stats.newestConnection || connectionInfo.connectedAt > stats.newestConnection.connectedAt) {
+                stats.newestConnection = connectionInfo;
+            }
         }
 
-        // 检查会话是否过期
-        const now = new Date();
-        const expireTime = 30 * 60 * 1000; // 30分钟
+        return stats;
+    }
+
+    /**
+     * 优雅关闭
+     */
+    async shutdown() {
+        try {
+            console.log('🔄 关闭连接处理器...');
+            
+            // 清理定时器
+            if (this.cleanupInterval) {
+                clearInterval(this.cleanupInterval);
+            }
+
+            // 通知所有活跃连接即将关闭
+            const disconnectPromises = [];
+            for (const [token, connectionInfo] of this.activeConnections.entries()) {
+                if (this.notificationService) {
+                    disconnectPromises.push(
+                        this.notificationService.notifyConnectionClosed({
+                            shopId: connectionInfo.shopId,
+                            userId: connectionInfo.userId,
+                            conversationId: connectionInfo.conversationId,
+                            reason: 'server_shutdown',
+                            timestamp: new Date()
+                        }).catch(error => {
+                            console.warn(`通知连接关闭失败 ${token}:`, error);
+                        })
+                    );
+                }
+            }
+
+            await Promise.all(disconnectPromises);
+
+            // 清空连接
+            this.activeConnections.clear();
+            
+            console.log('✅ 连接处理器关闭完成');
+            
+        } catch (error) {
+            console.error('关闭连接处理器失败:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * 创建服务层兼容的ConnectionHandler工厂方法
+     * @param {Object} services - 服务层对象
+     * @param {Object} legacyServices - 兼容旧服务
+     */
+    static createWithServices(services, legacyServices = {}) {
+        return new ConnectionHandler(services, legacyServices);
+    }
+
+    /**
+     * 迁移辅助方法：逐步迁移现有实例到服务层
+     * @param {ConnectionHandler} existingHandler - 现有处理器
+     * @param {Object} services - 新服务层对象
+     */
+    static migrateToServices(existingHandler, services) {
+        // 注入服务依赖
+        existingHandler.shopService = services.shopService;
+        existingHandler.conversationService = services.conversationService;
+        existingHandler.notificationService = services.notificationService;
         
-        if (now - connection.lastActivity > expireTime) {
-            this.activeConnections.delete(sessionId);
-            return { valid: false, error: '会话已过期' };
-        }
-
-        // 更新最后活动时间
-        connection.lastActivity = now;
-
-        return { valid: true, connection };
-    }
-
-    /**
-     * 销毁连接处理器
-     */
-    destroy() {
-        if (this.cleanupInterval) {
-            clearInterval(this.cleanupInterval);
-            this.cleanupInterval = null;
-        }
-        this.activeConnections.clear();
+        console.log('✅ ConnectionHandler 已迁移到服务层架构');
+        return existingHandler;
     }
 }
 
