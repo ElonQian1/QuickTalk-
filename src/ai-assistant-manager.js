@@ -27,38 +27,25 @@ class AIAssistantManager {
     }
 
     /**
-     * 初始化AI相关表结构
+     * 初始化AI相关表结构 - 重构后使用统一的数据库模式管理器
      */
     async initializeTables() {
         try {
             console.log('🚀 开始初始化AI智能客服表...');
             
-            // 创建知识库表
-            await this.createKnowledgeBaseTable();
+            // 使用统一的数据库模式管理器
+            const DatabaseSchemaManager = require('./utils/DatabaseSchemaManager');
+            const AIAssistantSchemaConfig = require('./schemas/AIAssistantSchemaConfig');
             
-            // 创建意图识别表
-            await this.createIntentClassificationTable();
+            const schemaManager = new DatabaseSchemaManager(this.db);
             
-            // 创建对话上下文表
-            await this.createConversationContextTable();
+            // 批量创建表
+            const tableDefinitions = AIAssistantSchemaConfig.getTableDefinitions();
+            await schemaManager.createTables(tableDefinitions);
             
-            // 创建自动回复模板表
-            await this.createAutoReplyTemplateTable();
-            
-            // 创建学习数据表
-            await this.createLearningDataTable();
-            
-            // 创建情感分析表
-            await this.createSentimentAnalysisTable();
-            
-            // 创建智能推荐表
-            await this.createIntelligentRecommendationTable();
-            
-            // 创建AI配置表
-            await this.createAIConfigTable();
-            
-            // 创建索引
-            await this.createAIIndexes();
+            // 批量创建索引
+            const indexDefinitions = AIAssistantSchemaConfig.getIndexDefinitions();
+            await schemaManager.createIndexes(indexDefinitions);
             
             console.log('✅ AI智能客服表初始化完成');
             

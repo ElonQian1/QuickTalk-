@@ -50,7 +50,7 @@ class MobileShopManager {
      * 获取当前用户信息
      */
     async getCurrentUser() {
-        const sessionId = this.getSessionId();
+        const sessionId = Utils.getSessionId();
         if (!sessionId) {
             throw new Error('未找到登录会话');
         }
@@ -77,36 +77,7 @@ class MobileShopManager {
     /**
      * 获取session ID
      */
-    getSessionId() {
-        // 优先从URL参数获取
-        const urlParams = new URLSearchParams(window.location.search);
-        const sessionId = urlParams.get('sessionId');
-        
-        if (sessionId) {
-            localStorage.setItem('sessionId', sessionId);
-            sessionStorage.setItem('currentSessionId', sessionId);
-            return sessionId;
-        }
-        
-        // 从localStorage获取（主存储位置）
-        const localSessionId = localStorage.getItem('sessionId');
-        if (localSessionId) {
-            return localSessionId;
-        }
-        
-        // 从sessionStorage获取（备用）
-        const storedSessionId = sessionStorage.getItem('currentSessionId');
-        if (storedSessionId) {
-            return storedSessionId;
-        }
-        
-        // 从全局变量获取（兼容现有代码）
-        if (window.sessionId) {
-            return window.sessionId;
-        }
-        
-        return null;
-    }
+    // 改为使用统一的 Utils.getSessionId 方法
 
     /**
      * 绑定事件监听器
@@ -251,7 +222,7 @@ class MobileShopManager {
         try {
             console.log('🔄 开始加载店铺数据...');
             
-            const sessionId = this.getSessionId();
+            const sessionId = Utils.getSessionId();
             if (!sessionId) {
                 throw new Error('登录会话已过期，请重新登录');
             }
@@ -378,8 +349,8 @@ class MobileShopManager {
                         ${shop.name ? shop.name.charAt(0).toUpperCase() : 'S'}
                     </div>
                     <div class="shop-info">
-                        <div class="shop-name">${this.escapeHtml(shop.name || '未命名店铺')}</div>
-                        <div class="shop-domain">${this.escapeHtml(shop.domain || '未设置域名')}</div>
+                        <div class="shop-name">${Utils.escapeHtml(shop.name || '未命名店铺')}</div>
+                        <div class="shop-domain">${Utils.escapeHtml(shop.domain || '未设置域名')}</div>
                         <div class="shop-created">创建于: ${createdDate}</div>
                     </div>
                     <div class="shop-status ${statusInfo.class}">
@@ -388,7 +359,7 @@ class MobileShopManager {
                 </div>
                 
                 <div class="shop-description">
-                    ${this.escapeHtml(shop.description || '暂无描述')}
+                    ${Utils.escapeHtml(shop.description || '暂无描述')}
                 </div>
 
                 <div class="shop-actions">
@@ -535,7 +506,7 @@ class MobileShopManager {
             container.innerHTML = `
                 <div class="error-state">
                     <div class="error-icon">❌</div>
-                    <div class="error-message">${this.escapeHtml(message)}</div>
+                    <div class="error-message">${Utils.escapeHtml(message)}</div>
                     <button class="retry-btn" onclick="mobileShopManager.loadShops()">
                         🔄 重试
                     </button>
@@ -553,7 +524,7 @@ class MobileShopManager {
         toast.className = `toast toast-${type}`;
         toast.innerHTML = `
             <div class="toast-content">
-                ${this.escapeHtml(message)}
+                ${Utils.escapeHtml(message)}
             </div>
         `;
 
@@ -572,16 +543,7 @@ class MobileShopManager {
     /**
      * HTML转义，防止XSS
      */
-    escapeHtml(text) {
-        const map = {
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            '"': '&quot;',
-            "'": '&#039;'
-        };
-        return text.replace(/[&<>"']/g, m => map[m]);
-    }
+    // 改为使用统一的 Utils.escapeHtml 方法
 
     // ============ 店铺操作方法 ============
 
@@ -597,25 +559,14 @@ class MobileShopManager {
     }
 
     /**
-     * 生成集成代码
+     * 生成集成代码 - 使用统一的IntegrationManager
      */
     async generateCode(shopId) {
         console.log('📋 生成集成代码:', shopId);
-        try {
-            const response = await fetch(`/api/shops/${shopId}/integration-code`, {
-                headers: {
-                    'X-Session-Id': this.getSessionId()
-                }
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                this.showCodeModal(data.code);
-            } else {
-                throw new Error('生成代码失败');
-            }
-        } catch (error) {
-            this.showToast('生成代码失败: ' + error.message, 'error');
+        if (window.integrationManager) {
+            await window.integrationManager.generateCode(shopId, { mobile: true });
+        } else {
+            this.showToast('集成代码管理器未加载', 'error');
         }
     }
 
@@ -637,7 +588,7 @@ class MobileShopManager {
             const response = await fetch(`/api/shops/${shopId}/resubmit`, {
                 method: 'POST',
                 headers: {
-                    'X-Session-Id': this.getSessionId(),
+                    'X-Session-Id': Utils.getSessionId(),
                     'Content-Type': 'application/json'
                 }
             });
@@ -664,39 +615,6 @@ class MobileShopManager {
         } else {
             this.showToast('创建功能开发中...', 'info');
         }
-    }
-
-    /**
-     * 显示代码模态框
-     */
-    showCodeModal(code) {
-        // 创建代码显示模态框
-        const modal = document.createElement('div');
-        modal.className = 'code-modal';
-        modal.innerHTML = `
-            <div class="code-modal-content">
-                <div class="code-modal-header">
-                    <h3>集成代码</h3>
-                    <button class="close-btn" onclick="this.parentElement.parentElement.parentElement.remove()">&times;</button>
-                </div>
-                <div class="code-modal-body">
-                    <textarea readonly class="code-textarea">${this.escapeHtml(code)}</textarea>
-                    <button class="copy-btn" onclick="mobileShopManager.copyCode(this)">复制代码</button>
-                </div>
-            </div>
-        `;
-
-        document.body.appendChild(modal);
-    }
-
-    /**
-     * 复制代码
-     */
-    copyCode(button) {
-        const textarea = button.parentElement.querySelector('.code-textarea');
-        textarea.select();
-        document.execCommand('copy');
-        this.showToast('代码已复制到剪贴板', 'success');
     }
 
     /**

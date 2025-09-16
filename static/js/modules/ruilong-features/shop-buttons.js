@@ -52,7 +52,7 @@ class RuilongShopButtons {
                 <button class="shop-btn primary" onclick="ShopManager.manageShop('${shop.id}')">管理</button>
                 <button class="shop-btn success" onclick="MessageManager.viewShopConversations('${shop.id}')">💬 消息</button>
                 <button class="shop-btn primary" onclick="RuilongMobile.viewShopMessages('${shop.id}')">📄 消息详情</button>
-                <button class="shop-btn info" onclick="RuilongIntegration.generateCode('${shop.id}')">📋 代码</button>
+                <button class="shop-btn info" onclick="window.integrationManager.generateCode('${shop.id}')">📋 代码</button>
                 <button class="shop-btn warning" onclick="RuilongMobile.editShopInfo('${shop.id}')">✏️ 编辑</button>
                 <button class="shop-btn info" onclick="RuilongPayment.renewShop('${shop.id}')">🔄 续费</button>
             `;
@@ -61,7 +61,7 @@ class RuilongShopButtons {
             return `
                 <button class="shop-btn success" onclick="MessageManager.viewShopConversations('${shop.id}')">💬 消息</button>
                 <button class="shop-btn primary" onclick="RuilongMobile.viewShopMessages('${shop.id}')">📄 消息详情</button>
-                <button class="shop-btn info" onclick="RuilongIntegration.generateCode('${shop.id}')">📋 代码</button>
+                <button class="shop-btn info" onclick="window.integrationManager.generateCode('${shop.id}')">📋 代码</button>
             `;
         } else if (userRole === 'employee') {
             // 员工：只显示消息相关按钮

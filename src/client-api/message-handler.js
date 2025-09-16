@@ -1,3 +1,5 @@
+const ErrorHandler = require('../utils/ErrorHandler');
+
 /**
  * 客户端消息处理模块
  * 处理消息发送和接收
@@ -25,27 +27,16 @@ class MessageHandler {
             } = req.body;
 
             // 验证必要参数
-            if (!userId || !message) {
-                return res.status(400).json({
-                    success: false,
-                    error: {
-                        code: 'MISSING_PARAMETERS',
-                        message: '缺少必要参数: userId, message'
-                    }
-                });
+            const validationError = ErrorHandler.validateRequiredParams(req.body, ['userId', 'message']);
+            if (validationError) {
+                return ErrorHandler.sendError(res, validationError.code, validationError.message);
             }
 
             // 获取API密钥（兼容不同字段名）
             const finalApiKey = shopKey || apiKey || req.headers['x-shop-key'];
             
             if (!finalApiKey) {
-                return res.status(401).json({
-                    success: false,
-                    error: {
-                        code: 'MISSING_API_KEY',
-                        message: '缺少API密钥'
-                    }
-                });
+                return ErrorHandler.sendError(res, ErrorHandler.ERROR_CODES.INVALID_API_KEY, '缺少API密钥');
             }
 
             // 如果请求已经通过认证中间件，使用已验证的店铺信息
@@ -55,26 +46,14 @@ class MessageHandler {
             if (!shop) {
                 const authResult = await this.connectionHandler.authValidator.validateApiKey(finalApiKey);
                 if (!authResult.valid) {
-                    return res.status(401).json({
-                        success: false,
-                        error: {
-                            code: authResult.code,
-                            message: authResult.error
-                        }
-                    });
+                    return ErrorHandler.sendError(res, ErrorHandler.ERROR_CODES.INVALID_API_KEY, authResult.error);
                 }
                 shop = authResult.shop;
             }
 
             // 验证消息内容
             if (message.length > 5000) {
-                return res.status(400).json({
-                    success: false,
-                    error: {
-                        code: 'MESSAGE_TOO_LONG',
-                        message: '消息内容过长，最多5000字符'
-                    }
-                });
+                return ErrorHandler.sendError(res, ErrorHandler.ERROR_CODES.MESSAGE_TOO_LONG, '消息内容过长，最多5000字符');
             }
 
             // 创建或获取对话
@@ -113,16 +92,12 @@ class MessageHandler {
 
             console.log(`📨 消息已发送: ${shop.name} - ${userId}: ${message.substring(0, 50)}...`);
 
-            res.json({
-                success: true,
-                data: {
-                    messageId: result.id,
-                    conversationId: conversation.id,
-                    timestamp: new Date().toISOString(),
-                    status: 'sent'
-                },
-                message: '消息发送成功'
-            });
+            ErrorHandler.sendSuccess(res, {
+                messageId: result.id,
+                conversationId: conversation.id,
+                timestamp: new Date().toISOString(),
+                status: 'sent'
+            }, '消息发送成功');
 
         } catch (error) {
             console.error('发送消息失败:', error);
@@ -132,13 +107,7 @@ class MessageHandler {
                 ip: this.getClientIp(req)
             });
 
-            res.status(500).json({
-                success: false,
-                error: {
-                    code: 'INTERNAL_ERROR',
-                    message: '消息发送失败'
-                }
-            });
+            ErrorHandler.sendError(res, ErrorHandler.ERROR_CODES.INTERNAL_ERROR, '消息发送失败');
         }
     }
 

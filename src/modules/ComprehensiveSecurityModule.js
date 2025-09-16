@@ -96,13 +96,45 @@ class ComprehensiveSecurityModule {
     }
 
     /**
-     * 创建安全相关数据表
+     * 创建安全相关数据表 - 重构后使用统一的数据库模式管理器
      */
     async createSecurityTables() {
         try {
             console.log('📋 创建安全相关数据表...');
             
+            // 使用统一的数据库模式管理器
+            const DatabaseSchemaManager = require('../utils/DatabaseSchemaManager');
+            const SecurityModuleSchemaConfig = require('../schemas/SecurityModuleSchemaConfig');
+            
+            const schemaManager = new DatabaseSchemaManager(this.db);
+            
             if (this.db.prepare && typeof this.db.prepare === 'function') {
+                // SQLite数据库模式
+                const tableDefinitions = SecurityModuleSchemaConfig.getTableDefinitions();
+                await schemaManager.createTables(tableDefinitions);
+                
+                const indexDefinitions = SecurityModuleSchemaConfig.getIndexDefinitions();
+                await schemaManager.createIndexes(indexDefinitions);
+                
+            } else {
+                // 内存数据库模式
+                if (!this.db.securityAuditLogs) this.db.securityAuditLogs = new Map();
+                if (!this.db.securitySessions) this.db.securitySessions = new Map();
+                if (!this.db.securityAccessRules) this.db.securityAccessRules = new Map();
+                if (!this.db.securityThreats) this.db.securityThreats = new Map();
+                if (!this.db.securityEncryptionKeys) this.db.securityEncryptionKeys = new Map();
+                if (!this.db.securityPolicies) this.db.securityPolicies = new Map();
+                
+                console.log('📄 安全相关内存表创建完成');
+            }
+            
+            console.log('✅ 安全相关数据表创建完成');
+            
+        } catch (error) {
+            console.error('❌ 创建安全数据表失败:', error);
+            throw error;
+        }
+    }
                 // SQLite数据库
                 await this.db.exec(`
                     -- 安全事件日志表

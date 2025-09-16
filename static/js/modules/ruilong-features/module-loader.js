@@ -287,7 +287,6 @@ class RuilongModuleLoader {
             'RuilongRoleManager',
             'RuilongShopButtons', 
             'RuilongMobile',
-            'RuilongIntegration',
             'RuilongPayment'
         ];
         

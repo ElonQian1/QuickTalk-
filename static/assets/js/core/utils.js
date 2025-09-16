@@ -129,7 +129,8 @@ class Utils {
     /**
      * 转义HTML字符
      */
-    static escapeHTML(text) {
+    static escapeHtml(text) {
+        if (!text) return '';
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
@@ -261,6 +262,40 @@ class Utils {
             }
         }
     };
+
+    /**
+     * 获取会话ID
+     */
+    static getSessionId() {
+        // 优先从URL参数获取
+        const urlParams = new URLSearchParams(window.location.search);
+        const sessionId = urlParams.get('sessionId');
+        
+        if (sessionId) {
+            localStorage.setItem('sessionId', sessionId);
+            sessionStorage.setItem('currentSessionId', sessionId);
+            return sessionId;
+        }
+        
+        // 从localStorage获取（主存储位置）
+        const localSessionId = localStorage.getItem('sessionId');
+        if (localSessionId) {
+            return localSessionId;
+        }
+        
+        // 从sessionStorage获取（备用）
+        const storedSessionId = sessionStorage.getItem('currentSessionId');
+        if (storedSessionId) {
+            return storedSessionId;
+        }
+        
+        // 从全局变量获取（兼容现有代码）
+        if (window.sessionId) {
+            return window.sessionId;
+        }
+        
+        return null;
+    }
 
     /**
      * 检测设备类型

@@ -74,69 +74,30 @@ class MessageRepository {
     }
 
     /**
-     * 初始化新版表结构
+     * 初始化新版表结构 - 重构后使用统一的数据库模式管理器
      */
     async initializeNewTables() {
-        // 创建对话表
-        await this.db.createTableIfNotExists('conversations', `
-            id TEXT PRIMARY KEY,
-            shop_id TEXT NOT NULL,
-            user_id TEXT NOT NULL,
-            user_name TEXT,
-            user_email TEXT,
-            user_ip TEXT,
-            status TEXT DEFAULT 'active',
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            last_message_at DATETIME,
-            unread_count INTEGER DEFAULT 0,
-            tags TEXT DEFAULT '[]',
-            notes TEXT,
-            FOREIGN KEY (shop_id) REFERENCES shops(id)
-        `);
-
-        // 创建消息表
-        await this.db.createTableIfNotExists('messages', `
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            conversation_id TEXT NOT NULL,
-            sender_type TEXT NOT NULL,
-            sender_id TEXT,
-            sender_name TEXT,
-            message TEXT NOT NULL,
-            message_type TEXT DEFAULT 'text',
-            attachments TEXT DEFAULT '[]',
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            read_at DATETIME,
-            is_read BOOLEAN DEFAULT FALSE,
-            metadata TEXT DEFAULT '{}',
-            FOREIGN KEY (conversation_id) REFERENCES conversations(id)
-        `);
-
-        // 创建未读计数表
-        await this.db.createTableIfNotExists('unread_counts', `
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            shop_id TEXT NOT NULL,
-            conversation_id TEXT NOT NULL,
-            user_type TEXT NOT NULL,
-            count INTEGER DEFAULT 0,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (shop_id) REFERENCES shops(id),
-            FOREIGN KEY (conversation_id) REFERENCES conversations(id),
-            UNIQUE(shop_id, conversation_id, user_type)
-        `);
-
-        // 创建索引
-        await this.db.createIndexIfNotExists('idx_conversations_shop_id', 'conversations', 'shop_id');
-        await this.db.createIndexIfNotExists('idx_conversations_user_id', 'conversations', 'user_id');
-        await this.db.createIndexIfNotExists('idx_conversations_status', 'conversations', 'status');
-        await this.db.createIndexIfNotExists('idx_conversations_updated_at', 'conversations', 'updated_at');
-        
-        await this.db.createIndexIfNotExists('idx_messages_conversation_id', 'messages', 'conversation_id');
-        await this.db.createIndexIfNotExists('idx_messages_created_at', 'messages', 'created_at');
-        await this.db.createIndexIfNotExists('idx_messages_sender_type', 'messages', 'sender_type');
-        
-        await this.db.createIndexIfNotExists('idx_unread_shop_id', 'unread_counts', 'shop_id');
-        await this.db.createIndexIfNotExists('idx_unread_conversation_id', 'unread_counts', 'conversation_id');
+        try {
+            // 使用统一的数据库模式管理器
+            const DatabaseSchemaManager = require('../utils/DatabaseSchemaManager');
+            const MessageRepositorySchemaConfig = require('../schemas/MessageRepositorySchemaConfig');
+            
+            const schemaManager = new DatabaseSchemaManager(this.db);
+            
+            // 批量创建表
+            const tableDefinitions = MessageRepositorySchemaConfig.getTableDefinitions();
+            await schemaManager.createTables(tableDefinitions);
+            
+            // 批量创建索引
+            const indexDefinitions = MessageRepositorySchemaConfig.getIndexDefinitions();
+            await schemaManager.createIndexes(indexDefinitions);
+            
+            console.log('✅ 新版消息表结构初始化完成');
+            
+        } catch (error) {
+            console.error('❌ 新版消息表初始化失败:', error);
+            throw error;
+        }
     }
 
     /**

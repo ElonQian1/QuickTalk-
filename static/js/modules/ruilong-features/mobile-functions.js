@@ -368,7 +368,7 @@ class RuilongMobile {
             <div class="conversation-item" onclick="MessageManager.viewShopConversations('${conv.shopId}', '${conv.id}')">
                 <div class="conversation-info">
                     <span class="conversation-user">${conv.customerName || '匿名用户'}</span>
-                    <span class="conversation-time">${this.formatTime(conv.lastMessage?.createdAt)}</span>
+                    <span class="conversation-time">${Utils.formatTime(conv.lastMessage?.createdAt, 'MM-DD HH:mm')}</span>
                 </div>
                 <div class="conversation-preview">${conv.lastMessage?.content || '无消息内容'}</div>
             </div>
@@ -579,11 +579,7 @@ class RuilongMobile {
     /**
      * 格式化时间
      */
-    static formatTime(timestamp) {
-        if (!timestamp) return '';
-        const date = new Date(timestamp);
-        return date.toLocaleString('zh-CN');
-    }
+    // 改为使用统一的 Utils.formatTime 方法
 }
 
 // 全局注册模块

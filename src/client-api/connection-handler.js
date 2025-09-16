@@ -1,3 +1,5 @@
+const ErrorHandler = require('../utils/ErrorHandler');
+
 /**
  * 客户端连接处理模块
  * 处理客户端的连接建立和认证
@@ -35,14 +37,9 @@ class ConnectionHandler {
             } = req.body;
 
             // 验证必要参数
-            if (!userId || !shopKey || !shopId) {
-                return res.status(400).json({
-                    success: false,
-                    error: {
-                        code: 'MISSING_PARAMETERS',
-                        message: '缺少必要参数: userId, shopKey, shopId'
-                    }
-                });
+            const validationError = ErrorHandler.validateRequiredParams(req.body, ['userId', 'shopKey', 'shopId']);
+            if (validationError) {
+                return ErrorHandler.sendError(res, validationError.code, validationError.message);
             }
 
             // 验证API密钥
@@ -58,26 +55,14 @@ class ConnectionHandler {
                     timestamp: new Date().toISOString()
                 });
 
-                return res.status(401).json({
-                    success: false,
-                    error: {
-                        code: authResult.code,
-                        message: authResult.error
-                    }
-                });
+                return ErrorHandler.sendError(res, ErrorHandler.ERROR_CODES.INVALID_API_KEY, authResult.error);
             }
 
             const shop = authResult.shop;
 
             // 验证店铺ID匹配
             if (shop.id !== shopId) {
-                return res.status(401).json({
-                    success: false,
-                    error: {
-                        code: 'SHOP_ID_MISMATCH',
-                        message: '店铺ID不匹配'
-                    }
-                });
+                return ErrorHandler.sendError(res, ErrorHandler.ERROR_CODES.UNAUTHORIZED_ACCESS, '店铺ID不匹配');
             }
 
             // 验证域名
@@ -94,16 +79,9 @@ class ConnectionHandler {
                     error: domainResult.reason
                 });
 
-                return res.status(403).json({
-                    success: false,
-                    error: {
-                        code: domainResult.code,
-                        message: domainResult.reason,
-                        details: {
-                            requestDomain,
-                            authorizedDomain: shop.domain
-                        }
-                    }
+                return ErrorHandler.sendError(res, ErrorHandler.ERROR_CODES.UNAUTHORIZED_ACCESS, domainResult.reason, {
+                    requestDomain,
+                    authorizedDomain: shop.domain
                 });
             }
 
@@ -153,24 +131,20 @@ class ConnectionHandler {
 
             console.log(`🔗 安全连接建立成功: ${shop.name} - ${userId}`);
 
-            res.json({
-                success: true,
-                data: {
-                    sessionId,
-                    shop: {
-                        id: shop.id,
-                        name: shop.name,
-                        domain: shop.domain
-                    },
-                    conversation: {
-                        id: conversation.id,
-                        status: conversation.status
-                    },
-                    connected: true,
-                    version: version || '1.0.0'
+            ErrorHandler.sendSuccess(res, {
+                sessionId,
+                shop: {
+                    id: shop.id,
+                    name: shop.name,
+                    domain: shop.domain
                 },
-                message: '连接建立成功'
-            });
+                conversation: {
+                    id: conversation.id,
+                    status: conversation.status
+                },
+                connected: true,
+                version: version || '1.0.0'
+            }, '连接建立成功');
 
         } catch (error) {
             console.error('安全连接失败:', error);
@@ -180,13 +154,7 @@ class ConnectionHandler {
                 ip: this.getClientIp(req)
             });
 
-            res.status(500).json({
-                success: false,
-                error: {
-                    code: 'INTERNAL_ERROR',
-                    message: '服务器内部错误'
-                }
-            });
+            ErrorHandler.sendError(res, ErrorHandler.ERROR_CODES.INTERNAL_ERROR, '服务器内部错误');
         }
     }
 
@@ -197,14 +165,9 @@ class ConnectionHandler {
         try {
             const { userId, timestamp } = req.body;
 
-            if (!userId) {
-                return res.status(400).json({
-                    success: false,
-                    error: {
-                        code: 'MISSING_USER_ID',
-                        message: '缺少用户ID'
-                    }
-                });
+            const validationError = ErrorHandler.validateRequiredParams(req.body, ['userId']);
+            if (validationError) {
+                return ErrorHandler.sendError(res, validationError.code, validationError.message);
             }
 
             // 生成临时会话ID
@@ -223,15 +186,11 @@ class ConnectionHandler {
 
             console.log(`🔗 基础连接建立: ${userId}`);
 
-            res.json({
-                success: true,
-                data: {
-                    sessionId,
-                    connected: true,
-                    type: 'basic'
-                },
-                message: '基础连接建立成功'
-            });
+            ErrorHandler.sendSuccess(res, {
+                sessionId,
+                connected: true,
+                type: 'basic'
+            }, '基础连接建立成功');
 
         } catch (error) {
             console.error('基础连接失败:', error);
@@ -241,13 +200,7 @@ class ConnectionHandler {
                 ip: this.getClientIp(req)
             });
 
-            res.status(500).json({
-                success: false,
-                error: {
-                    code: 'INTERNAL_ERROR',
-                    message: '服务器内部错误'
-                }
-            });
+            ErrorHandler.sendError(res, ErrorHandler.ERROR_CODES.INTERNAL_ERROR, '服务器内部错误');
         }
     }
 
@@ -260,39 +213,24 @@ class ConnectionHandler {
             const connection = this.activeConnections.get(sessionId);
 
             if (!connection) {
-                return res.status(404).json({
-                    success: false,
-                    error: {
-                        code: 'SESSION_NOT_FOUND',
-                        message: '会话不存在'
-                    }
-                });
+                return ErrorHandler.sendError(res, ErrorHandler.ERROR_CODES.CONVERSATION_NOT_FOUND, '会话不存在');
             }
 
             // 更新最后活动时间
             connection.lastActivity = new Date();
 
-            res.json({
-                success: true,
-                data: {
-                    sessionId,
-                    connected: true,
-                    shopId: connection.shopId,
-                    userId: connection.userId,
-                    connectedAt: connection.connectedAt,
-                    lastActivity: connection.lastActivity
-                }
-            });
+            ErrorHandler.sendSuccess(res, {
+                sessionId,
+                connected: true,
+                shopId: connection.shopId,
+                userId: connection.userId,
+                connectedAt: connection.connectedAt,
+                lastActivity: connection.lastActivity
+            }, '连接状态正常');
 
         } catch (error) {
             console.error('状态检查失败:', error);
-            res.status(500).json({
-                success: false,
-                error: {
-                    code: 'INTERNAL_ERROR',
-                    message: '服务器内部错误'
-                }
-            });
+            ErrorHandler.sendError(res, ErrorHandler.ERROR_CODES.INTERNAL_ERROR, '服务器内部错误');
         }
     }
 
@@ -303,14 +241,9 @@ class ConnectionHandler {
         try {
             const { sessionId } = req.body;
 
-            if (!sessionId) {
-                return res.status(400).json({
-                    success: false,
-                    error: {
-                        code: 'MISSING_SESSION_ID',
-                        message: '缺少会话ID'
-                    }
-                });
+            const validationError = ErrorHandler.validateRequiredParams(req.body, ['sessionId']);
+            if (validationError) {
+                return ErrorHandler.sendError(res, validationError.code, validationError.message);
             }
 
             const connection = this.activeConnections.get(sessionId);
@@ -319,20 +252,11 @@ class ConnectionHandler {
                 console.log(`🔌 连接已断开: ${connection.shopId} - ${connection.userId}`);
             }
 
-            res.json({
-                success: true,
-                message: '连接已断开'
-            });
+            ErrorHandler.sendSuccess(res, {}, '连接已断开');
 
         } catch (error) {
             console.error('断开连接失败:', error);
-            res.status(500).json({
-                success: false,
-                error: {
-                    code: 'INTERNAL_ERROR',
-                    message: '服务器内部错误'
-                }
-            });
+            ErrorHandler.sendError(res, ErrorHandler.ERROR_CODES.INTERNAL_ERROR, '服务器内部错误');
         }
     }
 

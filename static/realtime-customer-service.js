@@ -340,7 +340,7 @@
                         ${this.config.showWelcomeMessage ? `
                         <div class="rcs-message rcs-system-message">
                             <span class="rcs-message-text">${this.config.texts.welcome}</span>
-                            <span class="rcs-message-time">${this.formatTime(new Date())}</span>
+                            <span class="rcs-message-time">${Utils.formatTime(new Date(), 'HH:mm')}</span>
                         </div>
                         ` : ''}
                     </div>
@@ -484,7 +484,7 @@
             
             const messageTime = document.createElement('span');
             messageTime.className = 'rcs-message-time';
-            messageTime.textContent = this.formatTime(new Date());
+            messageTime.textContent = Utils.formatTime(new Date(), 'HH:mm');
             
             messageDiv.appendChild(messageText);
             messageDiv.appendChild(messageTime);
@@ -512,7 +512,7 @@
             
             const messageTime = document.createElement('span');
             messageTime.className = 'rcs-message-time';
-            messageTime.textContent = this.formatTime(new Date());
+            messageTime.textContent = Utils.formatTime(new Date(), 'HH:mm');
             
             messageDiv.appendChild(messageText);
             messageDiv.appendChild(messageTime);
@@ -546,12 +546,7 @@
             this.statusText.textContent = text;
         }
         
-        formatTime(date) {
-            return date.toLocaleTimeString('zh-CN', {
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-        }
+        // 改为使用统一的 Utils.formatTime 方法
         
         scrollToBottom() {
             this.chatMessages.scrollTop = this.chatMessages.scrollHeight;

@@ -1,6 +1,8 @@
 // WebSocket管理器 - 模块化实现
 // 负责处理WebSocket连接、消息路由和客户端管理
 
+const WebSocketHelper = require('../utils/WebSocketHelper');
+
 class WebSocketManager {
     constructor(server, messageAdapter) {
         this.server = server;
@@ -215,22 +217,19 @@ class WebSocketManager {
             // 这里可以添加更严格的认证逻辑
             // 例如验证shopKey是否有效
             
-            // 设置连接信息
-            ws.userId = data.userId;
-            ws.shopId = data.shopId;
-            ws.shopKey = data.shopKey;
-            ws.authenticated = true;
+            // 使用WebSocketHelper进行标准化认证
+            const authResult = WebSocketHelper.authenticate(ws, {
+                userId: data.userId,
+                shopId: data.shopId,
+                shopKey: data.shopKey,
+                isCustomer: false
+            });
             
             // 注册客户端
             this.registerClient(ws);
             
             // 发送认证成功消息
-            this.sendMessage(ws, {
-                type: 'auth_success',
-                message: 'WebSocket认证成功',
-                userId: data.userId,
-                timestamp: Date.now()
-            });
+            WebSocketHelper.sendAuthSuccess(ws, authResult);
             
             console.log(`✅ WebSocket用户认证成功: ${data.userId} (店铺: ${data.shopId})`);
             
@@ -265,11 +264,7 @@ class WebSocketManager {
             await this.messageAdapter.addMessage(messageData);
             
             // 发送确认
-            this.sendMessage(ws, {
-                type: 'message_sent',
-                message: '消息发送成功',
-                timestamp: Date.now()
-            });
+            WebSocketHelper.sendMessageSent(ws);
             
             console.log(`✅ 用户消息已保存: ${data.userId} -> "${data.message}"`);
             
@@ -337,16 +332,11 @@ class WebSocketManager {
             await this.messageAdapter.addMessage(messageData);
             
             // 发送确认
-            this.sendMessage(ws, {
-                type: 'multimedia_message_sent',
-                message: '多媒体消息发送成功',
-                fileInfo: {
-                    id: data.fileId,
-                    url: data.fileUrl,
-                    name: data.fileName,
-                    type: data.messageType
-                },
-                timestamp: Date.now()
+            WebSocketHelper.sendMultimediaMessageSent(ws, {
+                id: data.fileId,
+                url: data.fileUrl,
+                name: data.fileName,
+                type: data.messageType
             });
             
             console.log(`✅ 用户多媒体消息已保存: ${data.userId} -> ${data.fileName}`);
@@ -618,20 +608,14 @@ class WebSocketManager {
      * 发送消息到WebSocket
      */
     sendMessage(ws, data) {
-        if (ws.readyState === require('ws').OPEN) {
-            ws.send(JSON.stringify(data));
-        }
+        return WebSocketHelper.sendMessage(ws, data);
     }
     
     /**
      * 发送错误消息
      */
     sendError(ws, message) {
-        this.sendMessage(ws, {
-            type: 'error',
-            message: message,
-            timestamp: Date.now()
-        });
+        return WebSocketHelper.sendError(ws, message);
     }
     
     /**

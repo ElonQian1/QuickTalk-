@@ -1,8 +1,13 @@
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const ErrorHandler = require('./src/utils/ErrorHandler');
+const AuthValidator = require('./src/utils/AuthValidator');
 
 module.exports = function(app, database, modularApp = null) {
+
+// 初始化认证验证器
+const authValidator = new AuthValidator(database);
 
 // 配置multer用于多媒体消息的文件上传（仅用于管理端）
 const storage = multer.diskStorage({
@@ -56,13 +61,13 @@ function requireAuth(req, res, next) {
     
     if (!sessionId) {
         console.log('❌ [AUTH] 没有会话ID');
-        return res.status(401).json({ error: '需要登录' });
+        return ErrorHandler.sendError(res, 'NO_SESSION', '需要登录');
     }
     
     database.validateSession(sessionId).then(user => {
         if (!user) {
             console.log('❌ [AUTH] 会话验证失败');
-            return res.status(401).json({ error: '会话已过期，请重新登录' });
+            return ErrorHandler.sendError(res, 'SESSION_EXPIRED', '会话已过期，请重新登录');
         }
         console.log('✅ [AUTH] 认证成功:', { userId: user.id, role: user.role });
         req.user = user;
@@ -70,55 +75,47 @@ function requireAuth(req, res, next) {
         next();
     }).catch(err => {
         console.log('❌ [AUTH] 认证异常:', err.message);
-        res.status(500).json({ error: '验证失败' });
+        ErrorHandler.sendError(res, 'AUTH_ERROR', '验证失败');
     });
 }
 
-// 超级管理员权限检查
-function requireSuperAdmin(req, res, next) {
-    if (req.user.role !== 'super_admin') {
-        return res.status(403).json({ error: '需要超级管理员权限' });
-    }
-    next();
-}
+// 超级管理员权限检查 (使用新的AuthValidator)
+const requireSuperAdmin = authValidator.requireSuperAdmin();
 
-// 店主权限检查
-function requireShopOwner(req, res, next) {
-    if (!['super_admin', 'shop_owner'].includes(req.user.role)) {
-        return res.status(403).json({ error: '需要店主权限' });
-    }
-    next();
-}
+// 店主权限检查 (使用新的AuthValidator)  
+const requireShopOwner = authValidator.requireShopOwner();
 
-// 用户注册
-app.post('/api/auth/register', async (req, res) => {
-    try {
-        const { username, password, email, role = 'user' } = req.body;
-        
-        if (!username || !password || !email) {
-            return res.status(400).json({ error: '用户名、密码和邮箱为必填项' });
+// 店铺管理员权限检查 (使用新的AuthValidator)
+const requireShopManager = authValidator.requireShopManager();
+
+// 用户注册 (使用统一的数据验证)
+app.post('/api/auth/register', 
+    authValidator.createValidationMiddleware({
+        username: { required: true, name: '用户名', minLength: 3, maxLength: 50 },
+        password: { required: true, name: '密码', minLength: 6 },
+        email: { required: true, name: '邮箱', type: 'email' },
+        role: { enum: ['user', 'shop_owner'], name: '角色' }
+    }),
+    async (req, res) => {
+        try {
+            const { username, password, email, role = 'user' } = req.body;
+            
+            // 确保只有超级管理员才能指定特殊角色，其他用户默认为普通用户
+            const finalRole = role === 'super_admin' ? 'user' : (role || 'user');
+            
+            const user = await database.registerUser({ username, password, email, role: finalRole });
+            
+            console.log(`👤 新用户注册: ${username} (${finalRole})`);
+            ErrorHandler.sendSuccess(res, { 
+                message: '注册成功，您可以创建店铺成为店主',
+                user 
+            });
+        } catch (error) {
+            console.error('注册失败:', error.message);
+            ErrorHandler.sendError(res, 'REGISTRATION_FAILED', error.message);
         }
-        
-        if (password.length < 6) {
-            return res.status(400).json({ error: '密码长度至少6位' });
-        }
-        
-        // 确保只有超级管理员才能指定特殊角色，其他用户默认为普通用户
-        const finalRole = role === 'super_admin' ? 'user' : (role || 'user');
-        
-        const user = await database.registerUser({ username, password, email, role: finalRole });
-        
-        console.log(`👤 新用户注册: ${username} (${finalRole})`);
-        res.json({ 
-            success: true, 
-            message: '注册成功，您可以创建店铺成为店主',
-            user 
-        });
-    } catch (error) {
-        console.error('注册失败:', error.message);
-        res.status(400).json({ error: error.message });
     }
-});
+);
 
 // 用户登录
 app.post('/api/auth/login', async (req, res) => {
@@ -126,7 +123,7 @@ app.post('/api/auth/login', async (req, res) => {
         const { username, password } = req.body;
         
         if (!username || !password) {
-            return res.status(400).json({ error: '用户名和密码为必填项' });
+            return ErrorHandler.sendError(res, 'MISSING_CREDENTIALS', '用户名和密码为必填项');
         }
         
         const loginResult = await database.loginUser(username, password);
@@ -134,14 +131,13 @@ app.post('/api/auth/login', async (req, res) => {
         console.log(`🔐 用户登录: ${username}`);
         console.log(`🏪 拥有店铺数量: ${loginResult.shops.length}`);
         
-        res.json({
-            success: true,
+        ErrorHandler.sendSuccess(res, {
             message: '登录成功',
             ...loginResult
         });
     } catch (error) {
         console.error('登录失败:', error.message);
-        res.status(401).json({ error: error.message });
+        ErrorHandler.sendError(res, 'LOGIN_FAILED', error.message);
     }
 });
 
@@ -150,12 +146,9 @@ app.get('/api/auth/me', requireAuth, async (req, res) => {
     try {
         // 使用统一的用户信息获取函数
         const completeUserInfo = await database.getCompleteUserInfo(req.user.id);
-        res.json({
-            success: true,
-            ...completeUserInfo
-        });
+        ErrorHandler.sendSuccess(res, completeUserInfo);
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        ErrorHandler.sendError(res, 'USER_INFO_FAILED', error.message);
     }
 });
 
@@ -164,12 +157,9 @@ app.get('/api/auth/user', requireAuth, async (req, res) => {
     try {
         // 使用统一的用户信息获取函数
         const completeUserInfo = await database.getCompleteUserInfo(req.user.id);
-        res.json({
-            success: true,
-            ...completeUserInfo
-        });
+        ErrorHandler.sendSuccess(res, completeUserInfo);
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        ErrorHandler.sendError(res, 'USER_INFO_FAILED', error.message);
     }
 });
 
@@ -179,20 +169,19 @@ app.post('/api/shops', requireAuth, async (req, res) => {
         const { name, domain, description } = req.body;
         
         if (!name || !domain || !description) {
-            return res.status(400).json({ error: '店铺名称、域名和业务描述为必填项' });
+            return ErrorHandler.sendError(res, 'MISSING_SHOP_INFO', '店铺名称、域名和业务描述为必填项');
         }
         
         const shop = await database.createShop(req.user.id, { name, domain, description });
         
         console.log(`🏪 创建新店铺: ${name} by ${req.user.username}`);
-        res.json({
-            success: true,
+        ErrorHandler.sendSuccess(res, {
             message: '店铺创建成功，等待管理员审核',
             shop
         });
     } catch (error) {
         console.error('创建店铺失败:', error.message);
-        res.status(400).json({ error: error.message });
+        ErrorHandler.sendError(res, 'SHOP_CREATION_FAILED', error.message);
     }
 });
 
@@ -200,12 +189,9 @@ app.post('/api/shops', requireAuth, async (req, res) => {
 app.get('/api/shops', requireAuth, async (req, res) => {
     try {
         const shops = await database.getUserShops(req.user.id);
-        res.json({
-            success: true,
-            shops
-        });
+        ErrorHandler.sendSuccess(res, { shops });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        ErrorHandler.sendError(res, 'SHOPS_FETCH_FAILED', error.message);
     }
 });
 
@@ -220,19 +206,16 @@ app.post('/api/shops/:shopId/staff', requireAuth, async (req, res) => {
         const shop = userShops.find(s => s.id === shopId);
         
         if (!shop || (!shop.permissions.includes('manage_staff') && req.user.role !== 'super_admin')) {
-            return res.status(403).json({ error: '没有权限管理该店铺员工' });
+            return ErrorHandler.sendError(res, 'PERMISSION_DENIED', '没有权限管理该店铺员工');
         }
         
         await database.addStaffToShop(shopId, staffId, role, permissions);
         
         console.log(`👥 添加员工到店铺: ${staffId} -> ${shopId}`);
-        res.json({
-            success: true,
-            message: '员工添加成功'
-        });
+        ErrorHandler.sendSuccess(res, { message: '员工添加成功' });
     } catch (error) {
         console.error('添加员工失败:', error.message);
-        res.status(400).json({ error: error.message });
+        ErrorHandler.sendError(res, 'STAFF_ADD_FAILED', error.message);
     }
 });
 
@@ -240,12 +223,9 @@ app.post('/api/shops/:shopId/staff', requireAuth, async (req, res) => {
 app.get('/api/admin/users', requireAuth, requireSuperAdmin, async (req, res) => {
     try {
         const users = await database.getAllUsers();
-        res.json({
-            success: true,
-            users
-        });
+        ErrorHandler.sendSuccess(res, { users });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        ErrorHandler.sendError(res, 'USERS_FETCH_FAILED', error.message);
     }
 });
 
@@ -253,12 +233,9 @@ app.get('/api/admin/users', requireAuth, requireSuperAdmin, async (req, res) => 
 app.get('/api/admin/shops', requireAuth, requireSuperAdmin, async (req, res) => {
     try {
         const shops = await database.getAllShops();
-        res.json({
-            success: true,
-            shops
-        });
+        ErrorHandler.sendSuccess(res, { shops });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        ErrorHandler.sendError(res, 'SHOPS_FETCH_FAILED', error.message);
     }
 });
 
@@ -274,7 +251,7 @@ app.get('/api/messages', requireAuth, (req, res) => {
                                           shop.permissions.includes('view_chats'));
             
             if (!hasAccess) {
-                return res.status(403).json({ error: '没有权限查看该店铺的消息' });
+                return ErrorHandler.sendError(res, 'PERMISSION_DENIED', '没有权限查看该店铺的消息');
             }
             
             // 这里应该根据shopId过滤消息
@@ -285,7 +262,7 @@ app.get('/api/messages', requireAuth, (req, res) => {
             res.json({ messages: newMessages });
         });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        ErrorHandler.sendError(res, 'MESSAGES_FETCH_FAILED', error.message);
     }
 });
 
@@ -294,9 +271,9 @@ app.post('/api/auth/logout', requireAuth, async (req, res) => {
     try {
         await database.deleteSession(req.sessionId);
         console.log(`🚪 用户登出: ${req.user.username}`);
-        res.json({ success: true, message: '登出成功' });
+        ErrorHandler.sendSuccess(res, { message: '登出成功' });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        ErrorHandler.sendError(res, 'LOGOUT_FAILED', error.message);
     }
 });
 
@@ -307,14 +284,14 @@ app.get('/api/shops/:shopId/employees', requireAuth, async (req, res) => {
         const shop = database.shops.get(shopId);
         
         if (!shop) {
-            return res.status(404).json({ error: '店铺不存在' });
+            return ErrorHandler.sendError(res, 'SHOP_NOT_FOUND', '店铺不存在');
         }
         
         // 检查权限：只有店主和管理员可以查看员工列表
         const members = shop.members || [];
         const userShop = members.find(m => m.userId === req.user.id);
         if (!userShop || !['owner', 'manager'].includes(userShop.role)) {
-            return res.status(403).json({ error: '无权限查看员工列表' });
+            return ErrorHandler.sendError(res, 'PERMISSION_DENIED', '无权限查看员工列表');
         }
         
         // 获取员工信息
@@ -330,10 +307,10 @@ app.get('/api/shops/:shopId/employees', requireAuth, async (req, res) => {
                 };
             });
         
-        res.json({ success: true, employees });
+        ErrorHandler.sendSuccess(res, { employees });
     } catch (error) {
         console.error('获取员工列表错误:', error.message);
-        res.status(500).json({ error: error.message });
+        ErrorHandler.sendError(res, 'EMPLOYEES_FETCH_FAILED', error.message);
     }
 });
 
@@ -344,35 +321,35 @@ app.post('/api/shops/:shopId/employees', requireAuth, async (req, res) => {
         const { username, role } = req.body;
         
         if (!username || !role) {
-            return res.status(400).json({ error: '用户名和角色为必填项' });
+            return ErrorHandler.sendError(res, 'MISSING_EMPLOYEE_INFO', '用户名和角色为必填项');
         }
         
         if (!['employee', 'manager'].includes(role)) {
-            return res.status(400).json({ error: '无效的角色类型' });
+            return ErrorHandler.sendError(res, 'INVALID_ROLE', '无效的角色类型');
         }
         
         const shop = database.shops.get(shopId);
         if (!shop) {
-            return res.status(404).json({ error: '店铺不存在' });
+            return ErrorHandler.sendError(res, 'SHOP_NOT_FOUND', '店铺不存在');
         }
         
         // 检查权限：只有店主可以添加员工
         const members = shop.members || [];
         const userShop = members.find(m => m.userId === req.user.id);
         if (!userShop || userShop.role !== 'owner') {
-            return res.status(403).json({ error: '只有店主可以添加员工' });
+            return ErrorHandler.sendError(res, 'PERMISSION_DENIED', '只有店主可以添加员工');
         }
         
         // 查找要添加的用户
         const targetUser = Array.from(database.users.values()).find(u => u.username === username);
         if (!targetUser) {
-            return res.status(404).json({ error: '用户不存在' });
+            return ErrorHandler.sendError(res, 'USER_NOT_FOUND', '用户不存在');
         }
         
         // 检查用户是否已经是该店铺成员
         const existingMember = members.find(m => m.userId === targetUser.id);
         if (existingMember) {
-            return res.status(400).json({ error: '用户已经是该店铺成员' });
+            return ErrorHandler.sendError(res, 'USER_ALREADY_MEMBER', '用户已经是该店铺成员');
         }
         
         // 添加员工
@@ -394,10 +371,10 @@ app.post('/api/shops/:shopId/employees', requireAuth, async (req, res) => {
         database.userShops.set(targetUser.id, userShops);
         
         console.log(`👥 添加员工: ${username} 加入店铺 ${shop.name} (角色: ${role})`);
-        res.json({ success: true, message: '员工添加成功' });
+        ErrorHandler.sendSuccess(res, { message: '员工添加成功' });
     } catch (error) {
         console.error('添加员工错误:', error.message);
-        res.status(500).json({ error: error.message });
+        ErrorHandler.sendError(res, 'EMPLOYEE_ADD_FAILED', error.message);
     }
 });
 

@@ -5,11 +5,13 @@
 这是一个模块化的实时客服系统，采用 Node.js + WebSocket + SQLite/内存数据库的架构。
 
 ### 核心组件
-- **`server.js`**: 主服务器，集成模块化系统和传统组件
-- **`src/modules/ModularApp.js`**: 新模块化架构的入口点
-- **`src/websocket/WebSocketRouter.js`**: WebSocket 路由和管理
-- **`src/database/`**: 数据库抽象层（ShopRepository, MessageAdapter）
-- **`static/`**: 前端静态文件（用户界面和管理后台）
+- **`server.js`**: 主服务器，集成模块化系统和兼容性模块
+- **`src/modules/ModularApp.js`**: 旧版模块化架构（已被替换）
+- **`src/app/modular-app.js`**: 新模块化应用管理器（当前活跃）
+- **`src/websocket/WebSocketRouter.js`**: WebSocket 路由系统
+- **`src/database/`**: 数据库层（database-core.js, shop-repository.js, message-repository.js）
+- **`src/client-api/`**: 客户端API路由和处理器
+- **`static/`**: 前端静态文件（分为桌面端/移动端）
 
 ## 🔄 开发工作流
 
@@ -48,7 +50,7 @@ npm run db:sqlite
 ### 双数据库系统
 - **`database-sqlite.js`**: 持久化 SQLite 数据库
 - **`database-memory.js`**: 内存数据库（测试用）
-- 通过 npm scripts 动态切换，修改 `server.js` 中的 require 路径
+- 通过 npm scripts 动态切换，自动修改 `server.js` 中的 require 路径
 
 ### WebSocket 通信模式
 ```javascript
@@ -123,3 +125,107 @@ POST /api/admin/login              // 管理员登录
 - **数据库选择**: 开发用内存库，生产用 SQLite
 - **WebSocket 优先**: 实时功能依赖 WebSocket，HTTP API 仅作补充
 - **模块化开发**: 新功能添加到 `src/modules/` 而非主 `server.js`
+
+## 🔥 代码统一性原则 (重要!)
+
+### 避免重复代码和多版本共存
+- **禁止创建新旧两套代码**: AI代理开发时必须检测现有功能，如发现重复逻辑应立即合并
+- **单一代码路径**: 项目必须始终保持只有一套代码，不允许多个版本的功能同时存在
+- **重构而非增加**: 发现类似功能时，应重构现有代码而不是创建新的实现
+- **主动检测重复**: 开发前必须搜索现有代码，确认功能是否已存在
+- **删除过时代码**: 实现新功能后，必须删除被替换的旧代码和文件
+
+### 代码一致性检查清单
+在开发任何功能前，AI代理必须执行以下检查：
+1. **搜索现有实现**: 使用 `grep_search` 和 `semantic_search` 查找相似功能
+2. **分析代码重复**: 检查是否存在相同或类似的逻辑实现
+3. **评估合并可能**: 判断是否可以重构现有代码而非新建
+4. **清理过时代码**: 完成新功能后，删除所有被替换的旧实现
+5. **验证单一路径**: 确保功能只有一个入口点和实现路径
+
+## 📁 详细文件结构
+
+### 根目录关键文件
+```
+QuickTalk-/
+├── server.js                 # 主服务器入口，集成新旧系统
+├── package.json              # 依赖和scripts定义
+├── database-sqlite.js        # SQLite数据库实现
+├── database-memory.js        # 内存数据库（测试用）
+├── auth-routes.js           # 认证路由
+└── .github/
+    └── copilot-instructions.md  # 本文件
+```
+
+### 核心模块结构
+```
+src/
+├── app/
+│   └── modular-app.js       # 新模块化应用主控制器（当前活跃）
+├── modules/
+│   └── ModularApp.js        # 旧模块化系统（已被替换）
+├── database/
+│   ├── database-core.js     # 数据库核心抽象
+│   ├── shop-repository.js   # 店铺数据仓库
+│   └── message-repository.js # 消息数据仓库
+├── client-api/
+│   ├── client-api-router.js # 客户端API路由
+│   ├── connection-handler.js # 连接处理器
+│   └── message-handler.js   # 消息处理器
+└── websocket/
+    └── WebSocketRouter.js   # WebSocket路由系统
+```
+
+## 🏗️ 构建和验证步骤
+
+### 环境要求
+- Node.js 16+ 
+- npm 或 yarn
+- SQLite3 (生产环境)
+
+### 完整启动流程
+```bash
+# 1. 安装依赖（首次运行必须）
+npm install
+
+# 2. 选择数据库模式
+npm run db:memory    # 开发/测试环境
+npm run db:sqlite    # 生产环境
+
+# 3. 启动开发服务器（推荐）
+npm run dev         # 支持热重载，代码修改自动重启
+
+# 4. 生产环境启动
+npm start          # 不支持热重载
+```
+
+### 重要端点验证
+启动后验证以下端点可正常访问：
+- `http://localhost:3030/` - 项目主页
+- `http://localhost:3030/admin` - 管理后台
+- `http://localhost:3030/customer` - 客服聊天
+- `ws://localhost:3030/ws` - WebSocket连接
+
+### 测试和调试命令
+```bash
+# 数据库结构检查
+node debug-database.js
+
+# 完整WebSocket功能测试
+node test-complete-websocket.js
+
+# 消息流测试
+node test-message-flow.js
+
+# 设置测试数据
+node setup-test-data.js
+```
+
+## 🚫 开发约束
+- **禁止手动重启服务器**: 使用nodemon的热重载功能
+- **禁止检测服务器状态**: AI代理不应尝试检查服务器是否运行
+- **多终端原则**: 不同功能使用独立终端，避免阻塞
+- **禁止重复代码**: 严禁创建功能相同或相似的多个实现
+- **禁止版本共存**: 不允许新旧两套代码同时存在于项目中
+- **强制代码统一**: 发现重复逻辑必须立即合并，保持单一代码路径
+- **清理义务**: 实现新功能后必须删除所有被替换的旧代码和文件

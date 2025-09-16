@@ -1604,7 +1604,7 @@
             
             // 加载店铺管理器脚本
             const script = document.createElement('script');
-            script.src = '/mobile-shop-manager.js';
+            script.src = '/js/mobile-shop-manager.js';
             script.onload = function() {
                 console.log('店铺管理器脚本加载完成');
                 if (window.mobileShopManager) {
@@ -1636,6 +1636,11 @@
     <!-- 引入新的移动端多店铺电商客服系统 -->
     <script src="/js/mobile-ecommerce-customer-service.js"></script>
     <!-- 引入店铺管理模块 -->
+    <!-- 引入样式 -->
+    <link rel="stylesheet" href="/css/integration-manager.css">
+    
+    <!-- 引入集成代码管理器 -->
+    <script src="/js/core/IntegrationManager.js"></script>
     <script src="/js/mobile-shop-manager.js"></script>
     
     <script>

@@ -23,29 +23,25 @@ class AnalyticsDashboardManager {
     }
 
     /**
-     * 初始化分析相关表结构
+     * 初始化分析相关表结构 - 重构后使用统一的数据库模式管理器
      */
     async initializeTables() {
         try {
             console.log('🚀 开始初始化数据分析表...');
             
-            // 创建KPI指标表
-            await this.createKpiMetricsTable();
+            // 使用统一的数据库模式管理器
+            const DatabaseSchemaManager = require('./utils/DatabaseSchemaManager');
+            const AnalyticsDashboardSchemaConfig = require('./schemas/AnalyticsDashboardSchemaConfig');
             
-            // 创建用户活动日志表
-            await this.createUserActivityTable();
+            const schemaManager = new DatabaseSchemaManager(this.db);
             
-            // 创建性能监控表
-            await this.createPerformanceMetricsTable();
+            // 批量创建表
+            const tableDefinitions = AnalyticsDashboardSchemaConfig.getTableDefinitions();
+            await schemaManager.createTables(tableDefinitions);
             
-            // 创建客户满意度表
-            await this.createCustomerSatisfactionTable();
-            
-            // 创建报告配置表
-            await this.createReportConfigTable();
-            
-            // 创建索引
-            await this.createAnalyticsIndexes();
+            // 批量创建索引
+            const indexDefinitions = AnalyticsDashboardSchemaConfig.getIndexDefinitions();
+            await schemaManager.createIndexes(indexDefinitions);
             
             console.log('✅ 数据分析表初始化完成');
             
