@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据分析仪表板 - QuickTalk客服系统</title>
+    
+    <!-- 样式文件 -->
+    <link rel="stylesheet" href="/static/css/analytics-dashboard.css">
+    <link rel="stylesheet" href="/static/css/style.css">
+    
+    <!-- Chart.js 图表库 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- 图标字体 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <style>
+        /* 快速样式覆盖 */
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+        }
+        
+        /* 导航栏样式 */
+        .top-nav {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 15px 30px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+        
+        .nav-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .nav-title {
+            color: white;
+            font-size: 20px;
+            font-weight: 600;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .nav-menu {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+        
+        .nav-item {
+            color: rgba(255, 255, 255, 0.9);
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        
+        .nav-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            transform: translateY(-1px);
+        }
+        
+        .nav-item.active {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+        
+        /* 主内容区域 */
+        .main-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        /* 快速操作栏 */
+        .quick-actions {
+            background: white;
+            padding: 16px 24px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            margin: 20px 0;
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .quick-action-btn {
+            padding: 8px 16px;
+            border: 1px solid #e3e8ef;
+            border-radius: 8px;
+            background: white;
+            color: #2c3e50;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .quick-action-btn:hover {
+            background: #f8f9fa;
+            border-color: #3498db;
+            color: #3498db;
+            transform: translateY(-1px);
+        }
+        
+        /* 页脚 */
+        .footer {
+            text-align: center;
+            padding: 30px;
+            color: #7f8c8d;
+            font-size: 14px;
+            border-top: 1px solid #ecf0f1;
+            margin-top: 40px;
+            background: white;
+        }
+        
+        /* 响应式菜单 */
+        @media (max-width: 768px) {
+            .nav-content {
+                flex-direction: column;
+                gap: 16px;
+            }
+            
+            .nav-menu {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+            
+            .quick-actions {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 顶部导航 -->
+    <nav class="top-nav">
+        <div class="nav-content">
+            <h1 class="nav-title">
+                📊 QuickTalk 数据分析仪表板
+            </h1>
+            <div class="nav-menu">
+                <a href="/mobile/admin" class="nav-item">
+                    <i class="fas fa-comments"></i> 客服管理
+                </a>
+                <a href="/analytics" class="nav-item active">
+                    <i class="fas fa-chart-bar"></i> 数据分析
+                </a>
+                <a href="/integration-generator.html" class="nav-item">
+                    <i class="fas fa-code"></i> 集成代码
+                </a>
+                <a href="/test-search-history.html" class="nav-item">
+                    <i class="fas fa-search"></i> 搜索测试
+                </a>
+                <a href="/" class="nav-item">
+                    <i class="fas fa-home"></i> 首页
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主内容区域 -->
+    <div class="main-content">
+        <!-- 快速操作栏 -->
+        <div class="quick-actions">
+            <span style="color: #7f8c8d; font-weight: 500;">快速操作:</span>
+            <a href="#" class="quick-action-btn" onclick="dashboard && dashboard.refreshData()">
+                <i class="fas fa-sync"></i> 刷新数据
+            </a>
+            <a href="#" class="quick-action-btn" onclick="dashboard && dashboard.generateKpiReport()">
+                <i class="fas fa-file-alt"></i> 生成报告
+            </a>
+            <a href="#" class="quick-action-btn" onclick="dashboard && dashboard.exportReport()">
+                <i class="fas fa-download"></i> 导出数据
+            </a>
+            <a href="#" class="quick-action-btn" onclick="toggleFullscreen()">
+                <i class="fas fa-expand"></i> 全屏模式
+            </a>
+            <a href="#" class="quick-action-btn" onclick="showHelp()">
+                <i class="fas fa-question-circle"></i> 帮助
+            </a>
+        </div>
+
+        <!-- 数据分析仪表板容器 -->
+        <div id="analytics-dashboard">
+            <!-- 仪表板内容将由JavaScript动态生成 -->
+            <div style="text-align: center; padding: 60px 20px; color: #7f8c8d;">
+                <div style="font-size: 48px; margin-bottom: 20px;">📊</div>
+                <h2 style="margin: 0 0 16px 0; color: #2c3e50;">正在初始化数据分析仪表板...</h2>
+                <p style="margin: 0; font-size: 16px;">请稍候，我们正在为您准备最新的数据分析。</p>
+                <div style="margin-top: 30px;">
+                    <div style="display: inline-block; width: 40px; height: 40px; border: 4px solid #ecf0f1; border-left: 4px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 页脚 -->
+    <footer class="footer">
+        <p>© 2024 QuickTalk 客服系统 - 第三阶段: 数据分析仪表板</p>
+        <p style="margin-top: 8px; font-size: 12px; opacity: 0.8;">
+            实时监控 | 效率分析 | 客户洞察 | 智能报告
+        </p>
+    </footer>
+
+    <!-- JavaScript 库和脚本 -->
+    <script src="/static/js/analytics-dashboard.js"></script>
+    
+    <script>
+        // 页面级别的辅助函数
+        
+        /**
+         * 切换全屏模式
+         */
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.log('无法进入全屏模式:', err);
+                    alert('您的浏览器不支持全屏模式');
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+        
+        /**
+         * 显示帮助信息
+         */
+        function showHelp() {
+            const helpModal = document.createElement('div');
+            helpModal.className = 'kpi-report-modal';
+            helpModal.innerHTML = `
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>📘 使用帮助</h3>
+                        <button class="close-btn" onclick="this.parentElement.parentElement.parentElement.remove()">✕</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="help-section">
+                            <h4>🎯 主要功能</h4>
+                            <ul>
+                                <li><strong>实时监控:</strong> 查看当前对话、消息、响应时间等关键指标</li>
+                                <li><strong>趋势分析:</strong> 观察业务数据的时间变化趋势</li>
+                                <li><strong>效率评估:</strong> 分析客服人员工作效率和表现</li>
+                                <li><strong>满意度统计:</strong> 客户满意度分布和变化趋势</li>
+                                <li><strong>工作负载:</strong> 了解不同时段的工作负载分布</li>
+                                <li><strong>KPI报告:</strong> 综合评估各项关键绩效指标</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="help-section">
+                            <h4>⌨️ 快捷键</h4>
+                            <ul>
+                                <li><strong>Ctrl/Cmd + R:</strong> 刷新数据</li>
+                                <li><strong>Ctrl/Cmd + E:</strong> 导出报告</li>
+                                <li><strong>F11:</strong> 全屏模式</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="help-section">
+                            <h4>📊 图表说明</h4>
+                            <ul>
+                                <li><strong>对话趋势:</strong> 显示过去时间段内的对话数量变化</li>
+                                <li><strong>工作负载:</strong> 按小时显示消息处理量分布</li>
+                                <li><strong>客服排行:</strong> 客服人员效率排名和详细数据</li>
+                                <li><strong>满意度分布:</strong> 不同星级评价的分布情况</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="help-section">
+                            <h4>🔄 数据更新</h4>
+                            <p>仪表板每5分钟自动刷新一次数据，您也可以手动点击刷新按钮获取最新数据。</p>
+                        </div>
+                        
+                        <div class="help-section">
+                            <h4>📥 数据导出</h4>
+                            <p>支持导出CSV格式的KPI报告，包含详细的统计数据和分析结果。</p>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-primary" onclick="window.open('https://github.com/your-repo/quicktalk', '_blank')">查看文档</button>
+                        <button class="btn btn-secondary" onclick="this.parentElement.parentElement.parentElement.remove()">关闭</button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(helpModal);
+        }
+        
+        /**
+         * 键盘快捷键处理
+         */
+        document.addEventListener('keydown', (e) => {
+            // F11 全屏
+            if (e.key === 'F11') {
+                e.preventDefault();
+                toggleFullscreen();
+            }
+            
+            // Esc 退出模态框
+            if (e.key === 'Escape') {
+                const modals = document.querySelectorAll('.kpi-report-modal');
+                modals.forEach(modal => modal.remove());
+            }
+        });
+        
+        /**
+         * 全屏状态变化处理
+         */
+        document.addEventListener('fullscreenchange', () => {
+            const isFullscreen = !!document.fullscreenElement;
+            const fullscreenBtn = document.querySelector('.quick-action-btn[onclick="toggleFullscreen()"] i');
+            
+            if (fullscreenBtn) {
+                fullscreenBtn.className = isFullscreen ? 'fas fa-compress' : 'fas fa-expand';
+            }
+            
+            // 全屏时隐藏导航和快速操作栏
+            const nav = document.querySelector('.top-nav');
+            const quickActions = document.querySelector('.quick-actions');
+            const footer = document.querySelector('.footer');
+            
+            if (nav) nav.style.display = isFullscreen ? 'none' : 'block';
+            if (quickActions) quickActions.style.display = isFullscreen ? 'none' : 'flex';
+            if (footer) footer.style.display = isFullscreen ? 'none' : 'block';
+        });
+        
+        /**
+         * 页面可见性变化处理
+         */
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && dashboard) {
+                // 页面重新可见时刷新数据
+                console.log('📱 页面重新可见，刷新数据');
+                dashboard.refreshData();
+            }
+        });
+        
+        /**
+         * 窗口大小变化处理
+         */
+        window.addEventListener('resize', () => {
+            if (dashboard && dashboard.charts) {
+                // 延迟重绘图表以确保容器尺寸正确
+                setTimeout(() => {
+                    Object.values(dashboard.charts).forEach(chart => {
+                        if (chart && chart.resize) {
+                            chart.resize();
+                        }
+                    });
+                }, 100);
+            }
+        });
+        
+        /**
+         * 错误处理
+         */
+        window.addEventListener('error', (e) => {
+            console.error('页面错误:', e);
+            
+            // 显示友好的错误信息
+            const errorDiv = document.createElement('div');
+            errorDiv.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: #f8d7da;
+                color: #721c24;
+                padding: 12px 16px;
+                border-radius: 8px;
+                border: 1px solid #f5c6cb;
+                z-index: 10001;
+                max-width: 300px;
+                font-size: 14px;
+            `;
+            errorDiv.innerHTML = `
+                <strong>⚠️ 发生错误</strong><br>
+                请刷新页面重试，如问题持续请联系技术支持。
+                <button onclick="this.parentElement.remove()" style="float: right; background: none; border: none; color: #721c24; cursor: pointer; margin-left: 10px;">✕</button>
+            `;
+            
+            document.body.appendChild(errorDiv);
+            
+            // 5秒后自动消失
+            setTimeout(() => {
+                if (errorDiv.parentElement) {
+                    errorDiv.remove();
+                }
+            }, 5000);
+        });
+        
+        // 页面加载完成提示
+        window.addEventListener('load', () => {
+            console.log('📊 数据分析仪表板页面加载完成');
+            
+            // 检查必要的依赖
+            if (typeof Chart === 'undefined') {
+                console.error('❌ Chart.js 未加载');
+                alert('图表库加载失败，请检查网络连接');
+            }
+        });
+        
+        // 为移动设备添加触摸友好性
+        if ('ontouchstart' in window) {
+            document.body.classList.add('touch-device');
+            
+            // 添加触摸设备特定的样式
+            const touchStyles = document.createElement('style');
+            touchStyles.textContent = `
+                .touch-device .quick-action-btn {
+                    min-height: 44px;
+                    min-width: 44px;
+                }
+                .touch-device .metric-card {
+                    padding: 20px;
+                }
+                .touch-device .chart-btn {
+                    min-height: 40px;
+                    padding: 8px 16px;
+                }
+            `;
+            document.head.appendChild(touchStyles);
+        }
+    </script>
+
+    <!-- 样式动画增强 -->
+    <style>
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* 加载动画增强 */
+        .loading-bounce {
+            animation: bounce 1.5s ease-in-out infinite;
+        }
+        
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% {
+                transform: translateY(0);
+            }
+            40% {
+                transform: translateY(-10px);
+            }
+            60% {
+                transform: translateY(-5px);
+            }
+        }
+        
+        /* 平滑过渡 */
+        * {
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+        
+        /* 高对比度模式支持 */
+        @media (prefers-contrast: high) {
+            .metric-card,
+            .chart-card,
+            .kpi-section {
+                border: 2px solid #000;
+            }
+            
+            .metric-value,
+            .kpi-score {
+                font-weight: 900;
+            }
+        }
+        
+        /* 减少动画模式支持 */
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+    </style>
+</body>
+</html>

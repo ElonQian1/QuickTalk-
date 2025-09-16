@@ -1,0 +1,426 @@
+/**
+ * 统一集成代码管理器样式
+ * 支持桌面端和移动端的集成代码模态框
+ */
+
+/* 模态框基本样式 */
+.integration-code-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.integration-code-content {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    max-width: 800px;
+    width: 100%;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* 模态框头部 */
+.integration-code-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid #e9ecef;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f8f9fa;
+    border-radius: 12px 12px 0 0;
+}
+
+.integration-code-header h3 {
+    margin: 0;
+    color: #333;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: #666;
+    cursor: pointer;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.close-btn:hover {
+    background: #e9ecef;
+    color: #333;
+}
+
+/* 模态框主体 */
+.integration-code-body {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* 标签页 */
+.code-type-tabs {
+    display: flex;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.tab-btn {
+    background: none;
+    border: none;
+    padding: 12px 20px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #666;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.tab-btn:hover {
+    color: #007bff;
+    background: #f8f9fa;
+}
+
+.tab-btn.active {
+    color: #007bff;
+    border-bottom-color: #007bff;
+    font-weight: 600;
+}
+
+/* 代码内容区域 */
+.code-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* 代码描述 */
+.code-description {
+    display: none;
+    margin-bottom: 16px;
+    padding: 16px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border-left: 4px solid #007bff;
+}
+
+.code-description.active {
+    display: block;
+}
+
+.code-description h4 {
+    margin: 0 0 8px 0;
+    color: #333;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.code-description p {
+    margin: 0;
+    color: #666;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+/* 代码显示区域 */
+.code-display {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.code-textarea {
+    flex: 1;
+    width: 100%;
+    min-height: 300px;
+    padding: 16px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    background: #f8f9fa;
+    color: #333;
+    resize: vertical;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-y: auto;
+}
+
+.code-textarea:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+/* 操作按钮 */
+.code-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 16px;
+    justify-content: flex-end;
+}
+
+.copy-btn,
+.download-btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.copy-btn {
+    background: #007bff;
+    color: white;
+}
+
+.copy-btn:hover {
+    background: #0056b3;
+}
+
+.download-btn {
+    background: #6c757d;
+    color: white;
+}
+
+.download-btn:hover {
+    background: #545b62;
+}
+
+/* 移动端适配 */
+.mobile-modal {
+    max-width: none;
+    width: calc(100% - 20px);
+    max-height: calc(100vh - 40px);
+    margin: 20px 10px;
+}
+
+@media (max-width: 768px) {
+    .integration-code-modal {
+        padding: 10px;
+    }
+    
+    .integration-code-content {
+        max-width: none;
+        width: 100%;
+        max-height: calc(100vh - 20px);
+        border-radius: 8px;
+    }
+    
+    .integration-code-header {
+        padding: 16px 20px;
+    }
+    
+    .integration-code-header h3 {
+        font-size: 16px;
+    }
+    
+    .integration-code-body {
+        padding: 20px;
+    }
+    
+    .code-type-tabs {
+        overflow-x: auto;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+    
+    .code-type-tabs::-webkit-scrollbar {
+        display: none;
+    }
+    
+    .tab-btn {
+        padding: 10px 16px;
+        font-size: 13px;
+        flex-shrink: 0;
+    }
+    
+    .code-textarea {
+        min-height: 250px;
+        font-size: 11px;
+        padding: 12px;
+    }
+    
+    .code-actions {
+        flex-direction: column;
+    }
+    
+    .copy-btn,
+    .download-btn {
+        justify-content: center;
+        padding: 12px;
+        font-size: 13px;
+    }
+    
+    .code-description {
+        padding: 12px;
+        margin-bottom: 12px;
+    }
+    
+    .code-description h4 {
+        font-size: 14px;
+    }
+    
+    .code-description p {
+        font-size: 13px;
+    }
+}
+
+/* 小屏幕设备 */
+@media (max-width: 480px) {
+    .integration-code-header {
+        padding: 12px 16px;
+    }
+    
+    .integration-code-header h3 {
+        font-size: 15px;
+    }
+    
+    .close-btn {
+        width: 28px;
+        height: 28px;
+        font-size: 20px;
+    }
+    
+    .integration-code-body {
+        padding: 16px;
+    }
+    
+    .tab-btn {
+        padding: 8px 12px;
+        font-size: 12px;
+    }
+    
+    .code-textarea {
+        min-height: 200px;
+        font-size: 10px;
+        padding: 10px;
+    }
+    
+    .copy-btn,
+    .download-btn {
+        padding: 10px;
+        font-size: 12px;
+    }
+}
+
+/* 动画效果 */
+.integration-code-modal {
+    animation: fadeIn 0.3s ease-out;
+}
+
+.integration-code-content {
+    animation: slideUp 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(30px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* 代码类型特定样式 */
+.code-description[data-type="script"] {
+    border-left-color: #28a745;
+}
+
+.code-description[data-type="iframe"] {
+    border-left-color: #ffc107;
+}
+
+.code-description[data-type="api"] {
+    border-left-color: #dc3545;
+}
+
+/* 高亮按钮状态 */
+.copy-btn:active,
+.download-btn:active {
+    transform: translateY(1px);
+}
+
+/* 兼容现有代码模态框样式 */
+.code-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.code-modal-content {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    max-width: 600px;
+    width: 90%;
+    max-height: 80vh;
+    overflow: hidden;
+}
+
+.code-modal-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f8f9fa;
+}
+
+.code-modal-body {
+    padding: 20px;
+}
+
+.code-modal-body .code-textarea {
+    width: 100%;
+    min-height: 200px;
+    margin-bottom: 16px;
+}

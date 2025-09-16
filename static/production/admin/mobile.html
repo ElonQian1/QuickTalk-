@@ -1,0 +1,1491 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>客服管理系统</title>
+    
+    <!-- 引入店铺管理模块样式 -->
+    <link rel="stylesheet" href="/css/mobile-shop-manager.css">
+    <!-- 引入消息模块样式 -->
+    <link rel="stylesheet" href="/css/mobile-message.css">
+    <!-- 引入搜索功能样式 -->
+    <link rel="stylesheet" href="/css/message-search.css">
+    <!-- 引入多店铺客服系统样式 -->
+    <link rel="stylesheet" href="/css/multi-shop-customer-service.css">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* ============ 登录界面 ============ */
+        .login-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+
+        .login-box {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .login-header h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .login-header p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e1e5e9;
+            border-radius: 12px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 15px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .error-message {
+            background: #fee;
+            color: #c33;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #c33;
+        }
+
+        .success-message {
+            background: #efe;
+            color: #393;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #393;
+        }
+
+        #testAccounts {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 14px;
+            color: #666;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        /* ============ 主应用界面 ============ */
+        .app-container {
+            display: none;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* 顶部状态栏 */
+        .status-bar {
+            height: 60px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            color: white;
+            font-weight: 600;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .app-title {
+            font-size: 18px;
+        }
+
+        .user-menu {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .user-badge {
+            background: rgba(255,255,255,0.2);
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            border: none;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .user-badge:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        /* 主内容区域 */
+        .main-content {
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .page {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow-y: auto;
+            background: white;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+        }
+
+        .page.active {
+            transform: translateX(0);
+        }
+
+        /* 首页样式 */
+        .home-page {
+            padding: 20px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px 20px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .stat-number {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .quick-actions {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.08);
+            margin-bottom: 20px;
+        }
+
+        .quick-actions h3 {
+            margin-bottom: 15px;
+            color: #333;
+            font-size: 18px;
+        }
+
+        .action-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .action-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            background: #f8f9fa;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            color: #333;
+        }
+
+        .action-btn:hover {
+            background: #e9ecef;
+            transform: translateY(-2px);
+        }
+
+        .action-icon {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+
+        .action-text {
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        /* 页面头部 */
+        .page-header {
+            height: 60px;
+            background: white;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            border-bottom: 1px solid #e9ecef;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .back-btn {
+            background: none;
+            border: none;
+            font-size: 20px;
+            color: #007AFF;
+            cursor: pointer;
+            margin-right: 15px;
+        }
+
+        .page-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            flex: 1;
+        }
+
+        .page-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        /* 店铺列表 */
+        .shops-page {
+            padding: 0;
+        }
+
+        .shop-list {
+            padding: 0;
+        }
+
+        .shop-item {
+            display: flex;
+            align-items: center;
+            padding: 20px;
+            border-bottom: 1px solid #f0f0f0;
+            background: white;
+            transition: background 0.3s;
+        }
+
+        .shop-item:hover {
+            background: #f8f9fa;
+        }
+
+        .shop-avatar-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-right: 15px;
+            position: relative;
+        }
+
+        .shop-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 20px;
+        }
+
+        .shop-role {
+            font-size: 10px;
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
+            padding: 2px 6px;
+            border-radius: 8px;
+            margin-top: 4px;
+            text-align: center;
+            white-space: nowrap;
+            font-weight: bold;
+        }
+
+        .shop-content {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .shop-info {
+            flex: 1;
+        }
+
+        .shop-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .shop-domain {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .shop-status {
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 12px;
+            color: white;
+        }
+
+        .shop-status.active { background: #34C759; }
+        .shop-status.pending { background: #FF9500; }
+        .shop-status.expired { background: #FF3B30; }
+
+        .shop-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .shop-btn {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .shop-btn.primary {
+            background: #007AFF;
+            color: white;
+        }
+
+        .shop-btn.success {
+            background: #34C759;
+            color: white;
+        }
+
+        .shop-btn.warning {
+            background: #FF9500;
+            color: white;
+        }
+
+        .shop-btn.info {
+            background: #007AFF;
+            color: white;
+        }
+
+        .shop-btn.danger {
+            background: #FF3B30;
+            color: white;
+        }
+
+        .shop-btn.secondary {
+            background: #8E8E93;
+            color: white;
+        }
+
+        .shop-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        /* 消息列表样式 */
+        .conversation-item {
+            display: flex;
+            align-items: center;
+            padding: 15px 20px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .conversation-item:hover {
+            background: #f8f9fa;
+        }
+
+        .user-avatar {
+            width: 45px;
+            height: 45px;
+            border-radius: 22.5px;
+            background: #34C759;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            margin-right: 15px;
+        }
+
+        .conversation-info {
+            flex: 1;
+        }
+
+        .conversation-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .user-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .message-time {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .last-message {
+            font-size: 14px;
+            color: #666;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .unread-badge {
+            background: #FF3B30;
+            color: white;
+            border-radius: 12px;
+            min-width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        /* 聊天界面 */
+        .chat-page {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .message {
+            margin-bottom: 15px;
+        }
+
+        .message-content {
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            font-size: 16px;
+            line-height: 1.4;
+        }
+
+        .message.user .message-content {
+            background: #e9ecef;
+            color: #333;
+            margin-left: auto;
+            border-bottom-right-radius: 5px;
+        }
+
+        .message.admin .message-content {
+            background: #007AFF;
+            color: white;
+            margin-right: auto;
+            border-bottom-left-radius: 5px;
+        }
+
+        .chat-input {
+            background: white;
+            padding: 15px 20px;
+            border-top: 1px solid #e9ecef;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .message-input {
+            flex: 1;
+            border: 1px solid #ddd;
+            border-radius: 25px;
+            padding: 12px 16px;
+            font-size: 16px;
+            outline: none;
+        }
+
+        .send-btn {
+            background: #007AFF;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 18px;
+        }
+
+        /* 底部导航栏 */
+        .bottom-nav {
+            height: 80px;
+            background: white;
+            border-top: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            padding: 10px 0;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            transition: color 0.3s;
+            position: relative;
+            color: #666;
+        }
+
+        .nav-item.active {
+            color: #007AFF;
+        }
+
+        .nav-icon {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .nav-label {
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .nav-badge {
+            position: absolute;
+            top: -5px;
+            right: -10px;
+            background: #FF3B30;
+            color: white;
+            border-radius: 10px;
+            min-width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        /* 模态框样式 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 15px;
+            width: 100%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            color: #333;
+            font-size: 18px;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 28px;
+            cursor: pointer;
+            color: #666;
+            padding: 0;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .modal-footer {
+            padding: 20px;
+            border-top: 1px solid #eee;
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            flex: 1;
+        }
+
+        .btn-primary {
+            background: #007AFF;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            flex: 1;
+        }
+
+        /* 加载和空状态 */
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 200px;
+            color: #666;
+            font-size: 16px;
+        }
+
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 200px;
+            color: #666;
+            text-align: center;
+        }
+
+        .empty-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+            opacity: 0.3;
+        }
+
+        /* 管理员专用样式 */
+        .admin-actions {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+            color: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .admin-actions h3 {
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+
+        .admin-btn {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: none;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .admin-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        /* 响应式调整 */
+        @media (max-width: 480px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .action-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .shop-actions {
+                flex-direction: row;
+            }
+        }
+
+        /* 标签页样式 */
+        .tab-nav {
+            display: flex;
+            border-bottom: 2px solid #e9ecef;
+            margin-bottom: 20px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 12px 16px;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-size: 14px;
+            color: #6c757d;
+            transition: all 0.3s ease;
+        }
+
+        .tab-btn.active {
+            color: #007bff;
+            border-bottom-color: #007bff;
+            font-weight: 600;
+        }
+
+        .tab-btn:hover {
+            background-color: #f8f9fa;
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* 表单样式 */
+        .form-section {
+            background: #fff;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 15px 0;
+            border: 1px solid #e9ecef;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 600;
+            color: #495057;
+            font-size: 14px;
+        }
+
+        .form-group input, 
+        .form-group select, 
+        .form-group textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .form-actions .btn {
+            flex: 1;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #0056b3;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #545b62;
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 12px;
+            border-radius: 4px;
+            background: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn-small:hover {
+            background: #0056b3;
+        }
+
+        /* 员工列表样式 */
+        .employees-list {
+            background: #fff;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #e9ecef;
+        }
+
+        .employee-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .employee-item:last-child {
+            border-bottom: none;
+        }
+
+        .employee-info {
+            flex: 1;
+        }
+
+        .employee-name {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 4px;
+        }
+
+        .employee-role {
+            font-size: 12px;
+            color: #6c757d;
+            background: #f8f9fa;
+            padding: 2px 8px;
+            border-radius: 12px;
+            display: inline-block;
+        }
+
+        .employee-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .section-header h4 {
+            margin: 0;
+            color: #333;
+        }
+
+        /* ============ 集成代码模态框样式 ============ */
+        .integration-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .info-grid {
+            display: grid;
+            gap: 10px;
+        }
+
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .info-item:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .info-value {
+            color: #666;
+            font-family: monospace;
+        }
+
+        .code-section {
+            margin: 20px 0;
+        }
+
+        .code-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .code-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .code-textarea {
+            width: 100%;
+            height: 200px;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.4;
+            background: #f8f9fa;
+            resize: vertical;
+            margin-bottom: 10px;
+        }
+
+        .integration-usage {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #2196f3;
+        }
+
+        .integration-usage h4 {
+            margin-top: 0;
+            color: #1976d2;
+        }
+
+        .integration-usage ul {
+            margin: 10px 0 0 0;
+            padding-left: 20px;
+        }
+
+        .integration-usage li {
+            margin-bottom: 8px;
+            color: #555;
+        }
+
+        .integration-usage code {
+            background: rgba(0,0,0,0.1);
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <!-- 登录界面 -->
+    <div id="loginContainer" class="login-container">
+        <div class="login-box">
+            <div class="login-header">
+                <h1>客服管理系统</h1>
+                <p>统一管理多店铺客服服务</p>
+            </div>
+
+            <div id="errorMessage" class="error-message" style="display: none;"></div>
+            <div id="successMessage" class="success-message" style="display: none;"></div>
+
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="username">用户名</label>
+                    <input type="text" id="username" name="username" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">密码</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+
+                <button type="submit" class="btn" id="loginBtn">登录</button>
+            </form>
+
+            <div id="testAccounts">
+                <p><strong>测试账号：</strong></p>
+                <p>超级管理员: admin / admin123</p>
+                <p>店主账号: shop_owner / 123456</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 主应用界面 -->
+    <div id="appContainer" class="app-container">
+        <!-- 顶部状态栏 -->
+        <div class="status-bar">
+            <div class="app-title">客服管理系统</div>
+            <div class="user-menu">
+                <button class="user-badge" id="userInfo" onclick="showProfileModal()">加载中...</button>
+            </div>
+        </div>
+
+        <!-- 主内容区域 -->
+        <div class="main-content">
+            <!-- 首页 -->
+            <div class="page active" id="homePage">
+                <div class="home-page">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-number" id="totalShops">0</div>
+                            <div class="stat-label">管理店铺</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="totalMessages">0</div>
+                            <div class="stat-label">未读消息</div>
+                        </div>
+                    </div>
+                    
+                    <!-- 管理员专用功能 -->
+                    <div class="admin-actions" id="adminActions" style="display: none;">
+                        <h3>🔧 管理员功能</h3>
+                        <button class="admin-btn" onclick="showAdminPanel()">管理面板</button>
+                        <button class="admin-btn" onclick="showReviewPanel()">审核管理</button>
+                        <button class="admin-btn" onclick="showPromotionModal()">推广管理</button>
+                    </div>
+                    
+                    <div class="quick-actions">
+                        <h3>快捷操作</h3>
+                        <div class="action-grid">
+                            <button class="action-btn" onclick="switchPage('messages')">
+                                <div class="action-icon">💬</div>
+                                <div class="action-text">查看消息</div>
+                            </button>
+                            <button class="action-btn" onclick="switchPage('shops')">
+                                <div class="action-icon">🏪</div>
+                                <div class="action-text">管理店铺</div>
+                            </button>
+                            <button class="action-btn" onclick="showCreateShopModal()">
+                                <div class="action-icon">➕</div>
+                                <div class="action-text">创建店铺</div>
+                            </button>
+                            <button class="action-btn" onclick="switchPage('settings')">
+                                <div class="action-icon">⚙️</div>
+                                <div class="action-text">系统设置</div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 消息页面 -->
+            <div class="page" id="messagesPage">
+                <div id="messageContent">
+                    <div class="loading">正在加载消息...</div>
+                </div>
+            </div>
+
+            <!-- 店铺页面 -->
+            <div class="page shops-page" id="shopsPage">
+                <div class="page-header">
+                    <button class="back-btn" onclick="goBack()">‹</button>
+                    <div class="page-title">店铺管理</div>
+                    <div class="page-actions">
+                        <button class="shop-btn primary" onclick="showCreateShopModal()">创建</button>
+                    </div>
+                </div>
+                <div id="shopsContent">
+                    <div class="loading">正在加载店铺...</div>
+                </div>
+            </div>
+
+            <!-- 聊天页面 -->
+            <div class="page chat-page" id="chatPage">
+                <div class="page-header">
+                    <button class="back-btn" onclick="goBack()">‹</button>
+                    <div class="page-title" id="chatTitle">聊天</div>
+                </div>
+                <div class="chat-messages" id="chatMessages">
+                    <div class="loading">正在加载消息...</div>
+                </div>
+                <div class="chat-input">
+                    <input type="text" class="message-input" id="messageInput" placeholder="输入消息...">
+                    <button class="send-btn" onclick="sendMessage()">➤</button>
+                </div>
+            </div>
+
+            <!-- 设置页面 -->
+            <div class="page" id="settingsPage">
+                <div class="page-header">
+                    <button class="back-btn" onclick="goBack()">‹</button>
+                    <div class="page-title">设置</div>
+                </div>
+                <div style="padding: 20px;">
+                    <div class="quick-actions">
+                        <h3>账户设置</h3>
+                        <button class="action-btn" onclick="showProfileModal()" style="margin-bottom: 10px;">
+                            <div class="action-icon">👤</div>
+                            <div class="action-text">个人资料</div>
+                        </button>
+                        <button class="action-btn" onclick="logout()" style="margin-bottom: 10px;">
+                            <div class="action-icon">🚪</div>
+                            <div class="action-text">退出登录</div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 底部导航栏 -->
+        <div class="bottom-nav">
+            <div class="nav-item active" data-page="home" onclick="switchPage('home')">
+                <div class="nav-icon">🏠</div>
+                <div class="nav-label">首页</div>
+            </div>
+            <div class="nav-item" data-page="messages" onclick="switchPage('messages')">
+                <div class="nav-icon">💬</div>
+                <div class="nav-label">消息</div>
+                <div class="unread-badge" id="messagesBadge" style="display: none;">0</div>
+            </div>
+            <div class="nav-item" data-page="shops" onclick="switchPage('shops')">
+                <div class="nav-icon">🏪</div>
+                <div class="nav-label">店铺</div>
+            </div>
+            <div class="nav-item" data-page="settings" onclick="switchPage('settings')">
+                <div class="nav-icon">⚙️</div>
+                <div class="nav-label">设置</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 创建店铺模态框 -->
+    <div id="createShopModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>🏪 创建店铺</h3>
+                <button class="close-btn" onclick="hideCreateShopModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="createShopForm">
+                    <div class="form-group">
+                        <label for="shopName">店铺名称</label>
+                        <input type="text" id="shopName" name="shopName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="shopDomain">店铺域名</label>
+                        <input type="text" id="shopDomain" name="shopDomain" placeholder="example.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="shopDescription">店铺描述</label>
+                        <textarea id="shopDescription" name="shopDescription" rows="3" placeholder="请描述您的网站业务内容" required></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="hideCreateShopModal()">取消</button>
+                <button class="btn-primary" onclick="createShop()">创建</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 个人资料模态框 -->
+    <div id="profileModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>👤 个人资料</h3>
+                <button class="close-btn" onclick="hideProfileModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="profileContent">
+                <div class="loading">正在加载...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 管理员面板模态框 -->
+    <div id="adminPanelModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>🔧 管理面板</h3>
+                <button class="close-btn" onclick="hideAdminPanel()">&times;</button>
+            </div>
+            <div class="modal-body" id="adminPanelContent">
+                <div class="loading">正在加载...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 审核管理模态框 -->
+    <div id="reviewPanelModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>📋 审核管理</h3>
+                <button class="close-btn" onclick="hideReviewPanel()">&times;</button>
+            </div>
+            <div class="modal-body" id="reviewPanelContent">
+                <div class="loading">正在加载...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 店铺管理模态框 -->
+    <div id="shopManageModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="shopManageTitle">🏪 店铺管理</h3>
+                <button class="close-btn" onclick="closeShopManageModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- 导航标签 -->
+                <div class="tab-nav">
+                    <button class="tab-btn active" onclick="showShopTab('employees')">👥 员工管理</button>
+                    <button class="tab-btn" onclick="showShopTab('settings')">⚙️ 店铺设置</button>
+                </div>
+
+                <!-- 员工管理标签页 -->
+                <div id="employeesTab" class="tab-content active">
+                    <div class="section-header">
+                        <h4>员工列表</h4>
+                        <button class="btn btn-small" onclick="showAddEmployeeForm()">➕ 添加员工</button>
+                    </div>
+                    
+                    <!-- 员工列表 -->
+                    <div id="employeesList" class="employees-list">
+                        <div class="loading">正在加载员工列表...</div>
+                    </div>
+
+                    <!-- 添加员工表单（隐藏） -->
+                    <div id="addEmployeeForm" class="form-section" style="display: none;">
+                        <h4>添加新员工</h4>
+                        <form onsubmit="addEmployee(event)">
+                            <div class="form-group">
+                                <label for="employeeUsername">用户名</label>
+                                <input type="text" id="employeeUsername" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="employeeEmail">邮箱</label>
+                                <input type="email" id="employeeEmail" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="employeePassword">密码</label>
+                                <input type="password" id="employeePassword" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="employeeRole">角色</label>
+                                <select id="employeeRole" required>
+                                    <option value="staff">员工</option>
+                                    <option value="manager">经理</option>
+                                </select>
+                            </div>
+                            <div class="form-actions">
+                                <button type="button" onclick="hideAddEmployeeForm()" class="btn btn-secondary">取消</button>
+                                <button type="submit" class="btn btn-primary">添加员工</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- 店铺设置标签页 -->
+                <div id="settingsTab" class="tab-content" style="display: none;">
+                    <div class="form-section">
+                        <h4>基本设置</h4>
+                        <div class="form-group">
+                            <label for="shopName">店铺名称</label>
+                            <input type="text" id="shopName">
+                        </div>
+                        <div class="form-group">
+                            <label for="shopDomain">店铺域名</label>
+                            <input type="text" id="shopDomain">
+                        </div>
+                        <div class="form-group">
+                            <label for="shopDescription">店铺描述</label>
+                            <textarea id="shopDescription" rows="3"></textarea>
+                        </div>
+                        <div class="form-actions">
+                            <button onclick="saveShopSettings()" class="btn btn-primary">保存设置</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 集成代码模态框 -->
+    <div id="integrationModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>📋 集成代码</h3>
+                <button class="close-btn" onclick="hideModal('integrationModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="integration-info">
+                    <h4 id="integrationShopName">店铺名称</h4>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">店铺ID:</span>
+                            <span class="info-value" id="integrationShopId">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">API密钥:</span>
+                            <span class="info-value" id="integrationApiKey">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">生成时间:</span>
+                            <span class="info-value" id="integrationGeneratedAt">-</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="code-section">
+                    <div class="code-header">
+                        <h4>🔧 集成代码</h4>
+                        <div class="code-actions">
+                            <button class="btn btn-primary" onclick="copyIntegrationCode()">📋 复制代码</button>
+                            <button class="btn btn-warning" onclick="regenerateApiKey()">🔑 重新生成</button>
+                        </div>
+                    </div>
+                    <textarea id="integrationCode" class="code-textarea" readonly placeholder="正在生成集成代码..."></textarea>
+                </div>
+                
+                <div class="integration-usage">
+                    <h4>📝 使用说明:</h4>
+                    <ul>
+                        <li>✅ 将上方代码复制并粘贴到您网站的 HTML 页面中</li>
+                        <li>✅ 建议放在 <code>&lt;/body&gt;</code> 标签前</li>
+                        <li>✅ 代码将在右下角显示客服聊天按钮</li>
+                        <li>✅ 访客点击即可开始与您的客服对话</li>
+                        <li>✅ 如需更改样式或位置，请联系技术支持</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 引入外部JavaScript文件 -->
+    <script src="/js/mobile/mobile-admin-app.js"></script>
+    <script src="/js/mobile/mobile-admin-modules.js"></script>
+    
+    <!-- 引入店铺管理模块 -->
+    <!-- 引入样式 -->
+    <link rel="stylesheet" href="/css/integration-manager.css">
+    
+    <!-- 引入集成代码管理器 -->
+    <script src="/js/core/IntegrationManager.js"></script>
+    <script src="/js/mobile-shop-manager.js"></script>
+    <!-- 引入消息管理模块 -->
+    <script src="/js/mobile-message-manager.js"></script>
+    <!-- 引入搜索功能模块 -->
+    <script src="/js/message-search-manager.js"></script>
+    <!-- 引入多店铺客服系统 -->
+    <script src="/src/multi-shop-customer-service-manager.js"></script>
+
+</body>
+</html>

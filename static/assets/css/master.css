@@ -1,0 +1,31 @@
+/**
+ * QuickTalk客服系统 - 主样式文件
+ * 统一导入所有样式文件
+ */
+
+/* 基础样式 */
+@import url('./base/foundation.css');
+@import url('./base/global.css');
+@import url('./base/main.css');
+@import url('./base/responsive.css');
+
+/* 组件样式 */
+@import url('./components/button.css');
+@import url('./components/form.css');
+@import url('./components/modal.css');
+@import url('./components/navigation.css');
+@import url('./components/notification.css');
+@import url('./components/integration-manager.css');
+
+/* 页面样式 - 按需加载 */
+/* @import url('./pages/analytics-dashboard.css'); */
+/* @import url('./pages/ai-assistant.css'); */
+/* @import url('./pages/file-manager.css'); */
+/* @import url('./pages/mobile-customer.css'); */
+/* @import url('./pages/mobile-shop.css'); */
+
+/* 主题样式 */
+/* @import url('./themes/default.css'); */
+
+/* 模块样式 */
+/* @import url('./modules/ruilong-features/shop-components.css'); */
