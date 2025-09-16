@@ -103,48 +103,31 @@ class MobileMessageManager {
     }
 
     /**
-     * 初始化WebSocket连接
+     * 初始化WebSocket连接 - 使用统一客户端
      */
     initWebSocket() {
         try {
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${protocol}//${window.location.host}/ws`;
+            // 使用统一的WebSocket客户端
+            this.websocket = new UnifiedWebSocketClient({
+                url: `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`,
+                onMessage: (data) => this.handleWebSocketMessage(data),
+                onConnect: () => {
+                    console.log('🔌 [WEBSOCKET] ✅ 连接已建立');
+                    // 发送身份验证
+                    this.websocket.send({
+                        type: 'auth',
+                        sessionId: localStorage.getItem('sessionId')
+                    });
+                },
+                onDisconnect: () => {
+                    console.log('🔌 [WEBSOCKET] ❌ 连接已断开');
+                },
+                autoReconnect: true,
+                reconnectInterval: 5000
+            });
             
-            console.log('🔌 [WEBSOCKET] 开始初始化WebSocket连接:', wsUrl);
-            this.websocket = new WebSocket(wsUrl);
-            
-            this.websocket.onopen = () => {
-                console.log('🔌 [WEBSOCKET] ✅ WebSocket连接已建立');
-                console.log('🔌 [WEBSOCKET] 发送身份验证，sessionId:', localStorage.getItem('sessionId'));
-                // 发送身份验证
-                const authMessage = {
-                    type: 'auth',
-                    sessionId: localStorage.getItem('sessionId')
-                };
-                console.log('🔌 [WEBSOCKET] 发送认证消息:', authMessage);
-                this.websocket.send(JSON.stringify(authMessage));
-            };
-
-            this.websocket.onmessage = (event) => {
-                try {
-                    console.log('🔌 [WEBSOCKET] 收到原始消息:', event.data);
-                    const data = JSON.parse(event.data);
-                    this.handleWebSocketMessage(data);
-                } catch (error) {
-                    console.error('❌ [WEBSOCKET] 消息解析失败:', error, '原始数据:', event.data);
-                }
-            };
-
-            this.websocket.onclose = (event) => {
-                console.log('🔌 [WEBSOCKET] ❌ 连接已断开，代码:', event.code, '原因:', event.reason);
-                console.log('🔌 [WEBSOCKET] 5秒后重连...');
-                setTimeout(() => this.initWebSocket(), 5000);
-            };
-
-            this.websocket.onerror = (error) => {
-                console.error('❌ [WEBSOCKET] 连接错误:', error);
-                console.log('🔌 [WEBSOCKET] 连接状态:', this.websocket.readyState);
-            };
+            // 连接WebSocket
+            this.websocket.connect();
 
         } catch (error) {
             console.error('❌ [WEBSOCKET] 初始化失败:', error);
@@ -1015,13 +998,9 @@ class MobileMessageManager {
         }
     }
 
-    // 格式化文件大小
+    // 格式化文件大小 - 使用统一工具库
     formatFileSize(bytes) {
-        if (bytes === 0) return '0 B';
-        const k = 1024;
-        const sizes = ['B', 'KB', 'MB', 'GB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        return UnifiedUtils.formatFileSize(bytes);
     }
 
     // 🔧 智能识别图片文件

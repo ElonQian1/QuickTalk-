@@ -253,9 +253,9 @@ class EnhancedFileManagerUI {
             this.handleFileSelect(e.target.files);
         });
         
-        // 搜索
+        // 搜索 - 使用统一工具库的防抖
         document.getElementById('search-input').addEventListener('input', 
-            this.debounce(() => this.performSearch(), 500)
+            UnifiedUtils.debounce(() => this.performSearch(), 500)
         );
         
         document.getElementById('search-btn').addEventListener('click', () => {
@@ -782,21 +782,6 @@ class EnhancedFileManagerUI {
             'error': '上传失败'
         };
         return statusMap[status] || status;
-    }
-
-    /**
-     * 防抖函数
-     */
-    debounce(func, wait) {
-        let timeout;
-        return function executedFunction(...args) {
-            const later = () => {
-                clearTimeout(timeout);
-                func(...args);
-            };
-            clearTimeout(timeout);
-            timeout = setTimeout(later, wait);
-        };
     }
 
     /**

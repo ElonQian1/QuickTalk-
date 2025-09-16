@@ -240,41 +240,8 @@ class IntegrationManager {
     async copyCode(button) {
         const textarea = button.closest('.code-content').querySelector('.code-textarea');
         
-        try {
-            await navigator.clipboard.writeText(textarea.value);
-            this.showCopySuccess(button);
-        } catch (error) {
-            // 兼容性处理
-            this.fallbackCopyText(textarea);
-            this.showCopySuccess(button);
-        }
-    }
-
-    /**
-     * 显示复制成功状态
-     * @param {Element} button - 复制按钮
-     */
-    showCopySuccess(button) {
-        const originalText = button.textContent;
-        const originalBg = button.style.background;
-        
-        button.textContent = '✅ 已复制';
-        button.style.background = '#28a745';
-        
-        setTimeout(() => {
-            button.textContent = originalText;
-            button.style.background = originalBg;
-        }, 2000);
-    }
-
-    /**
-     * 兼容性复制文本
-     * @param {Element} textarea - 文本区域
-     */
-    fallbackCopyText(textarea) {
-        textarea.select();
-        textarea.setSelectionRange(0, 99999); // 移动端兼容
-        document.execCommand('copy');
+        // 使用统一工具库的复制方法
+        await UnifiedUtils.copyToClipboard(textarea.value, button);
     }
 
     /**
@@ -289,7 +256,8 @@ class IntegrationManager {
         const content = textarea.value;
         const filename = this.getDownloadFilename(codeType);
         
-        this.downloadFile(content, filename);
+        // 使用统一工具库的下载方法
+        UnifiedUtils.downloadFile(content, filename);
     }
 
     /**
@@ -309,23 +277,6 @@ class IntegrationManager {
             default:
                 return `integration-code-${timestamp}.txt`;
         }
-    }
-
-    /**
-     * 下载文件
-     * @param {string} content - 文件内容
-     * @param {string} filename - 文件名
-     */
-    downloadFile(content, filename) {
-        const blob = new Blob([content], { type: 'text/plain' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
     }
 
     /**

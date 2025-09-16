@@ -7,18 +7,15 @@
 const WebSocketHelper = require('../utils/WebSocketHelper');
 
 class WebSocketManager {
-    constructor(server, services, legacyServices = {}) {
+    constructor(server, services) {
         this.server = server;
         
-        // 新的服务层依赖
+        // 服务层依赖
         this.messageService = services.messageService;
         this.conversationService = services.conversationService;
         this.shopService = services.shopService;
         this.notificationService = services.notificationService;
         this.autoReplyService = services.autoReplyService;
-        
-        // 保持向后兼容的依赖
-        this.messageAdapter = legacyServices.messageAdapter;
         
         this.wss = null;
         
@@ -729,13 +726,12 @@ class WebSocketManager {
     }
     
     /**
-     * 创建服务层兼容的WebSocketManager工厂方法
+     * 创建服务层WebSocketManager工厂方法
      * @param {Object} server - HTTP服务器
      * @param {Object} services - 服务层对象
-     * @param {Object} legacyServices - 兼容旧服务
      */
-    static createWithServices(server, services, legacyServices = {}) {
-        return new WebSocketManager(server, services, legacyServices);
+    static createWithServices(server, services) {
+        return new WebSocketManager(server, services);
     }
     
     /**

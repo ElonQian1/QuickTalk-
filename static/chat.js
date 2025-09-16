@@ -8,10 +8,26 @@ class CustomerServiceChat {
         this.maxReconnectAttempts = 5;
         this.reconnectDelay = 3000;
 
+        // 初始化统一WebSocket客户端 - 使用桌面端模式
+        this.wsClient = UnifiedWebSocketClient.createDesktop({
+            serverUrl: `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`,
+            userId: this.userId,
+            debug: false,
+            heartbeatInterval: 30000,
+            reconnect: true,
+            maxReconnectAttempts: this.maxReconnectAttempts
+        });
+
         this.initializeElements();
         this.setupEventListeners();
+        this.setupWebSocketHandlers();
         this.updateConnectionStatus('connecting', '连接中...');
-        this.connectWebSocket();
+        
+        // 初始化统一消息管理器
+        this.messageManager = window.messageManager || new UnifiedMessageManager();
+        this.messageManager.registerContainer('chat-main', this.chatMessages);
+        
+        this.wsClient.connect();
     }
 
     initializeElements() {
@@ -50,72 +66,42 @@ class CustomerServiceChat {
     }
 
     connectWebSocket() {
-        try {
-            // 使用当前域名和端口，但切换到WebSocket协议
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${protocol}//${window.location.host}/ws`;
-            
-            this.socket = new WebSocket(wsUrl);
-            
-            this.socket.onopen = () => {
+        // 保留API兼容性，内部使用统一WebSocket客户端
+        return this.wsClient.connect();
+    }
+
+    setupWebSocketHandlers() {
+        this.wsClient
+            .onOpen(() => {
                 console.log('WebSocket 连接已建立');
                 this.isConnected = true;
                 this.reconnectAttempts = 0;
                 this.updateConnectionStatus('connected', '已连接');
                 
                 // 发送用户连接信息
-                this.sendSystemMessage({
+                this.wsClient.send({
                     type: 'user_connect',
                     userId: this.userId,
                     timestamp: Date.now()
                 });
-            };
-
-            this.socket.onmessage = (event) => {
-                try {
-                    const data = JSON.parse(event.data);
-                    console.log('用户端收到消息:', data); // 添加调试信息
-                    this.handleMessage(data);
-                } catch (error) {
-                    console.error('解析消息失败:', error);
-                }
-            };
-
-            this.socket.onclose = (event) => {
+            })
+            .onMessage((data) => {
+                console.log('用户端收到消息:', data);
+                this.handleMessage(data);
+            })
+            .onClose((event) => {
                 console.log('WebSocket 连接关闭:', event.code, event.reason);
                 this.isConnected = false;
                 this.updateConnectionStatus('disconnected', '连接断开');
-                
-                // 如果不是主动关闭，尝试重连
-                if (event.code !== 1000 && this.reconnectAttempts < this.maxReconnectAttempts) {
-                    this.attemptReconnect();
-                }
-            };
-
-            this.socket.onerror = (error) => {
+            })
+            .onError((error) => {
                 console.error('WebSocket 错误:', error);
                 this.updateConnectionStatus('disconnected', '连接错误');
-            };
-
-        } catch (error) {
-            console.error('创建 WebSocket 连接失败:', error);
-            this.updateConnectionStatus('disconnected', '连接失败');
-            this.attemptReconnect();
-        }
-    }
-
-    attemptReconnect() {
-        if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-            this.updateConnectionStatus('disconnected', '连接失败，请刷新页面');
-            return;
-        }
-
-        this.reconnectAttempts++;
-        this.updateConnectionStatus('connecting', `重连中... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
-        
-        setTimeout(() => {
-            this.connectWebSocket();
-        }, this.reconnectDelay);
+            })
+            .onReconnect((attemptCount) => {
+                console.log(`WebSocket重连中... (第${attemptCount}次)`);
+                this.updateConnectionStatus('connecting', `重连中... (${attemptCount}/${this.maxReconnectAttempts})`);
+            });
     }
 
     sendMessage() {
@@ -141,8 +127,8 @@ class CustomerServiceChat {
     }
 
     sendSystemMessage(data) {
-        if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-            this.socket.send(JSON.stringify(data));
+        if (this.wsClient && this.wsClient.isConnected) {
+            this.wsClient.send(data);
         }
     }
 
@@ -179,32 +165,11 @@ class CustomerServiceChat {
     }
 
     addMessage(type, message, staffName = null) {
-        const messageDiv = document.createElement('div');
-        messageDiv.className = `message ${type}-message`;
-        
-        const messageText = document.createElement('span');
-        messageText.className = 'message-text';
-        messageText.textContent = message;
-        
-        const messageTime = document.createElement('span');
-        messageTime.className = 'message-time';
-        messageTime.textContent = this.formatTime(new Date());
-        
-        messageDiv.appendChild(messageText);
-        messageDiv.appendChild(messageTime);
-        
-        if (type === 'staff' && staffName) {
-            const staffLabel = document.createElement('span');
-            staffLabel.className = 'staff-name';
-            staffLabel.textContent = `客服 ${staffName}`;
-            staffLabel.style.fontSize = '12px';
-            staffLabel.style.color = '#666';
-            staffLabel.style.marginBottom = '5px';
-            messageDiv.insertBefore(staffLabel, messageText);
-        }
-        
-        this.chatMessages.appendChild(messageDiv);
-        this.scrollToBottom();
+        // 使用统一消息管理器
+        return this.messageManager.addMessage('chat-main', type, message, {
+            staffName: staffName,
+            timestamp: new Date()
+        });
     }
 
     addImageMessage(type, messageData, staffName = null) {

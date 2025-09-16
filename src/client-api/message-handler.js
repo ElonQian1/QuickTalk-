@@ -7,20 +7,13 @@
 const ErrorHandler = require('../utils/ErrorHandler');
 
 class MessageHandler {
-    constructor(services, legacyServices = {}) {
-        // 新的服务层依赖
+    constructor(services) {
+        // 服务层依赖
         this.messageService = services.messageService;
         this.conversationService = services.conversationService;
         this.shopService = services.shopService;
         this.notificationService = services.notificationService;
         this.autoReplyService = services.autoReplyService;
-        
-        // 保持向后兼容的依赖
-        this.connectionHandler = legacyServices.connectionHandler;
-        this.securityLogger = legacyServices.securityLogger;
-        
-        // 向后兼容：保持原有的仓库访问（逐步迁移）
-        this.messageRepository = legacyServices.messageRepository;
         
         console.log('📝 MessageHandler 已更新到服务层架构');
     }
@@ -597,12 +590,11 @@ class MessageHandler {
     }
 
     /**
-     * 创建服务层兼容的MessageHandler工厂方法
+     * 创建服务层MessageHandler
      * @param {Object} services - 服务层对象
-     * @param {Object} legacyServices - 兼容旧服务
      */
-    static createWithServices(services, legacyServices = {}) {
-        return new MessageHandler(services, legacyServices);
+    static createWithServices(services) {
+        return new MessageHandler(services);
     }
 
     /**
