@@ -791,18 +791,11 @@ app.get('/api/conversations/:conversationId/messages', requireAuth, async (req, 
         const { conversationId } = req.params;
         const { limit = 100 } = req.query;
         
-        console.log('🔍 [DEBUG] 获取对话消息:', {
-            conversationId,
-            userId: req.user.id,
-            userRole: req.user.role
-        });
-        
         // conversationId 格式: shopId_userId (例如: shop_1757591780450_1_brand_new_user_810960)
         // 需要正确解析包含多个下划线的用户ID
         
         // 先获取用户的店铺列表，用于正确分割 conversationId
         const userShops = await database.getUserShops(req.user.id);
-        console.log('🔍 [DEBUG] 用户店铺列表:', userShops.map(s => ({ id: s.id, name: s.name })));
         
         // 查找匹配的店铺ID来正确分割conversationId
         let shopId = null;
@@ -829,17 +822,9 @@ app.get('/api/conversations/:conversationId/messages', requireAuth, async (req, 
             return res.status(400).json({ error: '无效的对话ID格式或无权限访问该对话' });
         }
         
-        console.log('🔍 [DEBUG] 解析对话ID:', { conversationId, shopId, userId });
-        
         // 权限检查 - 由于我们已经在上面根据用户店铺列表进行了匹配，这里只需要确认访问权限
         const hasAccess = req.user.role === 'super_admin' || 
                         userShops.some(shop => shop.id === shopId);
-        
-        console.log('🔍 [DEBUG] 权限检查:', {
-            isSuperAdmin: req.user.role === 'super_admin',
-            shopMatch: userShops.some(shop => shop.id === shopId),
-            hasAccess
-        });
         
         if (!hasAccess) {
             return res.status(403).json({ error: '没有权限访问该对话的消息' });

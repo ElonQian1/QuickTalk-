@@ -1,51 +1,67 @@
 /**
  * 统一消息API - Phase 7 架构重构
  * 替换所有重复的sendMessage实现，建立单一的消息处理接口
+ * 现在基于 UnifiedWebSocketClient 构建
  */
+
+// 检查统一WebSocket客户端库是否已加载
+if (typeof UnifiedWebSocketClient === 'undefined') {
+    console.error('错误: UnifiedWebSocketClient 未加载。请先引入 websocket-client.min.js');
+    throw new Error('UnifiedWebSocketClient library is required');
+}
 
 class UnifiedMessageAPI {
     constructor() {
         this.sessionId = this.generateSessionId();
-        this.wsConnection = null;
         this.messageQueue = [];
-        this.isConnected = false;
         
-        console.log('🔄 [UnifiedMessageAPI] 统一消息API已初始化');
+        // 初始化统一WebSocket客户端
+        this.wsClient = UnifiedWebSocketClient.createDesktop({
+            debug: true,
+            reconnect: true,
+            heartbeat: true
+        });
+        
+        this.setupWebSocketHandlers();
+        
+        console.log('🔄 [UnifiedMessageAPI] 统一消息API已初始化 - 基于UnifiedWebSocketClient');
+    }
+
+    /**
+     * 设置WebSocket处理器
+     */
+    setupWebSocketHandlers() {
+        this.wsClient
+            .onOpen(() => {
+                console.log('✅ [UnifiedMessageAPI] WebSocket连接成功');
+                this.processMessageQueue();
+            })
+            .onMessage((data) => {
+                this.handleIncomingMessage(data);
+            })
+            .onClose(() => {
+                console.log('❌ [UnifiedMessageAPI] WebSocket连接断开');
+            })
+            .onError((error) => {
+                console.error('❌ [UnifiedMessageAPI] WebSocket错误:', error);
+            })
+            .onReconnect((attemptCount) => {
+                console.log(`🔄 [UnifiedMessageAPI] WebSocket重连中... (第${attemptCount}次)`);
+            });
     }
 
     /**
      * 初始化WebSocket连接 - 统一所有页面的连接逻辑
      */
     async initializeWebSocket() {
-        try {
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${protocol}//${window.location.host}/ws`;
-            
-            this.wsConnection = new WebSocket(wsUrl);
-            
-            this.wsConnection.onopen = () => {
-                console.log('✅ [UnifiedMessageAPI] WebSocket连接成功');
-                this.isConnected = true;
-                this.processMessageQueue();
-            };
-            
-            this.wsConnection.onmessage = (event) => {
-                this.handleIncomingMessage(JSON.parse(event.data));
-            };
-            
-            this.wsConnection.onclose = () => {
-                console.log('❌ [UnifiedMessageAPI] WebSocket连接断开');
-                this.isConnected = false;
-                setTimeout(() => this.initializeWebSocket(), 3000);
-            };
-            
-            this.wsConnection.onerror = (error) => {
-                console.error('❌ [UnifiedMessageAPI] WebSocket错误:', error);
-            };
-            
-        } catch (error) {
-            console.error('❌ [UnifiedMessageAPI] WebSocket初始化失败:', error);
-        }
+        return this.wsClient.connect();
+    }
+
+    /**
+     * 获取连接状态
+     */
+    get isConnected() {
+        return this.wsClient.isConnected;
     }
 
     /**
@@ -68,9 +84,9 @@ class UnifiedMessageAPI {
                 sessionId: this.sessionId
             };
 
-            // WebSocket发送
-            if (this.isConnected && this.wsConnection) {
-                this.wsConnection.send(JSON.stringify(messageData));
+            // WebSocket发送 - 使用统一客户端
+            if (this.isConnected) {
+                this.wsClient.send(messageData);
             } else {
                 // 如果WebSocket未连接，加入队列
                 this.messageQueue.push(messageData);
@@ -274,8 +290,8 @@ class UnifiedMessageAPI {
     processMessageQueue() {
         while (this.messageQueue.length > 0) {
             const message = this.messageQueue.shift();
-            if (this.wsConnection && this.isConnected) {
-                this.wsConnection.send(JSON.stringify(message));
+            if (this.wsClient && this.isConnected) {
+                this.wsClient.send(message);
             }
         }
     }

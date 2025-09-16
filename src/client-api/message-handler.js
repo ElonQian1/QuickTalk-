@@ -458,6 +458,144 @@ class MessageHandler {
                (req.connection.socket ? req.connection.socket.remoteAddress : null);
     }
 
+    // ========== 新增的处理方法 (整合自其他模块) ==========
+
+    /**
+     * 搜索消息 (整合自 controllers/MessageController.js)
+     */
+    async searchMessages(params) {
+        try {
+            const { query, shopId, startDate, endDate } = params;
+            
+            if (this.messageService && this.messageService.searchMessages) {
+                // 使用服务层
+                return await this.messageService.searchMessages({
+                    query,
+                    shopId,
+                    startDate,
+                    endDate
+                });
+            } else if (this.messageRepository) {
+                // 回退到仓库层
+                const searchParams = {};
+                if (shopId) searchParams.shopId = shopId;
+                if (startDate) searchParams.startDate = startDate;
+                if (endDate) searchParams.endDate = endDate;
+                
+                return await this.messageRepository.searchMessages(query, searchParams);
+            } else {
+                throw new Error('消息搜索服务不可用');
+            }
+        } catch (error) {
+            console.error('搜索消息失败:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * 获取消息统计 (整合自 controllers/MessageController.js)
+     */
+    async getMessageStats(params) {
+        try {
+            const { shopId, period } = params;
+            
+            if (this.messageService && this.messageService.getStats) {
+                // 使用服务层
+                return await this.messageService.getStats({
+                    shopId,
+                    period
+                });
+            } else if (this.messageRepository) {
+                // 回退到仓库层 - 基础统计
+                const now = new Date();
+                let startDate;
+                
+                switch (period) {
+                    case 'today':
+                        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                        break;
+                    case 'week':
+                        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                        break;
+                    case 'month':
+                        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+                        break;
+                    default:
+                        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                }
+                
+                const params = { shopId, startDate };
+                const messages = await this.messageRepository.searchMessages('', params);
+                
+                return {
+                    totalMessages: messages.length,
+                    period,
+                    startDate: startDate.toISOString(),
+                    endDate: now.toISOString()
+                };
+            } else {
+                throw new Error('消息统计服务不可用');
+            }
+        } catch (error) {
+            console.error('获取消息统计失败:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * 获取未读消息数 (整合自 controllers/MessageController.js)
+     */
+    async getUnreadCount(params) {
+        try {
+            const { userId, shopId } = params;
+            
+            if (this.messageService && this.messageService.getUnreadCount) {
+                // 使用服务层
+                return await this.messageService.getUnreadCount({
+                    userId,
+                    shopId
+                });
+            } else if (this.messageRepository) {
+                // 回退到仓库层
+                return await this.messageRepository.getUnreadMessageCount(userId, shopId);
+            } else {
+                throw new Error('未读消息计数服务不可用');
+            }
+        } catch (error) {
+            console.error('获取未读消息数失败:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * 获取对话消息 (整合自 controllers/MessageController.js)
+     */
+    async getConversationMessages(params) {
+        try {
+            const { conversationId, limit, offset } = params;
+            
+            if (this.conversationService && this.conversationService.getMessages) {
+                // 使用服务层
+                return await this.conversationService.getMessages({
+                    conversationId,
+                    limit,
+                    offset
+                });
+            } else if (this.messageRepository) {
+                // 回退到仓库层
+                return await this.messageRepository.getConversationMessages(conversationId, {
+                    limit,
+                    offset
+                });
+            } else {
+                throw new Error('对话消息服务不可用');
+            }
+        } catch (error) {
+            console.error('获取对话消息失败:', error);
+            throw error;
+        }
+    }
+
     /**
      * 创建服务层兼容的MessageHandler工厂方法
      * @param {Object} services - 服务层对象

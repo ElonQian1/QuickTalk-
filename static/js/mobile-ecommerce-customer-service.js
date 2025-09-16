@@ -7,7 +7,14 @@
  * 
  * @author QuickTalk Team
  * @version 2.0.0
+ * @dependency UnifiedWebSocketClient (统一WebSocket客户端库)
  */
+
+// 检查统一WebSocket客户端库是否已加载
+if (typeof UnifiedWebSocketClient === 'undefined') {
+    console.error('错误: UnifiedWebSocketClient 未加载。请先引入 websocket-client.min.js');
+    throw new Error('UnifiedWebSocketClient library is required');
+}
 
 class MobileEcommerceCustomerService {
     constructor() {
@@ -18,8 +25,16 @@ class MobileEcommerceCustomerService {
         this.currentConversation = null;
         this.unreadCounts = {};   // 每个店铺的未读消息数
         this.totalUnreadCount = 0;
-        this.websocket = null;
         this.refreshTimer = null;
+        
+        // 初始化统一WebSocket客户端 - 移动端模式
+        this.websocketClient = UnifiedWebSocketClient.createMobile({
+            debug: true,
+            reconnect: true,
+            heartbeat: true
+        });
+        
+        this.setupWebSocketHandlers();
         
         // 页面状态管理
         this.currentView = 'overview'; // overview, shop, chat
@@ -39,7 +54,7 @@ class MobileEcommerceCustomerService {
             await this.authenticateUser();
             
             // 2. 连接WebSocket
-            this.initWebSocket();
+            await this.websocketClient.connect();
             
             // 3. 加载店铺数据
             await this.loadShops();
@@ -95,51 +110,41 @@ class MobileEcommerceCustomerService {
     }
 
     /**
-     * 初始化WebSocket连接
+     * 设置WebSocket处理器
      */
-    initWebSocket() {
-        try {
-            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
-            
-            this.websocket = new WebSocket(wsUrl);
-            
-            this.websocket.onopen = () => {
+    setupWebSocketHandlers() {
+        this.websocketClient
+            .onOpen(() => {
                 console.log('🔌 WebSocket连接已建立');
                 this.updateConnectionStatus(true);
                 
                 // 发送用户认证
-                this.websocket.send(JSON.stringify({
+                this.websocketClient.send({
                     type: 'auth',
                     sessionId: localStorage.getItem('sessionId')
-                }));
-            };
-            
-            this.websocket.onmessage = (event) => {
-                try {
-                    const data = JSON.parse(event.data);
-                    this.handleWebSocketMessage(data);
-                } catch (error) {
-                    console.error('❌ 解析WebSocket消息失败:', error);
-                }
-            };
-            
-            this.websocket.onclose = () => {
+                });
+            })
+            .onMessage((data) => {
+                this.handleWebSocketMessage(data);
+            })
+            .onClose(() => {
                 console.log('🔌 WebSocket连接已断开');
                 this.updateConnectionStatus(false);
-                
-                // 5秒后重连
-                setTimeout(() => this.initWebSocket(), 5000);
-            };
-            
-            this.websocket.onerror = (error) => {
+            })
+            .onError((error) => {
                 console.error('❌ WebSocket连接错误:', error);
                 this.updateConnectionStatus(false);
-            };
-            
-        } catch (error) {
-            console.error('❌ WebSocket初始化失败:', error);
-        }
+            })
+            .onReconnect((attemptCount) => {
+                console.log(`🔄 WebSocket重连中... (第${attemptCount}次)`);
+            });
+    }
+
+    /**
+     * 初始化WebSocket连接 (保留API兼容性)
+     */
+    initWebSocket() {
+        return this.websocketClient.connect();
     }
 
     /**

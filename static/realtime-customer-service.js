@@ -3,14 +3,21 @@
  * 可以轻松嵌入到任何网站中
  * 作者: Customer Service Team
  * 版本: 1.0.0
+ * 依赖: UnifiedWebSocketClient (统一WebSocket客户端库)
  */
 
 (function() {
     'use strict';
     
+    // 检查统一WebSocket客户端库是否已加载
+    if (typeof UnifiedWebSocketClient === 'undefined') {
+        console.error('错误: UnifiedWebSocketClient 未加载。请先引入 websocket-client.min.js');
+        return;
+    }
+    
     // 配置选项
     const CONFIG = {
-        // WebSocket服务器地址 - 请修改为您的服务器地址
+        // WebSocket服务器地址 - 请修改为您的服务器地址  
         wsUrl: 'ws://localhost:3030/ws',
         
         // 样式配置
@@ -296,7 +303,6 @@
     class RealtimeCustomerService {
         constructor(options = {}) {
             this.config = Object.assign({}, CONFIG, options);
-            this.socket = null;
             this.isConnected = false;
             this.isMinimized = false;
             this.isOpen = false;
@@ -305,6 +311,17 @@
             this.maxReconnectAttempts = 5;
             this.reconnectDelay = 3000;
             
+            // 初始化统一WebSocket客户端 - 使用嵌入式模式
+            this.wsClient = UnifiedWebSocketClient.createEmbed({
+                serverUrl: this.config.wsUrl.replace('/ws', ''),
+                userId: this.userId,
+                debug: false,
+                heartbeat: false,  // 对于嵌入式客服，关闭心跳以减少开销
+                reconnect: true,
+                maxReconnectAttempts: this.maxReconnectAttempts
+            });
+            
+            this.setupWebSocketHandlers();
             this.init();
         }
         
@@ -314,7 +331,7 @@
             this.bindEvents();
             
             if (this.config.autoConnect) {
-                this.connectWebSocket();
+                this.wsClient.connect();
             }
         }
         
@@ -382,8 +399,8 @@
             
             // 页面关闭事件
             window.addEventListener('beforeunload', () => {
-                if (this.socket) {
-                    this.socket.close();
+                if (this.wsClient) {
+                    this.wsClient.disconnect();
                 }
             });
         }
@@ -392,71 +409,47 @@
             return 'user_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
         }
         
-        connectWebSocket() {
-            try {
-                this.socket = new WebSocket(this.config.wsUrl);
-                
-                this.socket.onopen = () => {
+        setupWebSocketHandlers() {
+            this.wsClient
+                .onOpen(() => {
                     console.log('实时客服 WebSocket 连接已建立');
                     this.isConnected = true;
                     this.reconnectAttempts = 0;
                     this.updateConnectionStatus('connected', this.config.texts.connected);
                     
-                    this.sendSystemMessage({
+                    // 发送用户连接消息
+                    this.wsClient.send({
                         type: 'user_connect',
                         userId: this.userId,
                         timestamp: Date.now()
                     });
-                };
-                
-                this.socket.onmessage = (event) => {
-                    try {
-                        const data = JSON.parse(event.data);
-                        this.handleMessage(data);
-                    } catch (error) {
-                        console.error('解析实时客服消息失败:', error);
-                    }
-                };
-                
-                this.socket.onclose = (event) => {
+                })
+                .onMessage((data) => {
+                    this.handleMessage(data);
+                })
+                .onClose((event) => {
                     console.log('实时客服 WebSocket 连接关闭:', event.code, event.reason);
                     this.isConnected = false;
                     this.updateConnectionStatus('disconnected', this.config.texts.disconnected);
-                    
-                    if (event.code !== 1000 && this.reconnectAttempts < this.maxReconnectAttempts) {
-                        this.attemptReconnect();
-                    }
-                };
-                
-                this.socket.onerror = (error) => {
+                })
+                .onError((error) => {
                     console.error('实时客服 WebSocket 错误:', error);
                     this.updateConnectionStatus('disconnected', this.config.texts.connectionError);
-                };
-                
-            } catch (error) {
-                console.error('创建实时客服 WebSocket 连接失败:', error);
-                this.updateConnectionStatus('disconnected', this.config.texts.connectionError);
-                this.attemptReconnect();
-            }
+                })
+                .onReconnect((attemptCount) => {
+                    console.log(`实时客服 WebSocket 重连中... (第${attemptCount}次)`);
+                    this.updateConnectionStatus('connecting', `重连中... (${attemptCount}/${this.maxReconnectAttempts})`);
+                });
         }
         
-        attemptReconnect() {
-            if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-                this.updateConnectionStatus('disconnected', '连接失败，请刷新页面');
-                return;
-            }
-            
-            this.reconnectAttempts++;
-            this.updateConnectionStatus('connecting', `重连中... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
-            
-            setTimeout(() => {
-                this.connectWebSocket();
-            }, this.reconnectDelay);
+        connectWebSocket() {
+            // 已被统一WebSocket客户端替代，保留此方法以维持API兼容性
+            return this.wsClient.connect();
         }
         
         sendSystemMessage(data) {
-            if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-                this.socket.send(JSON.stringify(data));
+            if (this.wsClient && this.wsClient.isConnected) {
+                this.wsClient.send(data);
             }
         }
         

@@ -205,54 +205,52 @@ function initializeServiceLayerRoutes() {
     }
     
     try {
-        // 创建新的消息控制器
-        const MessageController = require('./src/controllers/MessageController');
-        const messageControllerContext = serviceLayer.serviceFactory.createContextForController('message');
-        const messageController = new MessageController(messageControllerContext);
+        console.log('ℹ️ 服务层路由功能已整合到统一客户端API');
+        console.log('✅ 服务层路由初始化跳过（避免重复）');
         
-        // 注册API路由 (统一版本)
-        const express = require('express');
-        const apiRouter = express.Router();
-        MessageController.createRoutes(apiRouter, messageController);
-        app.use('/api', apiRouter);
-        
-        // 注册服务层健康检查
-        app.get('/api/health/services', async (req, res) => {
-            try {
-                const healthStatus = await serviceLayer.serviceFactory.getHealthStatus();
-                res.json(healthStatus);
-            } catch (error) {
-                res.status(500).json({
-                    status: 'unhealthy',
-                    error: error.message,
-                    timestamp: new Date()
-                });
-            }
-        });
-        
-        // 注册服务统计端点
-        app.get('/api/stats/services', (req, res) => {
-            try {
-                const stats = serviceLayer.serviceFactory.getServiceStats();
-                res.json({
-                    success: true,
-                    stats
-                });
-            } catch (error) {
-                res.status(500).json({
-                    success: false,
-                    error: error.message
-                });
-            }
-        });
-        
-        console.log('✅ 服务层路由初始化完成');
-        console.log('📡 API端点: /api/* (统一架构)');
-        console.log('🏥 健康检查: /api/health/services');
-        console.log('📊 服务统计: /api/stats/services');
+        // ❌ 以下路由已整合到 src/client-api/client-api-router.js，避免重复定义：
+        // - MessageController 路由
+        // - 服务健康检查 /api/health/services  
+        // - 服务统计 /api/stats/services
         
     } catch (error) {
         console.error('❌ 服务层路由初始化失败:', error);
+    }
+}
+
+/**
+ * 初始化统一客户端API路由
+ */
+function initializeClientApiRoutes() {
+    console.log('🎯 初始化统一客户端API路由...');
+    
+    try {
+        if (!modularApp) {
+            console.warn('⚠️ 模块化应用未初始化，跳过客户端API路由');
+            return;
+        }
+        
+        // 获取客户端API处理器
+        const clientApiRouter = modularApp.getClientApiRouter();
+        if (!clientApiRouter) {
+            console.warn('⚠️ 客户端API路由器不可用，跳过路由初始化');
+            return;
+        }
+        
+        // 注册统一的客户端API路由
+        app.use('/api', clientApiRouter);
+        
+        // 设置全局变量供新的处理器使用
+        global.wsManager = global.webSocketManager;
+        global.serviceLayer = serviceLayer;
+        
+        console.log('✅ 统一客户端API路由初始化完成');
+        console.log('📡 统一API端点: /api/* (所有客户端功能)');
+        console.log('🔌 包含功能: 连接、消息、WebSocket、管理、统计');
+        
+    } catch (error) {
+        console.error('❌ 统一客户端API路由初始化失败:', error);
+        // 不抛出错误，保持系统继续运行
     }
 }
 
@@ -263,12 +261,11 @@ function initializeTraditionalRoutes() {
     console.log('🔌 初始化传统路由系统...');
     
     try {
+        // 🎯 初始化统一客户端API路由 (新增)
+        initializeClientApiRoutes();
+        
         // 引入认证路由
         require('./auth-routes')(app, database, modularApp);
-        
-        // 引入WebSocket集成API
-        const { setupWebSocketIntegratedAPI } = require('./src/websocket/WebSocketAPI');
-        setupWebSocketIntegratedAPI(app, modularApp);
         
         // 引入文件上传API
         const FileUploadAPI = require('./src/api/FileUploadAPI');
@@ -283,6 +280,7 @@ function initializeTraditionalRoutes() {
         app.use('/embed', embedRoutes);
         
         console.log('✅ 传统路由系统初始化完成');
+        console.log('🎯 统一客户端API: /api/* (整合版)');
         console.log('📤 文件上传API: /api/files/upload');
         console.log('🌐 动态嵌入API: /embed/customer-service.js');
         

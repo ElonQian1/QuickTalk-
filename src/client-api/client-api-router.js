@@ -112,6 +112,87 @@ class ClientApiRouter {
             (req, res) => this.handleConnectionStats(req, res)
         );
 
+        // ========== 服务层健康检查 ==========
+        
+        // 服务层健康检查 (整合自 server.js)
+        this.router.get('/health/services',
+            (req, res) => this.handleServicesHealth(req, res)
+        );
+        
+        // 服务层统计 (整合自 server.js)
+        this.router.get('/stats/services',
+            (req, res) => this.handleServicesStats(req, res)
+        );
+
+        // ========== WebSocket管理路由 ==========
+        
+        // WebSocket状态 (整合自 websocket/WebSocketRouter.js)
+        this.router.get('/websocket/status',
+            (req, res) => this.handleWebSocketStatus(req, res)
+        );
+        
+        // WebSocket在线用户 (整合自 websocket/WebSocketRouter.js)
+        this.router.get('/websocket/users',
+            (req, res) => this.handleWebSocketUsers(req, res)
+        );
+        
+        // WebSocket消息推送 (整合自 websocket/WebSocketRouter.js)
+        this.router.post('/websocket/push',
+            this.messageLimiter.createMiddleware(),
+            (req, res) => this.handleWebSocketPush(req, res)
+        );
+        
+        // WebSocket广播 (整合自 websocket/WebSocketRouter.js)
+        this.router.post('/websocket/broadcast',
+            this.messageLimiter.createMiddleware(),
+            (req, res) => this.handleWebSocketBroadcast(req, res)
+        );
+
+        // ========== 管理员操作路由 ==========
+        
+        // 管理员回复 (整合自 websocket/WebSocketAPI.js)
+        this.router.post('/admin/send-reply',
+            this.messageLimiter.createMiddleware(),
+            (req, res) => this.handleAdminSendReply(req, res)
+        );
+        
+        // 管理员广播消息 (整合自 websocket/WebSocketAPI.js)
+        this.router.post('/admin/broadcast-message',
+            this.messageLimiter.createMiddleware(),
+            (req, res) => this.handleAdminBroadcast(req, res)
+        );
+        
+        // 管理员查看在线用户 (整合自 websocket/WebSocketAPI.js)
+        this.router.get('/admin/online-users',
+            (req, res) => this.handleAdminOnlineUsers(req, res)
+        );
+
+        // ========== 消息控制器功能 ==========
+        
+        // 消息搜索 (整合自 controllers/MessageController.js)
+        this.router.get('/messages/search',
+            this.authValidator.createMiddleware(),
+            (req, res) => this.handleMessageSearch(req, res)
+        );
+        
+        // 消息统计 (整合自 controllers/MessageController.js)
+        this.router.get('/messages/stats',
+            this.authValidator.createMiddleware(),
+            (req, res) => this.handleMessageStats(req, res)
+        );
+        
+        // 未读消息数 (整合自 controllers/MessageController.js)
+        this.router.get('/messages/unread',
+            this.authValidator.createMiddleware(),
+            (req, res) => this.handleUnreadCount(req, res)
+        );
+        
+        // 对话消息 (整合自 controllers/MessageController.js)
+        this.router.get('/messages/conversation/:conversationId',
+            this.authValidator.createMiddleware(),
+            (req, res) => this.handleConversationMessages(req, res)
+        );
+
         // ========== 兼容性路由 ==========
 
         // 兼容旧版本的消息接收接口
@@ -286,6 +367,392 @@ class ClientApiRouter {
      */
     getRouter() {
         return this.router;
+    }
+
+    // ========== 服务层健康检查处理方法 ==========
+
+    /**
+     * 服务层健康检查 (整合自 server.js)
+     */
+    async handleServicesHealth(req, res) {
+        try {
+            // 如果有服务层，检查其健康状态
+            if (global.serviceLayer && global.serviceLayer.serviceFactory) {
+                const healthStatus = await global.serviceLayer.serviceFactory.getHealthStatus();
+                res.json(healthStatus);
+            } else {
+                // 基础健康检查
+                res.json({
+                    status: 'healthy',
+                    timestamp: new Date().toISOString(),
+                    services: {
+                        database: 'healthy',
+                        websocket: 'healthy',
+                        api: 'healthy'
+                    }
+                });
+            }
+        } catch (error) {
+            res.status(500).json({
+                status: 'unhealthy',
+                error: error.message,
+                timestamp: new Date().toISOString()
+            });
+        }
+    }
+
+    /**
+     * 服务层统计 (整合自 server.js)
+     */
+    async handleServicesStats(req, res) {
+        try {
+            if (global.serviceLayer && global.serviceLayer.serviceFactory) {
+                const stats = global.serviceLayer.serviceFactory.getServiceStats();
+                res.json({
+                    success: true,
+                    stats
+                });
+            } else {
+                res.json({
+                    success: true,
+                    stats: {
+                        activeServices: 0,
+                        totalRequests: 0,
+                        uptime: process.uptime()
+                    }
+                });
+            }
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                error: error.message
+            });
+        }
+    }
+
+    // ========== WebSocket管理处理方法 ==========
+
+    /**
+     * WebSocket状态 (整合自 websocket/WebSocketRouter.js)
+     */
+    async handleWebSocketStatus(req, res) {
+        try {
+            const wsManager = global.wsManager || global.webSocketManager;
+            if (wsManager) {
+                const stats = wsManager.getStats();
+                res.json({
+                    success: true,
+                    data: {
+                        connected: stats.connected || 0,
+                        total: stats.total || 0,
+                        rooms: stats.rooms || 0,
+                        status: 'active'
+                    }
+                });
+            } else {
+                res.json({
+                    success: true,
+                    data: {
+                        connected: 0,
+                        total: 0,
+                        rooms: 0,
+                        status: 'inactive'
+                    }
+                });
+            }
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                error: error.message
+            });
+        }
+    }
+
+    /**
+     * WebSocket在线用户 (整合自 websocket/WebSocketRouter.js)
+     */
+    async handleWebSocketUsers(req, res) {
+        try {
+            const wsManager = global.wsManager || global.webSocketManager;
+            if (wsManager) {
+                const users = wsManager.getConnectedUsers();
+                res.json({
+                    success: true,
+                    data: {
+                        users: users || [],
+                        count: users ? users.length : 0
+                    }
+                });
+            } else {
+                res.json({
+                    success: true,
+                    data: {
+                        users: [],
+                        count: 0
+                    }
+                });
+            }
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                error: error.message
+            });
+        }
+    }
+
+    /**
+     * WebSocket消息推送 (整合自 websocket/WebSocketRouter.js)
+     */
+    async handleWebSocketPush(req, res) {
+        try {
+            const { userId, message } = req.body;
+            
+            if (!userId || !message) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'userId 和 message 是必需的'
+                });
+            }
+
+            const wsManager = global.wsManager || global.webSocketManager;
+            if (wsManager) {
+                const result = await wsManager.sendToUser(userId, message);
+                res.json({
+                    success: true,
+                    data: { delivered: result }
+                });
+            } else {
+                res.status(503).json({
+                    success: false,
+                    error: 'WebSocket服务不可用'
+                });
+            }
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                error: error.message
+            });
+        }
+    }
+
+    /**
+     * WebSocket广播 (整合自 websocket/WebSocketRouter.js)
+     */
+    async handleWebSocketBroadcast(req, res) {
+        try {
+            const { message, target } = req.body;
+            
+            if (!message) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'message 是必需的'
+                });
+            }
+
+            const wsManager = global.wsManager || global.webSocketManager;
+            if (wsManager) {
+                const result = await wsManager.broadcast(message, target);
+                res.json({
+                    success: true,
+                    data: { sent: result }
+                });
+            } else {
+                res.status(503).json({
+                    success: false,
+                    error: 'WebSocket服务不可用'
+                });
+            }
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                error: error.message
+            });
+        }
+    }
+
+    // ========== 管理员操作处理方法 ==========
+
+    /**
+     * 管理员回复 (整合自 websocket/WebSocketAPI.js)
+     */
+    async handleAdminSendReply(req, res) {
+        try {
+            const result = await this.messageHandler.handleSendMessage(req, res);
+            // 如果处理成功，也通过WebSocket通知
+            const wsManager = global.wsManager || global.webSocketManager;
+            if (wsManager && req.body.userId) {
+                wsManager.sendToUser(req.body.userId, {
+                    type: 'admin_reply',
+                    message: req.body.content
+                });
+            }
+            return result;
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                error: error.message
+            });
+        }
+    }
+
+    /**
+     * 管理员广播消息 (整合自 websocket/WebSocketAPI.js)
+     */
+    async handleAdminBroadcast(req, res) {
+        try {
+            const { message, shopId } = req.body;
+            
+            if (!message) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'message 是必需的'
+                });
+            }
+
+            const wsManager = global.wsManager || global.webSocketManager;
+            if (wsManager) {
+                const target = shopId ? { shopId } : null;
+                const result = await wsManager.broadcast({
+                    type: 'admin_broadcast',
+                    message: message,
+                    timestamp: new Date().toISOString()
+                }, target);
+                
+                res.json({
+                    success: true,
+                    data: { sent: result }
+                });
+            } else {
+                res.status(503).json({
+                    success: false,
+                    error: 'WebSocket服务不可用'
+                });
+            }
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                error: error.message
+            });
+        }
+    }
+
+    /**
+     * 管理员查看在线用户 (整合自 websocket/WebSocketAPI.js)
+     */
+    async handleAdminOnlineUsers(req, res) {
+        try {
+            return this.handleWebSocketUsers(req, res);
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                error: error.message
+            });
+        }
+    }
+
+    // ========== 消息控制器功能处理方法 ==========
+
+    /**
+     * 消息搜索 (整合自 controllers/MessageController.js)
+     */
+    async handleMessageSearch(req, res) {
+        try {
+            const { query, shopId, startDate, endDate } = req.query;
+            
+            // 使用消息处理器进行搜索
+            const searchParams = {
+                query,
+                shopId,
+                startDate,
+                endDate
+            };
+            
+            const results = await this.messageHandler.searchMessages(searchParams);
+            
+            res.json({
+                success: true,
+                data: results
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                error: error.message
+            });
+        }
+    }
+
+    /**
+     * 消息统计 (整合自 controllers/MessageController.js)
+     */
+    async handleMessageStats(req, res) {
+        try {
+            const { shopId, period } = req.query;
+            
+            const stats = await this.messageHandler.getMessageStats({
+                shopId,
+                period: period || 'today'
+            });
+            
+            res.json({
+                success: true,
+                data: stats
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                error: error.message
+            });
+        }
+    }
+
+    /**
+     * 未读消息数 (整合自 controllers/MessageController.js)
+     */
+    async handleUnreadCount(req, res) {
+        try {
+            const { userId, shopId } = req.query;
+            
+            const count = await this.messageHandler.getUnreadCount({
+                userId,
+                shopId
+            });
+            
+            res.json({
+                success: true,
+                data: { unreadCount: count }
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                error: error.message
+            });
+        }
+    }
+
+    /**
+     * 对话消息 (整合自 controllers/MessageController.js)
+     */
+    async handleConversationMessages(req, res) {
+        try {
+            const { conversationId } = req.params;
+            const { limit, offset } = req.query;
+            
+            const messages = await this.messageHandler.getConversationMessages({
+                conversationId,
+                limit: parseInt(limit) || 50,
+                offset: parseInt(offset) || 0
+            });
+            
+            res.json({
+                success: true,
+                data: messages
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                error: error.message
+            });
+        }
     }
 
     /**

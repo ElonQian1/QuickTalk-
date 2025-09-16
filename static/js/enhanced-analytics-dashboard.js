@@ -19,7 +19,6 @@ class EnhancedAnalyticsDashboard {
     constructor() {
         this.shopId = null;
         this.currentUser = null;
-        this.websocket = null;
         this.charts = new Map();
         this.refreshInterval = null;
         this.currentTimeRange = '24h';
@@ -27,6 +26,15 @@ class EnhancedAnalyticsDashboard {
         this.isRealTimeEnabled = true;
         this.notifications = [];
         this.filters = {};
+        
+        // 初始化统一WebSocket客户端 - 桌面端模式
+        this.websocketClient = UnifiedWebSocketClient.createDesktop({
+            debug: true,
+            reconnect: true,
+            heartbeat: true
+        });
+        
+        this.setupWebSocketHandlers();
         
         console.log('📊 增强型数据分析仪表板初始化...');
         this.init();
@@ -49,7 +57,7 @@ class EnhancedAnalyticsDashboard {
             // 创建仪表板内容区域
             this.createDashboardContent();
             
-            // 初始化WebSocket连接
+            // 初始化WebSocket连接 - 使用统一客户端
             this.initializeWebSocket();
             
             // 加载初始数据
@@ -636,57 +644,42 @@ class EnhancedAnalyticsDashboard {
     }
 
     /**
-     * 初始化WebSocket连接
+     * 设置WebSocket处理器
      */
-    initializeWebSocket() {
-        try {
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${protocol}//${window.location.host}/ws`;
-            
-            this.websocket = new WebSocket(wsUrl);
-            
-            this.websocket.onopen = () => {
+    setupWebSocketHandlers() {
+        this.websocketClient
+            .onOpen(() => {
                 console.log('📡 WebSocket连接已建立');
                 this.updateConnectionStatus('connected');
                 
                 // 订阅分析数据更新
-                this.websocket.send(JSON.stringify({
+                this.websocketClient.send({
                     type: 'subscribe',
                     channel: 'analytics',
                     shopId: this.shopId
-                }));
-            };
-            
-            this.websocket.onmessage = (event) => {
-                try {
-                    const data = JSON.parse(event.data);
-                    this.handleWebSocketMessage(data);
-                } catch (error) {
-                    console.error('❌ WebSocket消息解析失败:', error);
-                }
-            };
-            
-            this.websocket.onclose = () => {
+                });
+            })
+            .onMessage((data) => {
+                this.handleWebSocketMessage(data);
+            })
+            .onClose(() => {
                 console.log('📡 WebSocket连接已断开');
                 this.updateConnectionStatus('disconnected');
-                
-                // 重连机制
-                setTimeout(() => {
-                    if (this.isRealTimeEnabled) {
-                        this.initializeWebSocket();
-                    }
-                }, 5000);
-            };
-            
-            this.websocket.onerror = (error) => {
+            })
+            .onError((error) => {
                 console.error('❌ WebSocket连接错误:', error);
                 this.updateConnectionStatus('error');
-            };
-            
-        } catch (error) {
-            console.error('❌ WebSocket初始化失败:', error);
-            this.updateConnectionStatus('error');
-        }
+            })
+            .onReconnect((attemptCount) => {
+                console.log(`🔄 WebSocket重连中... (第${attemptCount}次)`);
+            });
+    }
+
+    /**
+     * 初始化WebSocket连接 (保留API兼容性)
+     */
+    initializeWebSocket() {
+        return this.websocketClient.connect();
     }
 
     /**

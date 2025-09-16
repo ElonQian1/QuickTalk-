@@ -253,20 +253,20 @@ class ServiceIntegration {
         const compatibilityAdapter = this.createCompatibilityAdapter();
         this.setupCompatibilityRoutes(app, compatibilityAdapter);
 
-        // 5. 添加健康检查端点
-        app.get('/api/health/services', async (req, res) => {
-            try {
-                const healthStatus = await this.serviceFactory.getHealthStatus();
-                res.json(healthStatus);
-            } catch (error) {
-                res.status(500).json({
-                    status: 'unhealthy',
-                    error: error.message
-                });
-            }
-        });
+        // ❌ 健康检查端点已整合到统一客户端API，避免重复定义
+        // app.get('/api/health/services', async (req, res) => {
+        //     try {
+        //         const healthStatus = await this.serviceFactory.getHealthStatus();
+        //         res.json(healthStatus);
+        //     } catch (error) {
+        //         res.status(500).json({
+        //             status: 'unhealthy',
+        //             error: error.message
+        //         });
+        //     }
+        // });
 
-        console.log('✅ Express应用集成完成');
+        console.log('✅ Express应用集成完成（跳过重复路由）');
     }
 
     /**
