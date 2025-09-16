@@ -210,11 +210,11 @@ function initializeServiceLayerRoutes() {
         const messageControllerContext = serviceLayer.serviceFactory.createContextForController('message');
         const messageController = new MessageController(messageControllerContext);
         
-        // 注册新API路由 (v2)
+        // 注册API路由 (统一版本)
         const express = require('express');
-        const v2Router = express.Router();
-        MessageController.createRoutes(v2Router, messageController);
-        app.use('/api/v2', v2Router);
+        const apiRouter = express.Router();
+        MessageController.createRoutes(apiRouter, messageController);
+        app.use('/api', apiRouter);
         
         // 注册服务层健康检查
         app.get('/api/health/services', async (req, res) => {
@@ -247,7 +247,7 @@ function initializeServiceLayerRoutes() {
         });
         
         console.log('✅ 服务层路由初始化完成');
-        console.log('📡 新API端点: /api/v2/* (服务层架构)');
+        console.log('📡 API端点: /api/* (统一架构)');
         console.log('🏥 健康检查: /api/health/services');
         console.log('📊 服务统计: /api/stats/services');
         
@@ -360,14 +360,11 @@ function initializeStaticRoutes() {
                 domainValidator: !!domainValidator
             },
             architecture: {
-                traditional: !!modularApp,
-                serviceLayer: !!serviceLayer,
-                compatibility: !!(serviceLayer && modularApp)
+                unified: !!serviceLayer,
+                database: !!databaseCore
             },
             endpoints: {
-                traditional: '/api/v1/*',
-                serviceLayer: '/api/v2/*',
-                compatibility: '/api/compat/*',
+                api: '/api/*',
                 health: '/api/health/*',
                 static: '/static/*'
             }

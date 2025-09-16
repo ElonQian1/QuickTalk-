@@ -1,17 +1,17 @@
 {
   "metadata": {
     "projectPath": ".",
-    "analysisDate": "2025-09-16T07:26:55.273Z",
+    "analysisDate": "2025-09-16T08:02:57.356Z",
     "analyzerVersion": "2.0.0 (Improved)",
     "phase7Target": "< 10% code duplication",
     "improvementNotes": "Fixed algorithm to exclude common patterns and overlapping blocks"
   },
   "summary": {
-    "totalFiles": 132,
-    "totalLines": 74623,
+    "totalFiles": 133,
+    "totalLines": 74758,
     "duplicateLines": 7072,
     "duplicateBlocks": 1078,
-    "duplicationRate": 9.48,
+    "duplicationRate": 9.46,
     "targetAchieved": true,
     "phase7Status": "SUCCESS"
   },
@@ -148,7 +148,8 @@
       "test-auth-validator.js",
       "test-database-refactor.js",
       "test-service-layer-integration.js",
-      "test-simple-refactor.js"
+      "test-simple-refactor.js",
+      "verify-system-refactor.js"
     ],
     "ignored": [
       "node_modules/**",
@@ -28309,7 +28310,7 @@
     {
       "priority": "MEDIUM",
       "category": "Code Quality",
-      "description": "代码重复率 9.48% 接近目标上限",
+      "description": "代码重复率 9.46% 接近目标上限",
       "suggestion": "建议持续监控并优化重复代码"
     },
     {
@@ -28321,7 +28322,7 @@
     {
       "priority": "INFO",
       "category": "Phase 7 Success",
-      "description": "Phase 7 目标已达成（9.48% < 10%）",
+      "description": "Phase 7 目标已达成（9.46% < 10%）",
       "suggestion": "继续保持良好的代码结构，定期进行重复分析"
     }
   ],
@@ -28464,7 +28465,8 @@
       "static\\tests\\unit\\utils.test.js",
       "test-auth-validator.js",
       "test-database-refactor.js",
-      "test-simple-refactor.js"
+      "test-simple-refactor.js",
+      "verify-system-refactor.js"
     ],
     "architectureScore": 20,
     "serviceLayerCoverage": 20

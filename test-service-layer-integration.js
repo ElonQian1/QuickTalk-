@@ -152,13 +152,13 @@ class ServiceLayerIntegrationTest {
         await this.runTest('服务层API测试', async () => {
             try {
                 // 尝试获取对话消息（可能需要参数）
-                const response = await axios.get(`${this.baseUrl}/api/v2/messages/unread?userId=test`);
+                const response = await axios.get(`${this.baseUrl}/api/messages/unread?userId=test`);
                 console.log('🚀 服务层API响应状态:', response.status);
-                return { status: 'available', endpoint: '/api/v2/messages/unread' };
+                return { status: 'available', endpoint: '/api/messages/unread' };
             } catch (error) {
                 if (error.response && error.response.status === 400) {
                     console.log('🚀 服务层API端点存在但需要有效参数');
-                    return { status: 'requires_params', endpoint: '/api/v2/messages/unread' };
+                    return { status: 'requires_params', endpoint: '/api/messages/unread' };
                 } else if (error.response && error.response.status === 404) {
                     console.log('⚠️ 服务层API端点不存在（可能未启用服务层）');
                     return { status: 'service_layer_disabled' };
