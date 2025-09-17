@@ -383,7 +383,10 @@ function initializeWebSocketService() {
     try {
         // 创建WebSocket路由器
         const webSocketRouter = new WebSocketRouter(modularApp);
-        const wss = webSocketRouter.initialize(server);
+        
+        // 准备services对象 - 如果服务层可用则使用，否则使用模块化应用
+        const services = serviceLayer ? serviceLayer.getServices() : null;
+        const wss = webSocketRouter.initialize(server, services);
         
         // 如果有服务层，集成WebSocket
         if (serviceLayer) {

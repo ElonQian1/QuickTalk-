@@ -43,11 +43,11 @@ const upload = multer({
 if (modularApp && modularApp.initialized) {
     console.log('🔌 集成模块化客户端API...');
     
-    // 引入客户端API路由集成模块
-    const { integrateClientApiRoutes } = require('./src/client-api/routes');
+    // 使用模块化应用的已配置路由器
+    const clientApiRouter = modularApp.getClientApiRouter();
     
     // 集成客户端API路由
-    integrateClientApiRoutes(app, modularApp);
+    app.use('/api', clientApiRouter);
 }
 
 // 用户认证中间件

@@ -176,13 +176,15 @@ class DatabaseInitializer {
 
         // 对话表索引
         await this.db.createIndexIfNotExists('idx_conversations_shop_id', 'conversations', 'shop_id');
-        await this.db.createIndexIfNotExists('idx_conversations_customer_id', 'conversations', 'customer_id');
+        // 暂时注释掉customer_id索引，避免与现有数据库结构冲突
+        // await this.db.createIndexIfNotExists('idx_conversations_customer_id', 'conversations', 'customer_id');
         await this.db.createIndexIfNotExists('idx_conversations_status', 'conversations', 'status');
 
         // 消息表索引
-        await this.db.createIndexIfNotExists('idx_messages_conversation_id', 'messages', 'conversation_id');
+        // 暂时注释掉有问题的索引，避免与现有数据库结构冲突
+        // await this.db.createIndexIfNotExists('idx_messages_conversation_id', 'messages', 'conversation_id');
         await this.db.createIndexIfNotExists('idx_messages_shop_id', 'messages', 'shop_id');
-        await this.db.createIndexIfNotExists('idx_messages_timestamp', 'messages', 'timestamp');
+        // await this.db.createIndexIfNotExists('idx_messages_timestamp', 'messages', 'timestamp');
         await this.db.createIndexIfNotExists('idx_messages_sender_type', 'messages', 'sender_type');
 
         // 文件表索引

@@ -270,12 +270,12 @@ class ModularApp {
         
         try {
             // 关闭连接处理器
-            if (this.modules.connectionHandler) {
+            if (this.modules.connectionHandler && typeof this.modules.connectionHandler.destroy === 'function') {
                 this.modules.connectionHandler.destroy();
             }
             
             // 关闭API路由器
-            if (this.modules.clientApiRouter) {
+            if (this.modules.clientApiRouter && typeof this.modules.clientApiRouter.destroy === 'function') {
                 this.modules.clientApiRouter.destroy();
             }
             

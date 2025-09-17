@@ -4,7 +4,8 @@
 const WebSocketManager = require('./WebSocketManager');
 
 class WebSocketRouter {
-    constructor() {
+    constructor(modularApp = null) {
+        this.modularApp = modularApp;
         this.wsManager = null;
         this.isInitialized = false;
     }
@@ -12,7 +13,7 @@ class WebSocketRouter {
     /**
      * 初始化WebSocket路由
      */
-    initialize(server, messageAdapter) {
+    initialize(server, services = null) {
         if (this.isInitialized) {
             console.log('⚠️ WebSocket路由已经初始化');
             return this.wsManager;
@@ -20,8 +21,15 @@ class WebSocketRouter {
         
         console.log('🚀 初始化WebSocket路由系统...');
         
+        // 如果没有services但有modularApp，可以跳过WebSocket初始化或使用简化版本
+        if (!services && this.modularApp) {
+            console.log('⚠️ 没有可用的服务层，跳过WebSocket管理器初始化');
+            this.isInitialized = true;
+            return null;
+        }
+        
         // 创建WebSocket管理器
-        this.wsManager = new WebSocketManager(server, messageAdapter);
+        this.wsManager = new WebSocketManager(server, services);
         
         // 初始化WebSocket服务器
         this.wsManager.initialize();
@@ -66,6 +74,5 @@ class WebSocketRouter {
     }
 }
 
-// 导出单例
-const wsRouter = new WebSocketRouter();
-module.exports = wsRouter;
+// 导出类而不是实例，以支持传参构造
+module.exports = WebSocketRouter;
