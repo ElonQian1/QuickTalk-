@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据调试</title>
+</head>
+<body>
+    <h1>店铺数据调试</h1>
+    <button onclick="testAPI()">测试 /api/auth/me</button>
+    <pre id="result"></pre>
+
+    <script>
+    async function testAPI() {
+        const resultDiv = document.getElementById('result');
+        
+        try {
+            // 获取存储的会话ID
+            const sessionId = localStorage.getItem('sessionId');
+            console.log('使用会话ID:', sessionId);
+            
+            if (!sessionId) {
+                resultDiv.textContent = '❌ 没有找到会话ID，请先登录';
+                return;
+            }
+            
+            // 调用 API
+            const response = await fetch('/api/auth/me', {
+                headers: {
+                    'X-Session-Id': sessionId
+                }
+            });
+            
+            if (!response.ok) {
+                resultDiv.textContent = `❌ API 调用失败: ${response.status} ${response.statusText}`;
+                return;
+            }
+            
+            const data = await response.json();
+            
+            // 格式化显示结果
+            let output = '✅ API 调用成功\n\n';
+            output += '用户信息:\n';
+            output += JSON.stringify(data.user, null, 2) + '\n\n';
+            output += '店铺数量: ' + (data.shops ? data.shops.length : 0) + '\n\n';
+            
+            if (data.shops && data.shops.length > 0) {
+                output += '前3个店铺详情:\n';
+                data.shops.slice(0, 3).forEach((shop, index) => {
+                    output += `\n店铺 ${index + 1}:\n`;
+                    output += `  ID: ${shop.id}\n`;
+                    output += `  名称: ${shop.name}\n`;
+                    output += `  userRole: ${shop.userRole} (类型: ${typeof shop.userRole})\n`;
+                    output += `  approvalStatus: ${shop.approvalStatus} (类型: ${typeof shop.approvalStatus})\n`;
+                    output += `  getRoleText结果: ${getRoleText(shop.userRole)}\n`;
+                    output += `  getStatusText结果: ${getStatusText(shop.approvalStatus)}\n`;
+                });
+            } else {
+                output += '没有店铺数据';
+            }
+            
+            resultDiv.textContent = output;
+            
+        } catch (error) {
+            resultDiv.textContent = `❌ 请求错误: ${error.message}`;
+        }
+    }
+
+    // 从主页面复制的函数
+    function getRoleText(role) {
+        const roleTexts = {
+            'owner': '店主',
+            'manager': '经理',
+            'employee': '员工'
+        };
+        return roleTexts[role] || role;
+    }
+
+    function getStatusText(status) {
+        const statusTexts = {
+            'pending': '⏳ 待审核',
+            'approved': '✅ 已通过',
+            'rejected': '❌ 已拒绝'
+        };
+        return statusTexts[status] || status;
+    }
+    </script>
+</body>
+</html>

@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>店铺功能诊断</title>
+    <style>
+        body { 
+            font-family: monospace; 
+            padding: 20px; 
+            background: #f5f5f5;
+        }
+        .diagnostic {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 10px 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .step {
+            margin: 10px 0;
+            padding: 10px;
+            border-left: 4px solid #007AFF;
+            background: #f8f9fa;
+        }
+        .success { border-color: #34C759; }
+        .error { border-color: #FF3B30; }
+        .warning { border-color: #FF9500; }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 4px;
+            background: #007AFF;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover { background: #0056CC; }
+        pre {
+            background: #f1f1f1;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            max-height: 300px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 店铺功能诊断工具</h1>
+    
+    <div class="diagnostic">
+        <h3>📋 诊断步骤</h3>
+        <button onclick="runDiagnostics()">🚀 开始完整诊断</button>
+        <button onclick="testLogin()">🔐 测试登录</button>
+        <button onclick="testAPI()">📡 测试API</button>
+        <button onclick="clearResults()">🗑️ 清除结果</button>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+        let results = [];
+
+        function addResult(message, type = 'info') {
+            results.push({
+                timestamp: new Date().toLocaleTimeString(),
+                message,
+                type
+            });
+            updateDisplay();
+        }
+
+        function updateDisplay() {
+            const container = document.getElementById('results');
+            container.innerHTML = results.map(r => 
+                `<div class="step ${r.type}">
+                    <strong>[${r.timestamp}]</strong> ${r.message}
+                </div>`
+            ).join('');
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function clearResults() {
+            results = [];
+            updateDisplay();
+        }
+
+        async function runDiagnostics() {
+            clearResults();
+            addResult('🚀 开始店铺功能完整诊断', 'info');
+            
+            await testLogin();
+            await testAPI();
+            await testShopManager();
+            
+            addResult('✅ 诊断完成', 'success');
+        }
+
+        async function testLogin() {
+            addResult('🔐 测试用户登录状态...', 'info');
+            
+            try {
+                // 检查localStorage中的sessionId
+                const sessionId = localStorage.getItem('sessionId');
+                if (sessionId) {
+                    addResult(`✅ 找到sessionId: ${sessionId}`, 'success');
+                } else {
+                    addResult('❌ localStorage中没有sessionId', 'error');
+                }
+
+                // 检查sessionStorage
+                const sessionStorageId = sessionStorage.getItem('currentSessionId');
+                if (sessionStorageId) {
+                    addResult(`✅ sessionStorage中的sessionId: ${sessionStorageId}`, 'success');
+                } else {
+                    addResult('⚠️ sessionStorage中没有sessionId', 'warning');
+                }
+
+                // 检查全局变量
+                if (window.sessionId) {
+                    addResult(`✅ 全局变量sessionId: ${window.sessionId}`, 'success');
+                } else {
+                    addResult('⚠️ 没有全局sessionId变量', 'warning');
+                }
+
+                // 测试登录API
+                const testSessionId = sessionId || sessionStorageId || 'test_session';
+                const response = await fetch('/api/user/profile', {
+                    headers: { 'X-Session-Id': testSessionId }
+                });
+
+                if (response.ok) {
+                    const user = await response.json();
+                    addResult(`✅ 用户认证成功: ${user.username} (${user.role})`, 'success');
+                    return testSessionId;
+                } else {
+                    addResult(`❌ 用户认证失败: ${response.status}`, 'error');
+                    return null;
+                }
+
+            } catch (error) {
+                addResult(`❌ 登录测试异常: ${error.message}`, 'error');
+                return null;
+            }
+        }
+
+        async function testAPI() {
+            addResult('📡 测试店铺API接口...', 'info');
+            
+            const sessionId = localStorage.getItem('sessionId') || 
+                              sessionStorage.getItem('currentSessionId') ||
+                              'test_session';
+
+            try {
+                // 测试 /api/admin/shops
+                addResult(`🔄 请求 /api/admin/shops (sessionId: ${sessionId})`, 'info');
+                
+                const response = await fetch('/api/admin/shops', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Session-Id': sessionId
+                    }
+                });
+
+                addResult(`📊 API响应状态: ${response.status} ${response.statusText}`, 
+                         response.ok ? 'success' : 'error');
+
+                if (response.ok) {
+                    const shops = await response.json();
+                    addResult(`✅ 成功获取店铺数据: ${shops.length} 个店铺`, 'success');
+                    
+                    if (shops.length > 0) {
+                        addResult(`📝 前3个店铺: ${shops.slice(0,3).map(s => s.name).join(', ')}`, 'info');
+                    }
+                    
+                    return shops;
+                } else {
+                    const errorText = await response.text();
+                    addResult(`❌ API错误响应: ${errorText}`, 'error');
+                    return null;
+                }
+
+            } catch (error) {
+                addResult(`❌ API请求异常: ${error.message}`, 'error');
+                return null;
+            }
+        }
+
+        async function testShopManager() {
+            addResult('🏪 测试ShopManager功能...', 'info');
+            
+            try {
+                // 检查DOM元素
+                const shopsContent = document.getElementById('shopsContent');
+                if (shopsContent) {
+                    addResult('✅ 找到shopsContent容器', 'success');
+                } else {
+                    addResult('❌ 未找到shopsContent容器', 'error');
+                }
+
+                // 检查ShopManager类
+                if (typeof ShopManager !== 'undefined') {
+                    addResult('✅ ShopManager类存在', 'success');
+                    
+                    // 尝试调用loadShops方法
+                    if (typeof ShopManager.loadShops === 'function') {
+                        addResult('✅ ShopManager.loadShops方法存在', 'success');
+                    } else {
+                        addResult('❌ ShopManager.loadShops方法不存在', 'error');
+                    }
+                } else {
+                    addResult('❌ ShopManager类不存在', 'error');
+                }
+
+            } catch (error) {
+                addResult(`❌ ShopManager测试异常: ${error.message}`, 'error');
+            }
+        }
+
+        // 页面加载时自动运行基础检查
+        window.addEventListener('DOMContentLoaded', () => {
+            addResult('🔧 诊断工具已加载', 'info');
+        });
+    </script>
+</body>
+</html>

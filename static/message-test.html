@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>消息系统测试页面</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            text-align: center;
+            font-size: 28px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #555;
+        }
+
+        input, textarea, select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.2s ease;
+        }
+
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-right: 10px;
+        }
+
+        .btn:hover {
+            background: #0056b3;
+            transform: translateY(-1px);
+        }
+
+        .btn.success {
+            background: #28a745;
+        }
+
+        .btn.success:hover {
+            background: #1e7e34;
+        }
+
+        .result {
+            margin-top: 20px;
+            padding: 16px;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .result.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .result.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .shops-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .shop-card {
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .shop-card:hover {
+            border-color: #007bff;
+            background: #f8f9fa;
+        }
+
+        .shop-card.selected {
+            border-color: #007bff;
+            background: #e3f2fd;
+        }
+
+        .shop-name {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .shop-domain {
+            color: #666;
+            font-size: 12px;
+        }
+
+        .quick-messages {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .quick-msg {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 14px;
+        }
+
+        .quick-msg:hover {
+            background: #007bff;
+            color: white;
+        }
+
+        .logs {
+            margin-top: 30px;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            background: #f8f9fa;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        .log-item {
+            margin-bottom: 8px;
+            padding: 5px;
+            border-radius: 4px;
+        }
+
+        .log-item.success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .log-item.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .log-item.info {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📱 消息系统测试中心</h1>
+        
+        <div class="form-group">
+            <label>选择店铺：</label>
+            <div id="shopsList" class="shops-list">
+                <div class="shop-card" onclick="selectShop('loading')">
+                    <div class="shop-name">正在加载店铺列表...</div>
+                    <div class="shop-domain">请稍候</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="customerId">客户ID：</label>
+            <input type="text" id="customerId" placeholder="例如：customer_001" value="test_customer_001">
+        </div>
+
+        <div class="form-group">
+            <label for="customerName">客户姓名：</label>
+            <input type="text" id="customerName" placeholder="例如：张三" value="测试客户">
+        </div>
+
+        <div class="form-group">
+            <label for="message">消息内容：</label>
+            <textarea id="message" placeholder="输入要发送的消息...">你好，我想咨询一下产品价格。</textarea>
+        </div>
+
+        <div class="form-group">
+            <label>快速消息模板：</label>
+            <div class="quick-messages">
+                <div class="quick-msg" onclick="setMessage('你好，我想咨询一下产品价格。')">询问价格</div>
+                <div class="quick-msg" onclick="setMessage('请问有什么优惠活动吗？')">询问优惠</div>
+                <div class="quick-msg" onclick="setMessage('这个产品的质量怎么样？')">询问质量</div>
+                <div class="quick-msg" onclick="setMessage('能否提供技术支持？')">技术支持</div>
+                <div class="quick-msg" onclick="setMessage('发货需要多长时间？')">询问发货</div>
+                <div class="quick-msg" onclick="setMessage('可以退换货吗？')">退换政策</div>
+            </div>
+        </div>
+
+        <button class="btn" onclick="sendTestMessage()">🚀 发送测试消息</button>
+        <button class="btn success" onclick="sendMultipleMessages()">📨 批量发送消息</button>
+        <button class="btn" onclick="loadShops()">🔄 刷新店铺列表</button>
+        <button class="btn" onclick="clearLogs()">🧹 清除日志</button>
+
+        <div id="result" class="result"></div>
+
+        <div class="logs" id="logs">
+            <div class="log-item info">📝 消息测试日志将显示在这里...</div>
+        </div>
+    </div>
+
+    <script>
+        let selectedShopId = null;
+        let shops = [];
+
+        // 页面加载完成后自动加载店铺列表
+        document.addEventListener('DOMContentLoaded', function() {
+            loadShops();
+        });
+
+        // 加载店铺列表
+        async function loadShops() {
+            log('info', '🔄 正在加载店铺列表...');
+            
+            try {
+                // 使用测试用户凭据
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: 'shop_owner',
+                        password: 'password123'
+                    })
+                });
+
+                if (response.ok) {
+                    const authData = await response.json();
+                    const sessionId = authData.sessionId;
+
+                    // 获取店铺列表
+                    const shopsResponse = await fetch('/api/shops', {
+                        headers: { 'X-Session-Id': sessionId }
+                    });
+
+                    if (shopsResponse.ok) {
+                        const shopsData = await shopsResponse.json();
+                        shops = Array.isArray(shopsData) ? shopsData : shopsData.shops || [];
+                        renderShops();
+                        log('success', `✅ 成功加载 ${shops.length} 个店铺`);
+                    } else {
+                        throw new Error('获取店铺列表失败');
+                    }
+                } else {
+                    throw new Error('登录失败');
+                }
+            } catch (error) {
+                log('error', `❌ 加载店铺失败: ${error.message}`);
+                console.error(error);
+            }
+        }
+
+        // 渲染店铺列表
+        function renderShops() {
+            const container = document.getElementById('shopsList');
+            
+            if (shops.length === 0) {
+                container.innerHTML = `
+                    <div class="shop-card">
+                        <div class="shop-name">暂无店铺</div>
+                        <div class="shop-domain">请先创建店铺</div>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = shops.map(shop => `
+                <div class="shop-card" onclick="selectShop('${shop.id}')">
+                    <div class="shop-name">${shop.name}</div>
+                    <div class="shop-domain">${shop.domain}</div>
+                </div>
+            `).join('');
+
+            // 默认选择第一个店铺
+            if (shops.length > 0 && !selectedShopId) {
+                selectShop(shops[0].id);
+            }
+        }
+
+        // 选择店铺
+        function selectShop(shopId) {
+            if (shopId === 'loading') return;
+            
+            selectedShopId = shopId;
+            
+            // 更新选中状态
+            document.querySelectorAll('.shop-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            
+            event.target.closest('.shop-card').classList.add('selected');
+            
+            const shop = shops.find(s => s.id === shopId);
+            if (shop) {
+                log('info', `🏪 已选择店铺: ${shop.name} (${shop.domain})`);
+            }
+        }
+
+        // 设置消息内容
+        function setMessage(text) {
+            document.getElementById('message').value = text;
+            log('info', `📝 已设置消息: ${text}`);
+        }
+
+        // 发送测试消息
+        async function sendTestMessage() {
+            if (!selectedShopId) {
+                showResult('error', '请先选择一个店铺');
+                return;
+            }
+
+            const customerId = document.getElementById('customerId').value.trim();
+            const customerName = document.getElementById('customerName').value.trim();
+            const message = document.getElementById('message').value.trim();
+
+            if (!customerId || !message) {
+                showResult('error', '请填写客户ID和消息内容');
+                return;
+            }
+
+            log('info', `🚀 发送消息到店铺 ${selectedShopId}: ${message}`);
+
+            try {
+                const response = await fetch('/api/test/send-customer-message', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        shopId: selectedShopId,
+                        customerId: customerId,
+                        customerName: customerName,
+                        message: message
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showResult('success', `消息发送成功！对话ID: ${result.conversationId}`);
+                    log('success', `✅ 消息发送成功 - 对话ID: ${result.conversationId}, 消息ID: ${result.messageId}`);
+                } else {
+                    throw new Error(result.error || '发送失败');
+                }
+            } catch (error) {
+                showResult('error', `发送失败: ${error.message}`);
+                log('error', `❌ 消息发送失败: ${error.message}`);
+            }
+        }
+
+        // 批量发送消息
+        async function sendMultipleMessages() {
+            if (!selectedShopId) {
+                showResult('error', '请先选择一个店铺');
+                return;
+            }
+
+            const messages = [
+                '你好！我想了解一下你们的产品。',
+                '请问价格是多少？',
+                '有什么优惠活动吗？',
+                '质量怎么样？',
+                '可以提供样品吗？'
+            ];
+
+            log('info', `📨 开始批量发送 ${messages.length} 条消息...`);
+
+            for (let i = 0; i < messages.length; i++) {
+                const customerId = `batch_customer_${i + 1}`;
+                const customerName = `批量客户${i + 1}`;
+                const message = messages[i];
+
+                try {
+                    const response = await fetch('/api/test/send-customer-message', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            shopId: selectedShopId,
+                            customerId: customerId,
+                            customerName: customerName,
+                            message: message
+                        })
+                    });
+
+                    if (response.ok) {
+                        log('success', `✅ 消息 ${i + 1}/${messages.length} 发送成功: ${message}`);
+                    } else {
+                        const result = await response.json();
+                        log('error', `❌ 消息 ${i + 1}/${messages.length} 发送失败: ${result.error}`);
+                    }
+
+                    // 延迟500ms发送下一条消息
+                    if (i < messages.length - 1) {
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                    }
+                } catch (error) {
+                    log('error', `❌ 消息 ${i + 1}/${messages.length} 发送异常: ${error.message}`);
+                }
+            }
+
+            showResult('success', '批量消息发送完成！');
+            log('info', '🎉 批量消息发送任务完成');
+        }
+
+        // 显示结果
+        function showResult(type, message) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.className = `result ${type}`;
+            resultDiv.textContent = message;
+            resultDiv.style.display = 'block';
+
+            // 3秒后自动隐藏
+            setTimeout(() => {
+                resultDiv.style.display = 'none';
+            }, 3000);
+        }
+
+        // 添加日志
+        function log(type, message) {
+            const logsDiv = document.getElementById('logs');
+            const timestamp = new Date().toLocaleTimeString();
+            const logItem = document.createElement('div');
+            logItem.className = `log-item ${type}`;
+            logItem.textContent = `[${timestamp}] ${message}`;
+            
+            logsDiv.appendChild(logItem);
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        // 清除日志
+        function clearLogs() {
+            const logsDiv = document.getElementById('logs');
+            logsDiv.innerHTML = '<div class="log-item info">📝 日志已清除</div>';
+        }
+    </script>
+</body>
+</html>
