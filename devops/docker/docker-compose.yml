@@ -1,0 +1,88 @@
+version: '3.8'
+
+services:
+  # Rust主服务器
+  quicktalk-rust:
+    build:
+      context: ../..
+      dockerfile: devops/docker/Dockerfile.rust
+    container_name: quicktalk-rust
+    restart: unless-stopped
+    ports:
+      - "3030:3030"
+    environment:
+      - RUST_LOG=info
+      - DATABASE_URL=sqlite:/app/data/database.sqlite
+      - NODE_SERVER_URL=http://quicktalk-nodejs:3031
+    volumes:
+      - quicktalk-data:/app/data
+      - quicktalk-uploads:/app/uploads
+      - quicktalk-logs:/app/logs
+    depends_on:
+      - quicktalk-nodejs
+    networks:
+      - quicktalk-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3030/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Node.js微服务
+  quicktalk-nodejs:
+    build:
+      context: ../..
+      dockerfile: devops/docker/Dockerfile.nodejs
+    container_name: quicktalk-nodejs
+    restart: unless-stopped
+    ports:
+      - "3031:3031"
+    environment:
+      - NODE_ENV=production
+      - PORT=3031
+    volumes:
+      - quicktalk-nodejs-data:/app/data
+      - quicktalk-uploads:/app/uploads
+    networks:
+      - quicktalk-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3031/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Nginx反向代理 (可选)
+  nginx:
+    image: nginx:alpine
+    container_name: quicktalk-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/sites-available:/etc/nginx/sites-available:ro
+      - quicktalk-uploads:/var/www/uploads:ro
+    depends_on:
+      - quicktalk-rust
+    networks:
+      - quicktalk-network
+    profiles:
+      - with-nginx
+
+# 数据卷
+volumes:
+  quicktalk-data:
+    driver: local
+  quicktalk-nodejs-data:
+    driver: local
+  quicktalk-uploads:
+    driver: local
+  quicktalk-logs:
+    driver: local
+
+# 网络
+networks:
+  quicktalk-network:
+    driver: bridge
