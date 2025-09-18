@@ -1,26 +1,34 @@
 [package]
-name = "quicktalk-rust"
-version = "0.1.0"
+name = "quicktalk-pure-rust"
+version = "2.0.0"
 edition = "2021"
+description = "QuickTalk Pure Rust Customer Service System"
+
+# 纯Rust模式 - 移除hybrid功能
+[[bin]]
+name = "quicktalk-pure-rust"
+path = "src/main.rs"
 
 [dependencies]
 tokio = { version = "1.0", features = ["full"] }
-axum = { version = "0.7", features = ["ws", "multipart"] }
+axum = { version = "0.7", features = ["ws", "multipart", "macros"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite"] }
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite", "chrono", "uuid"] }
 tower = "0.4"
 tower-http = { version = "0.5", features = ["cors", "fs", "trace"] }
 uuid = { version = "1.0", features = ["v4"] }
-bcrypt = "0.15"
-jsonwebtoken = "9.0"
 chrono = { version = "0.4", features = ["serde"] }
+dotenv = "0.15"
 tracing = "0.1"
 tracing-subscriber = "0.3"
-dotenv = "0.15"
-reqwest = { version = "0.11", features = ["json"] }
-mime_guess = "2.0"
 futures-util = "0.3"
+# 保留HTTP客户端用于潜在的外部集成
+reqwest = { version = "0.11", features = ["json"] }
+# 可选的密码哈希和JWT支持
+bcrypt = "0.15"
+jsonwebtoken = "9.0"
+mime_guess = "2.0"
 
 [dependencies.tokio-tungstenite]
 version = "0.20"

@@ -1,51 +1,223 @@
+# =================================
+# 纯Rust架构项目 - GitIgnore配置
+# =================================
+
+# ===============================
+# Rust 相关忽略
+# ===============================
+# Cargo构建输出
+target/
+**/target/
+Cargo.lock
+debug/
+release/
+
+# Rust备份文件
+**/*.rs.bk
+
+# Cargo缓存
+.cargo-cache/
+
+# ===============================
+# Node.js 相关忽略 (遗留清理)
+# ===============================
+# 依赖目录 - 这是最大的问题！
+node_modules/
+**/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# npm/yarn 锁文件（对于应用项目可以忽略）
+package-lock.json
+yarn.lock
+
+# ===============================
+# 前端构建产物
+# ===============================
+dist/
+**/dist/
+build/
+**/build/
+.next/
+.nuxt/
+.cache/
+.parcel-cache/
+
+# ===============================
 # 数据库文件
+# ===============================
 *.db
+*.sqlite
+*.sqlite3
 data/*.db
+data/*.sqlite
 customer_service.db
 
-# 依赖文件
-node_modules/
-npm-debug.log*
+# ===============================
+# 环境配置和敏感信息
+# ===============================
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+config/local.json
 
-# 系统文件
-.DS_Store
-Thumbs.db
-
-# 编辑器配置
-.vscode/
-.idea/
-*.swp
-*.swo
-
+# ===============================
 # 日志文件
+# ===============================
 *.log
 logs/
+**/logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
 
-# 临时文件
+# ===============================
+# 临时文件和缓存
+# ===============================
 *.tmp
-
-# 数据库文件（包含运行时数据）
-data/*.db
-*.db
 *.temp
-
-# 环境配置
-.env
-.env.local
-.env.production
-
-# 缓存目录
 .cache/
-dist/
+.sass-cache/
+*.pid
+*.seed
+*.pid.lock
 
-# 备份文件
-*.bak
-*.backup
-
-# 上传文件目录（测试图片等）
+# ===============================
+# 上传和用户内容
+# ===============================
 uploads/
 uploads/*
 uploads/**/*
+temp/
+**/temp/
+archives/
+**/archives/
 
-# 参考文件夹（包含个人文档）
+# ===============================
+# IDE和编辑器
+# ===============================
+# VSCode
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# ===============================
+# 操作系统相关
+# ===============================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+
+# ===============================
+# 版本控制系统
+# ===============================
+.svn/
+.hg/
+.bzr/
+
+# ===============================
+# 备份文件
+# ===============================
+*.bak
+*.backup
+*.orig
+*.rej
+
+# ===============================
+# 压缩文件
+# ===============================
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# ===============================
+# 开发和测试相关
+# ===============================
+coverage/
+*.lcov
+.jest/
+.pytest_cache/
+test-results/
+playwright-report/
+
+# ===============================
+# 文档和参考资料
+# ===============================
+docs/build/
 参考/
+references/
+_site/
+
+# ===============================
+# Docker相关
+# ===============================
+.dockerignore
+docker-compose.override.yml
+
+# ===============================
+# 特定于此项目的忽略
+# ===============================
+# 遗留的Node.js微服务目录（现在用纯Rust替代）
+services/nodejs/node_modules/
+frontend/node_modules/
+
+# 开发时的临时文件
+*.dev
+*.development
+
+# 生产部署文件
+*.production
