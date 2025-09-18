@@ -1,24 +1,54 @@
 {
-  "name": "customer-service-server",
-  "version": "1.0.0",
-  "description": "Customer Service WebSocket Server",
-  "main": "server.js",
+  "name": "quicktalk-workspace",
+  "version": "2.0.0",
+  "description": "QuickTalk Customer Service System - Hybrid Architecture",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend",
+    "services/nodejs"
+  ],
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js",
-    "db:memory": "node -e \"console.log('切换到内存数据库模式'); require('fs').writeFileSync('server.js', require('fs').readFileSync('server.js', 'utf8').replace(/database-sqlite/g, 'database-memory'));\"",
-    "db:sqlite": "node -e \"console.log('切换到SQLite数据库模式'); require('fs').writeFileSync('server.js', require('fs').readFileSync('server.js', 'utf8').replace(/database-memory/g, 'database-sqlite'));\""
-  },
-  "dependencies": {
-    "bcrypt": "^6.0.0",
-    "express": "^4.18.2",
-    "multer": "^2.0.2",
-    "node-fetch": "^2.7.0",
-    "sqlite3": "^5.1.7",
-    "uuid": "^9.0.1",
-    "ws": "^8.14.2"
+    "install:all": "npm install && npm run install:backend && npm run install:frontend && npm run install:services",
+    "install:backend": "cd backend && cargo build",
+    "install:frontend": "cd frontend && npm install",
+    "install:services": "cd services/nodejs && npm install",
+    
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:services\"",
+    "dev:backend": "cd backend && cargo run",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:services": "cd services/nodejs && npm run dev",
+    
+    "build": "npm run build:backend && npm run build:frontend && npm run build:services",
+    "build:backend": "cd backend && cargo build --release",
+    "build:frontend": "cd frontend && npm run build",
+    "build:services": "cd services/nodejs && npm run build",
+    
+    "start": "concurrently \"npm run start:backend\" \"npm run start:services\"",
+    "start:backend": "cd backend && cargo run --release",
+    "start:services": "cd services/nodejs && npm start",
+    
+    "test": "npm run test:backend && npm run test:frontend && npm run test:services",
+    "test:backend": "cd backend && cargo test",
+    "test:frontend": "cd frontend && npm test",
+    "test:services": "cd services/nodejs && npm test",
+    
+    "clean": "npm run clean:backend && npm run clean:frontend && npm run clean:services",
+    "clean:backend": "cd backend && cargo clean",
+    "clean:frontend": "cd frontend && rm -rf node_modules dist",
+    "clean:services": "cd services/nodejs && rm -rf node_modules",
+    
+    "format": "npm run format:backend && npm run format:frontend && npm run format:services",
+    "format:backend": "cd backend && cargo fmt",
+    "format:frontend": "cd frontend && npm run format",
+    "format:services": "cd services/nodejs && npm run format"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1"
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
   }
 }

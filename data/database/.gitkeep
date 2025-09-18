@@ -1,0 +1,2 @@
+# This file ensures the database directory exists in git
+# The actual database files will be created at runtime

@@ -15,7 +15,7 @@ const DomainValidator = require('./src/security/domain-validator');
 // const IntegrationCodeGenerator = require('./integration-code-generator'); // 已清理
 
 const app = express();
-const PORT = 3030;
+const PORT = 3031; // 改为微服务端口
 
 // 全局变量
 let modularApp = null;
@@ -165,7 +165,7 @@ function initializeRoutes() {
     setupWebSocketIntegratedAPI(app, modularApp);
     
     // 引入文件上传API
-    const FileUploadAPI = require('./src/api/FileUploadAPI');
+    const FileUploadAPI = require('./src/FileUploadAPI');
     const fileManager = null; // FileManager暂时不通过ModularApp提供
     const authValidator = modularApp ? modularApp.getSecurityManager() : null;
     
@@ -174,7 +174,7 @@ function initializeRoutes() {
     app.use('/api/files', fileUploadAPI.getRouter());
     
     // 配置动态嵌入代码API
-    const embedRoutes = require('./src/api/embed-routes');
+    const embedRoutes = require('./src/embed-routes');
     app.use('/embed', embedRoutes);
     
     console.log('📤 文件上传API已配置: /api/files/upload (数据库:', !!database, ')');
@@ -186,7 +186,7 @@ function initializeRoutes() {
 // ============ 静态页面路由 ============
 function initializeStaticRoutes() {
     // 设置静态文件服务（用于文件上传）
-    const { setupStaticFileServing } = require('./src/api/StaticFileService');
+    const { setupStaticFileServing } = require('./src/StaticFileService');
     setupStaticFileServing(app);
     
     // 主页

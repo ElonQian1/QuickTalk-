@@ -1,0 +1,27 @@
+[package]
+name = "quicktalk-rust"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1.0", features = ["full"] }
+axum = { version = "0.7", features = ["ws", "multipart"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite"] }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "fs", "trace"] }
+uuid = { version = "1.0", features = ["v4"] }
+bcrypt = "0.15"
+jsonwebtoken = "9.0"
+chrono = { version = "0.4", features = ["serde"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"
+dotenv = "0.15"
+reqwest = { version = "0.11", features = ["json"] }
+mime_guess = "2.0"
+futures-util = "0.3"
+
+[dependencies.tokio-tungstenite]
+version = "0.20"
+features = ["native-tls"]
