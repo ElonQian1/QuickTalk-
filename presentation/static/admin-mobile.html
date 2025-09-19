@@ -2151,36 +2151,37 @@
             alert('推广功能开发中...');
         }
 
-        // 全局函数
+        // 简化的全局函数
         function switchPage(pageName) {
-            console.log('📄 切换页面:', pageName);
-            if (window.pageManager) {
-                window.pageManager.switchPage(pageName);
-            } else if (typeof PageManager !== 'undefined') {
-                // 降级使用类静态方法
-                const manager = PageManager.initialize();
-                manager.switchPage(pageName);
-            } else {
-                console.warn('⚠️ PageManager不可用，使用基础页面切换');
-                // 基础页面切换逻辑
-                document.querySelectorAll('.page.active').forEach(page => {
-                    page.classList.remove('active');
+            console.log('📄 切换页面到:', pageName);
+            
+            // 隐藏所有页面
+            document.querySelectorAll('.page.active').forEach(page => {
+                page.classList.remove('active');
+            });
+            
+            // 显示目标页面
+            const targetPage = document.getElementById(pageName + 'Page');
+            if (targetPage) {
+                targetPage.classList.add('active');
+                console.log('✅ 页面切换成功:', pageName);
+                
+                // 更新导航状态
+                document.querySelectorAll('.nav-item').forEach(item => {
+                    item.classList.remove('active');
                 });
-                const targetPage = document.getElementById(pageName + 'Page');
-                if (targetPage) {
-                    targetPage.classList.add('active');
+                const navItem = document.querySelector(`[data-page="${pageName}"]`);
+                if (navItem) {
+                    navItem.classList.add('active');
                 }
+            } else {
+                console.error('❌ 页面不存在:', pageName + 'Page');
             }
         }
 
         function goBack() {
-            console.log('↩️ 返回上一页');
-            if (window.pageManager) {
-                window.pageManager.goBack();
-            } else {
-                console.warn('⚠️ PageManager不可用，返回首页');
-                switchPage('home');
-            }
+            console.log('↩️ 返回首页');
+            switchPage('home');
         }
 
         // 检查现有会话
@@ -2305,10 +2306,10 @@
     </script>
     
     <!-- 引入核心文件 -->
-    <script type="module" src="/assets/js/core/config.js"></script>
-    <script type="module" src="/assets/js/core/event-bus.js"></script>
-    <script type="module" src="/assets/js/core/api-client.js"></script>
-    <script type="module" src="/assets/js/core/utils.js"></script>
+    <script src="/assets/js/core/config.js"></script>
+    <script src="/assets/js/core/event-bus.js"></script>
+    <script src="/assets/js/core/api-client.js"></script>
+    <script src="/assets/js/core/utils.js"></script>
     <!-- 引入店铺管理模块 -->
     <script src="/js/mobile-shop-manager.js"></script>
     <!-- 引入消息管理模块 -->
@@ -2316,103 +2317,44 @@
     <!-- 引入搜索功能模块 -->
     <script src="/js/message-search-manager.js"></script>
     <!-- 引入核心管理器模块 -->
-    <script type="module" src="/assets/js/managers/auth-manager.js"></script>
-    <script type="module" src="/assets/js/managers/shop-manager.js"></script>
-    <script type="module" src="/assets/js/managers/message-manager.js"></script>
-    <script type="module" src="/assets/js/managers/page-manager.js"></script>
+    <script src="/assets/js/managers/auth-manager.js"></script>
+    <script src="/assets/js/managers/shop-manager.js"></script>
+    <script src="/assets/js/managers/message-manager.js"></script>
+    <script src="/assets/js/managers/page-manager.js"></script>
     <!-- 引入多店铺客服系统 -->
     <script src="/js/multi-shop-customer-service-manager.js"></script>
     <script>
-        // 初始化新的模块化系统
-        window.addEventListener('DOMContentLoaded', async function() {
-            console.log('🚀🚀🚀 DOMContentLoaded 事件触发 - 版本4.0（多店铺客服） 🚀🚀🚀');
+        // 简化的初始化系统
+        window.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 系统初始化开始...');
             
-            // 等待模块完全加载
-            await new Promise(resolve => setTimeout(resolve, 500));
-            
-            try {
-                // 1. 首先初始化核心管理器
-                if (typeof window.PageManager !== 'undefined') {
-                    console.log('📄 初始化页面管理器');
-                    window.pageManager = window.PageManager.initialize();
-                } else if (typeof PageManager !== 'undefined') {
-                    console.log('📄 初始化页面管理器 (全局)');
-                    window.pageManager = PageManager.initialize();
-                } else {
-                    console.warn('⚠️ PageManager未找到，使用基础页面切换');
+            // 等待一下让所有脚本加载完成
+            setTimeout(function() {
+                console.log('📄 检查 PageManager:', typeof window.PageManager, typeof PageManager);
+                console.log('🔐 检查 AuthManager:', typeof window.AuthManager, typeof AuthManager);
+                
+                // 确保基础功能可用
+                if (!window.pageManager && (window.PageManager || typeof PageManager !== 'undefined')) {
+                    try {
+                        window.pageManager = new (window.PageManager || PageManager)();
+                        console.log('✅ PageManager 初始化成功');
+                    } catch (e) {
+                        console.error('❌ PageManager 初始化失败:', e);
+                    }
                 }
-
-                // 2. 初始化认证管理器
-                if (typeof window.AuthManager !== 'undefined') {
-                    console.log('🔐 初始化认证管理器');
-                    window.authManager = window.AuthManager.initialize();
-                } else {
-                    console.log('⚠️ 认证管理器未找到，使用简化认证');
-                    // 简化认证逻辑
+                
+                // 简化认证
+                if (!window.authManager) {
                     window.authManager = {
                         isAuthenticated: () => true,
-                        getCurrentUser: () => ({ id: 'admin', name: '管理员' })
+                        getCurrentUser: () => ({ id: 'admin', name: '管理员' }),
+                        login: () => Promise.resolve(true)
                     };
-                }
-
-                // 3. 初始化店铺管理器
-                if (typeof MobileShopManager !== 'undefined') {
-                    console.log('🏪 初始化模块化店铺管理器');
-                    window.mobileShopManager = new MobileShopManager();
+                    console.log('✅ 简化认证管理器已就绪');
                 }
                 
-                // 4. 🔄 优先使用新的多店铺客服系统
-                if (typeof MultiShopCustomerServiceManager !== 'undefined') {
-                    console.log('🎯 初始化多店铺电商客服系统');
-                    window.customerServiceManager = new MultiShopCustomerServiceManager();
-                } else {
-                    // 备用：使用原有的消息管理器
-                    if (typeof MobileMessageManager !== 'undefined') {
-                        console.log('💬 初始化模块化消息管理器（备用）');
-                    window.messageManager = new MobileMessageManager();
-                }
-            }
-                
-            // 确保用户已登录后再初始化所有模块
-            const checkAndInitAll = async () => {
-                const sessionId = localStorage.getItem('sessionId');
-                console.log('🔍 检查会话状态:', sessionId ? '有会话' : '无会话');
-                
-                if (sessionId) {
-                    console.log('🔄 用户已登录，开始初始化所有模块...');
-                    try {
-                        // 初始化店铺管理器
-                        if (window.mobileShopManager) {
-                            await window.mobileShopManager.init();
-                            console.log('✅ 店铺管理器初始化完成');
-                        }
-                        
-                        // 🎯 优先初始化多店铺客服系统
-                        if (window.customerServiceManager) {
-                            await window.customerServiceManager.init();
-                            console.log('✅ 多店铺客服系统初始化完成');
-                        } else if (window.messageManager) {
-                            // 备用：初始化原有消息管理器
-                            await window.messageManager.init();
-                            console.log('✅ 消息管理器初始化完成（备用）');
-                        }
-                        
-                    } catch (error) {
-                        console.error('❌ 模块初始化失败:', error);
-                    }
-                } else {
-                    console.log('⏰ 等待用户登录...');
-                    // 如果没有会话，等待一段时间后重试
-                    setTimeout(checkAndInitAll, 1000);
-                }
-            };
-                
-            await checkAndInitAll();
-            
-            } catch (error) {
-                console.error('❌ 模块化系统初始化失败:', error);
-                console.log('🔄 降级使用基础功能');
-            }
+                console.log('🎉 基础系统初始化完成');
+            }, 1000);
         });
 
         // 店铺管理相关函数

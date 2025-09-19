@@ -367,8 +367,13 @@ class PageManager {
     }
 }
 
-// 模块导出
-export default PageManager;
-
-// 全局注册（兼容性）
+// 直接注册到全局，不使用ES6模块
 window.PageManager = PageManager;
+
+// 自动初始化
+document.addEventListener('DOMContentLoaded', function() {
+    if (!window.pageManager) {
+        window.pageManager = PageManager.initialize();
+        console.log('📄 PageManager 自动初始化完成');
+    }
+});

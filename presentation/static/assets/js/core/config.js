@@ -266,5 +266,4 @@ class ConfigManager {
 
 // 创建全局配置管理实例
 window.configManager = new ConfigManager();
-
-export default ConfigManager;
+window.ConfigManager = ConfigManager;

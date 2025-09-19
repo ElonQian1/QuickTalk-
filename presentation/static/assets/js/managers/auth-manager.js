@@ -492,8 +492,13 @@ class AuthManager {
     }
 }
 
-// 模块导出
-export default AuthManager;
-
-// 全局注册（兼容性）
+// 直接注册到全局，不使用ES6模块
 window.AuthManager = AuthManager;
+
+// 自动初始化
+document.addEventListener('DOMContentLoaded', function() {
+    if (!window.authManager) {
+        window.authManager = AuthManager.initialize();
+        console.log('🔐 AuthManager 自动初始化完成');
+    }
+});
