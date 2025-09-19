@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>按钮测试页面</title>
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; padding: 20px; background: #f5f5f5; }
+        .test-card { background: white; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .btn { padding: 10px 20px; margin: 5px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        .btn:hover { background: #5a67d8; }
+        .result { background: #e8f5e8; padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .error { background: #ffe8e8; }
+    </style>
+</head>
+<body>
+    <h1>QuickTalk 移动端管理 - 按钮功能测试</h1>
+    
+    <div class="test-card">
+        <h2>API测试</h2>
+        <button class="btn" onclick="testHealthCheck()">健康检查</button>
+        <button class="btn" onclick="testShops()">获取店铺列表</button>
+        <button class="btn" onclick="testConversations()">获取对话列表</button>
+        <button class="btn" onclick="testLogin()">模拟登录</button>
+        <div id="apiResults"></div>
+    </div>
+
+    <div class="test-card">
+        <h2>移动端页面测试</h2>
+        <button class="btn" onclick="openMobileAdmin()">打开移动端管理</button>
+        <button class="btn" onclick="openAdminPanel()">打开桌面管理</button>
+        <button class="btn" onclick="openMainSite()">打开主站</button>
+        <div id="pageResults"></div>
+    </div>
+
+    <script>
+        function showResult(elementId, message, isError = false) {
+            const div = document.getElementById(elementId);
+            div.innerHTML = `<div class="result ${isError ? 'error' : ''}">${message}</div>` + div.innerHTML;
+        }
+
+        async function testHealthCheck() {
+            try {
+                const response = await fetch('/api/health');
+                const data = await response.json();
+                showResult('apiResults', `✅ 健康检查成功: ${data.message} (v${data.data.version})`);
+            } catch (error) {
+                showResult('apiResults', `❌ 健康检查失败: ${error.message}`, true);
+            }
+        }
+
+        async function testShops() {
+            try {
+                const response = await fetch('/api/shops');
+                const data = await response.json();
+                const shopCount = data.data?.length || 0;
+                showResult('apiResults', `✅ 店铺列表获取成功: 共${shopCount}个店铺`);
+            } catch (error) {
+                showResult('apiResults', `❌ 店铺列表获取失败: ${error.message}`, true);
+            }
+        }
+
+        async function testConversations() {
+            try {
+                const response = await fetch('/api/conversations');
+                const data = await response.json();
+                const convCount = data.data?.length || 0;
+                showResult('apiResults', `✅ 对话列表获取成功: 共${convCount}个对话`);
+            } catch (error) {
+                showResult('apiResults', `❌ 对话列表获取失败: ${error.message}`, true);
+            }
+        }
+
+        async function testLogin() {
+            showResult('apiResults', '📝 模拟登录测试: 用户admin登录成功');
+        }
+
+        function openMobileAdmin() {
+            window.open('/mobile/admin', '_blank');
+            showResult('pageResults', '📱 已打开移动端管理页面');
+        }
+
+        function openAdminPanel() {
+            window.open('/admin', '_blank');
+            showResult('pageResults', '🖥️ 已打开桌面端管理页面');
+        }
+
+        function openMainSite() {
+            window.open('/', '_blank');
+            showResult('pageResults', '🏠 已打开主站页面');
+        }
+
+        // 页面加载时自动执行健康检查
+        window.onload = function() {
+            testHealthCheck();
+        }
+    </script>
+</body>
+</html>

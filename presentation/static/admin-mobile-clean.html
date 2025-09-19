@@ -1,0 +1,1159 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuickTalk 移动端管理</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8f9fa;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* ============ 登录界面 ============ */
+        #loginContainer {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+
+        .login-card {
+            background: white;
+            padding: 40px 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .login-title {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #333;
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .login-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .login-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .login-btn:disabled {
+            opacity: 0.6;
+            transform: none;
+            cursor: not-allowed;
+        }
+
+        .error-msg {
+            background: #fee;
+            color: #c53030;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 15px;
+            display: none;
+        }
+
+        /* ============ 主应用界面 ============ */
+        #appContainer {
+            display: none;
+            height: 100vh;
+            flex-direction: column;
+        }
+
+        /* 头部 */
+        .header {
+            background: white;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+        }
+
+        .logo {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .user-badge {
+            background: #667eea;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            border: none;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        /* 主内容区域 */
+        .main-content {
+            flex: 1;
+            overflow-y: auto;
+            padding-bottom: 80px; /* 为底部导航留空间 */
+        }
+
+        /* 页面容器 */
+        .page {
+            display: none;
+            padding: 20px;
+            min-height: 100%;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        /* 首页卡片样式 */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 14px;
+        }
+
+        /* 快捷操作 */
+        .actions-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .action-btn {
+            background: white;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            color: #333;
+        }
+
+        .action-btn:hover, .action-btn:active {
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+
+        .action-icon {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        /* 商店列表 */
+        .shops-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .shop-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .shop-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .shop-name {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .shop-info {
+            display: flex;
+            justify-content: space-between;
+            color: #666;
+            font-size: 14px;
+        }
+
+        /* 消息页面 */
+        .conversations-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .conversation-item {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .conversation-item:hover {
+            background: #f8f9ff;
+        }
+
+        .conversation-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .customer-name {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .message-time {
+            color: #666;
+            font-size: 12px;
+        }
+
+        .last-message {
+            color: #666;
+            font-size: 14px;
+        }
+
+        /* 底部导航 */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            border-top: 1px solid #e1e5e9;
+            display: flex;
+            padding: 10px 0;
+            z-index: 1000;
+        }
+
+        .nav-item {
+            flex: 1;
+            text-align: center;
+            padding: 10px;
+            cursor: pointer;
+            transition: color 0.2s;
+            color: #666;
+        }
+
+        .nav-item.active {
+            color: #667eea;
+        }
+
+        .nav-icon {
+            font-size: 20px;
+            margin-bottom: 5px;
+        }
+
+        .nav-label {
+            font-size: 12px;
+        }
+
+        /* 模态框 */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            padding: 20px;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 15px;
+            width: 100%;
+            max-width: 400px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            padding: 20px 20px 10px;
+            border-bottom: 1px solid #e1e5e9;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .modal-footer {
+            padding: 10px 20px 20px;
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5a67d8;
+        }
+
+        .btn-secondary {
+            background: #e1e5e9;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #d1d5db;
+        }
+
+        /* 设置页面 */
+        .settings-list {
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .settings-item {
+            padding: 20px;
+            border-bottom: 1px solid #e1e5e9;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .settings-item:last-child {
+            border-bottom: none;
+        }
+
+        .settings-item:hover {
+            background: #f8f9fa;
+        }
+
+        .settings-icon {
+            font-size: 18px;
+            margin-right: 15px;
+            color: #667eea;
+        }
+
+        /* 加载动画 */
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #e1e5e9;
+            border-top: 2px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* 响应式适配 */
+        @media (max-width: 480px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .actions-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 登录界面 -->
+    <div id="loginContainer">
+        <div class="login-card">
+            <h2 class="login-title">QuickTalk 管理端</h2>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label class="form-label">用户名</label>
+                    <input type="text" id="username" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">密码</label>
+                    <input type="password" id="password" class="form-input" required>
+                </div>
+                <button type="submit" class="login-btn">登录</button>
+                <div id="loginError" class="error-msg"></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 主应用界面 -->
+    <div id="appContainer">
+        <!-- 头部 -->
+        <header class="header">
+            <div class="logo">QuickTalk</div>
+            <button class="user-badge" id="userInfo" onclick="showProfileModal()">加载中...</button>
+        </header>
+
+        <!-- 主内容区 -->
+        <main class="main-content">
+            <!-- 首页 -->
+            <div class="page active" id="homePage">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="totalMessages">0</div>
+                        <div class="stat-label">消息总数</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="totalConversations">0</div>
+                        <div class="stat-label">对话总数</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="totalShops">0</div>
+                        <div class="stat-label">店铺总数</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="onlineUsers">0</div>
+                        <div class="stat-label">在线用户</div>
+                    </div>
+                </div>
+
+                <div class="actions-grid">
+                    <div class="action-btn" onclick="switchPage('messages')">
+                        <div class="action-icon">💬</div>
+                        <div>查看消息</div>
+                    </div>
+                    <div class="action-btn" onclick="switchPage('shops')">
+                        <div class="action-icon">🏪</div>
+                        <div>店铺管理</div>
+                    </div>
+                    <div class="action-btn" onclick="showCreateShopModal()">
+                        <div class="action-icon">➕</div>
+                        <div>创建店铺</div>
+                    </div>
+                    <div class="action-btn" onclick="switchPage('settings')">
+                        <div class="action-icon">⚙️</div>
+                        <div>系统设置</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 消息页面 -->
+            <div class="page" id="messagesPage">
+                <div id="conversationsList" class="conversations-list">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <span>加载对话列表...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 店铺页面 -->
+            <div class="page" id="shopsPage">
+                <div id="shopsList" class="shops-container">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <span>加载店铺列表...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 设置页面 -->
+            <div class="page" id="settingsPage">
+                <div class="settings-list">
+                    <div class="settings-item" onclick="showProfileModal()">
+                        <span class="settings-icon">👤</span>
+                        <span>个人资料</span>
+                    </div>
+                    <div class="settings-item" onclick="logout()">
+                        <span class="settings-icon">🔓</span>
+                        <span>退出登录</span>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- 底部导航 -->
+        <nav class="bottom-nav">
+            <div class="nav-item active" onclick="switchPage('home')">
+                <div class="nav-icon">🏠</div>
+                <div class="nav-label">首页</div>
+            </div>
+            <div class="nav-item" onclick="switchPage('messages')">
+                <div class="nav-icon">💬</div>
+                <div class="nav-label">消息</div>
+            </div>
+            <div class="nav-item" onclick="switchPage('shops')">
+                <div class="nav-icon">🏪</div>
+                <div class="nav-label">店铺</div>
+            </div>
+            <div class="nav-item" onclick="switchPage('settings')">
+                <div class="nav-icon">⚙️</div>
+                <div class="nav-label">设置</div>
+            </div>
+        </nav>
+    </div>
+
+    <!-- 个人资料模态框 -->
+    <div id="profileModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">个人资料</h3>
+                <button class="close-btn" onclick="hideProfileModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="profileInfo">
+                    <div style="margin-bottom: 15px;">
+                        <strong>用户名:</strong> <span id="profileUsername">-</span>
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <strong>角色:</strong> <span id="profileRole">-</span>
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <strong>创建时间:</strong> <span id="profileCreatedAt">-</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 创建店铺模态框 -->
+    <div id="createShopModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">创建新店铺</h3>
+                <button class="close-btn" onclick="hideCreateShopModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="createShopForm">
+                    <div class="form-group">
+                        <label class="form-label">店铺名称</label>
+                        <input type="text" id="shopName" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">店铺域名</label>
+                        <input type="text" id="shopDomain" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">联系邮箱</label>
+                        <input type="email" id="shopEmail" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">店铺描述</label>
+                        <textarea id="shopDescription" class="form-input" rows="3" style="resize: vertical;"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="hideCreateShopModal()">取消</button>
+                <button class="btn btn-primary" onclick="createShop()">创建</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============ 全局变量 ============
+        let currentUser = null;
+        let sessionId = null;
+        let websocket = null;
+        let currentPage = 'home';
+
+        // ============ 工具函数 ============
+        function showLoading(containerId) {
+            const container = document.getElementById(containerId);
+            if (container) {
+                container.innerHTML = `
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <span>加载中...</span>
+                    </div>
+                `;
+            }
+        }
+
+        function hideLoading(containerId) {
+            const container = document.getElementById(containerId);
+            if (container) {
+                container.innerHTML = '';
+            }
+        }
+
+        function formatTime(timestamp) {
+            const date = new Date(timestamp);
+            const now = new Date();
+            const diff = now - date;
+            
+            if (diff < 60000) return '刚刚';
+            if (diff < 3600000) return Math.floor(diff / 60000) + '分钟前';
+            if (diff < 86400000) return Math.floor(diff / 3600000) + '小时前';
+            return date.toLocaleDateString();
+        }
+
+        function showToast(message, type = 'info') {
+            // 简单的提示实现
+            alert(message);
+        }
+
+        function getSessionId() {
+            return sessionId || localStorage.getItem('sessionId');
+        }
+
+        // ============ API 请求函数 ============
+        async function apiRequest(url, options = {}) {
+            try {
+                const defaultOptions = {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${getSessionId()}`
+                    }
+                };
+
+                const response = await fetch(url, { ...defaultOptions, ...options });
+                
+                if (!response.ok) {
+                    throw new Error(`请求失败: ${response.status} ${response.statusText}`);
+                }
+
+                return await response.json();
+            } catch (error) {
+                console.error('API请求失败:', error);
+                throw error;
+            }
+        }
+
+        // ============ 认证相关 ============
+        async function login(username, password) {
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    currentUser = data.user;
+                    sessionId = data.sessionId;
+                    
+                    // 保存到localStorage
+                    localStorage.setItem('sessionId', sessionId);
+                    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                    
+                    // 更新UI
+                    document.getElementById('loginContainer').style.display = 'none';
+                    document.getElementById('appContainer').style.display = 'flex';
+                    document.getElementById('userInfo').textContent = `${currentUser.username}`;
+                    
+                    // 初始化数据
+                    await loadInitialData();
+                    initWebSocket();
+                    
+                    console.log('✅ 登录成功');
+                    return true;
+                } else {
+                    throw new Error(data.message || '登录失败');
+                }
+            } catch (error) {
+                console.error('登录错误:', error);
+                throw error;
+            }
+        }
+
+        async function checkExistingSession() {
+            const savedSessionId = localStorage.getItem('sessionId');
+            const savedUser = localStorage.getItem('currentUser');
+            
+            if (!savedSessionId || !savedUser) {
+                return false;
+            }
+
+            try {
+                // 验证会话是否有效
+                const response = await fetch('/api/auth/verify', {
+                    headers: { 'Authorization': `Bearer ${savedSessionId}` }
+                });
+
+                if (response.ok) {
+                    sessionId = savedSessionId;
+                    currentUser = JSON.parse(savedUser);
+                    
+                    // 更新UI
+                    document.getElementById('loginContainer').style.display = 'none';
+                    document.getElementById('appContainer').style.display = 'flex';
+                    document.getElementById('userInfo').textContent = `${currentUser.username}`;
+                    
+                    // 初始化数据
+                    await loadInitialData();
+                    initWebSocket();
+                    
+                    console.log('✅ 恢复用户会话');
+                    return true;
+                } else {
+                    // 会话无效，清除保存的数据
+                    localStorage.removeItem('sessionId');
+                    localStorage.removeItem('currentUser');
+                    return false;
+                }
+            } catch (error) {
+                console.error('会话验证失败:', error);
+                localStorage.removeItem('sessionId');
+                localStorage.removeItem('currentUser');
+                return false;
+            }
+        }
+
+        function logout() {
+            if (confirm('确定要退出登录吗？')) {
+                localStorage.removeItem('sessionId');
+                localStorage.removeItem('currentUser');
+                currentUser = null;
+                sessionId = null;
+                
+                if (websocket) {
+                    websocket.close();
+                    websocket = null;
+                }
+                
+                document.getElementById('loginContainer').style.display = 'flex';
+                document.getElementById('appContainer').style.display = 'none';
+                
+                console.log('✅ 用户已退出');
+            }
+        }
+
+        // ============ WebSocket 连接 ============
+        function initWebSocket() {
+            if (websocket) {
+                websocket.close();
+            }
+
+            const wsUrl = `ws://localhost:3030/ws`;
+            websocket = new WebSocket(wsUrl);
+
+            websocket.onopen = function() {
+                console.log('✅ WebSocket连接已建立');
+            };
+
+            websocket.onmessage = function(event) {
+                try {
+                    const message = JSON.parse(event.data);
+                    handleWebSocketMessage(message);
+                } catch (error) {
+                    console.error('WebSocket消息解析错误:', error);
+                }
+            };
+
+            websocket.onclose = function() {
+                console.log('🔌 WebSocket连接已关闭');
+                // 重连逻辑
+                setTimeout(initWebSocket, 5000);
+            };
+
+            websocket.onerror = function(error) {
+                console.error('WebSocket错误:', error);
+            };
+        }
+
+        function handleWebSocketMessage(message) {
+            console.log('收到WebSocket消息:', message);
+            // 根据消息类型处理
+            switch (message.type) {
+                case 'message':
+                    // 更新消息列表
+                    if (currentPage === 'messages') {
+                        loadConversations();
+                    }
+                    break;
+                case 'stats':
+                    // 更新统计数据
+                    updateStats(message.data);
+                    break;
+            }
+        }
+
+        // ============ 数据加载 ============
+        async function loadInitialData() {
+            try {
+                await Promise.all([
+                    loadStats(),
+                    loadConversations(),
+                    loadShops()
+                ]);
+            } catch (error) {
+                console.error('初始数据加载失败:', error);
+            }
+        }
+
+        async function loadStats() {
+            try {
+                const stats = await apiRequest('/api/admin/stats');
+                updateStats(stats);
+            } catch (error) {
+                console.error('统计数据加载失败:', error);
+            }
+        }
+
+        function updateStats(stats) {
+            document.getElementById('totalMessages').textContent = stats.messages || 0;
+            document.getElementById('totalConversations').textContent = stats.conversations || 0;
+            document.getElementById('totalShops').textContent = stats.shops || 0;
+            document.getElementById('onlineUsers').textContent = stats.online_users || 0;
+        }
+
+        async function loadConversations() {
+            try {
+                showLoading('conversationsList');
+                const conversations = await apiRequest('/api/conversations');
+                renderConversations(conversations);
+            } catch (error) {
+                console.error('对话列表加载失败:', error);
+                document.getElementById('conversationsList').innerHTML = 
+                    `<div style="text-align: center; padding: 40px; color: #666;">加载失败，请稍后重试</div>`;
+            }
+        }
+
+        function renderConversations(conversations) {
+            const container = document.getElementById('conversationsList');
+            
+            if (!conversations || conversations.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #666;">
+                        暂无对话记录
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = conversations.map(conv => `
+                <div class="conversation-item" onclick="viewConversation('${conv.id}')">
+                    <div class="conversation-header">
+                        <div class="customer-name">${conv.customer_name || '未知客户'}</div>
+                        <div class="message-time">${formatTime(conv.last_message_time)}</div>
+                    </div>
+                    <div class="last-message">${conv.last_message || '暂无消息'}</div>
+                </div>
+            `).join('');
+        }
+
+        async function loadShops() {
+            try {
+                showLoading('shopsList');
+                const shops = await apiRequest('/api/shops');
+                renderShops(shops);
+            } catch (error) {
+                console.error('店铺列表加载失败:', error);
+                document.getElementById('shopsList').innerHTML = 
+                    `<div style="text-align: center; padding: 40px; color: #666;">加载失败，请稍后重试</div>`;
+            }
+        }
+
+        function renderShops(shops) {
+            const container = document.getElementById('shopsList');
+            
+            if (!shops || shops.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #666;">
+                        暂无店铺，<a href="javascript:showCreateShopModal()" style="color: #667eea;">点击创建</a>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = shops.map(shop => `
+                <div class="shop-card" onclick="viewShop('${shop.id}')">
+                    <div class="shop-name">${shop.name}</div>
+                    <div class="shop-info">
+                        <span>域名: ${shop.domain}</span>
+                        <span>状态: ${shop.status === 'active' ? '✅ 活跃' : '⏸️ 暂停'}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // ============ 页面切换 ============
+        function switchPage(pageName) {
+            // 隐藏所有页面
+            document.querySelectorAll('.page').forEach(page => {
+                page.classList.remove('active');
+            });
+            
+            // 更新导航状态
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            
+            // 显示目标页面
+            const targetPage = document.getElementById(pageName + 'Page');
+            if (targetPage) {
+                targetPage.classList.add('active');
+                currentPage = pageName;
+                
+                // 更新导航高亮
+                const navItem = document.querySelector(`[onclick="switchPage('${pageName}')"]`);
+                if (navItem) {
+                    navItem.classList.add('active');
+                }
+                
+                // 页面特定的数据加载
+                switch (pageName) {
+                    case 'messages':
+                        loadConversations();
+                        break;
+                    case 'shops':
+                        loadShops();
+                        break;
+                    case 'home':
+                        loadStats();
+                        break;
+                }
+                
+                console.log(`切换到页面: ${pageName}`);
+            }
+        }
+
+        // ============ 模态框控制 ============
+        function showProfileModal() {
+            if (currentUser) {
+                document.getElementById('profileUsername').textContent = currentUser.username;
+                document.getElementById('profileRole').textContent = currentUser.role;
+                document.getElementById('profileCreatedAt').textContent = 
+                    currentUser.created_at ? formatTime(currentUser.created_at) : '未知';
+                document.getElementById('profileModal').classList.add('show');
+            }
+        }
+
+        function hideProfileModal() {
+            document.getElementById('profileModal').classList.remove('show');
+        }
+
+        function showCreateShopModal() {
+            // 清空表单
+            document.getElementById('createShopForm').reset();
+            document.getElementById('createShopModal').classList.add('show');
+        }
+
+        function hideCreateShopModal() {
+            document.getElementById('createShopModal').classList.remove('show');
+        }
+
+        // ============ 业务操作 ============
+        async function createShop() {
+            const form = document.getElementById('createShopForm');
+            const formData = new FormData(form);
+            
+            const shopData = {
+                name: document.getElementById('shopName').value,
+                domain: document.getElementById('shopDomain').value,
+                email: document.getElementById('shopEmail').value,
+                description: document.getElementById('shopDescription').value || ''
+            };
+
+            // 验证必填字段
+            if (!shopData.name || !shopData.domain || !shopData.email) {
+                showToast('请填写所有必填字段', 'error');
+                return;
+            }
+
+            try {
+                const response = await apiRequest('/api/shops', {
+                    method: 'POST',
+                    body: JSON.stringify(shopData)
+                });
+
+                showToast('店铺创建成功！', 'success');
+                hideCreateShopModal();
+                loadShops(); // 重新加载店铺列表
+            } catch (error) {
+                console.error('创建店铺失败:', error);
+                showToast('创建店铺失败: ' + error.message, 'error');
+            }
+        }
+
+        function viewConversation(conversationId) {
+            console.log('查看对话:', conversationId);
+            // TODO: 实现对话详情页面
+            showToast('对话详情功能正在开发中');
+        }
+
+        function viewShop(shopId) {
+            console.log('查看店铺:', shopId);
+            // TODO: 实现店铺详情页面
+            showToast('店铺详情功能正在开发中');
+        }
+
+        // ============ 初始化 ============
+        document.addEventListener('DOMContentLoaded', async function() {
+            console.log('🚀 页面开始初始化...');
+            
+            try {
+                // 绑定登录表单
+                const loginForm = document.getElementById('loginForm');
+                loginForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    
+                    const username = document.getElementById('username').value;
+                    const password = document.getElementById('password').value;
+                    const loginBtn = loginForm.querySelector('.login-btn');
+                    const errorDiv = document.getElementById('loginError');
+                    
+                    errorDiv.style.display = 'none';
+                    loginBtn.textContent = '登录中...';
+                    loginBtn.disabled = true;
+                    
+                    try {
+                        await login(username, password);
+                    } catch (error) {
+                        errorDiv.textContent = error.message;
+                        errorDiv.style.display = 'block';
+                    } finally {
+                        loginBtn.textContent = '登录';
+                        loginBtn.disabled = false;
+                    }
+                });
+
+                // 检查现有会话
+                const hasValidSession = await checkExistingSession();
+                
+                if (!hasValidSession) {
+                    console.log('👤 显示登录界面');
+                    document.getElementById('loginContainer').style.display = 'flex';
+                    document.getElementById('appContainer').style.display = 'none';
+                } else {
+                    console.log('✅ 用户已登录');
+                }
+
+                console.log('🎉 页面初始化完成');
+                
+            } catch (error) {
+                console.error('❌ 页面初始化失败:', error);
+                showToast('页面初始化失败，请刷新页面重试');
+            }
+        });
+
+        // 点击模态框背景关闭
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    modal.classList.remove('show');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

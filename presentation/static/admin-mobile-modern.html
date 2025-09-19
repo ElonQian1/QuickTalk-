@@ -677,70 +677,11 @@
 
             .conversation-list {
                 width: 100%;
-                height: 40vh;
-                border-right: none;
-                border-bottom: 1px solid #e9ecef;
+                height: 50%;
             }
 
             .chat-area {
-                height: 60vh;
-            }
-
-            .top-bar {
-                padding: 8px 16px;
-                min-height: 56px;
-            }
-
-            .shop-selector {
-                font-size: 14px;
-            }
-
-            .user-avatar {
-                width: 32px;
-                height: 32px;
-                border-radius: 16px;
-                font-size: 12px;
-            }
-
-            .conversation-item {
-                padding: 8px 16px;
-            }
-
-            .customer-avatar {
-                width: 40px;
-                height: 40px;
-                border-radius: 20px;
-            }
-
-            .chat-header {
-                padding: 12px 16px;
-            }
-
-            .messages-area {
-                padding: 16px;
-            }
-
-            .input-area {
-                padding: 12px 16px;
-            }
-
-            .message {
-                max-width: 85%;
-            }
-
-            .message-bubble {
-                padding: 10px 14px;
-                border-radius: 16px;
-            }
-
-            .file-upload-content {
-                width: 95%;
-                padding: 20px;
-            }
-
-            .upload-types {
-                grid-template-columns: 1fr;
-                gap: 8px;
+                height: 50%;
             }
         }
 
@@ -1030,19 +971,10 @@
                     }
                 } catch (error) {
                     console.error('加载店铺失败:', error);
-                    // 创建默认店铺数据用于演示
-                    this.shops = [
-                        {
-                            id: 'shop_1757591780450_1',
-                            name: '演示店铺 1',
-                            status: 'active'
-                        },
-                        {
-                            id: 'shop_default',
-                            name: '默认店铺',
-                            status: 'active'
-                        }
-                    ];
+                    this.shops = [{
+                        id: 'shop_default',
+                        name: '默认店铺'
+                    }];
                     this.updateShopSelector();
                 }
             }
@@ -1060,18 +992,11 @@
                     if (response.ok) {
                         const data = await response.json();
                         this.conversations = data.data || [];
-                        console.log('✅ 加载对话成功:', this.conversations.length, '个对话');
-                        this.renderConversations();
-                    } else {
-                        console.error('❌ API响应错误:', response.status, response.statusText);
-                        this.conversations = [];
                         this.renderConversations();
                     }
                 } catch (error) {
-                    console.error('❌ 加载对话失败:', error);
+                    console.error('加载对话失败:', error);
                     this.conversations = [];
-                    this.renderConversations();
-                    this.showNotification('加载对话列表失败，请检查网络连接', 'error');
                 }
             }
 
@@ -1776,59 +1701,7 @@
         }
 
         function showShopSelector() {
-            if (app.shops.length <= 1) {
-                app.showNotification('当前只有一个店铺', 'warning');
-                return;
-            }
-
-            // 创建店铺选择模态框
-            const modal = document.createElement('div');
-            modal.style.cssText = `
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background: rgba(0,0,0,0.5);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                z-index: 1003;
-            `;
-            
-            const shopList = app.shops.map(shop => `
-                <div class="list-item" onclick="selectShop('${shop.id}')" style="cursor: pointer; padding: 16px; border-bottom: 1px solid #eee;">
-                    <div class="item-title">${shop.name}</div>
-                    <div class="item-desc">店铺ID: ${shop.id}</div>
-                    ${app.currentShop && app.currentShop.id === shop.id ? '<span style="color: #667eea;">✓ 当前选中</span>' : ''}
-                </div>
-            `).join('');
-            
-            modal.innerHTML = `
-                <div style="background: white; border-radius: 16px; padding: 24px; width: 90%; max-width: 400px;">
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
-                        <h3>选择店铺</h3>
-                        <button onclick="document.body.removeChild(this.closest('[style*=\"position: fixed\"]'))" style="border: none; background: #f8f9fa; border-radius: 50%; width: 32px; height: 32px; cursor: pointer;">×</button>
-                    </div>
-                    <div style="max-height: 300px; overflow-y: auto;">
-                        ${shopList}
-                    </div>
-                </div>
-            `;
-            
-            // 添加店铺选择函数
-            window.selectShop = (shopId) => {
-                const shop = app.shops.find(s => s.id === shopId);
-                if (shop) {
-                    app.currentShop = shop;
-                    document.getElementById('currentShopName').textContent = shop.name;
-                    app.loadConversations(); // 重新加载当前店铺的对话
-                    app.showNotification(`已切换到 ${shop.name}`, 'success');
-                }
-                document.body.removeChild(modal);
-            };
-            
-            document.body.appendChild(modal);
+            app.showNotification('店铺切换功能开发中', 'warning');
         }
 
         function startNewConversation() {

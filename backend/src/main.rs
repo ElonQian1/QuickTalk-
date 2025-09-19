@@ -80,11 +80,15 @@ pub struct Customer {
 // WebSocket 消息类型
 #[derive(Serialize, Deserialize)]
 pub struct WebSocketMessage {
-    pub msg_type: String, // 'join', 'leave', 'message', 'typing', 'status'
+    #[serde(alias = "msg_type")]
+    pub r#type: String, // 'join', 'leave', 'message', 'typing', 'status', 'auth'
     pub conversation_id: Option<String>,
     pub sender_id: Option<String>,
     pub content: Option<String>,
+    #[serde(default = "Utc::now")]
     pub timestamp: DateTime<Utc>,
+    // 新增字段以支持认证
+    pub session_id: Option<String>,
 }
 
 // API 请求/响应类型
@@ -135,9 +139,8 @@ pub async fn serve_index() -> Html<String> {
 
 // 管理后台路由
 pub async fn serve_admin() -> Html<String> {
-    if let Ok(content) = tokio::fs::read_to_string("../presentation/static/admin-mobile.html").await {
-        Html(content)
-    } else if let Ok(content) = tokio::fs::read_to_string("../presentation/static/admin-new.html").await {
+    // 优先尝试加载简单的管理后台页面，而不是完整的聊天系统
+    if let Ok(content) = tokio::fs::read_to_string("../presentation/static/admin-new.html").await {
         Html(content)
     } else {
         Html(r#"
@@ -147,15 +150,91 @@ pub async fn serve_admin() -> Html<String> {
     <title>QuickTalk Admin</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8f9fa;
+            margin: 0;
+            padding: 20px;
+            color: #2c3e50;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .title {
+            font-size: 32px;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            font-size: 18px;
+            color: #6c757d;
+        }
+        .nav-links {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 40px;
+        }
+        .nav-link {
+            display: block;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 12px;
+            text-align: center;
+            font-weight: 600;
+            transition: transform 0.3s ease;
+        }
+        .nav-link:hover {
+            transform: translateY(-4px);
+        }
+        .api-list {
+            margin-top: 40px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 12px;
+        }
+        .api-item {
+            margin: 10px 0;
+        }
+        .api-item a {
+            color: #667eea;
+            text-decoration: none;
+        }
+    </style>
 </head>
 <body>
-    <h1>🦀 QuickTalk Admin Panel - Pure Rust</h1>
-    <p>管理界面 - 纯Rust客服系统</p>
-    <div id="app">
-        <p><a href="/api/health">健康检查</a></p>
-        <p><a href="/api/shops">商店列表</a></p>
-        <p><a href="/api/conversations">对话列表</a></p>
-        <p><a href="/api/files">文件列表</a></p>
+    <div class="container">
+        <div class="header">
+            <h1 class="title">🦀 QuickTalk Admin</h1>
+            <p class="subtitle">管理界面 - 纯Rust客服系统</p>
+        </div>
+        
+        <div class="nav-links">
+            <a href="/mobile/login" class="nav-link">📱 移动端登录</a>
+            <a href="/mobile/dashboard" class="nav-link">📊 移动端仪表板</a>
+            <a href="/mobile/admin" class="nav-link">💬 移动端聊天</a>
+            <a href="/" class="nav-link">👥 客户界面</a>
+        </div>
+        
+        <div class="api-list">
+            <h3>API 端点</h3>
+            <div class="api-item"><a href="/api/health">🔍 健康检查</a></div>
+            <div class="api-item"><a href="/api/shops">🏪 商店列表</a></div>
+            <div class="api-item"><a href="/api/conversations">💬 对话列表</a></div>
+            <div class="api-item"><a href="/api/files">📁 文件列表</a></div>
+        </div>
     </div>
 </body>
 </html>
@@ -163,12 +242,73 @@ pub async fn serve_admin() -> Html<String> {
     }
 }
 
-// 移动端管理后台
+// 移动端管理后台 (聊天系统)
 pub async fn serve_mobile_admin() -> Html<String> {
-    if let Ok(content) = tokio::fs::read_to_string("../presentation/static/mobile-admin.html").await {
+    if let Ok(content) = tokio::fs::read_to_string("../presentation/static/admin-mobile.html").await {
         Html(content)
     } else {
-        serve_admin().await
+        Html(r#"
+<!DOCTYPE html>
+<html>
+<head>
+    <title>QuickTalk Mobile Admin</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+    <h1>📱 QuickTalk Mobile Admin</h1>
+    <p>移动端聊天管理系统加载失败，请检查文件路径</p>
+    <p><a href="/mobile/dashboard">返回移动端仪表板</a></p>
+    <p><a href="/admin">返回管理后台</a></p>
+</body>
+</html>
+        "#.to_string())
+    }
+}
+
+// 移动端仪表板
+pub async fn serve_mobile_dashboard() -> Html<String> {
+    if let Ok(content) = tokio::fs::read_to_string("../presentation/static/mobile-dashboard.html").await {
+        Html(content)
+    } else {
+        Html(r#"
+<!DOCTYPE html>
+<html>
+<head>
+    <title>QuickTalk Mobile Dashboard</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+    <h1>📱 QuickTalk Mobile Dashboard</h1>
+    <p>移动端仪表板加载失败，请检查文件路径</p>
+    <p><a href="/admin">返回管理后台</a></p>
+</body>
+</html>
+        "#.to_string())
+    }
+}
+
+// 移动端登录页面
+pub async fn serve_mobile_login() -> Html<String> {
+    if let Ok(content) = tokio::fs::read_to_string("../presentation/static/mobile-login.html").await {
+        Html(content)
+    } else {
+        Html(r#"
+<!DOCTYPE html>
+<html>
+<head>
+    <title>QuickTalk Mobile Login</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+    <h1>📱 QuickTalk Mobile Login</h1>
+    <p>移动端登录页面加载失败，请检查文件路径</p>
+    <p><a href="/admin">返回管理后台</a></p>
+</body>
+</html>
+        "#.to_string())
     }
 }
 
@@ -264,7 +404,15 @@ async fn handle_websocket_message(
     // 解析消息
     let ws_message: WebSocketMessage = serde_json::from_str(message)?;
     
-    match ws_message.msg_type.as_str() {
+    match ws_message.r#type.as_str() {
+        "auth" => {
+            info!("Connection {} attempting authentication", connection_id);
+            if let Some(session_id) = &ws_message.session_id {
+                info!("Session ID: {}", session_id);
+                // 这里可以验证会话ID的有效性
+                // 目前只是记录日志
+            }
+        },
         "join" => {
             if let Some(conversation_id) = &ws_message.conversation_id {
                 info!("Connection {} joined conversation {}", connection_id, conversation_id);
@@ -333,7 +481,7 @@ async fn handle_websocket_message(
             }
         }
         _ => {
-            debug!("Unknown WebSocket message type: {}", ws_message.msg_type);
+            debug!("Unknown WebSocket message type: {}", ws_message.r#type);
         }
     }
     
@@ -750,6 +898,8 @@ pub async fn create_app(db: SqlitePool) -> Router {
         .route("/", get(serve_index))
         .route("/admin", get(serve_admin))
         .route("/mobile/admin", get(serve_mobile_admin))
+        .route("/mobile/dashboard", get(serve_mobile_dashboard))
+        .route("/mobile/login", get(serve_mobile_login))
         
         // WebSocket
         .route("/ws", get(websocket_handler))
@@ -908,7 +1058,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("📱 Main Interface: http://localhost:{}/", port);
     info!("🔧 Admin Panel: http://localhost:{}/admin", port);
     info!("📱 Mobile Admin: http://localhost:{}/mobile/admin", port);
-    info!("🔌 WebSocket: ws://localhost:{}/ws", port);
+    info!("� Mobile Dashboard: http://localhost:{}/mobile/dashboard", port);
+    info!("🔐 Mobile Login: http://localhost:{}/mobile/login", port);
+    info!("�🔌 WebSocket: ws://localhost:{}/ws", port);
     info!("📊 Health Check: http://localhost:{}/api/health", port);
     info!("📄 API Documentation: All endpoints available under /api/");
     info!("🎯 Features: Pure Rust, No Node.js dependency, Full WebSocket support");

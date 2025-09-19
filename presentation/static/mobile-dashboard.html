@@ -1,0 +1,1377 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>QuickTalk 移动端管理后台</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8f9fa;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* 主容器 */
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* 顶部状态栏 */
+        .top-bar {
+            height: 60px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            color: white;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .top-bar-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .app-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #4CAF50;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.disconnected {
+            background: #f44336;
+            animation: none;
+        }
+
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7);
+            }
+            70% {
+                box-shadow: 0 0 0 10px rgba(76, 175, 80, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(76, 175, 80, 0);
+            }
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        /* 主内容区域 */
+        .main-content {
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+            padding-bottom: 80px; /* 为底部导航栏留出空间 */
+        }
+
+        .page {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow-y: auto;
+            background: #f8f9fa;
+            transform: translateX(100%);
+            transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            opacity: 0;
+        }
+
+        .page.active {
+            transform: translateX(0);
+            opacity: 1;
+        }
+
+        .page-header {
+            background: white;
+            padding: 20px;
+            border-bottom: 1px solid #e9ecef;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .page-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+
+        .page-subtitle {
+            font-size: 14px;
+            color: #6c757d;
+        }
+
+        .page-content {
+            padding: 20px;
+        }
+
+        /* 首页样式 */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .quick-actions {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        .actions-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+
+        .action-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .action-btn {
+            flex: 1;
+            min-width: 120px;
+            padding: 12px 16px;
+            border: none;
+            border-radius: 12px;
+            background: #f8f9fa;
+            color: #495057;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .action-btn:hover {
+            background: #e9ecef;
+            transform: translateY(-2px);
+        }
+
+        /* 消息页面样式 */
+        .conversation-list {
+            background: white;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        .conversation-item {
+            display: flex;
+            align-items: center;
+            padding: 15px 20px;
+            border-bottom: 1px solid #f8f9fa;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .conversation-item:hover {
+            background: #f8f9fa;
+        }
+
+        .conversation-item:last-child {
+            border-bottom: none;
+        }
+
+        .conversation-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            margin-right: 15px;
+        }
+
+        .conversation-info {
+            flex: 1;
+        }
+
+        .conversation-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 3px;
+        }
+
+        .conversation-message {
+            font-size: 14px;
+            color: #6c757d;
+            line-height: 1.4;
+        }
+
+        .conversation-meta {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 5px;
+        }
+
+        .conversation-time {
+            font-size: 12px;
+            color: #adb5bd;
+        }
+
+        .unread-badge {
+            background: #dc3545;
+            color: white;
+            font-size: 12px;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-weight: 600;
+        }
+
+        /* 店铺页面样式 */
+        .shop-grid {
+            display: grid;
+            gap: 15px;
+        }
+
+        .shop-card {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .shop-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+
+        .shop-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+
+        .shop-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+        }
+
+        .shop-status {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-active {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .shop-name {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+
+        .shop-domain {
+            font-size: 14px;
+            color: #6c757d;
+            margin-bottom: 10px;
+        }
+
+        .shop-stats {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #f8f9fa;
+        }
+
+        .shop-stat {
+            text-align: center;
+        }
+
+        .shop-stat-value {
+            font-size: 20px;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .shop-stat-label {
+            font-size: 12px;
+            color: #6c757d;
+        }
+
+        /* 我的页面样式 */
+        .profile-header {
+            background: white;
+            border-radius: 16px;
+            padding: 30px 20px;
+            text-align: center;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        .profile-avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 32px;
+            font-weight: 600;
+            margin: 0 auto 15px;
+        }
+
+        .profile-name {
+            font-size: 20px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+
+        .profile-role {
+            font-size: 14px;
+            color: #6c757d;
+            padding: 4px 12px;
+            background: #f8f9fa;
+            border-radius: 20px;
+            display: inline-block;
+        }
+
+        .settings-list {
+            background: white;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        .settings-item {
+            display: flex;
+            align-items: center;
+            padding: 15px 20px;
+            border-bottom: 1px solid #f8f9fa;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .settings-item:hover {
+            background: #f8f9fa;
+        }
+
+        .settings-item:last-child {
+            border-bottom: none;
+        }
+
+        .settings-icon {
+            font-size: 20px;
+            margin-right: 15px;
+            width: 24px;
+            text-align: center;
+        }
+
+        .settings-text {
+            flex: 1;
+            font-size: 16px;
+            color: #2c3e50;
+        }
+
+        .settings-arrow {
+            font-size: 16px;
+            color: #adb5bd;
+        }
+
+        /* 底部导航栏 */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 80px;
+            background: white;
+            border-top: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            padding: 0 10px;
+            z-index: 100;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            padding: 8px 12px;
+            border-radius: 12px;
+            position: relative;
+        }
+
+        .nav-item.active {
+            color: #667eea;
+            background: rgba(102, 126, 234, 0.1);
+        }
+
+        .nav-item.active .nav-icon {
+            transform: scale(1.1);
+        }
+
+        .nav-icon {
+            font-size: 24px;
+            margin-bottom: 4px;
+            transition: transform 0.3s ease;
+        }
+
+        .nav-label {
+            font-size: 11px;
+            font-weight: 500;
+            letter-spacing: 0.3px;
+        }
+
+        .nav-badge {
+            position: absolute;
+            top: 5px;
+            right: 8px;
+            background: #dc3545;
+            color: white;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 10px;
+            min-width: 18px;
+            height: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+        }
+
+        /* 空状态样式 */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 20px;
+            text-align: center;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        .empty-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+            opacity: 0.3;
+        }
+
+        .empty-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        .empty-desc {
+            font-size: 14px;
+            color: #6c757d;
+            line-height: 1.6;
+        }
+
+        /* 加载状态 */
+        .loading-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 20px;
+            text-align: center;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            font-size: 16px;
+            color: #6c757d;
+        }
+
+        /* 触摸反馈 */
+        .tap-feedback {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .tap-feedback::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(102, 126, 234, 0.3);
+            transition: width 0.3s, height 0.3s;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+        }
+
+        .tap-feedback:active::before {
+            width: 200px;
+            height: 200px;
+        }
+
+        /* 响应式调整 */
+        @media (max-width: 375px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+            
+            .action-btn {
+                min-width: 100px;
+                font-size: 13px;
+                padding: 10px 12px;
+            }
+            
+            .page-content {
+                padding: 15px;
+            }
+        }
+
+        @media (max-height: 667px) {
+            .top-bar {
+                height: 50px;
+            }
+            
+            .bottom-nav {
+                height: 70px;
+            }
+            
+            .main-content {
+                padding-bottom: 70px;
+            }
+        }
+
+        /* 自定义滚动条 */
+        .page::-webkit-scrollbar {
+            width: 3px;
+        }
+
+        .page::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .page::-webkit-scrollbar-thumb {
+            background: rgba(102, 126, 234, 0.3);
+            border-radius: 3px;
+        }
+
+        /* 隐藏类 */
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- 顶部状态栏 -->
+        <div class="top-bar">
+            <div class="top-bar-left">
+                <h1 class="app-title">QuickTalk</h1>
+                <div class="connection-status">
+                    <div class="status-dot" id="connectionStatus"></div>
+                    <span id="connectionText">已连接</span>
+                </div>
+            </div>
+            <div class="user-info">
+                <div class="user-avatar" id="userAvatar">A</div>
+                <span id="userName">管理员</span>
+            </div>
+        </div>
+
+        <!-- 主内容区域 -->
+        <div class="main-content">
+            <!-- 首页 -->
+            <div class="page active" id="homePage">
+                <div class="page-header">
+                    <h2 class="page-title">欢迎回来</h2>
+                    <p class="page-subtitle">今天是美好的一天，让我们开始工作吧</p>
+                </div>
+                <div class="page-content">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value" id="totalShops">0</div>
+                            <div class="stat-label">店铺总数</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="totalMessages">0</div>
+                            <div class="stat-label">今日消息</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="activeChats">0</div>
+                            <div class="stat-label">活跃会话</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="responseRate">95%</div>
+                            <div class="stat-label">响应率</div>
+                        </div>
+                    </div>
+
+                    <div class="quick-actions">
+                        <h3 class="actions-title">快速操作</h3>
+                        <div class="action-buttons">
+                            <button class="action-btn tap-feedback" onclick="switchPage('messages')">
+                                💬 查看消息
+                            </button>
+                            <button class="action-btn tap-feedback" onclick="switchPage('shops')">
+                                🏪 管理店铺
+                            </button>
+                            <button class="action-btn tap-feedback" onclick="createNewShop()">
+                                ➕ 新增店铺
+                            </button>
+                            <button class="action-btn tap-feedback" onclick="viewAnalytics()">
+                                📊 数据分析
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 消息页面 -->
+            <div class="page" id="messagesPage">
+                <div class="page-header">
+                    <h2 class="page-title">客服消息</h2>
+                    <p class="page-subtitle">管理所有客服对话</p>
+                </div>
+                <div class="page-content">
+                    <div id="conversationsList">
+                        <div class="loading-state">
+                            <div class="loading-spinner"></div>
+                            <div class="loading-text">正在加载对话...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 店铺页面 -->
+            <div class="page" id="shopsPage">
+                <div class="page-header">
+                    <h2 class="page-title">店铺管理</h2>
+                    <p class="page-subtitle">管理所有关联店铺</p>
+                </div>
+                <div class="page-content">
+                    <div id="shopsList">
+                        <div class="loading-state">
+                            <div class="loading-spinner"></div>
+                            <div class="loading-text">正在加载店铺...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 我的页面 -->
+            <div class="page" id="profilePage">
+                <div class="page-header">
+                    <h2 class="page-title">我的账户</h2>
+                    <p class="page-subtitle">账户设置与个人信息</p>
+                </div>
+                <div class="page-content">
+                    <div class="profile-header">
+                        <div class="profile-avatar" id="profileAvatar">A</div>
+                        <div class="profile-name" id="profileName">管理员</div>
+                        <div class="profile-role" id="profileRole">超级管理员</div>
+                    </div>
+
+                    <div class="settings-list">
+                        <div class="settings-item tap-feedback" onclick="editProfile()">
+                            <div class="settings-icon">👤</div>
+                            <div class="settings-text">编辑个人信息</div>
+                            <div class="settings-arrow">›</div>
+                        </div>
+                        <div class="settings-item tap-feedback" onclick="changePassword()">
+                            <div class="settings-icon">🔐</div>
+                            <div class="settings-text">修改密码</div>
+                            <div class="settings-arrow">›</div>
+                        </div>
+                        <div class="settings-item tap-feedback" onclick="notificationSettings()">
+                            <div class="settings-icon">🔔</div>
+                            <div class="settings-text">消息通知</div>
+                            <div class="settings-arrow">›</div>
+                        </div>
+                        <div class="settings-item tap-feedback" onclick="systemSettings()">
+                            <div class="settings-icon">⚙️</div>
+                            <div class="settings-text">系统设置</div>
+                            <div class="settings-arrow">›</div>
+                        </div>
+                        <div class="settings-item tap-feedback" onclick="aboutApp()">
+                            <div class="settings-icon">ℹ️</div>
+                            <div class="settings-text">关于应用</div>
+                            <div class="settings-arrow">›</div>
+                        </div>
+                        <div class="settings-item tap-feedback" onclick="logout()">
+                            <div class="settings-icon">🚪</div>
+                            <div class="settings-text">退出登录</div>
+                            <div class="settings-arrow">›</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 底部导航栏 -->
+        <div class="bottom-nav">
+            <div class="nav-item active tap-feedback" data-page="home" onclick="switchPage('home')">
+                <div class="nav-icon">🏠</div>
+                <div class="nav-label">首页</div>
+            </div>
+            <div class="nav-item tap-feedback" data-page="messages" onclick="switchPage('messages')">
+                <div class="nav-icon">💬</div>
+                <div class="nav-label">消息</div>
+                <div class="nav-badge hidden" id="messagesBadge">0</div>
+            </div>
+            <div class="nav-item tap-feedback" data-page="shops" onclick="switchPage('shops')">
+                <div class="nav-icon">🏪</div>
+                <div class="nav-label">店铺</div>
+            </div>
+            <div class="nav-item tap-feedback" data-page="profile" onclick="switchPage('profile')">
+                <div class="nav-icon">👤</div>
+                <div class="nav-label">我的</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let currentPage = 'home';
+        let userData = null;
+        let shopsData = [];
+        let conversationsData = [];
+        let websocket = null;
+
+        // 应用初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('📱 QuickTalk 移动端管理系统启动');
+            initializeApp();
+        });
+
+        // 初始化应用
+        async function initializeApp() {
+            try {
+                // 检查登录状态
+                await checkLoginStatus();
+                
+                // 初始化WebSocket连接
+                initializeWebSocket();
+                
+                // 加载初始数据
+                await loadDashboardData();
+                
+                console.log('✅ 应用初始化完成');
+            } catch (error) {
+                console.error('❌ 应用初始化失败:', error);
+                showToast('系统启动失败，请刷新页面重试', 'error');
+            }
+        }
+
+        // 检查登录状态
+        async function checkLoginStatus() {
+            const savedUser = localStorage.getItem('quicktalk_user');
+            if (savedUser) {
+                try {
+                    userData = JSON.parse(savedUser);
+                    updateUserInfo();
+                    return true;
+                } catch (error) {
+                    console.error('解析保存的用户信息失败:', error);
+                    localStorage.removeItem('quicktalk_user');
+                }
+            }
+            
+            // 如果没有登录信息，跳转到登录页面
+            console.log('未找到登录信息，跳转到登录页面');
+            window.location.href = '/mobile/login';
+            return false;
+        }
+
+        // 更新用户信息显示
+        function updateUserInfo() {
+            if (userData) {
+                document.getElementById('userAvatar').textContent = userData.avatar || userData.username.charAt(0).toUpperCase();
+                document.getElementById('userName').textContent = userData.username;
+                document.getElementById('profileAvatar').textContent = userData.avatar || userData.username.charAt(0).toUpperCase();
+                document.getElementById('profileName').textContent = userData.username;
+                document.getElementById('profileRole').textContent = getRoleDisplayName(userData.role);
+            }
+        }
+
+        // 获取角色显示名称
+        function getRoleDisplayName(role) {
+            const roleMap = {
+                'super_admin': '超级管理员',
+                'admin': '管理员',
+                'shop_owner': '店主',
+                'agent': '客服'
+            };
+            return roleMap[role] || role;
+        }
+
+        // 初始化WebSocket连接
+        function initializeWebSocket() {
+            const wsUrl = `ws://${location.host}/ws`;
+            websocket = new WebSocket(wsUrl);
+            
+            websocket.onopen = function() {
+                console.log('🔗 WebSocket连接已建立');
+                updateConnectionStatus(true);
+            };
+            
+            websocket.onclose = function() {
+                console.log('🔌 WebSocket连接已断开');
+                updateConnectionStatus(false);
+                // 尝试重连
+                setTimeout(initializeWebSocket, 5000);
+            };
+            
+            websocket.onerror = function(error) {
+                console.error('❌ WebSocket连接错误:', error);
+                updateConnectionStatus(false);
+            };
+            
+            websocket.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    handleWebSocketMessage(data);
+                } catch (error) {
+                    console.error('❌ 解析WebSocket消息失败:', error);
+                }
+            };
+        }
+
+        // 更新连接状态
+        function updateConnectionStatus(isConnected) {
+            const statusDot = document.getElementById('connectionStatus');
+            const statusText = document.getElementById('connectionText');
+            
+            if (isConnected) {
+                statusDot.classList.remove('disconnected');
+                statusText.textContent = '已连接';
+            } else {
+                statusDot.classList.add('disconnected');
+                statusText.textContent = '未连接';
+            }
+        }
+
+        // 处理WebSocket消息
+        function handleWebSocketMessage(data) {
+            console.log('📨 收到WebSocket消息:', data);
+            
+            switch (data.type) {
+                case 'new_message':
+                    handleNewMessage(data);
+                    break;
+                case 'shop_update':
+                    handleShopUpdate(data);
+                    break;
+                default:
+                    console.log('未知的WebSocket消息类型:', data.type);
+            }
+        }
+
+        // 处理新消息
+        function handleNewMessage(data) {
+            // 更新消息徽章
+            const badge = document.getElementById('messagesBadge');
+            const currentCount = parseInt(badge.textContent) || 0;
+            badge.textContent = currentCount + 1;
+            badge.classList.remove('hidden');
+            
+            // 如果当前在消息页面，刷新对话列表
+            if (currentPage === 'messages') {
+                loadConversations();
+            }
+            
+            // 显示通知
+            showToast(`收到新消息来自 ${data.userName}`, 'info');
+        }
+
+        // 处理店铺更新
+        function handleShopUpdate(data) {
+            // 如果当前在店铺页面，刷新店铺列表
+            if (currentPage === 'shops') {
+                loadShops();
+            }
+        }
+
+        // 页面切换
+        function switchPage(pageName) {
+            if (pageName === currentPage) return;
+            
+            console.log(`🔄 切换到页面: ${pageName}`);
+            
+            // 隐藏当前页面
+            document.querySelectorAll('.page.active').forEach(page => {
+                page.classList.remove('active');
+            });
+            
+            // 显示目标页面
+            const targetPage = document.getElementById(pageName + 'Page');
+            if (targetPage) {
+                targetPage.classList.add('active');
+            }
+            
+            // 更新导航栏状态
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            document.querySelector(`[data-page="${pageName}"]`)?.classList.add('active');
+            
+            // 更新当前页面
+            currentPage = pageName;
+            
+            // 根据页面加载相应数据
+            loadPageData(pageName);
+            
+            // 重置消息徽章
+            if (pageName === 'messages') {
+                const badge = document.getElementById('messagesBadge');
+                badge.classList.add('hidden');
+                badge.textContent = '0';
+            }
+        }
+
+        // 根据页面加载数据
+        async function loadPageData(pageName) {
+            switch (pageName) {
+                case 'home':
+                    await loadDashboardData();
+                    break;
+                case 'messages':
+                    await loadConversations();
+                    break;
+                case 'shops':
+                    await loadShops();
+                    break;
+                case 'profile':
+                    // 个人资料页面不需要额外加载数据
+                    break;
+            }
+        }
+
+        // 加载仪表板数据
+        async function loadDashboardData() {
+            try {
+                // 模拟API调用
+                const stats = await fetchDashboardStats();
+                
+                document.getElementById('totalShops').textContent = stats.totalShops;
+                document.getElementById('totalMessages').textContent = stats.todayMessages;
+                document.getElementById('activeChats').textContent = stats.activeChats;
+                document.getElementById('responseRate').textContent = stats.responseRate + '%';
+            } catch (error) {
+                console.error('❌ 加载仪表板数据失败:', error);
+            }
+        }
+
+        // 获取仪表板统计数据
+        async function fetchDashboardStats() {
+            // 模拟API调用
+            return new Promise((resolve) => {
+                setTimeout(() => {
+                    resolve({
+                        totalShops: Math.floor(Math.random() * 10) + 3,
+                        todayMessages: Math.floor(Math.random() * 100) + 50,
+                        activeChats: Math.floor(Math.random() * 20) + 5,
+                        responseRate: Math.floor(Math.random() * 10) + 90
+                    });
+                }, 500);
+            });
+        }
+
+        // 加载对话列表
+        async function loadConversations() {
+            const container = document.getElementById('conversationsList');
+            container.innerHTML = `
+                <div class="loading-state">
+                    <div class="loading-spinner"></div>
+                    <div class="loading-text">正在加载对话...</div>
+                </div>
+            `;
+            
+            try {
+                // 模拟API调用
+                conversationsData = await fetchConversations();
+                
+                if (conversationsData.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon">💬</div>
+                            <div class="empty-title">暂无对话</div>
+                            <div class="empty-desc">当有客户发起对话时，它们会出现在这里</div>
+                        </div>
+                    `;
+                } else {
+                    const conversationsHTML = conversationsData.map(conv => `
+                        <div class="conversation-item tap-feedback" onclick="openConversation('${conv.id}')">
+                            <div class="conversation-avatar">${conv.customerName.charAt(0)}</div>
+                            <div class="conversation-info">
+                                <div class="conversation-name">${conv.customerName}</div>
+                                <div class="conversation-message">${conv.lastMessage}</div>
+                            </div>
+                            <div class="conversation-meta">
+                                <div class="conversation-time">${formatTime(conv.lastTime)}</div>
+                                ${conv.unreadCount > 0 ? `<div class="unread-badge">${conv.unreadCount}</div>` : ''}
+                            </div>
+                        </div>
+                    `).join('');
+                    
+                    container.innerHTML = `<div class="conversation-list">${conversationsHTML}</div>`;
+                }
+            } catch (error) {
+                console.error('❌ 加载对话列表失败:', error);
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">❌</div>
+                        <div class="empty-title">加载失败</div>
+                        <div class="empty-desc">无法加载对话列表，请稍后重试</div>
+                    </div>
+                `;
+            }
+        }
+
+        // 获取对话列表
+        async function fetchConversations() {
+            try {
+                const response = await fetch('/api/conversations');
+                if (response.ok) {
+                    return await response.json();
+                }
+            } catch (error) {
+                console.error('获取对话列表API调用失败:', error);
+            }
+            
+            // 返回模拟数据
+            return [
+                {
+                    id: '1',
+                    customerName: '张三',
+                    lastMessage: '你好，我想咨询一下产品价格',
+                    lastTime: new Date(Date.now() - 1000 * 60 * 5),
+                    unreadCount: 2
+                },
+                {
+                    id: '2',
+                    customerName: '李四',
+                    lastMessage: '订单什么时候能发货？',
+                    lastTime: new Date(Date.now() - 1000 * 60 * 30),
+                    unreadCount: 0
+                },
+                {
+                    id: '3',
+                    customerName: '王五',
+                    lastMessage: '可以提供发票吗？',
+                    lastTime: new Date(Date.now() - 1000 * 60 * 60 * 2),
+                    unreadCount: 1
+                }
+            ];
+        }
+
+        // 加载店铺列表
+        async function loadShops() {
+            const container = document.getElementById('shopsList');
+            container.innerHTML = `
+                <div class="loading-state">
+                    <div class="loading-spinner"></div>
+                    <div class="loading-text">正在加载店铺...</div>
+                </div>
+            `;
+            
+            try {
+                // 模拟API调用
+                shopsData = await fetchShops();
+                
+                if (shopsData.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon">🏪</div>
+                            <div class="empty-title">暂无店铺</div>
+                            <div class="empty-desc">添加您的第一个店铺开始使用客服系统</div>
+                        </div>
+                    `;
+                } else {
+                    const shopsHTML = shopsData.map(shop => `
+                        <div class="shop-card tap-feedback" onclick="openShop('${shop.id}')">
+                            <div class="shop-header">
+                                <div class="shop-icon">${shop.name.charAt(0)}</div>
+                                <div class="shop-status ${shop.status === 'active' ? 'status-active' : 'status-pending'}">
+                                    ${shop.status === 'active' ? '运行中' : '待审核'}
+                                </div>
+                            </div>
+                            <div class="shop-name">${shop.name}</div>
+                            <div class="shop-domain">${shop.domain}</div>
+                            <div class="shop-stats">
+                                <div class="shop-stat">
+                                    <div class="shop-stat-value">${shop.conversations || 0}</div>
+                                    <div class="shop-stat-label">对话</div>
+                                </div>
+                                <div class="shop-stat">
+                                    <div class="shop-stat-value">${shop.messages || 0}</div>
+                                    <div class="shop-stat-label">消息</div>
+                                </div>
+                                <div class="shop-stat">
+                                    <div class="shop-stat-value">${shop.customers || 0}</div>
+                                    <div class="shop-stat-label">客户</div>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('');
+                    
+                    container.innerHTML = `<div class="shop-grid">${shopsHTML}</div>`;
+                }
+            } catch (error) {
+                console.error('❌ 加载店铺列表失败:', error);
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">❌</div>
+                        <div class="empty-title">加载失败</div>
+                        <div class="empty-desc">无法加载店铺列表，请稍后重试</div>
+                    </div>
+                `;
+            }
+        }
+
+        // 获取店铺列表
+        async function fetchShops() {
+            try {
+                const response = await fetch('/api/shops');
+                if (response.ok) {
+                    return await response.json();
+                }
+            } catch (error) {
+                console.error('获取店铺列表API调用失败:', error);
+            }
+            
+            // 返回模拟数据
+            return [
+                {
+                    id: '1',
+                    name: '精品服装店',
+                    domain: 'fashion.example.com',
+                    status: 'active',
+                    conversations: 15,
+                    messages: 156,
+                    customers: 45
+                },
+                {
+                    id: '2',
+                    name: '数码产品专营',
+                    domain: 'digital.example.com',
+                    status: 'active',
+                    conversations: 8,
+                    messages: 89,
+                    customers: 23
+                },
+                {
+                    id: '3',
+                    name: '家居生活馆',
+                    domain: 'home.example.com',
+                    status: 'pending',
+                    conversations: 3,
+                    messages: 12,
+                    customers: 8
+                }
+            ];
+        }
+
+        // 时间格式化
+        function formatTime(date) {
+            const now = new Date();
+            const diff = now - date;
+            const minutes = Math.floor(diff / (1000 * 60));
+            const hours = Math.floor(diff / (1000 * 60 * 60));
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            
+            if (minutes < 1) {
+                return '刚刚';
+            } else if (minutes < 60) {
+                return `${minutes}分钟前`;
+            } else if (hours < 24) {
+                return `${hours}小时前`;
+            } else {
+                return `${days}天前`;
+            }
+        }
+
+        // 显示提示信息
+        function showToast(message, type = 'info') {
+            // 简单的提示实现
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        // 事件处理函数
+        function openConversation(conversationId) {
+            console.log('打开对话:', conversationId);
+            showToast('对话功能开发中...', 'info');
+        }
+
+        function openShop(shopId) {
+            console.log('打开店铺:', shopId);
+            showToast('店铺详情功能开发中...', 'info');
+        }
+
+        function createNewShop() {
+            console.log('创建新店铺');
+            showToast('新建店铺功能开发中...', 'info');
+        }
+
+        function viewAnalytics() {
+            console.log('查看数据分析');
+            showToast('数据分析功能开发中...', 'info');
+        }
+
+        function editProfile() {
+            console.log('编辑个人信息');
+            showToast('编辑个人信息功能开发中...', 'info');
+        }
+
+        function changePassword() {
+            console.log('修改密码');
+            showToast('修改密码功能开发中...', 'info');
+        }
+
+        function notificationSettings() {
+            console.log('消息通知设置');
+            showToast('通知设置功能开发中...', 'info');
+        }
+
+        function systemSettings() {
+            console.log('系统设置');
+            showToast('系统设置功能开发中...', 'info');
+        }
+
+        function aboutApp() {
+            console.log('关于应用');
+            showToast('QuickTalk v1.0.0 - 专业客服系统', 'info');
+        }
+
+        function logout() {
+            console.log('退出登录');
+            if (confirm('确定要退出登录吗？')) {
+                localStorage.removeItem('quicktalk_user');
+                showToast('已退出登录', 'success');
+                // 这里可以跳转到登录页面
+                window.location.reload();
+            }
+        }
+
+        // 防止页面滚动回弹
+        document.body.addEventListener('touchmove', function(e) {
+            if (e.target.closest('.page')) return;
+            e.preventDefault();
+        }, { passive: false });
+
+        console.log('📱 QuickTalk Mobile Dashboard 已加载');
+    </script>
+</body>
+</html>

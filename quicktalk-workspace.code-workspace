@@ -68,7 +68,8 @@
                         "**/target/**": true
                 },
                 // DDD 架构注释
-                "workbench.tree.renderIndentGuides": "always"
+                "workbench.tree.renderIndentGuides": "always",
+                "powershell.cwd": "🦀 Rust后端实现"
         },
         "extensions": {
                 "recommendations": [
