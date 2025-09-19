@@ -109,14 +109,9 @@ pub struct LoginRequest {
     pub password: String,
 }
 
-// 主页路由 - 提供Vue.js构建的静态文件
+// 主页路由 - 纯静态HTML文件 (DDD: Presentation Layer)
 pub async fn serve_index() -> Html<String> {
-    // 优先提供构建后的Vue.js文件
-    if let Ok(content) = tokio::fs::read_to_string("../frontend/dist/index.html").await {
-        Html(content)
-    } else if let Ok(content) = tokio::fs::read_to_string("../static/quicktalk-pure-rust.html").await {
-        Html(content)
-    } else if let Ok(content) = tokio::fs::read_to_string("../static/index.html").await {
+    if let Ok(content) = tokio::fs::read_to_string("../presentation/static/index.html").await {
         Html(content)
     } else {
         Html(r#"
@@ -140,11 +135,9 @@ pub async fn serve_index() -> Html<String> {
 
 // 管理后台路由
 pub async fn serve_admin() -> Html<String> {
-    if let Ok(content) = tokio::fs::read_to_string("../frontend/dist/admin.html").await {
+    if let Ok(content) = tokio::fs::read_to_string("../presentation/static/admin-mobile.html").await {
         Html(content)
-    } else if let Ok(content) = tokio::fs::read_to_string("../static/admin-pure-rust.html").await {
-        Html(content)
-    } else if let Ok(content) = tokio::fs::read_to_string("../static/admin-mobile.html").await {
+    } else if let Ok(content) = tokio::fs::read_to_string("../presentation/static/admin-new.html").await {
         Html(content)
     } else {
         Html(r#"
@@ -780,10 +773,13 @@ pub async fn create_app(db: SqlitePool) -> Router {
         
         // 管理员认证 API
         .route("/api/admin/login", post(admin_login))
+        .route("/api/auth/login", post(admin_login))  // 前端期望的路径
         
-        // 静态文件服务 - 优先提供构建后的前端文件
-        .nest_service("/assets", ServeDir::new("../frontend/dist/assets").fallback(ServeDir::new("../static/assets")))
-        .nest_service("/static", ServeDir::new("../static"))
+        // 静态文件服务 - 纯静态文件架构 (DDD: Presentation Layer)
+        .nest_service("/css", ServeDir::new("../presentation/static/css"))
+        .nest_service("/js", ServeDir::new("../presentation/static/js"))
+        .nest_service("/assets", ServeDir::new("../presentation/static/assets"))
+        .nest_service("/static", ServeDir::new("../presentation/static"))
         .nest_service("/uploads", ServeDir::new("../uploads"))
         
         // CORS和追踪
@@ -892,7 +888,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     // 连接数据库
     let database_url = std::env::var("DATABASE_URL")
-        .unwrap_or_else(|_| "sqlite:../data/database.sqlite".to_string());
+        .unwrap_or_else(|_| "sqlite:./quicktalk.sqlite".to_string());
     
     info!("Connecting to database: {}", database_url);
     let db = SqlitePool::connect(&database_url).await?;
