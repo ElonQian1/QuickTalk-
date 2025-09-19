@@ -165,7 +165,7 @@ pub async fn serve_admin() -> Html<String> {
 
 // 移动端管理后台
 pub async fn serve_mobile_admin() -> Html<String> {
-    if let Ok(content) = tokio::fs::read_to_string("../static/mobile/admin.html").await {
+    if let Ok(content) = tokio::fs::read_to_string("../presentation/static/mobile-admin.html").await {
         Html(content)
     } else {
         serve_admin().await

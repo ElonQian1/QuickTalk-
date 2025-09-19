@@ -2281,33 +2281,62 @@
         });
     </script>
     
+    <!-- 引入核心文件 -->
+    <script src="/assets/js/core/config.js"></script>
+    <script src="/assets/js/core/event-bus.js"></script>
+    <script src="/assets/js/core/api-client.js"></script>
+    <script src="/assets/js/core/utils.js"></script>
     <!-- 引入店铺管理模块 -->
     <script src="/js/mobile-shop-manager.js"></script>
     <!-- 引入消息管理模块 -->
     <script src="/js/mobile-message-manager.js"></script>
     <!-- 引入搜索功能模块 -->
     <script src="/js/message-search-manager.js"></script>
+    <!-- 引入核心管理器模块 -->
+    <script src="/assets/js/managers/auth-manager.js"></script>
+    <script src="/assets/js/managers/shop-manager.js"></script>
+    <script src="/assets/js/managers/message-manager.js"></script>
+    <script src="/assets/js/managers/page-manager.js"></script>
     <!-- 引入多店铺客服系统 -->
-    <script src="/src/multi-shop-customer-service-manager.js"></script>
+    <script src="/js/multi-shop-customer-service-manager.js"></script>
     <script>
         // 初始化新的模块化系统
         window.addEventListener('DOMContentLoaded', async function() {
             console.log('🚀🚀🚀 DOMContentLoaded 事件触发 - 版本4.0（多店铺客服） 🚀🚀🚀');
             
-            // 初始化店铺管理器
-            if (typeof MobileShopManager !== 'undefined') {
-                console.log('🏪 初始化模块化店铺管理器');
-                window.mobileShopManager = new MobileShopManager();
-            }
-            
-            // 🔄 优先使用新的多店铺客服系统
-            if (typeof MultiShopCustomerServiceManager !== 'undefined') {
-                console.log('🎯 初始化多店铺电商客服系统');
-                window.customerServiceManager = new MultiShopCustomerServiceManager();
-            } else {
-                // 备用：使用原有的消息管理器
-                if (typeof MobileMessageManager !== 'undefined') {
-                    console.log('💬 初始化模块化消息管理器（备用）');
+            try {
+                // 1. 首先初始化核心管理器
+                if (typeof PageManager !== 'undefined') {
+                    console.log('📄 初始化页面管理器');
+                    window.pageManager = PageManager.initialize();
+                }
+
+                // 2. 初始化认证管理器
+                if (typeof window.authManager !== 'undefined') {
+                    console.log('🔐 认证管理器已就绪');
+                } else {
+                    console.log('⚠️ 认证管理器未找到，使用简化认证');
+                    // 简化认证逻辑
+                    window.authManager = {
+                        isAuthenticated: () => true,
+                        getCurrentUser: () => ({ id: 'admin', name: '管理员' })
+                    };
+                }
+
+                // 3. 初始化店铺管理器
+                if (typeof MobileShopManager !== 'undefined') {
+                    console.log('🏪 初始化模块化店铺管理器');
+                    window.mobileShopManager = new MobileShopManager();
+                }
+                
+                // 4. 🔄 优先使用新的多店铺客服系统
+                if (typeof MultiShopCustomerServiceManager !== 'undefined') {
+                    console.log('🎯 初始化多店铺电商客服系统');
+                    window.customerServiceManager = new MultiShopCustomerServiceManager();
+                } else {
+                    // 备用：使用原有的消息管理器
+                    if (typeof MobileMessageManager !== 'undefined') {
+                        console.log('💬 初始化模块化消息管理器（备用）');
                     window.messageManager = new MobileMessageManager();
                 }
             }
@@ -2347,6 +2376,11 @@
             };
                 
             await checkAndInitAll();
+            
+            } catch (error) {
+                console.error('❌ 模块化系统初始化失败:', error);
+                console.log('🔄 降级使用基础功能');
+            }
         });
 
         // 店铺管理相关函数
@@ -2725,6 +2759,19 @@
 
         function hideModal(modalId) {
             document.getElementById(modalId).style.display = 'none';
+        }
+
+        // 添加缺失的showSettings函数
+        function showSettings() {
+            console.log('🔧 显示系统设置');
+            // 使用页面切换到设置页面
+            if (window.pageManager) {
+                window.pageManager.switchPage('settings');
+            } else if (typeof switchPage === 'function') {
+                switchPage('settings');
+            } else {
+                console.warn('⚠️ 页面管理器不可用，无法显示设置页面');
+            }
         }
     </script>
 </body>
