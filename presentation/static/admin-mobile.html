@@ -2153,11 +2153,34 @@
 
         // 全局函数
         function switchPage(pageName) {
-            PageManager.switchPage(pageName);
+            console.log('📄 切换页面:', pageName);
+            if (window.pageManager) {
+                window.pageManager.switchPage(pageName);
+            } else if (typeof PageManager !== 'undefined') {
+                // 降级使用类静态方法
+                const manager = PageManager.initialize();
+                manager.switchPage(pageName);
+            } else {
+                console.warn('⚠️ PageManager不可用，使用基础页面切换');
+                // 基础页面切换逻辑
+                document.querySelectorAll('.page.active').forEach(page => {
+                    page.classList.remove('active');
+                });
+                const targetPage = document.getElementById(pageName + 'Page');
+                if (targetPage) {
+                    targetPage.classList.add('active');
+                }
+            }
         }
 
         function goBack() {
-            PageManager.goBack();
+            console.log('↩️ 返回上一页');
+            if (window.pageManager) {
+                window.pageManager.goBack();
+            } else {
+                console.warn('⚠️ PageManager不可用，返回首页');
+                switchPage('home');
+            }
         }
 
         // 检查现有会话
@@ -2282,10 +2305,10 @@
     </script>
     
     <!-- 引入核心文件 -->
-    <script src="/assets/js/core/config.js"></script>
-    <script src="/assets/js/core/event-bus.js"></script>
-    <script src="/assets/js/core/api-client.js"></script>
-    <script src="/assets/js/core/utils.js"></script>
+    <script type="module" src="/assets/js/core/config.js"></script>
+    <script type="module" src="/assets/js/core/event-bus.js"></script>
+    <script type="module" src="/assets/js/core/api-client.js"></script>
+    <script type="module" src="/assets/js/core/utils.js"></script>
     <!-- 引入店铺管理模块 -->
     <script src="/js/mobile-shop-manager.js"></script>
     <!-- 引入消息管理模块 -->
@@ -2293,10 +2316,10 @@
     <!-- 引入搜索功能模块 -->
     <script src="/js/message-search-manager.js"></script>
     <!-- 引入核心管理器模块 -->
-    <script src="/assets/js/managers/auth-manager.js"></script>
-    <script src="/assets/js/managers/shop-manager.js"></script>
-    <script src="/assets/js/managers/message-manager.js"></script>
-    <script src="/assets/js/managers/page-manager.js"></script>
+    <script type="module" src="/assets/js/managers/auth-manager.js"></script>
+    <script type="module" src="/assets/js/managers/shop-manager.js"></script>
+    <script type="module" src="/assets/js/managers/message-manager.js"></script>
+    <script type="module" src="/assets/js/managers/page-manager.js"></script>
     <!-- 引入多店铺客服系统 -->
     <script src="/js/multi-shop-customer-service-manager.js"></script>
     <script>
@@ -2304,16 +2327,25 @@
         window.addEventListener('DOMContentLoaded', async function() {
             console.log('🚀🚀🚀 DOMContentLoaded 事件触发 - 版本4.0（多店铺客服） 🚀🚀🚀');
             
+            // 等待模块完全加载
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
             try {
                 // 1. 首先初始化核心管理器
-                if (typeof PageManager !== 'undefined') {
+                if (typeof window.PageManager !== 'undefined') {
                     console.log('📄 初始化页面管理器');
+                    window.pageManager = window.PageManager.initialize();
+                } else if (typeof PageManager !== 'undefined') {
+                    console.log('📄 初始化页面管理器 (全局)');
                     window.pageManager = PageManager.initialize();
+                } else {
+                    console.warn('⚠️ PageManager未找到，使用基础页面切换');
                 }
 
                 // 2. 初始化认证管理器
-                if (typeof window.authManager !== 'undefined') {
-                    console.log('🔐 认证管理器已就绪');
+                if (typeof window.AuthManager !== 'undefined') {
+                    console.log('🔐 初始化认证管理器');
+                    window.authManager = window.AuthManager.initialize();
                 } else {
                     console.log('⚠️ 认证管理器未找到，使用简化认证');
                     // 简化认证逻辑
@@ -2759,6 +2791,32 @@
 
         function hideModal(modalId) {
             document.getElementById(modalId).style.display = 'none';
+        }
+
+        // 添加其他缺失的函数
+        function showProfileModal() {
+            console.log('👤 显示用户资料');
+            alert('用户资料功能开发中...');
+        }
+
+        function showAdminPanel() {
+            console.log('🔧 显示管理面板');
+            switchPage('admin');
+        }
+
+        function showReviewPanel() {
+            console.log('📝 显示审核面板');
+            alert('审核管理功能开发中...');
+        }
+
+        function showPromotionModal() {
+            console.log('📊 显示推广管理');
+            alert('推广功能开发中...');
+        }
+
+        function showCreateShopModal() {
+            console.log('🏪 显示创建店铺模态框');
+            alert('创建店铺功能开发中...');
         }
 
         // 添加缺失的showSettings函数
