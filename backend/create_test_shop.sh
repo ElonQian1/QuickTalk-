@@ -1,0 +1,1 @@
+curl -X POST http://localhost:3030/api/shops -H "Content-Type: application/json" -d "{\"name\":\"测试店铺\",\"domain\":\"test.example.com\"}"

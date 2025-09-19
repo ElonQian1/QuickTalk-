@@ -149,6 +149,21 @@
             color: #6c757d;
         }
 
+        .page-actions {
+            margin-top: 15px;
+        }
+
+        .back-btn {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+        }
+
         .page-content {
             padding: 20px;
         }
@@ -308,6 +323,7 @@
             box-shadow: 0 2px 10px rgba(0,0,0,0.05);
             cursor: pointer;
             transition: all 0.3s ease;
+            position: relative;
         }
 
         .shop-card:hover {
@@ -385,6 +401,308 @@
         .shop-stat-label {
             font-size: 12px;
             color: #6c757d;
+        }
+
+        .shop-unread-badge {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: #dc3545;
+            color: white;
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 12px;
+            min-width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+        }
+
+        /* 非活跃店铺样式 */
+        .shop-card-inactive {
+            opacity: 0.7;
+            border: 2px dashed #e9ecef;
+        }
+
+        .shop-card-inactive:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+        }
+
+        .status-inactive {
+            background: #f8f9fa;
+            color: #6c757d;
+        }
+
+        .shop-empty-hint {
+            position: absolute;
+            bottom: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 12px;
+            color: #6c757d;
+            background: #f8f9fa;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-style: italic;
+        }
+
+        /* 聊天界面样式 */
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 160px - 80px); /* 页面头部约160px + 底部导航栏80px */
+            background: white;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            margin-bottom: 10px; /* 为底部导航栏留出额外空间 */
+        }
+
+        /* 聊天界面特殊布局 - 当在聊天视图时调整页面内容 */
+        #chatView {
+            padding: 0 !important;
+        }
+        
+        #chatView .chat-container {
+            border-radius: 0;
+            height: calc(100vh - 140px); /* 导航栏隐藏时，只需减去顶部区域高度 */
+            margin: 0;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #f8f9fa;
+        }
+
+        .chat-message {
+            display: flex;
+            margin-bottom: 15px;
+        }
+
+        .chat-message.customer {
+            justify-content: flex-start;
+        }
+
+        .chat-message.agent {
+            justify-content: flex-end;
+        }
+
+        .message-bubble {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            font-size: 15px;
+            line-height: 1.4;
+            word-wrap: break-word;
+        }
+
+        .chat-message.customer .message-bubble {
+            background: white;
+            color: #2c3e50;
+            border-bottom-left-radius: 4px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+
+        .chat-message.agent .message-bubble {
+            background: #667eea;
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message-time {
+            font-size: 11px;
+            color: #adb5bd;
+            text-align: center;
+            margin: 10px 0;
+        }
+
+        .message-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+            margin-right: 10px;
+            flex-shrink: 0;
+        }
+
+        .chat-message.agent .message-avatar {
+            margin-right: 0;
+            margin-left: 10px;
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        }
+
+        .chat-input-container {
+            padding: 15px 20px;
+            background: white;
+            border-top: 1px solid #e9ecef;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        /* 多媒体按钮样式 */
+        .media-btn, .voice-btn {
+            background: #f8f9fa;
+            color: #6c757d;
+            border: 2px solid #e9ecef;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 18px;
+            transition: all 0.3s ease;
+            flex-shrink: 0;
+        }
+
+        .media-btn:hover, .voice-btn:hover {
+            background: #e9ecef;
+            border-color: #dee2e6;
+        }
+
+        .media-btn:active, .voice-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* 语音录制时的样式 */
+        .voice-btn.recording {
+            background: #dc3545;
+            color: white;
+            border-color: #dc3545;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        .chat-input {
+            flex: 1;
+            border: 2px solid #e9ecef;
+            border-radius: 25px;
+            padding: 12px 16px;
+            font-size: 15px;
+            outline: none;
+            transition: border-color 0.3s;
+            min-width: 0; /* 允许输入框缩小 */
+        }
+
+        .chat-input:focus {
+            border-color: #667eea;
+        }
+
+        .send-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .send-btn:hover {
+            background: #5a67d8;
+            transform: scale(1.05);
+        }
+
+        .send-btn:disabled {
+            background: #adb5bd;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* 消息中的媒体内容样式 */
+        .message-media {
+            margin-top: 8px;
+            max-width: 250px;
+        }
+
+        .message-media img {
+            width: 100%;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+
+        .message-media img:hover {
+            transform: scale(1.02);
+        }
+
+        .message-file {
+            background: rgba(102, 126, 234, 0.1);
+            border: 1px solid rgba(102, 126, 234, 0.3);
+            border-radius: 8px;
+            padding: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 8px;
+            max-width: 250px;
+        }
+
+        .message-file:hover {
+            background: rgba(102, 126, 234, 0.15);
+        }
+
+        .message-file .file-icon {
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+
+        .message-file .file-details {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .message-file .file-name {
+            font-size: 14px;
+            font-weight: 500;
+            color: #495057;
+            word-break: break-all;
+            margin-bottom: 2px;
+        }
+
+        .message-file .file-size {
+            font-size: 12px;
+            color: #6c757d;
+        }
+
+        .message-audio {
+            background: rgba(40, 167, 69, 0.1);
+            border: 1px solid rgba(40, 167, 69, 0.3);
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 8px;
+            max-width: 250px;
+        }
+
+        .message-audio audio {
+            width: 100%;
         }
 
         /* 我的页面样式 */
@@ -484,6 +802,12 @@
             padding: 0 10px;
             z-index: 100;
             box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+            transition: transform 0.3s ease-in-out;
+        }
+
+        /* 聊天界面时隐藏底部导航栏 */
+        .bottom-nav.hidden {
+            transform: translateY(100%);
         }
 
         .nav-item {
@@ -652,6 +976,57 @@
             .main-content {
                 padding-bottom: 70px;
             }
+            
+            /* 小屏幕聊天界面优化 */
+            .chat-container {
+                height: calc(100vh - 120px - 70px); /* 调整为小屏幕的导航栏高度 */
+            }
+            
+            #chatView .chat-container {
+                height: calc(100vh - 100px); /* 导航栏隐藏时更紧凑的布局 */
+            }
+            
+            .chat-input-container {
+                padding: 10px 15px; /* 减少输入框容器的内边距 */
+            }
+        }
+        
+        /* 专门针对移动设备的聊天界面优化 */
+        @media (max-width: 480px) {
+            #messagesPage .page-content {
+                padding: 10px; /* 消息页面减少内边距 */
+            }
+            
+            .chat-container {
+                border-radius: 8px;
+                height: calc(100vh - 140px - 80px);
+            }
+            
+            #chatView {
+                padding: 0 !important;
+            }
+            
+            #chatView .chat-container {
+                border-radius: 0;
+                height: calc(100vh - 120px); /* 导航栏隐藏时只需减去顶部区域 */
+                margin: 0;
+                box-shadow: none;
+            }
+            
+            .chat-input {
+                font-size: 16px; /* 防止iOS缩放 */
+            }
+        }
+        
+        /* 解决iOS Safari底部安全区域问题 */
+        @media (max-width: 480px) {
+            .chat-container {
+                padding-bottom: env(safe-area-inset-bottom, 0);
+            }
+            
+            .bottom-nav {
+                padding-bottom: env(safe-area-inset-bottom, 0);
+            }
         }
 
         /* 自定义滚动条 */
@@ -742,14 +1117,55 @@
             <!-- 消息页面 -->
             <div class="page" id="messagesPage">
                 <div class="page-header">
-                    <h2 class="page-title">客服消息</h2>
-                    <p class="page-subtitle">管理所有客服对话</p>
+                    <h2 class="page-title" id="messagesTitle">客服消息</h2>
+                    <p class="page-subtitle" id="messagesSubtitle">管理所有客服对话</p>
+                    <div class="page-actions" id="messagesActions" style="display: none;">
+                        <button class="back-btn tap-feedback" id="messagesBackBtn" onclick="goBackInMessages()">← 返回</button>
+                    </div>
                 </div>
                 <div class="page-content">
-                    <div id="conversationsList">
+                    <!-- 店铺列表视图 -->
+                    <div id="shopsListView">
+                        <div class="loading-state">
+                            <div class="loading-spinner"></div>
+                            <div class="loading-text">正在加载店铺...</div>
+                        </div>
+                    </div>
+                    
+                    <!-- 店铺对话列表视图 -->
+                    <div id="conversationsListView" style="display: none;">
                         <div class="loading-state">
                             <div class="loading-spinner"></div>
                             <div class="loading-text">正在加载对话...</div>
+                        </div>
+                    </div>
+                    
+                    <!-- 聊天对话视图 -->
+                    <div id="chatView" style="display: none;">
+                        <div class="chat-container">
+                            <div class="chat-messages" id="chatMessages">
+                                <!-- 消息列表将在这里动态加载 -->
+                            </div>
+                            <div class="chat-input-container">
+                                <!-- 多媒体按钮 -->
+                                <button id="mediaBtn" class="media-btn tap-feedback" title="发送文件">
+                                    <span class="media-icon">📎</span>
+                                </button>
+                                
+                                <!-- 文本输入框 -->
+                                <input type="text" id="chatInput" class="chat-input" placeholder="输入消息...">
+                                
+                                <!-- 语音按钮 -->
+                                <button id="voiceBtn" class="voice-btn tap-feedback" title="语音消息">
+                                    <span class="voice-icon">🎤</span>
+                                </button>
+                                
+                                <!-- 发送按钮 -->
+                                <button id="sendBtn" class="send-btn tap-feedback">发送</button>
+                                
+                                <!-- 隐藏的文件选择器 -->
+                                <input type="file" id="fileInput" multiple accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.txt" style="display: none;">
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1089,55 +1505,873 @@
             });
         }
 
-        // 加载对话列表
-        async function loadConversations() {
-            const container = document.getElementById('conversationsList');
-            container.innerHTML = `
-                <div class="loading-state">
-                    <div class="loading-spinner"></div>
-                    <div class="loading-text">正在加载对话...</div>
-                </div>
-            `;
-            
-            try {
-                // 模拟API调用
-                conversationsData = await fetchConversations();
+        // 消息模块 - 管理三层结构的消息系统
+        class MessageModule {
+            constructor() {
+                this.currentShopId = null;
+                this.currentConversationId = null;
+                this.currentCustomer = null;
+                this.shops = [];
+                this.conversations = [];
+                this.messages = [];
+                this.websocket = null;
+                this.isRecording = false;
+                this.mediaRecorder = null;
+                this.recordedChunks = [];
+                this.initWebSocket();
+                this.initMediaHandlers();
+            }
+
+            // 初始化WebSocket连接
+            initWebSocket() {
+                if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+                    return;
+                }
+
+                const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
                 
-                if (conversationsData.length === 0) {
+                this.websocket = new WebSocket(wsUrl);
+                
+                this.websocket.onopen = () => {
+                    console.log('WebSocket连接已建立');
+                };
+                
+                this.websocket.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        this.handleWebSocketMessage(data);
+                    } catch (error) {
+                        console.error('WebSocket消息解析错误:', error);
+                    }
+                };
+                
+                this.websocket.onclose = () => {
+                    console.log('WebSocket连接已关闭');
+                    // 3秒后尝试重连
+                    setTimeout(() => this.initWebSocket(), 3000);
+                };
+                
+                this.websocket.onerror = (error) => {
+                    console.error('WebSocket错误:', error);
+                };
+            }
+
+            // 处理WebSocket消息
+            handleWebSocketMessage(data) {
+                switch (data.type || data.msg_type) {
+                    case 'message':
+                        this.handleNewMessage(data);
+                        break;
+                    case 'typing':
+                        this.handleTypingIndicator(data);
+                        break;
+                    case 'conversation_update':
+                        this.loadConversationsForShop(this.currentShopId);
+                        break;
+                }
+            }
+
+            // 处理新消息
+            handleNewMessage(messageData) {
+                if (this.currentConversationId && 
+                    messageData.conversation_id === this.currentConversationId) {
+                    this.messages.push(messageData);
+                    this.renderMessage(messageData);
+                    this.scrollToBottom();
+                }
+                
+                // 更新对话列表中的最后消息
+                this.updateConversationPreview(messageData);
+            }
+
+            // 显示店铺列表
+            async showShops() {
+                try {
+                    const response = await fetch('/api/shops');
+                    const data = await response.json();
+                    
+                    if (data.success && data.data) {
+                        this.shops = data.data;
+                        this.renderShopsList();
+                    } else {
+                        console.error('获取店铺列表失败:', data.error);
+                    }
+                } catch (error) {
+                    console.error('网络错误:', error);
+                }
+            }
+
+            // 渲染店铺列表
+            async renderShopsList() {
+                const container = document.getElementById('shopsListView');
+                container.innerHTML = '';
+
+                if (this.shops.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon">🏪</div>
+                            <h3>暂无店铺</h3>
+                            <p>请先添加店铺以开始接收客服消息</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const shopsGrid = document.createElement('div');
+                shopsGrid.className = 'shop-grid';
+
+                // 为每个店铺异步获取对话统计
+                for (const shop of this.shops) {
+                    const shopCard = await this.createShopCard(shop);
+                    shopsGrid.appendChild(shopCard);
+                }
+
+                container.appendChild(shopsGrid);
+            }
+
+            // 创建单个店铺卡片
+            async createShopCard(shop) {
+                // 获取店铺的对话统计
+                const conversationCount = await this.getShopConversationCount(shop.id);
+                const hasConversations = conversationCount > 0;
+                
+                const shopCard = document.createElement('div');
+                shopCard.className = `shop-card ${!hasConversations ? 'shop-card-inactive' : ''}`;
+                
+                shopCard.innerHTML = `
+                    <div class="shop-header">
+                        <div class="shop-icon">${shop.name.charAt(0)}</div>
+                        <div class="shop-status ${hasConversations ? 'status-active' : 'status-inactive'}">${hasConversations ? '有对话' : '等待中'}</div>
+                    </div>
+                    <div class="shop-name">${shop.name}</div>
+                    <div class="shop-domain">${shop.domain || '未设置域名'}</div>
+                    <div class="shop-stats">
+                        <div class="shop-stat">
+                            <div class="shop-stat-value">${conversationCount}</div>
+                            <div class="shop-stat-label">对话</div>
+                        </div>
+                        <div class="shop-stat">
+                            <div class="shop-stat-value">${shop.unread_count || 0}</div>
+                            <div class="shop-stat-label">未读</div>
+                        </div>
+                    </div>
+                    ${!hasConversations ? `<div class="shop-empty-hint">点击查看详情</div>` : ''}
+                    ${shop.unread_count > 0 ? `<div class="shop-unread-badge">${shop.unread_count}</div>` : ''}
+                `;
+                
+                shopCard.addEventListener('click', async () => {
+                    if (hasConversations) {
+                        this.selectShop(shop);
+                    } else {
+                        // 显示提示信息，但仍然允许进入查看空状态
+                        this.showToast(`店铺 "${shop.name}" 暂无客户对话，等待客户发起对话`, 'info');
+                        this.selectShop(shop); // 仍然可以进入查看空状态
+                    }
+                });
+                
+                return shopCard;
+            }
+
+            // 获取店铺对话数量
+            async getShopConversationCount(shopId) {
+                try {
+                    const response = await fetch(`/api/conversations?shop_id=${shopId}`);
+                    const data = await response.json();
+                    
+                    if (data.success && data.data) {
+                        return data.data.length;
+                    }
+                    return 0;
+                } catch (error) {
+                    console.error('获取店铺对话数量失败:', error);
+                    return 0;
+                }
+            }
+
+            // 选择店铺，显示对话列表
+            async selectShop(shop) {
+                this.currentShopId = shop.id;
+                
+                // 安全地更新DOM元素
+                const backBtn = document.getElementById('messagesBackBtn');
+                const titleElement = document.getElementById('messagesTitle');
+                const actionsElement = document.getElementById('messagesActions');
+                
+                if (backBtn) {
+                    backBtn.textContent = '← 店铺列表';
+                }
+                
+                if (titleElement) {
+                    titleElement.textContent = shop.name + ' - 客户对话';
+                }
+                
+                if (actionsElement) {
+                    actionsElement.style.display = 'block';
+                }
+                
+                this.showView('conversationsListView');
+                await this.loadConversationsForShop(shop.id);
+            }
+
+            // 加载店铺的对话列表
+            async loadConversationsForShop(shopId) {
+                try {
+                    const response = await fetch(`/api/conversations?shop_id=${shopId}`);
+                    const data = await response.json();
+                    
+                    if (data.success && data.data) {
+                        this.conversations = data.data;
+                        this.renderConversationsList();
+                    } else {
+                        console.error('获取对话列表失败:', data.error);
+                    }
+                } catch (error) {
+                    console.error('网络错误:', error);
+                }
+            }
+
+            // 渲染对话列表
+            renderConversationsList() {
+                const container = document.getElementById('conversationsListView');
+                container.innerHTML = '';
+
+                if (this.conversations.length === 0) {
                     container.innerHTML = `
                         <div class="empty-state">
                             <div class="empty-icon">💬</div>
-                            <div class="empty-title">暂无对话</div>
-                            <div class="empty-desc">当有客户发起对话时，它们会出现在这里</div>
+                            <h3>暂无对话</h3>
+                            <p>等待客户发起对话</p>
                         </div>
                     `;
-                } else {
-                    const conversationsHTML = conversationsData.map(conv => `
-                        <div class="conversation-item tap-feedback" onclick="openConversation('${conv.id}')">
-                            <div class="conversation-avatar">${conv.customerName.charAt(0)}</div>
-                            <div class="conversation-info">
-                                <div class="conversation-name">${conv.customerName}</div>
-                                <div class="conversation-message">${conv.lastMessage}</div>
-                            </div>
-                            <div class="conversation-meta">
-                                <div class="conversation-time">${formatTime(conv.lastTime)}</div>
-                                ${conv.unreadCount > 0 ? `<div class="unread-badge">${conv.unreadCount}</div>` : ''}
-                            </div>
-                        </div>
-                    `).join('');
-                    
-                    container.innerHTML = `<div class="conversation-list">${conversationsHTML}</div>`;
+                    return;
                 }
-            } catch (error) {
-                console.error('❌ 加载对话列表失败:', error);
-                container.innerHTML = `
-                    <div class="empty-state">
-                        <div class="empty-icon">❌</div>
-                        <div class="empty-title">加载失败</div>
-                        <div class="empty-desc">无法加载对话列表，请稍后重试</div>
-                    </div>
-                `;
+
+                this.conversations.forEach(conversation => {
+                    const conversationItem = document.createElement('div');
+                    conversationItem.className = 'conversation-item';
+                    
+                    const lastMessageTime = conversation.last_message_time ? 
+                        new Date(conversation.last_message_time).toLocaleString() : '暂无消息';
+                    
+                    conversationItem.innerHTML = `
+                        <div class="conversation-avatar">${conversation.customer_name?.charAt(0) || 'C'}</div>
+                        <div class="conversation-content">
+                            <div class="conversation-header">
+                                <span class="customer-name">${conversation.customer_name || '客户' + conversation.customer_id}</span>
+                                <span class="message-time">${lastMessageTime}</span>
+                            </div>
+                            <div class="last-message">${conversation.last_message || '等待客户消息...'}</div>
+                        </div>
+                        ${conversation.unread_count > 0 ? `<div class="unread-badge">${conversation.unread_count}</div>` : ''}
+                    `;
+                    
+                    conversationItem.addEventListener('click', () => {
+                        this.selectConversation(conversation);
+                    });
+                    
+                    container.appendChild(conversationItem);
+                });
             }
+
+            // 选择对话，进入聊天界面
+            async selectConversation(conversation) {
+                this.currentConversationId = conversation.id;
+                this.currentCustomer = {
+                    id: conversation.customer_id,
+                    name: conversation.customer_name || '客户' + conversation.customer_id
+                };
+                
+                // 安全地更新DOM元素
+                const backBtn = document.getElementById('messagesBackBtn');
+                const titleElement = document.getElementById('messagesTitle');
+                
+                if (backBtn) {
+                    backBtn.textContent = '← 对话列表';
+                }
+                
+                if (titleElement) {
+                    titleElement.textContent = this.currentCustomer.name;
+                }
+                
+                this.showView('chatView');
+                await this.loadMessages(conversation.id);
+                this.focusChatInput();
+            }
+
+            // 加载聊天消息
+            async loadMessages(conversationId) {
+                try {
+                    const response = await fetch(`/api/conversations/${conversationId}/messages`);
+                    const data = await response.json();
+                    
+                    if (data.success && data.data) {
+                        this.messages = data.data;
+                        this.renderMessages();
+                    } else {
+                        console.error('获取消息失败:', data.error);
+                    }
+                } catch (error) {
+                    console.error('网络错误:', error);
+                }
+            }
+
+            // 渲染聊天消息
+            renderMessages() {
+                const container = document.getElementById('chatMessages');
+                container.innerHTML = '';
+
+                this.messages.forEach(message => {
+                    this.renderMessage(message);
+                });
+
+                this.scrollToBottom();
+            }
+
+            // 渲染单条消息
+            renderMessage(message) {
+                const container = document.getElementById('chatMessages');
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `chat-message ${message.sender_type}`;
+                
+                const avatar = message.sender_type === 'customer' ? 
+                    this.currentCustomer.name.charAt(0) : 'A';
+                
+                // 基本消息结构
+                const messageContent = document.createElement('div');
+                messageContent.className = 'message-bubble';
+                
+                // 添加文本内容
+                if (message.content && message.content.trim()) {
+                    const textContent = document.createElement('div');
+                    textContent.textContent = message.content;
+                    messageContent.appendChild(textContent);
+                }
+                
+                // 添加文件内容
+                if (message.files && message.files.length > 0) {
+                    message.files.forEach(file => {
+                        const mediaContent = this.createMediaElement(file);
+                        messageContent.appendChild(mediaContent);
+                    });
+                }
+                
+                messageDiv.innerHTML = `
+                    <div class="message-avatar">${avatar}</div>
+                `;
+                messageDiv.appendChild(messageContent);
+                
+                container.appendChild(messageDiv);
+            }
+
+            // 创建媒体元素
+            createMediaElement(file) {
+                console.log('创建媒体元素:', file);
+                const mediaDiv = document.createElement('div');
+                
+                // 验证URL
+                if (!file.url || file.url === 'undefined') {
+                    console.error('文件URL无效:', file);
+                    mediaDiv.innerHTML = '<p>文件URL无效</p>';
+                    return mediaDiv;
+                }
+                
+                if (file.type.startsWith('image/')) {
+                    // 图片显示
+                    mediaDiv.className = 'message-media';
+                    const img = document.createElement('img');
+                    img.src = file.url;
+                    img.alt = file.name || '图片';
+                    img.onclick = () => this.openImageModal(file.url);
+                    console.log('设置图片src:', file.url);
+                    
+                    // 添加错误处理
+                    img.onerror = () => {
+                        console.error('图片加载失败:', file.url);
+                        img.alt = '图片加载失败';
+                    };
+                    
+                    mediaDiv.appendChild(img);
+                    
+                } else if (file.type.startsWith('audio/')) {
+                    // 音频播放器
+                    mediaDiv.className = 'message-audio';
+                    const audio = document.createElement('audio');
+                    audio.controls = true;
+                    audio.src = file.url;
+                    audio.preload = 'metadata';
+                    mediaDiv.appendChild(audio);
+                    
+                } else if (file.type.startsWith('video/')) {
+                    // 视频播放器
+                    mediaDiv.className = 'message-media';
+                    const video = document.createElement('video');
+                    video.controls = true;
+                    video.src = file.url;
+                    video.style.maxWidth = '100%';
+                    video.style.borderRadius = '8px';
+                    mediaDiv.appendChild(video);
+                    
+                } else {
+                    // 其他文件类型显示为下载链接
+                    mediaDiv.className = 'message-file';
+                    mediaDiv.innerHTML = `
+                        <div class="file-icon">${this.getFileIcon(file.type)}</div>
+                        <div class="file-details">
+                            <div class="file-name">${file.name}</div>
+                            <div class="file-size">${this.formatFileSize(file.size)}</div>
+                        </div>
+                    `;
+                    mediaDiv.onclick = () => window.open(file.url, '_blank');
+                }
+                
+                return mediaDiv;
+            }
+
+            // 打开图片模态框
+            openImageModal(imageSrc) {
+                // 创建模态框
+                const modal = document.createElement('div');
+                modal.style.cssText = `
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0,0,0,0.9);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 1000;
+                `;
+                
+                const img = document.createElement('img');
+                img.src = imageSrc;
+                img.style.cssText = `
+                    max-width: 90%;
+                    max-height: 90%;
+                    object-fit: contain;
+                `;
+                
+                const closeBtn = document.createElement('button');
+                closeBtn.textContent = '×';
+                closeBtn.style.cssText = `
+                    position: absolute;
+                    top: 20px;
+                    right: 20px;
+                    background: rgba(255,255,255,0.8);
+                    border: none;
+                    border-radius: 50%;
+                    width: 40px;
+                    height: 40px;
+                    font-size: 24px;
+                    cursor: pointer;
+                `;
+                
+                closeBtn.onclick = () => document.body.removeChild(modal);
+                modal.onclick = (e) => {
+                    if (e.target === modal) document.body.removeChild(modal);
+                };
+                
+                modal.appendChild(img);
+                modal.appendChild(closeBtn);
+                document.body.appendChild(modal);
+            }
+
+            // 发送消息 - 仅处理文本消息
+            async sendMessage() {
+                const input = document.getElementById('chatInput');
+                const content = input.value.trim();
+                
+                // 只处理文本消息
+                if (!content) return;
+                if (!this.currentConversationId) return;
+
+                const messageData = {
+                    type: 'message',
+                    conversation_id: this.currentConversationId,
+                    content: content,
+                    files: [], // 文本消息不包含文件
+                    sender_type: 'agent',
+                    timestamp: Date.now()
+                };
+
+                // 发送WebSocket消息
+                if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+                    this.websocket.send(JSON.stringify(messageData));
+                }
+
+                // 本地添加消息
+                this.messages.push({
+                    ...messageData,
+                    id: Date.now() // 临时ID
+                });
+                
+                this.renderMessage(messageData);
+                this.scrollToBottom();
+                
+                // 清空输入
+                input.value = '';
+                input.focus();
+            }
+
+            // 上传文件
+            async uploadFile(file) {
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('conversation_id', this.currentConversationId);
+
+                try {
+                    console.log('正在上传文件:', file.name);
+                    const response = await fetch('/api/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const result = await response.json();
+                    console.log('上传API响应:', result);
+                    
+                    if (result.success && result.data && result.data.files && result.data.files.length > 0) {
+                        // 提取第一个文件的URL
+                        const fileInfo = result.data.files[0];
+                        console.log('提取的文件信息:', fileInfo);
+                        return {
+                            success: true,
+                            url: fileInfo.url
+                        };
+                    } else {
+                        console.error('上传失败，响应格式不正确:', result);
+                        throw new Error(result.error || result.message || '上传失败');
+                    }
+                } catch (error) {
+                    console.error('文件上传错误:', error);
+                    return { success: false, error: error.message };
+                }
+            }
+
+            // 显示指定视图
+            showView(viewId) {
+                const views = ['shopsListView', 'conversationsListView', 'chatView'];
+                const bottomNav = document.querySelector('.bottom-nav');
+                
+                views.forEach(id => {
+                    const element = document.getElementById(id);
+                    if (element) {
+                        element.style.display = id === viewId ? 'block' : 'none';
+                    }
+                });
+
+                // 控制底部导航栏的显示/隐藏
+                if (bottomNav) {
+                    if (viewId === 'chatView') {
+                        // 进入聊天界面时隐藏导航栏
+                        bottomNav.classList.add('hidden');
+                    } else {
+                        // 其他界面显示导航栏
+                        bottomNav.classList.remove('hidden');
+                    }
+                }
+            }
+
+            // 返回上一级
+            goBack() {
+                const chatView = document.getElementById('chatView');
+                const conversationsListView = document.getElementById('conversationsListView');
+                const backBtn = document.getElementById('messagesBackBtn');
+                const titleElement = document.getElementById('messagesTitle');
+                const actionsElement = document.getElementById('messagesActions');
+                
+                if (chatView && chatView.style.display === 'block') {
+                    // 从聊天界面返回对话列表
+                    this.showView('conversationsListView');
+                    if (backBtn) {
+                        backBtn.textContent = '← 店铺列表';
+                    }
+                    if (titleElement) {
+                        titleElement.textContent = '客户对话';
+                    }
+                } else if (conversationsListView && conversationsListView.style.display === 'block') {
+                    // 从对话列表返回店铺列表
+                    this.showView('shopsListView');
+                    if (backBtn) {
+                        backBtn.textContent = '← 返回';
+                    }
+                    if (titleElement) {
+                        titleElement.textContent = '消息';
+                    }
+                    if (actionsElement) {
+                        actionsElement.style.display = 'none';
+                    }
+                    this.currentShopId = null;
+                }
+            }
+
+            // 辅助方法
+            scrollToBottom() {
+                const container = document.getElementById('chatMessages');
+                if (container) {
+                    container.scrollTop = container.scrollHeight;
+                }
+            }
+
+            focusChatInput() {
+                setTimeout(() => {
+                    const input = document.getElementById('chatInput');
+                    if (input) input.focus();
+                }, 100);
+            }
+
+            // 初始化多媒体处理器
+            initMediaHandlers() {
+                // 文件选择按钮
+                const mediaBtn = document.getElementById('mediaBtn');
+                const fileInput = document.getElementById('fileInput');
+                const voiceBtn = document.getElementById('voiceBtn');
+
+                if (mediaBtn) {
+                    mediaBtn.addEventListener('click', () => {
+                        if (fileInput) fileInput.click();
+                    });
+                }
+
+                if (fileInput) {
+                    fileInput.addEventListener('change', (e) => {
+                        this.handleFileSelection(e.target.files);
+                        // 重置文件输入，允许重复选择相同文件
+                        e.target.value = '';
+                    });
+                }
+
+                if (voiceBtn) {
+                    voiceBtn.addEventListener('click', () => {
+                        this.toggleVoiceRecording();
+                    });
+                }
+            }
+
+            // 处理文件选择 - 直接发送
+            async handleFileSelection(files) {
+                if (!files || files.length === 0) return;
+                if (!this.currentConversationId) {
+                    this.showToast('请先选择一个对话', 'error');
+                    return;
+                }
+
+                this.showToast('正在发送文件...', 'info');
+
+                const fileArray = Array.from(files);
+                
+                // 逐个发送文件
+                for (const file of fileArray) {
+                    await this.sendFileDirectly(file);
+                }
+            }
+
+            // 直接发送单个文件
+            async sendFileDirectly(file) {
+                try {
+                    // 上传文件
+                    const uploadResult = await this.uploadFile(file);
+                    if (!uploadResult.success) {
+                        this.showToast(`${file.name} 上传失败`, 'error');
+                        return;
+                    }
+
+                    // 构建文件消息数据
+                    const fileInfo = {
+                        url: uploadResult.url,
+                        type: file.type,
+                        name: file.name,
+                        size: file.size
+                    };
+
+                    // 调试输出
+                    console.log('发送文件信息:', fileInfo);
+
+                    const messageData = {
+                        type: 'message',
+                        conversation_id: this.currentConversationId,
+                        content: '', // 纯文件消息，内容为空
+                        files: [fileInfo],
+                        sender_type: 'agent',
+                        timestamp: Date.now()
+                    };
+
+                    // 发送WebSocket消息
+                    if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+                        this.websocket.send(JSON.stringify(messageData));
+                    }
+
+                    // 本地添加消息
+                    this.messages.push({
+                        ...messageData,
+                        id: Date.now() + Math.random() // 避免ID冲突
+                    });
+                    
+                    this.renderMessage(messageData);
+                    this.scrollToBottom();
+                    
+                    this.showToast(`${file.name} 发送成功`, 'success');
+                } catch (error) {
+                    console.error('文件发送失败:', error);
+                    this.showToast(`${file.name} 发送失败`, 'error');
+                }
+            }
+
+            // 获取文件图标
+            getFileIcon(mimeType) {
+                if (mimeType.startsWith('image/')) return '🖼️';
+                if (mimeType.startsWith('audio/')) return '🎵';
+                if (mimeType.startsWith('video/')) return '🎥';
+                if (mimeType.includes('pdf')) return '📄';
+                if (mimeType.includes('word') || mimeType.includes('document')) return '📝';
+                if (mimeType.includes('text')) return '📃';
+                return '📁';
+            }
+
+            // 格式化文件大小
+            formatFileSize(bytes) {
+                if (bytes === 0) return '0 Bytes';
+                const k = 1024;
+                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+            }
+
+            // 切换语音录制
+            async toggleVoiceRecording() {
+                const voiceBtn = document.getElementById('voiceBtn');
+                const voiceIcon = voiceBtn?.querySelector('.voice-icon');
+
+                if (!this.isRecording) {
+                    await this.startVoiceRecording();
+                    if (voiceBtn) voiceBtn.classList.add('recording');
+                    if (voiceIcon) voiceIcon.textContent = '⏹️';
+                } else {
+                    this.stopVoiceRecording();
+                    if (voiceBtn) voiceBtn.classList.remove('recording');
+                    if (voiceIcon) voiceIcon.textContent = '🎤';
+                }
+            }
+
+            // 开始语音录制
+            async startVoiceRecording() {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    this.mediaRecorder = new MediaRecorder(stream);
+                    this.recordedChunks = [];
+
+                    this.mediaRecorder.ondataavailable = (event) => {
+                        if (event.data.size > 0) {
+                            this.recordedChunks.push(event.data);
+                        }
+                    };
+
+                    this.mediaRecorder.onstop = async () => {
+                        const blob = new Blob(this.recordedChunks, { type: 'audio/wav' });
+                        const file = new File([blob], `语音消息_${Date.now()}.wav`, { type: 'audio/wav' });
+                        
+                        // 直接发送语音文件
+                        await this.sendFileDirectly(file);
+                        
+                        // 停止所有音轨
+                        stream.getTracks().forEach(track => track.stop());
+                    };
+
+                    this.mediaRecorder.start();
+                    this.isRecording = true;
+                    this.showToast('开始录音...', 'info');
+                } catch (error) {
+                    console.error('录音启动失败:', error);
+                    this.showToast('录音功能不可用', 'error');
+                }
+            }
+
+            // 停止语音录制
+            stopVoiceRecording() {
+                if (this.mediaRecorder && this.isRecording) {
+                    this.mediaRecorder.stop();
+                    this.isRecording = false;
+                    this.showToast('录音完成', 'success');
+                }
+            }
+
+            // 显示提示消息
+            showToast(message, type = 'info') {
+                // 创建toast元素
+                const toast = document.createElement('div');
+                toast.className = `toast toast-${type}`;
+                toast.textContent = message;
+                
+                // 添加样式
+                Object.assign(toast.style, {
+                    position: 'fixed',
+                    top: '20px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    backgroundColor: type === 'info' ? '#17a2b8' : type === 'error' ? '#dc3545' : '#28a745',
+                    color: 'white',
+                    padding: '12px 20px',
+                    borderRadius: '8px',
+                    zIndex: '9999',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                    opacity: '0',
+                    transition: 'opacity 0.3s ease'
+                });
+                
+                document.body.appendChild(toast);
+                
+                // 显示动画
+                setTimeout(() => {
+                    toast.style.opacity = '1';
+                }, 100);
+                
+                // 3秒后自动消失
+                setTimeout(() => {
+                    toast.style.opacity = '0';
+                    setTimeout(() => {
+                        if (toast.parentNode) {
+                            toast.parentNode.removeChild(toast);
+                        }
+                    }, 300);
+                }, 3000);
+            }
+
+            updateConversationPreview(messageData) {
+                // 更新对话列表中的预览信息
+                if (this.conversations.length > 0) {
+                    this.loadConversationsForShop(this.currentShopId);
+                }
+            }
+        }
+
+        // 创建消息模块实例
+        let messageModule;
+
+        // 加载对话列表
+        async function loadConversations() {
+            // 初始化消息模块（如果还没有创建）
+            if (!messageModule) {
+                messageModule = new MessageModule();
+            }
+            
+            // 重置页面状态 
+            const backBtn = document.getElementById('messagesBackBtn');
+            const titleElement = document.getElementById('messagesTitle');
+            const actionsElement = document.getElementById('messagesActions');
+            
+            if (titleElement) {
+                titleElement.textContent = '消息';
+            }
+            
+            if (actionsElement) {
+                actionsElement.style.display = 'none';
+            }
+            
+            // 显示店铺列表作为消息页面的入口
+            messageModule.showShops();
         }
 
         // 获取对话列表
@@ -1364,6 +2598,38 @@
                 window.location.reload();
             }
         }
+
+        // 消息页面相关全局函数
+        function goBackInMessages() {
+            if (messageModule) {
+                messageModule.goBack();
+            }
+        }
+
+        function sendMessage() {
+            if (messageModule) {
+                messageModule.sendMessage();
+            }
+        }
+
+        // 添加键盘事件监听
+        document.addEventListener('DOMContentLoaded', function() {
+            const chatInput = document.getElementById('chatInput');
+            const sendBtn = document.getElementById('sendBtn');
+            
+            if (chatInput) {
+                chatInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        sendMessage();
+                    }
+                });
+            }
+            
+            if (sendBtn) {
+                sendBtn.addEventListener('click', sendMessage);
+            }
+        });
 
         // 防止页面滚动回弹
         document.body.addEventListener('touchmove', function(e) {
