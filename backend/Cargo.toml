@@ -2,27 +2,17 @@
 name = "quicktalk-rust"
 version = "0.1.0"
 edition = "2021"
+description = "QuickTalk Customer Service System - Pure Rust Implementation"
 
-# 支持独立模式编译
-[[bin]]
-name = "quicktalk-rust"
-path = "src/main.rs"
-
-[[bin]]
-name = "quicktalk-standalone"
-path = "src/main-standalone.rs"
-
-[features]
-default = ["hybrid"]
-standalone = []
-hybrid = []
+# 单一二进制入口点 - 简化配置
+# 使用 cargo run 直接运行主程序
 
 [dependencies]
 tokio = { version = "1.0", features = ["full"] }
 axum = { version = "0.7", features = ["ws", "multipart"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite"] }
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite", "chrono"] }
 tower = "0.4"
 tower-http = { version = "0.5", features = ["cors", "fs", "trace"] }
 uuid = { version = "1.0", features = ["v4"] }
