@@ -43,6 +43,15 @@ pub struct Shop {
     pub api_key: String,
     pub status: String,
     pub created_at: Option<DateTime<Utc>>,
+    // 支付和订阅相关字段
+    pub payment_status: Option<String>,
+    pub subscription_type: Option<String>,
+    pub subscription_status: Option<String>,
+    pub subscription_expires_at: Option<DateTime<Utc>>,
+    // 联系信息
+    pub contact_email: Option<String>,
+    pub contact_phone: Option<String>,
+    pub contact_info: Option<String>, // 组合后的联系信息
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -170,6 +179,66 @@ pub struct CreateConversationRequest {
 pub struct LoginRequest {
     pub username: String,
     pub password: String,
+}
+
+// 支付相关结构体
+#[derive(Serialize, Deserialize, Clone)]
+pub struct PaymentOrder {
+    pub id: String,
+    pub shop_id: String,
+    pub order_number: String,
+    pub amount: f64,
+    pub currency: String,
+    pub payment_method: String, // 'alipay', 'wechat'
+    pub payment_status: String, // 'pending', 'paid', 'failed', 'expired'
+    pub qr_code_url: Option<String>,
+    pub payment_url: Option<String>,
+    pub third_party_order_id: Option<String>,
+    pub subscription_type: String, // 'basic', 'standard', 'premium'
+    pub subscription_duration: i32,
+    pub expires_at: DateTime<Utc>,
+    pub paid_at: Option<DateTime<Utc>>,
+    pub created_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct SubscriptionPlan {
+    pub id: String,
+    pub name: String,
+    pub plan_type: String,
+    pub price: f64,
+    pub duration: i32,
+    pub max_customers: Option<i32>,
+    pub max_agents: Option<i32>,
+    pub features: String, // JSON字符串
+    pub is_active: bool,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct CreateShopRequest {
+    pub name: String,
+    pub domain: Option<String>,
+    pub contact_email: String,
+    pub contact_phone: Option<String>,
+    pub business_license: Option<String>,
+    pub subscription_type: String, // 'basic', 'standard', 'premium'
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct CreatePaymentOrderRequest {
+    pub shop_id: String,
+    pub payment_method: String, // 'alipay', 'wechat'
+    pub subscription_type: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct PaymentNotification {
+    pub order_id: String,
+    pub payment_method: String,
+    pub status: String,
+    pub transaction_id: Option<String>,
+    pub amount: Option<f64>,
+    pub paid_at: Option<DateTime<Utc>>,
 }
 
 // 主页路由 - 纯静态HTML文件 (DDD: Presentation Layer)
@@ -564,7 +633,7 @@ pub async fn health_check() -> Json<ApiResponse<serde_json::Value>> {
 
 // 商店管理
 pub async fn get_shops(State(state): State<Arc<AppState>>) -> Result<Json<ApiResponse<Vec<Shop>>>, StatusCode> {
-    match sqlx::query("SELECT id, name, domain, api_key, status, created_at FROM shops ORDER BY created_at DESC")
+    match sqlx::query("SELECT id, name, domain, api_key, status, payment_status, subscription_type, subscription_status, subscription_expires_at, contact_email, contact_phone, created_at FROM shops ORDER BY created_at DESC")
         .fetch_all(&state.db)
         .await
     {
@@ -578,6 +647,22 @@ pub async fn get_shops(State(state): State<Arc<AppState>>) -> Result<Json<ApiRes
                     api_key: row.get("api_key"),
                     status: row.get("status"),
                     created_at: row.get("created_at"),
+                    payment_status: row.try_get("payment_status").ok(),
+                    subscription_type: row.try_get("subscription_type").ok(),
+                    subscription_status: row.try_get("subscription_status").ok(),
+                    subscription_expires_at: row.try_get("subscription_expires_at").ok(),
+                    contact_email: row.try_get("contact_email").ok(),
+                    contact_phone: row.try_get("contact_phone").ok(),
+                    contact_info: {
+                        let email: Option<String> = row.try_get("contact_email").ok();
+                        let phone: Option<String> = row.try_get("contact_phone").ok();
+                        match (email, phone) {
+                            (Some(e), Some(p)) => Some(format!("{} / {}", e, p)),
+                            (Some(e), None) => Some(e),
+                            (None, Some(p)) => Some(p),
+                            (None, None) => None,
+                        }
+                    },
                 })
                 .collect();
 
@@ -596,45 +681,421 @@ pub async fn get_shops(State(state): State<Arc<AppState>>) -> Result<Json<ApiRes
 
 pub async fn create_shop(
     State(state): State<Arc<AppState>>,
-    Json(shop_data): Json<serde_json::Value>,
-) -> Result<Json<ApiResponse<Shop>>, StatusCode> {
+    Json(shop_data): Json<CreateShopRequest>,
+) -> Result<Json<ApiResponse<PaymentOrder>>, StatusCode> {
     let shop_id = Uuid::new_v4().to_string();
     let api_key = Uuid::new_v4().to_string();
     
-    let name = shop_data.get("name").and_then(|v| v.as_str()).unwrap_or("Unknown Shop");
-    let domain = shop_data.get("domain").and_then(|v| v.as_str()).unwrap_or("");
-    
-    match sqlx::query(
-        "INSERT INTO shops (id, name, domain, api_key, status, created_at) VALUES (?, ?, ?, ?, ?, ?)"
+    // 首先创建pending状态的店铺
+    let insert_result = sqlx::query(
+        "INSERT INTO shops (id, name, domain, api_key, status, payment_status, subscription_type, contact_email, contact_phone, business_license, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     )
     .bind(&shop_id)
-    .bind(name)
-    .bind(domain)
+    .bind(&shop_data.name)
+    .bind(shop_data.domain.as_deref().unwrap_or(""))
     .bind(&api_key)
-    .bind("active")
+    .bind("pending") // 状态为pending，需要支付后激活
+    .bind("unpaid")
+    .bind(&shop_data.subscription_type)
+    .bind(&shop_data.contact_email)
+    .bind(shop_data.contact_phone.as_deref())
+    .bind(shop_data.business_license.as_deref())
     .bind(Utc::now())
     .execute(&state.db)
-    .await
-    {
+    .await;
+    
+    match insert_result {
         Ok(_) => {
+            // 创建支付订单 - 默认使用支付宝
+            let payment_order = create_payment_order_internal(
+                &state,
+                &shop_id,
+                "alipay",
+                &shop_data.subscription_type
+            ).await;
+            
+            match payment_order {
+                Ok(order) => {
+                    info!("Shop {} created with payment order {}", shop_id, order.id);
+                    Ok(Json(ApiResponse {
+                        success: true,
+                        data: Some(order),
+                        message: "Shop created successfully, please complete payment".to_string(),
+                    }))
+                }
+                Err(e) => {
+                    warn!("Failed to create payment order: {}", e);
+                    // 如果支付订单创建失败，删除刚创建的店铺
+                    let _ = sqlx::query("DELETE FROM shops WHERE id = ?")
+                        .bind(&shop_id)
+                        .execute(&state.db)
+                        .await;
+                    Err(StatusCode::INTERNAL_SERVER_ERROR)
+                }
+            }
+        }
+        Err(e) => {
+            warn!("Failed to create shop: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}
+
+// 支付相关函数
+// 获取订阅套餐列表
+pub async fn get_subscription_plans(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<ApiResponse<Vec<SubscriptionPlan>>>, StatusCode> {
+    match sqlx::query("SELECT id, name, type, price, duration, max_customers, max_agents, features, is_active FROM subscription_plans WHERE is_active = true ORDER BY price ASC")
+        .fetch_all(&state.db)
+        .await
+    {
+        Ok(rows) => {
+            let plans: Vec<SubscriptionPlan> = rows
+                .iter()
+                .map(|row| SubscriptionPlan {
+                    id: row.get("id"),
+                    name: row.get("name"),
+                    plan_type: row.get("type"),
+                    price: row.get("price"),
+                    duration: row.get("duration"),
+                    max_customers: row.try_get("max_customers").ok(),
+                    max_agents: row.try_get("max_agents").ok(),
+                    features: row.get("features"),
+                    is_active: row.get("is_active"),
+                })
+                .collect();
+
+            Ok(Json(ApiResponse {
+                success: true,
+                data: Some(plans),
+                message: "Subscription plans retrieved successfully".to_string(),
+            }))
+        }
+        Err(e) => {
+            warn!("Failed to get subscription plans: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}
+
+// 创建支付订单
+pub async fn create_payment_order(
+    State(state): State<Arc<AppState>>,
+    Json(request): Json<CreatePaymentOrderRequest>,
+) -> Result<Json<ApiResponse<PaymentOrder>>, StatusCode> {
+    let order = create_payment_order_internal(&state, &request.shop_id, &request.payment_method, &request.subscription_type).await;
+    
+    match order {
+        Ok(payment_order) => {
+            Ok(Json(ApiResponse {
+                success: true,
+                data: Some(payment_order),
+                message: "Payment order created successfully".to_string(),
+            }))
+        }
+        Err(e) => {
+            warn!("Failed to create payment order: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}
+
+// 内部创建支付订单函数
+async fn create_payment_order_internal(
+    state: &Arc<AppState>,
+    shop_id: &str,
+    payment_method: &str,
+    subscription_type: &str,
+) -> Result<PaymentOrder, sqlx::Error> {
+    // 获取套餐价格
+    let plan = sqlx::query("SELECT price, duration FROM subscription_plans WHERE type = ? AND is_active = true")
+        .bind(subscription_type)
+        .fetch_one(&state.db)
+        .await?;
+    
+    let price: f64 = plan.get("price");
+    let duration: i32 = plan.get("duration");
+    
+    let order_id = Uuid::new_v4().to_string();
+    let order_number = format!("QT{}{}", Utc::now().format("%Y%m%d%H%M%S"), &order_id[..8]);
+    let expires_at = Utc::now() + chrono::Duration::hours(2); // 订单2小时后过期
+    
+    // 生成模拟的支付二维码URL和支付URL
+    let qr_code_url = generate_payment_qr_code(payment_method, &order_number, price);
+    let payment_url = format!("/payment/{}/pay", order_id);
+    
+    sqlx::query(
+        "INSERT INTO payment_orders (id, shop_id, order_number, amount, currency, payment_method, payment_status, qr_code_url, payment_url, subscription_type, subscription_duration, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    )
+    .bind(&order_id)
+    .bind(shop_id)
+    .bind(&order_number)
+    .bind(price)
+    .bind("CNY")
+    .bind(payment_method)
+    .bind("pending")
+    .bind(&qr_code_url)
+    .bind(&payment_url)
+    .bind(subscription_type)
+    .bind(duration)
+    .bind(expires_at)
+    .bind(Utc::now())
+    .execute(&state.db)
+    .await?;
+    
+    Ok(PaymentOrder {
+        id: order_id,
+        shop_id: shop_id.to_string(),
+        order_number,
+        amount: price,
+        currency: "CNY".to_string(),
+        payment_method: payment_method.to_string(),
+        payment_status: "pending".to_string(),
+        qr_code_url: Some(qr_code_url),
+        payment_url: Some(payment_url),
+        third_party_order_id: None,
+        subscription_type: subscription_type.to_string(),
+        subscription_duration: duration,
+        expires_at,
+        paid_at: None,
+        created_at: Some(Utc::now()),
+    })
+}
+
+// 生成支付二维码URL（模拟）
+fn generate_payment_qr_code(payment_method: &str, order_number: &str, amount: f64) -> String {
+    match payment_method {
+        "alipay" => format!("https://qr.alipay.com/mock?order={}&amount={}", order_number, amount),
+        "wechat" => format!("weixin://wxpay/bizpayurl?order={}&amount={}", order_number, amount),
+        _ => format!("https://payment.mock.com/qr?order={}&amount={}", order_number, amount),
+    }
+}
+
+// 查询支付订单状态
+pub async fn get_payment_order(
+    State(state): State<Arc<AppState>>,
+    Path(order_id): Path<String>,
+) -> Result<Json<ApiResponse<PaymentOrder>>, StatusCode> {
+    match sqlx::query("SELECT * FROM payment_orders WHERE id = ?")
+        .bind(&order_id)
+        .fetch_one(&state.db)
+        .await
+    {
+        Ok(row) => {
+            let order = PaymentOrder {
+                id: row.get("id"),
+                shop_id: row.get("shop_id"),
+                order_number: row.get("order_number"),
+                amount: row.get("amount"),
+                currency: row.get("currency"),
+                payment_method: row.get("payment_method"),
+                payment_status: row.get("payment_status"),
+                qr_code_url: row.try_get("qr_code_url").ok(),
+                payment_url: row.try_get("payment_url").ok(),
+                third_party_order_id: row.try_get("third_party_order_id").ok(),
+                subscription_type: row.get("subscription_type"),
+                subscription_duration: row.get("subscription_duration"),
+                expires_at: row.get("expires_at"),
+                paid_at: row.try_get("paid_at").ok(),
+                created_at: row.try_get("created_at").ok(),
+            };
+            
+            Ok(Json(ApiResponse {
+                success: true,
+                data: Some(order),
+                message: "Payment order retrieved successfully".to_string(),
+            }))
+        }
+        Err(e) => {
+            warn!("Failed to get payment order: {}", e);
+            Err(StatusCode::NOT_FOUND)
+        }
+    }
+}
+
+// 模拟支付成功（用于测试）
+pub async fn simulate_payment_success(
+    State(state): State<Arc<AppState>>,
+    Path(order_id): Path<String>,
+) -> Result<Json<ApiResponse<()>>, StatusCode> {
+    let mut tx = state.db.begin().await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    
+    // 更新支付订单状态
+    let update_result = sqlx::query("UPDATE payment_orders SET payment_status = 'paid', paid_at = ? WHERE id = ? AND payment_status = 'pending'")
+        .bind(Utc::now())
+        .bind(&order_id)
+        .execute(&mut *tx)
+        .await;
+    
+    match update_result {
+        Ok(result) if result.rows_affected() > 0 => {
+            // 获取订单信息
+            let order = sqlx::query("SELECT shop_id, subscription_type, subscription_duration FROM payment_orders WHERE id = ?")
+                .bind(&order_id)
+                .fetch_one(&mut *tx)
+                .await;
+            
+            match order {
+                Ok(row) => {
+                    let shop_id: String = row.get("shop_id");
+                    let subscription_type: String = row.get("subscription_type");
+                    let subscription_duration: i32 = row.get("subscription_duration");
+                    
+                    // 激活店铺
+                    let subscription_expires_at = Utc::now() + chrono::Duration::days((subscription_duration * 30) as i64);
+                    
+                    sqlx::query("UPDATE shops SET status = 'active', payment_status = 'paid', subscription_expires_at = ? WHERE id = ?")
+                        .bind(subscription_expires_at)
+                        .bind(&shop_id)
+                        .execute(&mut *tx)
+                        .await
+                        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+                    
+                    tx.commit().await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+                    
+                    info!("Payment successful for order {}, shop {} activated", order_id, shop_id);
+                    
+                    Ok(Json(ApiResponse {
+                        success: true,
+                        data: Some(()),
+                        message: "Payment processed successfully, shop activated".to_string(),
+                    }))
+                }
+                Err(e) => {
+                    warn!("Failed to get order details: {}", e);
+                    tx.rollback().await.ok();
+                    Err(StatusCode::INTERNAL_SERVER_ERROR)
+                }
+            }
+        }
+        Ok(_) => {
+            tx.rollback().await.ok();
+            Err(StatusCode::NOT_FOUND)
+        }
+        Err(e) => {
+            warn!("Failed to update payment order: {}", e);
+            tx.rollback().await.ok();
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}
+
+// 获取单个店铺信息
+pub async fn get_shop_by_id(
+    State(state): State<Arc<AppState>>,
+    Path(shop_id): Path<String>,
+) -> Result<Json<ApiResponse<Shop>>, StatusCode> {
+    match sqlx::query("SELECT id, name, domain, api_key, status, payment_status, subscription_type, subscription_status, subscription_expires_at, contact_email, contact_phone, created_at FROM shops WHERE id = ?")
+        .bind(&shop_id)
+        .fetch_one(&state.db)
+        .await
+    {
+        Ok(row) => {
             let shop = Shop {
-                id: shop_id,
-                name: name.to_string(),
-                domain: domain.to_string(),
-                api_key,
-                status: "active".to_string(),
-                created_at: Some(Utc::now()),
+                id: row.get("id"),
+                name: row.get("name"),
+                domain: row.get("domain"),
+                api_key: row.get("api_key"),
+                status: row.get("status"),
+                created_at: row.get("created_at"),
+                // 为了兼容，先检查字段是否存在
+                payment_status: row.try_get("payment_status").ok(),
+                subscription_type: row.try_get("subscription_type").ok(),
+                subscription_status: row.try_get("subscription_status").ok(),
+                subscription_expires_at: row.try_get("subscription_expires_at").ok(),
+                contact_email: row.try_get("contact_email").ok(),
+                contact_phone: row.try_get("contact_phone").ok(),
+                contact_info: None, // 这个字段可能是前端计算的
             };
             
             Ok(Json(ApiResponse {
                 success: true,
                 data: Some(shop),
-                message: "Shop created successfully".to_string(),
+                message: "Shop retrieved successfully".to_string(),
             }))
         }
         Err(e) => {
-            warn!("Failed to create shop: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
+            warn!("Failed to get shop: {}", e);
+            Err(StatusCode::NOT_FOUND)
+        }
+    }
+}
+
+#[derive(Deserialize)]
+pub struct ShopLoginRequest {
+    pub domain: String,
+    pub admin_password: String,
+}
+
+// 店铺登录
+pub async fn shop_login(
+    State(state): State<Arc<AppState>>,
+    Json(login_data): Json<ShopLoginRequest>,
+) -> Result<Json<ApiResponse<Shop>>, StatusCode> {
+    // 根据域名查找店铺
+    match sqlx::query("SELECT id, name, domain, api_key, status, payment_status, subscription_type, subscription_status, subscription_expires_at, contact_email, contact_phone, admin_password, created_at FROM shops WHERE domain = ?")
+        .bind(&login_data.domain)
+        .fetch_one(&state.db)
+        .await
+    {
+        Ok(row) => {
+            let stored_password: Option<String> = row.try_get("admin_password").ok();
+            
+            // 验证密码
+            if let Some(stored_pwd) = stored_password {
+                if stored_pwd == login_data.admin_password {
+                    let shop = Shop {
+                        id: row.get("id"),
+                        name: row.get("name"),
+                        domain: row.get("domain"),
+                        api_key: row.get("api_key"),
+                        status: row.get("status"),
+                        created_at: row.get("created_at"),
+                        payment_status: row.try_get("payment_status").ok(),
+                        subscription_type: row.try_get("subscription_type").ok(),
+                        subscription_status: row.try_get("subscription_status").ok(),
+                        subscription_expires_at: row.try_get("subscription_expires_at").ok(),
+                        contact_email: row.try_get("contact_email").ok(),
+                        contact_phone: row.try_get("contact_phone").ok(),
+                        contact_info: {
+                            let email: Option<String> = row.try_get("contact_email").ok();
+                            let phone: Option<String> = row.try_get("contact_phone").ok();
+                            match (email, phone) {
+                                (Some(e), Some(p)) => Some(format!("{} / {}", e, p)),
+                                (Some(e), None) => Some(e),
+                                (None, Some(p)) => Some(p),
+                                (None, None) => None,
+                            }
+                        },
+                    };
+                    
+                    Ok(Json(ApiResponse {
+                        success: true,
+                        data: Some(shop),
+                        message: "Login successful".to_string(),
+                    }))
+                } else {
+                    Ok(Json(ApiResponse {
+                        success: false,
+                        data: None,
+                        message: "密码错误".to_string(),
+                    }))
+                }
+            } else {
+                Ok(Json(ApiResponse {
+                    success: false,
+                    data: None,
+                    message: "店铺密码未设置".to_string(),
+                }))
+            }
+        }
+        Err(_) => {
+            Ok(Json(ApiResponse {
+                success: false,
+                data: None,
+                message: "店铺域名不存在".to_string(),
+            }))
         }
     }
 }
@@ -2448,11 +2909,20 @@ pub async fn create_app(db: SqlitePool) -> Router {
         
         // 商店管理 API
         .route("/api/shops", get(get_shops).post(create_shop))
-        .route("/api/shops/:id", put(update_shop))
+        .route("/api/shops/:id", get(get_shop_by_id).put(update_shop))
         .route("/api/shops/:id/approve", post(approve_shop))
         .route("/api/shops/:id/reject", post(reject_shop))
         .route("/api/shops/:id/activate", post(activate_shop))
         .route("/api/shops/:id/deactivate", post(deactivate_shop))
+        
+        // 店铺登录 API
+        .route("/api/shop-login", post(shop_login))
+        
+        // 支付相关 API
+        .route("/api/subscription-plans", get(get_subscription_plans))
+        .route("/api/payment-orders", post(create_payment_order))
+        .route("/api/payment-orders/:order_id", get(get_payment_order))
+        .route("/api/payment-orders/:order_id/simulate-success", post(simulate_payment_success))
         
         // 员工管理 API
         .route("/api/shops/:shop_id/employees", get(get_employees).post(add_employee))
@@ -2508,7 +2978,13 @@ async fn initialize_database(db: &SqlitePool) -> Result<(), sqlx::Error> {
             name TEXT NOT NULL,
             domain TEXT NOT NULL,
             api_key TEXT NOT NULL UNIQUE,
-            status TEXT DEFAULT 'active',
+            status TEXT DEFAULT 'pending',
+            payment_status TEXT DEFAULT 'unpaid',
+            subscription_type TEXT DEFAULT 'basic',
+            subscription_expires_at DATETIME,
+            contact_email TEXT,
+            contact_phone TEXT,
+            business_license TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
         "#
@@ -2580,6 +3056,113 @@ async fn initialize_database(db: &SqlitePool) -> Result<(), sqlx::Error> {
     sqlx::query("CREATE INDEX IF NOT EXISTS idx_conversations_shop_id ON conversations(shop_id)").execute(db).await?;
     sqlx::query("CREATE INDEX IF NOT EXISTS idx_conversations_updated_at ON conversations(updated_at)").execute(db).await?;
     
+    // 创建支付相关表
+    // 支付订单表
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS payment_orders (
+            id TEXT PRIMARY KEY,
+            shop_id TEXT NOT NULL,
+            order_number TEXT NOT NULL UNIQUE,
+            amount REAL NOT NULL,
+            currency TEXT DEFAULT 'CNY',
+            payment_method TEXT NOT NULL,
+            payment_status TEXT DEFAULT 'pending',
+            qr_code_url TEXT,
+            payment_url TEXT,
+            third_party_order_id TEXT,
+            subscription_type TEXT NOT NULL,
+            subscription_duration INTEGER DEFAULT 12,
+            expires_at DATETIME NOT NULL,
+            paid_at DATETIME,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (shop_id) REFERENCES shops(id)
+        )
+        "#
+    ).execute(db).await?;
+    
+    // 订阅套餐表
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS subscription_plans (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            type TEXT NOT NULL UNIQUE,
+            price REAL NOT NULL,
+            duration INTEGER NOT NULL,
+            max_customers INTEGER,
+            max_agents INTEGER,
+            features TEXT,
+            is_active BOOLEAN DEFAULT true,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+        "#
+    ).execute(db).await?;
+    
+    // 支付配置表
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS payment_configs (
+            id TEXT PRIMARY KEY,
+            payment_method TEXT NOT NULL UNIQUE,
+            app_id TEXT NOT NULL,
+            merchant_id TEXT NOT NULL,
+            private_key TEXT NOT NULL,
+            public_key TEXT,
+            app_secret TEXT,
+            notify_url TEXT,
+            return_url TEXT,
+            is_sandbox BOOLEAN DEFAULT true,
+            is_active BOOLEAN DEFAULT true,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+        "#
+    ).execute(db).await?;
+    
+    // 支付通知记录表
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS payment_notifications (
+            id TEXT PRIMARY KEY,
+            order_id TEXT NOT NULL,
+            payment_method TEXT NOT NULL,
+            notification_data TEXT NOT NULL,
+            status TEXT NOT NULL,
+            processed_at DATETIME,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (order_id) REFERENCES payment_orders(id)
+        )
+        "#
+    ).execute(db).await?;
+    
+    // 创建支付相关索引
+    sqlx::query("CREATE INDEX IF NOT EXISTS idx_payment_orders_shop_id ON payment_orders(shop_id)").execute(db).await?;
+    sqlx::query("CREATE INDEX IF NOT EXISTS idx_payment_orders_status ON payment_orders(payment_status)").execute(db).await?;
+    sqlx::query("CREATE INDEX IF NOT EXISTS idx_payment_orders_created_at ON payment_orders(created_at)").execute(db).await?;
+    sqlx::query("CREATE INDEX IF NOT EXISTS idx_payment_notifications_order_id ON payment_notifications(order_id)").execute(db).await?;
+    
+    // 插入默认订阅套餐
+    sqlx::query(
+        r#"
+        INSERT OR IGNORE INTO subscription_plans (id, name, type, price, duration, max_customers, max_agents, features) VALUES 
+        ('plan_basic', '基础版', 'basic', 99.00, 12, 100, 2, '{"features": ["基础客服功能", "最多2个客服", "最多100个客户", "基础数据统计"]}'),
+        ('plan_standard', '标准版', 'standard', 299.00, 12, 500, 10, '{"features": ["完整客服功能", "最多10个客服", "最多500个客户", "高级数据分析", "员工管理", "API接口"]}'),
+        ('plan_premium', '高级版', 'premium', 599.00, 12, NULL, NULL, '{"features": ["全部功能", "无限客服", "无限客户", "高级数据分析", "员工管理", "API接口", "自定义品牌", "优先技术支持"]}')
+        "#
+    ).execute(db).await?;
+    
+    // 插入测试支付配置
+    sqlx::query(
+        r#"
+        INSERT OR IGNORE INTO payment_configs (id, payment_method, app_id, merchant_id, private_key, public_key, notify_url, return_url, is_sandbox) VALUES 
+        ('config_alipay', 'alipay', 'sandbox_app_id', 'sandbox_merchant_id', 'sandbox_private_key', 'sandbox_public_key', '/api/payments/notify/alipay', '/api/payments/return/alipay', true),
+        ('config_wechat', 'wechat', 'sandbox_app_id', 'sandbox_mch_id', 'sandbox_key', '', '/api/payments/notify/wechat', '/api/payments/return/wechat', true)
+        "#
+    ).execute(db).await?;
+
     info!("Database schema initialized successfully");
     Ok(())
 }
