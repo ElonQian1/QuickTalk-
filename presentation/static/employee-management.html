@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>员工管理 - QuickTalk</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #f1f3f4;
+        }
+
+        .header h1 {
+            color: #2c3e50;
+            font-size: 28px;
+            font-weight: 600;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5a6fd8;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .search-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+        }
+
+        .search-form {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .form-group.flex-1 {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .form-group label {
+            font-size: 12px;
+            font-weight: 500;
+            color: #6c757d;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-control {
+            padding: 10px 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #f1f3f4;
+        }
+
+        .tab {
+            padding: 12px 24px;
+            background: none;
+            border: none;
+            font-size: 14px;
+            font-weight: 500;
+            color: #6c757d;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .employee-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .employee-card {
+            background: white;
+            border: 2px solid #f1f3f4;
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .employee-card:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+        }
+
+        .employee-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+
+        .employee-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 18px;
+        }
+
+        .employee-info h3 {
+            color: #2c3e50;
+            font-size: 16px;
+            margin-bottom: 4px;
+        }
+
+        .employee-info p {
+            color: #6c757d;
+            font-size: 14px;
+        }
+
+        .employee-details {
+            margin-bottom: 15px;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .detail-label {
+            color: #6c757d;
+            font-weight: 500;
+        }
+
+        .detail-value {
+            color: #2c3e50;
+        }
+
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-active { background: #d4edda; color: #155724; }
+        .status-pending { background: #fff3cd; color: #856404; }
+        .status-inactive { background: #f8d7da; color: #721c24; }
+
+        .role-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .role-manager { background: #e7f1ff; color: #0c5aa6; }
+        .role-agent { background: #d4edda; color: #155724; }
+        .role-viewer { background: #fff3cd; color: #856404; }
+
+        .employee-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        .invitation-list {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .invitation-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            border-left: 4px solid #667eea;
+        }
+
+        .invitation-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .invitation-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .invitation-email {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .invitation-time {
+            color: #6c757d;
+            font-size: 12px;
+        }
+
+        .search-results {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            background: white;
+        }
+
+        .search-result-item {
+            padding: 12px;
+            border-bottom: 1px solid #f1f3f4;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        .search-result-item:hover {
+            background: #f8f9fa;
+        }
+
+        .search-result-item:last-child {
+            border-bottom: none;
+        }
+
+        .result-name {
+            font-weight: 500;
+            color: #2c3e50;
+        }
+
+        .result-email {
+            color: #6c757d;
+            font-size: 14px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f1f3f4;
+        }
+
+        .modal-header h3 {
+            color: #2c3e50;
+            font-size: 20px;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: #6c757d;
+            cursor: pointer;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6c757d;
+        }
+
+        .empty-state h3 {
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+            
+            .header {
+                flex-direction: column;
+                gap: 15px;
+                align-items: stretch;
+            }
+            
+            .search-form {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .employee-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <button class="btn btn-secondary" onclick="goBack()" style="padding: 8px 12px;">
+                    ← 返回
+                </button>
+                <h1>👥 员工管理</h1>
+            </div>
+            <button class="btn btn-primary" onclick="openInviteModal()">
+                ➕ 邀请员工
+            </button>
+        </div>
+
+        <!-- 搜索和邀请区域 -->
+        <div class="search-section">
+            <div class="search-form">
+                <div class="form-group flex-1">
+                    <label>搜索用户</label>
+                    <input type="text" class="form-control" id="user-search" placeholder="输入用户名、邮箱或姓名..." oninput="searchUsers()">
+                </div>
+                <div class="form-group">
+                    <label>角色</label>
+                    <select class="form-control" id="invite-role">
+                        <option value="agent">客服</option>
+                        <option value="manager">经理</option>
+                        <option value="viewer">查看者</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>&nbsp;</label>
+                    <button class="btn btn-primary" onclick="quickInvite()">快速邀请</button>
+                </div>
+            </div>
+            <div id="search-results" class="search-results" style="display: none;"></div>
+        </div>
+
+        <!-- 标签页 -->
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('employees')">现有员工</button>
+            <button class="tab" onclick="switchTab('invitations')">邀请记录</button>
+        </div>
+
+        <!-- 员工列表 -->
+        <div id="employees-tab" class="tab-content active">
+            <div id="employees-loading" class="loading">
+                <p>正在加载员工列表...</p>
+            </div>
+            <div id="employees-grid" class="employee-grid" style="display: none;"></div>
+            <div id="employees-empty" class="empty-state" style="display: none;">
+                <h3>暂无员工</h3>
+                <p>开始邀请用户加入您的团队吧！</p>
+            </div>
+        </div>
+
+        <!-- 邀请记录 -->
+        <div id="invitations-tab" class="tab-content">
+            <div id="invitations-loading" class="loading">
+                <p>正在加载邀请记录...</p>
+            </div>
+            <div id="invitations-list" class="invitation-list" style="display: none;"></div>
+            <div id="invitations-empty" class="empty-state" style="display: none;">
+                <h3>暂无邀请记录</h3>
+                <p>您还没有发送过任何邀请。</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 邀请模态框 -->
+    <div id="invite-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>邀请员工</h3>
+                <button class="modal-close" onclick="closeInviteModal()">&times;</button>
+            </div>
+            <form onsubmit="sendInvitation(event)">
+                <div class="form-group">
+                    <label>邮箱地址 *</label>
+                    <input type="email" class="form-control" id="invite-email" required>
+                </div>
+                <div class="form-group">
+                    <label>角色 *</label>
+                    <select class="form-control" id="invite-role-modal" required>
+                        <option value="agent">客服 - 处理客户咨询</option>
+                        <option value="manager">经理 - 管理团队和数据</option>
+                        <option value="viewer">查看者 - 只读权限</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>邀请消息</label>
+                    <textarea class="form-control" id="invite-message" rows="3" placeholder="可选：添加个人消息..."></textarea>
+                </div>
+                <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 20px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeInviteModal()">取消</button>
+                    <button type="submit" class="btn btn-primary">发送邀请</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let currentShopId = null;
+        let searchTimeout = null;
+        let employees = [];
+        let invitations = [];
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeShopId();
+            if (currentShopId) {
+                loadEmployees();
+                loadInvitations();
+            } else {
+                showShopIdError();
+            }
+        });
+
+        // 初始化店铺ID
+        function initializeShopId() {
+            // 1. 尝试从URL参数获取
+            const urlParams = new URLSearchParams(window.location.search);
+            const shopIdFromUrl = urlParams.get('shop_id');
+            
+            // 2. 尝试从localStorage获取
+            const shopIdFromStorage = localStorage.getItem('currentShopId');
+            
+            // 3. 优先使用URL参数，其次是localStorage
+            currentShopId = shopIdFromUrl || shopIdFromStorage;
+            
+            if (currentShopId) {
+                // 更新页面标题显示当前店铺
+                updatePageTitle();
+                // 如果没有URL参数但有localStorage，更新URL
+                if (!shopIdFromUrl && shopIdFromStorage) {
+                    const newUrl = new URL(window.location);
+                    newUrl.searchParams.set('shop_id', shopIdFromStorage);
+                    window.history.replaceState({}, '', newUrl);
+                }
+            }
+        }
+
+        // 更新页面标题
+        function updatePageTitle() {
+            const header = document.querySelector('.header h1');
+            header.textContent = `👥 员工管理 (${currentShopId})`;
+        }
+
+        // 显示店铺ID错误
+        function showShopIdError() {
+            const container = document.querySelector('.container');
+            container.innerHTML = `
+                <div style="text-align: center; padding: 60px 20px;">
+                    <h2 style="color: #dc3545; margin-bottom: 20px;">⚠️ 未指定店铺</h2>
+                    <p style="color: #6c757d; margin-bottom: 30px;">请先选择要管理的店铺</p>
+                    <a href="shop-login.html" style="display: inline-block; padding: 12px 24px; background: #667eea; color: white; text-decoration: none; border-radius: 8px; font-weight: 500;">
+                        🏪 选择店铺
+                    </a>
+                </div>
+            `;
+        }
+
+        // 标签页切换
+        function switchTab(tabName) {
+            // 更新标签状态
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelector(`[onclick="switchTab('${tabName}')"]`).classList.add('active');
+            
+            // 显示对应内容
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.getElementById(`${tabName}-tab`).classList.add('active');
+
+            // 如果是邀请记录标签，重新加载数据
+            if (tabName === 'invitations') {
+                loadInvitations();
+            }
+        }
+
+        // 加载员工列表
+        async function loadEmployees() {
+            try {
+                showEmployeesLoading(true);
+                
+                const response = await fetch(`/api/shops/${currentShopId}/employees`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    employees = data.data || [];
+                    renderEmployees();
+                } else {
+                    console.error('Failed to load employees:', data.message);
+                    showEmployeesEmpty();
+                }
+            } catch (error) {
+                console.error('Error loading employees:', error);
+                showEmployeesEmpty();
+            } finally {
+                showEmployeesLoading(false);
+            }
+        }
+
+        // 渲染员工列表
+        function renderEmployees() {
+            const grid = document.getElementById('employees-grid');
+            const empty = document.getElementById('employees-empty');
+
+            if (employees.length === 0) {
+                grid.style.display = 'none';
+                empty.style.display = 'block';
+                return;
+            }
+
+            empty.style.display = 'none';
+            grid.style.display = 'grid';
+
+            grid.innerHTML = employees.map(employee => `
+                <div class="employee-card">
+                    <div class="employee-header">
+                        <div class="employee-avatar">
+                            ${employee.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div class="employee-info">
+                            <h3>${employee.name}</h3>
+                            <p>${employee.email}</p>
+                        </div>
+                    </div>
+                    <div class="employee-details">
+                        <div class="detail-row">
+                            <span class="detail-label">角色:</span>
+                            <span class="role-badge role-${employee.role}">${getRoleText(employee.role)}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">状态:</span>
+                            <span class="status-badge status-${employee.status}">${getStatusText(employee.status)}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">加入时间:</span>
+                            <span class="detail-value">${formatDate(employee.created_at)}</span>
+                        </div>
+                    </div>
+                    <div class="employee-actions">
+                        <button class="btn btn-warning btn-sm" onclick="editEmployee('${employee.id}')">编辑</button>
+                        <button class="btn btn-danger btn-sm" onclick="removeEmployee('${employee.id}', '${employee.name}')">移除</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 加载邀请记录
+        async function loadInvitations() {
+            try {
+                showInvitationsLoading(true);
+                
+                const response = await fetch(`/api/shops/${currentShopId}/invitations`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    invitations = data.data || [];
+                    renderInvitations();
+                } else {
+                    console.error('Failed to load invitations:', data.message);
+                    showInvitationsEmpty();
+                }
+            } catch (error) {
+                console.error('Error loading invitations:', error);
+                showInvitationsEmpty();
+            } finally {
+                showInvitationsLoading(false);
+            }
+        }
+
+        // 渲染邀请列表
+        function renderInvitations() {
+            const list = document.getElementById('invitations-list');
+            const empty = document.getElementById('invitations-empty');
+
+            if (invitations.length === 0) {
+                list.style.display = 'none';
+                empty.style.display = 'block';
+                return;
+            }
+
+            empty.style.display = 'none';
+            list.style.display = 'block';
+
+            list.innerHTML = invitations.map(invitation => `
+                <div class="invitation-item">
+                    <div class="invitation-header">
+                        <div>
+                            <span class="invitation-email">${invitation.invitee_email}</span>
+                            <span class="role-badge role-${invitation.role}">${getRoleText(invitation.role)}</span>
+                        </div>
+                        <span class="invitation-time">${formatDate(invitation.created_at)}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">状态:</span>
+                        <span class="status-badge status-${invitation.status}">${getInvitationStatusText(invitation.status)}</span>
+                    </div>
+                    ${invitation.message ? `<p style="margin-top: 10px; color: #6c757d; font-style: italic;">"${invitation.message}"</p>` : ''}
+                    ${invitation.status === 'pending' ? `
+                        <div style="margin-top: 10px;">
+                            <button class="btn btn-secondary btn-sm" onclick="resendInvitation('${invitation.id}')">重新发送</button>
+                            <button class="btn btn-danger btn-sm" onclick="cancelInvitation('${invitation.id}')">取消邀请</button>
+                        </div>
+                    ` : ''}
+                </div>
+            `).join('');
+        }
+
+        // 搜索用户
+        async function searchUsers() {
+            const keyword = document.getElementById('user-search').value.trim();
+            const resultsDiv = document.getElementById('search-results');
+
+            if (keyword.length < 2) {
+                resultsDiv.style.display = 'none';
+                return;
+            }
+
+            // 防抖
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(async () => {
+                try {
+                    const response = await fetch(`/api/users/search?q=${encodeURIComponent(keyword)}&exclude_shop_id=${currentShopId}`);
+                    const data = await response.json();
+
+                    if (data.success) {
+                        displaySearchResults(data.data || []);
+                    }
+                } catch (error) {
+                    console.error('Error searching users:', error);
+                }
+            }, 300);
+        }
+
+        // 显示搜索结果
+        function displaySearchResults(users) {
+            const resultsDiv = document.getElementById('search-results');
+
+            if (users.length === 0) {
+                resultsDiv.innerHTML = '<div class="search-result-item">未找到匹配的用户</div>';
+            } else {
+                resultsDiv.innerHTML = users.map(user => `
+                    <div class="search-result-item" onclick="selectUser('${user.email}', '${user.name}')">
+                        <div class="result-name">${user.name}</div>
+                        <div class="result-email">${user.email}</div>
+                    </div>
+                `).join('');
+            }
+
+            resultsDiv.style.display = 'block';
+        }
+
+        // 选择用户
+        function selectUser(email, name) {
+            document.getElementById('user-search').value = email;
+            document.getElementById('search-results').style.display = 'none';
+        }
+
+        // 快速邀请
+        function quickInvite() {
+            const email = document.getElementById('user-search').value.trim();
+            const role = document.getElementById('invite-role').value;
+
+            if (!email) {
+                alert('请输入邮箱地址');
+                return;
+            }
+
+            sendInvitationAPI(email, role, '');
+        }
+
+        // 打开邀请模态框
+        function openInviteModal() {
+            document.getElementById('invite-modal').classList.add('show');
+            document.getElementById('invite-email').focus();
+        }
+
+        // 关闭邀请模态框
+        function closeInviteModal() {
+            document.getElementById('invite-modal').classList.remove('show');
+            document.getElementById('invite-email').value = '';
+            document.getElementById('invite-message').value = '';
+        }
+
+        // 发送邀请
+        function sendInvitation(event) {
+            event.preventDefault();
+            
+            const email = document.getElementById('invite-email').value.trim();
+            const role = document.getElementById('invite-role-modal').value;
+            const message = document.getElementById('invite-message').value.trim();
+
+            sendInvitationAPI(email, role, message);
+        }
+
+        // 发送邀请API
+        async function sendInvitationAPI(email, role, message) {
+            try {
+                const response = await fetch(`/api/shops/${currentShopId}/invitations`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: email,
+                        role: role,
+                        message: message || undefined
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    alert('邀请发送成功！');
+                    closeInviteModal();
+                    loadInvitations();
+                    document.getElementById('user-search').value = '';
+                } else {
+                    alert('邀请发送失败: ' + data.message);
+                }
+            } catch (error) {
+                console.error('Error sending invitation:', error);
+                alert('网络错误，请重试');
+            }
+        }
+
+        // 移除员工
+        async function removeEmployee(employeeId, employeeName) {
+            if (!confirm(`确定要移除员工 "${employeeName}" 吗？`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/shops/${currentShopId}/employees/${employeeId}`, {
+                    method: 'DELETE'
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    alert('员工移除成功');
+                    loadEmployees();
+                } else {
+                    alert('移除失败: ' + data.message);
+                }
+            } catch (error) {
+                console.error('Error removing employee:', error);
+                alert('网络错误，请重试');
+            }
+        }
+
+        // 工具函数
+        function showEmployeesLoading(show) {
+            document.getElementById('employees-loading').style.display = show ? 'block' : 'none';
+        }
+
+        function showEmployeesEmpty() {
+            document.getElementById('employees-loading').style.display = 'none';
+            document.getElementById('employees-grid').style.display = 'none';
+            document.getElementById('employees-empty').style.display = 'block';
+        }
+
+        function showInvitationsLoading(show) {
+            document.getElementById('invitations-loading').style.display = show ? 'block' : 'none';
+        }
+
+        function showInvitationsEmpty() {
+            document.getElementById('invitations-loading').style.display = 'none';
+            document.getElementById('invitations-list').style.display = 'none';
+            document.getElementById('invitations-empty').style.display = 'block';
+        }
+
+        function getRoleText(role) {
+            const roleMap = {
+                'manager': '经理',
+                'agent': '客服',
+                'viewer': '查看者'
+            };
+            return roleMap[role] || role;
+        }
+
+        function getStatusText(status) {
+            const statusMap = {
+                'active': '活跃',
+                'pending': '待激活',
+                'inactive': '非活跃'
+            };
+            return statusMap[status] || status;
+        }
+
+        function getInvitationStatusText(status) {
+            const statusMap = {
+                'pending': '待处理',
+                'accepted': '已接受',
+                'rejected': '已拒绝',
+                'expired': '已过期'
+            };
+            return statusMap[status] || status;
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return '未知';
+            try {
+                const date = new Date(dateString);
+                return date.toLocaleDateString('zh-CN', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            } catch (error) {
+                return dateString;
+            }
+        }
+
+        // 返回上一页
+        function goBack() {
+            // 尝试返回到店铺选择页面
+            window.location.href = 'shop-login.html';
+        }
+
+        // 点击外部关闭搜索结果
+        document.addEventListener('click', function(event) {
+            const searchInput = document.getElementById('user-search');
+            const searchResults = document.getElementById('search-results');
+            
+            if (!searchInput.contains(event.target) && !searchResults.contains(event.target)) {
+                searchResults.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>

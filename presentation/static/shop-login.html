@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>店主登录 - QuickTalk</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .login-container {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .login-header h1 {
+            color: #2c3e50;
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .login-header p {
+            color: #6c757d;
+            font-size: 16px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            color: #2c3e50;
+            margin-bottom: 8px;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            background: #5a6fd8;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .shop-list {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e9ecef;
+        }
+
+        .shop-list h3 {
+            color: #2c3e50;
+            font-size: 18px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .shop-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+
+        .shop-item:hover {
+            background: #e9ecef;
+            border-color: #667eea;
+        }
+
+        .shop-item.selected {
+            background: #e7f1ff;
+            border-color: #667eea;
+        }
+
+        .shop-name {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 4px;
+        }
+
+        .shop-id {
+            font-size: 12px;
+            color: #6c757d;
+            font-family: 'Courier New', monospace;
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .loading {
+            text-align: center;
+            color: #6c757d;
+            margin: 20px 0;
+        }
+
+        .nav-links {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .nav-link {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #28a745;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            margin: 0 5px;
+            font-size: 14px;
+            transition: background 0.3s ease;
+        }
+
+        .nav-link:hover {
+            background: #218838;
+        }
+
+        @media (max-width: 480px) {
+            .login-container {
+                padding: 30px 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-header">
+            <h1>🏪 店主管理</h1>
+            <p>选择您的店铺进入管理界面</p>
+        </div>
+
+        <div id="error-message" class="error-message" style="display: none;"></div>
+        <div id="success-message" class="success-message" style="display: none;"></div>
+
+        <!-- 手动输入店铺ID -->
+        <form onsubmit="loginWithShopId(event)">
+            <div class="form-group">
+                <label for="shop-id">店铺ID</label>
+                <input type="text" id="shop-id" class="form-control" placeholder="输入店铺ID..." required>
+            </div>
+            <button type="submit" class="btn" id="login-btn">
+                🚀 进入管理界面
+            </button>
+        </form>
+
+        <!-- 店铺列表 -->
+        <div class="shop-list">
+            <h3>或选择已有店铺</h3>
+            <div id="shops-loading" class="loading" style="display: none;">
+                正在加载店铺列表...
+            </div>
+            <div id="shops-container"></div>
+        </div>
+
+        <!-- 管理导航 -->
+        <div class="nav-links" id="nav-links" style="display: none;">
+            <a href="employee-management.html" class="nav-link" target="_blank">👥 员工管理</a>
+            <a href="admin-mobile-modern.html" class="nav-link" target="_blank">💬 客服系统</a>
+        </div>
+    </div>
+
+    <script>
+        let currentShopId = null;
+        let availableShops = [
+            { id: 'test_shop_001', name: '测试店铺1', description: '用于开发测试' },
+            { id: 'test_shop_002', name: '测试店铺2', description: '第二个测试店铺' },
+            { id: 'demo_shop', name: '演示店铺', description: '功能演示用店铺' }
+        ];
+
+        // 页面加载时初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            loadShops();
+            checkExistingLogin();
+        });
+
+        // 检查是否已有登录状态
+        function checkExistingLogin() {
+            const savedShopId = localStorage.getItem('currentShopId');
+            if (savedShopId) {
+                currentShopId = savedShopId;
+                document.getElementById('shop-id').value = savedShopId;
+                showNavLinks();
+                showSuccessMessage(`已登录到店铺: ${savedShopId}`);
+            }
+        }
+
+        // 加载店铺列表
+        function loadShops() {
+            const container = document.getElementById('shops-container');
+            const loading = document.getElementById('shops-loading');
+
+            // 模拟异步加载
+            loading.style.display = 'block';
+            
+            setTimeout(() => {
+                loading.style.display = 'none';
+                
+                if (availableShops.length === 0) {
+                    container.innerHTML = '<p style="text-align: center; color: #6c757d;">暂无可用店铺</p>';
+                    return;
+                }
+
+                container.innerHTML = availableShops.map(shop => `
+                    <div class="shop-item" onclick="selectShop('${shop.id}', '${shop.name}')">
+                        <div class="shop-name">${shop.name}</div>
+                        <div class="shop-id">ID: ${shop.id}</div>
+                        ${shop.description ? `<div style="font-size: 12px; color: #6c757d; margin-top: 4px;">${shop.description}</div>` : ''}
+                    </div>
+                `).join('');
+            }, 500);
+        }
+
+        // 选择店铺
+        function selectShop(shopId, shopName) {
+            // 清除之前的选择
+            document.querySelectorAll('.shop-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+
+            // 选中当前店铺
+            event.target.closest('.shop-item').classList.add('selected');
+            
+            // 设置表单值
+            document.getElementById('shop-id').value = shopId;
+            
+            // 自动登录
+            loginWithShopId(null, shopId, shopName);
+        }
+
+        // 使用店铺ID登录
+        function loginWithShopId(event, shopId, shopName) {
+            if (event) {
+                event.preventDefault();
+                shopId = document.getElementById('shop-id').value.trim();
+            }
+
+            if (!shopId) {
+                showErrorMessage('请输入店铺ID');
+                return;
+            }
+
+            const loginBtn = document.getElementById('login-btn');
+            loginBtn.disabled = true;
+            loginBtn.textContent = '正在验证...';
+
+            // 模拟验证过程
+            setTimeout(() => {
+                // 在实际应用中，这里应该向后端验证店铺ID
+                if (verifyShopId(shopId)) {
+                    currentShopId = shopId;
+                    localStorage.setItem('currentShopId', shopId);
+                    
+                    showSuccessMessage(`登录成功！店铺: ${shopName || shopId}`);
+                    showNavLinks();
+                    
+                    // 更新URL参数以便其他页面使用
+                    const newUrl = new URL(window.location);
+                    newUrl.searchParams.set('shop_id', shopId);
+                    window.history.replaceState({}, '', newUrl);
+                } else {
+                    showErrorMessage('店铺ID不存在或无权限访问');
+                }
+
+                loginBtn.disabled = false;
+                loginBtn.textContent = '🚀 进入管理界面';
+            }, 1000);
+        }
+
+        // 验证店铺ID（模拟）
+        function verifyShopId(shopId) {
+            // 在实际应用中，这里应该调用后端API验证
+            // 目前接受任何非空ID
+            return shopId && shopId.length > 0;
+        }
+
+        // 显示导航链接
+        function showNavLinks() {
+            const navLinks = document.getElementById('nav-links');
+            navLinks.style.display = 'block';
+            
+            // 更新链接URL以包含shop_id参数
+            navLinks.querySelectorAll('.nav-link').forEach(link => {
+                const url = new URL(link.href, window.location.origin);
+                url.searchParams.set('shop_id', currentShopId);
+                link.href = url.toString();
+            });
+        }
+
+        // 显示错误消息
+        function showErrorMessage(message) {
+            const errorDiv = document.getElementById('error-message');
+            const successDiv = document.getElementById('success-message');
+            
+            successDiv.style.display = 'none';
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        // 显示成功消息
+        function showSuccessMessage(message) {
+            const errorDiv = document.getElementById('error-message');
+            const successDiv = document.getElementById('success-message');
+            
+            errorDiv.style.display = 'none';
+            successDiv.textContent = message;
+            successDiv.style.display = 'block';
+        }
+
+        // 退出登录
+        function logout() {
+            localStorage.removeItem('currentShopId');
+            currentShopId = null;
+            document.getElementById('shop-id').value = '';
+            document.getElementById('nav-links').style.display = 'none';
+            document.getElementById('success-message').style.display = 'none';
+            
+            // 清除选择状态
+            document.querySelectorAll('.shop-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+        }
+
+        // 处理Enter键快速登录
+        document.getElementById('shop-id').addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                loginWithShopId(event);
+            }
+        });
+    </script>
+</body>
+</html>

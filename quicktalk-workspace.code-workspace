@@ -1,84 +1,59 @@
 {
-        "folders": [
-                {
-                        "name": "🏠 项目根目录",
-                        "path": "./"
-                },
-                {
-                        "name": "🏗️ 领域层 (Domain)",
-                        "path": "./domain"
-                },
-                {
-                        "name": "🎯 应用层 (Application)",
-                        "path": "./application"
-                },
-                {
-                        "name": "� 基础设施层 (Infrastructure)",
-                        "path": "./infrastructure"
-                },
-                {
-                        "name": "🌐 表现层 (Presentation)",
-                        "path": "./presentation"
-                },
-                {
-                        "name": "🦀 Rust后端实现",
-                        "path": "./backend"
-                },
-                {
-                        "name": "� Node.js Services (Legacy)",
-                        "path": "./services"
-                },
-                {
-                        "name": "🗄️ 数据库与数据",
-                        "path": "./data"
-                },
-                {
-                        "name": "📚 文档",
-                        "path": "./docs"
-                },
-                {
-                        "name": "🛠️ DevOps & Scripts",
-                        "path": "./devops"
-                }
-        ],
-        "settings": {
-                "rust-analyzer.linkedProjects": [
-                        "./backend/Cargo.toml"
-                ],
-                "eslint.workingDirectories": [
-                        "./services"
-                ],
-                "typescript.preferences.includePackageJsonAutoImports": "auto",
-                "files.associations": {
-                        "*.toml": "toml",
-                        "*.rs": "rust"
-                },
-                "terminal.integrated.cwd": "${workspaceFolder}",
-                "files.exclude": {
-                        "**/node_modules": true,
-                        "**/target": true,
-                        "**/.git": false
-                },
-                "search.exclude": {
-                        "**/node_modules": true,
-                        "**/target": true
-                },
-                "files.watcherExclude": {
-                        "**/node_modules/**": true,
-                        "**/target/**": true
-                },
-                // DDD 架构注释
-                "workbench.tree.renderIndentGuides": "always",
-                "powershell.cwd": "🦀 Rust后端实现"
-        },
-        "extensions": {
-                "recommendations": [
-                        "rust-lang.rust-analyzer",
-                        "ms-vscode.vscode-typescript-next",
-                        "esbenp.prettier-vscode",
-                        "bradlc.vscode-tailwindcss",
-                        "ms-vscode.vscode-json",
-                        "ms-vscode.powershell"
-                ]
-        }
+	"folders": [
+		{
+			"name": "🦀 后端",
+			"path": "./backend"
+		},
+		{
+			"name": "📱 前端",
+			"path": "./frontend"
+		},
+		{
+			"name": "🟢 Node.js Services",
+			"path": "./services"
+		},
+		{
+			"name": "🗄️ 数据库与数据",
+			"path": "./data"
+		},
+		{
+			"name": "📚 说明文档",
+			"path": "./docs"
+		},
+		{
+			"name": "🛠️ DevOps & Scripts",
+			"path": "./devops"
+		}
+	],
+	"settings": {
+		"rust-analyzer.linkedProjects": [
+			"./backend/Cargo.toml"
+		],
+		"eslint.workingDirectories": [
+			"./frontend",
+			"./services"
+		],
+		"typescript.preferences.includePackageJsonAutoImports": "auto",
+		"files.associations": {
+			"*.toml": "toml",
+			"*.rs": "rust"
+		},
+		"terminal.integrated.cwd": "${workspaceFolder}",
+		"recommendations": [
+			"rust-lang.rust-analyzer",
+			"ms-vscode.vscode-typescript-next",
+			"bradlc.vscode-tailwindcss",
+			"ms-vscode.vscode-json"
+		]
+	},
+	"extensions": {
+		"recommendations": [
+			"rust-lang.rust-analyzer",
+			"ms-vscode.vscode-typescript-next",
+			"esbenp.prettier-vscode",
+			"bradlc.vscode-tailwindcss",
+			"ms-vscode.vscode-json",
+			"ms-vscode.powershell"
+		]
+	}
 }
