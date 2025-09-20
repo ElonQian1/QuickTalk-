@@ -207,24 +207,39 @@
         <div id="error-message" class="error-message" style="display: none;"></div>
         <div id="success-message" class="success-message" style="display: none;"></div>
 
-        <!-- 手动输入店铺ID -->
-        <form onsubmit="loginWithShopId(event)">
+        <!-- 店铺登录表单 -->
+        <form onsubmit="loginShop(event)">
             <div class="form-group">
-                <label for="shop-id">店铺ID</label>
-                <input type="text" id="shop-id" class="form-control" placeholder="输入店铺ID..." required>
+                <label for="domain">店铺域名</label>
+                <input type="text" id="domain" class="form-control" placeholder="请输入店铺域名" required>
+            </div>
+            <div class="form-group">
+                <label for="admin_password">管理员密码</label>
+                <input type="password" id="admin_password" class="form-control" placeholder="请输入管理员密码" required>
             </div>
             <button type="submit" class="btn" id="login-btn">
-                🚀 进入管理界面
+                🚀 登录管理界面
             </button>
         </form>
 
-        <!-- 店铺列表 -->
+        <!-- 注册链接 -->
         <div class="shop-list">
-            <h3>或选择已有店铺</h3>
-            <div id="shops-loading" class="loading" style="display: none;">
-                正在加载店铺列表...
+            <h3>还没有店铺？</h3>
+            <div style="text-align: center;">
+                <a href="/shop-register.html" style="
+                    display: inline-block;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    text-decoration: none;
+                    padding: 12px 24px;
+                    border-radius: 8px;
+                    font-weight: 600;
+                    transition: all 0.3s ease;
+                " onmouseover="this.style.transform='translateY(-2px)'" 
+                   onmouseout="this.style.transform='translateY(0)'">
+                    立即注册店铺 →
+                </a>
             </div>
-            <div id="shops-container"></div>
         </div>
 
         <!-- 管理导航 -->
@@ -244,9 +259,24 @@
 
         // 页面加载时初始化
         document.addEventListener('DOMContentLoaded', function() {
-            loadShops();
             checkExistingLogin();
         });
+
+        // 检查现有登录状态
+        function checkExistingLogin() {
+            const shopInfo = localStorage.getItem('shopInfo');
+            if (shopInfo) {
+                try {
+                    const shop = JSON.parse(shopInfo);
+                    showSuccessMessage(`您已登录：${shop.name}`);
+                    showNavLinks();
+                } catch (error) {
+                    console.error('解析店铺信息失败:', error);
+                    localStorage.removeItem('shopInfo');
+                    localStorage.removeItem('currentShopId');
+                }
+            }
+        }
 
         // 检查是否已有登录状态
         function checkExistingLogin() {
@@ -302,50 +332,60 @@
             loginWithShopId(null, shopId, shopName);
         }
 
-        // 使用店铺ID登录
-        function loginWithShopId(event, shopId, shopName) {
-            if (event) {
-                event.preventDefault();
-                shopId = document.getElementById('shop-id').value.trim();
-            }
+        // 店铺登录
+        async function loginShop(event) {
+            event.preventDefault();
+            
+            const domain = document.getElementById('domain').value.trim();
+            const admin_password = document.getElementById('admin_password').value;
 
-            if (!shopId) {
-                showErrorMessage('请输入店铺ID');
+            if (!domain || !admin_password) {
+                showErrorMessage('请填写完整的登录信息');
                 return;
             }
 
             const loginBtn = document.getElementById('login-btn');
             loginBtn.disabled = true;
-            loginBtn.textContent = '正在验证...';
+            loginBtn.textContent = '正在登录...';
 
-            // 模拟验证过程
-            setTimeout(() => {
-                // 在实际应用中，这里应该向后端验证店铺ID
-                if (verifyShopId(shopId)) {
-                    currentShopId = shopId;
-                    localStorage.setItem('currentShopId', shopId);
+            try {
+                const response = await fetch('/api/shop-login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        domain: domain,
+                        admin_password: admin_password
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success && result.data) {
+                    const shop = result.data;
                     
-                    showSuccessMessage(`登录成功！店铺: ${shopName || shopId}`);
+                    // 保存登录信息
+                    localStorage.setItem('currentShopId', shop.id);
+                    localStorage.setItem('shopInfo', JSON.stringify(shop));
+                    
+                    showSuccessMessage(`登录成功！欢迎回来，${shop.name}`);
                     showNavLinks();
                     
-                    // 更新URL参数以便其他页面使用
-                    const newUrl = new URL(window.location);
-                    newUrl.searchParams.set('shop_id', shopId);
-                    window.history.replaceState({}, '', newUrl);
+                    // 可选：跳转到管理界面
+                    setTimeout(() => {
+                        window.location.href = '/mobile-dashboard.html';
+                    }, 1500);
                 } else {
-                    showErrorMessage('店铺ID不存在或无权限访问');
+                    showErrorMessage(result.message || '登录失败，请检查域名和密码');
                 }
-
+            } catch (error) {
+                console.error('登录请求失败:', error);
+                showErrorMessage('网络错误，请稍后重试');
+            } finally {
                 loginBtn.disabled = false;
-                loginBtn.textContent = '🚀 进入管理界面';
-            }, 1000);
-        }
-
-        // 验证店铺ID（模拟）
-        function verifyShopId(shopId) {
-            // 在实际应用中，这里应该调用后端API验证
-            // 目前接受任何非空ID
-            return shopId && shopId.length > 0;
+                loginBtn.textContent = '🚀 登录管理界面';
+            }
         }
 
         // 显示导航链接
@@ -354,11 +394,14 @@
             navLinks.style.display = 'block';
             
             // 更新链接URL以包含shop_id参数
-            navLinks.querySelectorAll('.nav-link').forEach(link => {
-                const url = new URL(link.href, window.location.origin);
-                url.searchParams.set('shop_id', currentShopId);
-                link.href = url.toString();
-            });
+            const currentShopId = localStorage.getItem('currentShopId');
+            if (currentShopId) {
+                navLinks.querySelectorAll('.nav-link').forEach(link => {
+                    const url = new URL(link.href, window.location.origin);
+                    url.searchParams.set('shop_id', currentShopId);
+                    link.href = url.toString();
+                });
+            }
         }
 
         // 显示错误消息
@@ -388,9 +431,13 @@
         // 退出登录
         function logout() {
             localStorage.removeItem('currentShopId');
-            currentShopId = null;
-            document.getElementById('shop-id').value = '';
+            localStorage.removeItem('shopInfo');
+            document.getElementById('domain').value = '';
+            document.getElementById('admin_password').value = '';
             document.getElementById('nav-links').style.display = 'none';
+            document.getElementById('error-message').style.display = 'none';
+            document.getElementById('success-message').style.display = 'none';
+        }
             document.getElementById('success-message').style.display = 'none';
             
             // 清除选择状态

@@ -4521,8 +4521,87 @@
         // 显示创建店铺模态框
         function showCreateShopModal() {
             console.log('显示创建店铺模态框');
-            showToast('创建店铺功能开发中...', 'info');
-            // TODO: 实现创建店铺模态框
+            
+            const overlay = document.getElementById('modal-overlay');
+            overlay.innerHTML = `
+                <div class="modal show">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3>🏪 创建新店铺</h3>
+                            <button class="modal-close" onclick="closeModal()">×</button>
+                        </div>
+                        <div class="modal-body">
+                            <div style="text-align: center; padding: 20px;">
+                                <div style="font-size: 48px; margin-bottom: 20px;">🏪</div>
+                                <h4 style="margin-bottom: 15px; color: #333;">开始您的客服之旅</h4>
+                                <p style="color: #666; margin-bottom: 30px; line-height: 1.6;">
+                                    我们提供完整的店铺注册和支付系统，让您快速开通专业的客服服务。
+                                </p>
+                                
+                                <div style="background: #f8f9fa; border-radius: 12px; padding: 20px; margin-bottom: 25px;">
+                                    <h5 style="color: #495057; margin-bottom: 15px;">💎 套餐选择</h5>
+                                    <div style="display: grid; gap: 10px; font-size: 14px; color: #6c757d;">
+                                        <div>📦 <strong>基础版</strong>：¥99/年 - 适合小型店铺</div>
+                                        <div>🚀 <strong>标准版</strong>：¥299/年 - 适合中型企业</div>
+                                        <div>👑 <strong>高级版</strong>：¥599/年 - 适合大型企业</div>
+                                    </div>
+                                </div>
+                                
+                                <div style="display: grid; gap: 15px;">
+                                    <button onclick="goToShopRegister()" style="
+                                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                                        color: white;
+                                        border: none;
+                                        padding: 15px 25px;
+                                        border-radius: 10px;
+                                        font-size: 16px;
+                                        font-weight: 600;
+                                        cursor: pointer;
+                                        transition: all 0.3s ease;
+                                    " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 25px rgba(102, 126, 234, 0.3)'" 
+                                       onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+                                        立即注册店铺 →
+                                    </button>
+                                    
+                                    <button onclick="goToShopLogin()" style="
+                                        background: transparent;
+                                        color: #667eea;
+                                        border: 2px solid #667eea;
+                                        padding: 12px 25px;
+                                        border-radius: 10px;
+                                        font-size: 14px;
+                                        font-weight: 600;
+                                        cursor: pointer;
+                                        transition: all 0.3s ease;
+                                    " onmouseover="this.style.background='#667eea'; this.style.color='white'" 
+                                       onmouseout="this.style.background='transparent'; this.style.color='#667eea'">
+                                        已有店铺？立即登录
+                                    </button>
+                                </div>
+                                
+                                <div style="margin-top: 25px; padding-top: 20px; border-top: 1px solid #dee2e6;">
+                                    <p style="font-size: 12px; color: #adb5bd; line-height: 1.5;">
+                                        🔐 安全支付 | 💰 支持支付宝/微信 | 🎯 7天免费试用
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            overlay.style.display = 'block';
+        }
+
+        // 跳转到店铺注册页面
+        function goToShopRegister() {
+            closeModal();
+            window.open('/shop-register.html', '_blank');
+        }
+
+        // 跳转到店铺登录页面
+        function goToShopLogin() {
+            closeModal();
+            window.open('/shop-login.html', '_blank');
         }
 
         // 显示店铺管理模态框
