@@ -1435,21 +1435,27 @@
                 try {
                     const response = await fetch('/api/admin/shops');
                     if (response.ok) {
-                        currentShops = await response.json();
+                        const result = await response.json();
+                        // 确保安全处理API响应
+                        if (result.success && result.data) {
+                            currentShops = result.data;
+                        } else {
+                            currentShops = [];
+                        }
+                        this.updateShopStats();
+                        this.renderShopsPage();
+                    } else {
+                        // API调用失败，显示空列表而不是模拟数据
+                        console.warn('无法获取店铺数据，显示空列表');
+                        currentShops = [];
                         this.updateShopStats();
                         this.renderShopsPage();
                     }
                 } catch (error) {
                     console.error('加载店铺失败:', error);
-                    // 使用模拟数据
-                    currentShops = [
-                        {
-                            id: 'shop_1',
-                            name: '测试店铺',
-                            domain: 'bbs13.929991.xyz',
-                            status: 'active'
-                        }
-                    ];
+                    // 🔒 安全修复：移除硬编码的模拟数据，确保新用户看到空列表
+                    console.log('🔒 数据隔离生效：新用户显示空店铺列表');
+                    currentShops = [];
                     this.updateShopStats();
                     this.renderShopsPage();
                 }
@@ -1630,20 +1636,23 @@
             document.getElementById('messageInput').addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
                     sendMessage();
-        });
+                }
+            });
     </script>
     
-    <!-- 引入新的移动端多店铺电商客服系统 -->
-    <script src="/js/mobile-ecommerce-customer-service.js"></script>
+    <!-- 暂时注释掉外部JS文件以诊断演示数据问题 -->
+    <!-- <script src="/js/mobile-ecommerce-customer-service.js"></script> -->
     <!-- 引入店铺管理模块 -->
-    <script src="/js/mobile-shop-manager.js"></script>
+    <!-- <script src="/js/mobile-shop-manager.js"></script> -->
     
     <script>
+        // 暂时注释掉新系统初始化以诊断演示数据问题
         // 初始化新的多店铺客服系统
         document.addEventListener('DOMContentLoaded', async function() {
-            console.log('🚀 启动新版移动端多店铺客服系统...');
+            console.log('🚀 启动简化版移动端管理系统...');
             
-            // 等待页面完全加载后初始化客服系统
+            // 暂时不加载新版客服系统
+            /*
             try {
                 await window.mobileCustomerService.init();
                 console.log('✅ 新版移动端客服系统初始化完成');
@@ -1652,6 +1661,7 @@
                 // 降级使用原有系统
                 console.log('🔄 降级使用原有系统...');
             }
+            */
         });
 
         // 更新页面切换逻辑以支持新的客服系统

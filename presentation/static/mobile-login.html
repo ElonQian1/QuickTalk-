@@ -224,6 +224,29 @@
             display: none;
         }
 
+        /* 表单切换样式 */
+        .form-toggle {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .form-toggle p {
+            font-size: 14px;
+            color: #6c757d;
+            margin: 0;
+        }
+
+        .form-toggle a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+            margin-left: 5px;
+        }
+
+        .form-toggle a:hover {
+            text-decoration: underline;
+        }
+
         /* 移动端优化 */
         @media (max-width: 480px) {
             .login-container {
@@ -277,6 +300,7 @@
             登录失败，请检查用户名和密码
         </div>
 
+        <!-- 登录表单 -->
         <form id="loginForm">
             <div class="form-group">
                 <label class="form-label" for="username">用户名</label>
@@ -315,6 +339,85 @@
                 </div>
             </button>
         </form>
+
+        <!-- 注册表单 -->
+        <form id="registerForm" style="display: none;">
+            <div class="form-group">
+                <label class="form-label" for="regUsername">用户名</label>
+                <input 
+                    type="text" 
+                    id="regUsername" 
+                    name="username"
+                    class="form-input" 
+                    placeholder="请输入用户名"
+                    required
+                    autocomplete="username"
+                >
+                <div class="form-error" id="regUsernameError"></div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="regEmail">邮箱</label>
+                <input 
+                    type="email" 
+                    id="regEmail" 
+                    name="email"
+                    class="form-input" 
+                    placeholder="请输入邮箱地址"
+                    required
+                    autocomplete="email"
+                >
+                <div class="form-error" id="regEmailError"></div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="regPassword">密码</label>
+                <input 
+                    type="password" 
+                    id="regPassword" 
+                    name="password"
+                    class="form-input" 
+                    placeholder="请输入密码（至少6位）"
+                    required
+                    minlength="6"
+                    autocomplete="new-password"
+                >
+                <div class="form-error" id="regPasswordError"></div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="confirmPassword">确认密码</label>
+                <input 
+                    type="password" 
+                    id="confirmPassword" 
+                    name="confirmPassword"
+                    class="form-input" 
+                    placeholder="请再次输入密码"
+                    required
+                    minlength="6"
+                    autocomplete="new-password"
+                >
+                <div class="form-error" id="confirmPasswordError"></div>
+            </div>
+
+            <!-- 角色类型隐藏，默认为店主 -->
+            <input type="hidden" id="role" name="role" value="owner">
+
+            <button type="submit" class="login-btn" id="registerBtn">
+                <span class="btn-text">注册新账户</span>
+                <div class="btn-loading" id="regBtnLoading" style="display: none;">
+                    <div class="loading-spinner"></div>
+                </div>
+            </button>
+        </form>
+
+        <!-- 切换登录/注册 -->
+        <div class="form-toggle">
+            <p>
+                <span id="toggleText">还没有账号？</span>
+                <a href="#" id="toggleLink">立即注册</a>
+            </p>
+        </div>
 
         <div class="links">
             <a href="/mobile/dashboard">移动端仪表板</a>
@@ -364,15 +467,30 @@
         // 绑定表单事件
         function bindFormEvents() {
             const form = document.getElementById('loginForm');
+            const registerForm = document.getElementById('registerForm');
             const usernameInput = document.getElementById('username');
             const passwordInput = document.getElementById('password');
+            const toggleLink = document.getElementById('toggleLink');
 
             // 表单提交事件
             form.addEventListener('submit', handleLogin);
+            registerForm.addEventListener('submit', handleRegister);
+
+            // 切换链接事件
+            toggleLink.addEventListener('click', function(e) {
+                e.preventDefault();
+                toggleForms();
+            });
 
             // 输入框事件
             usernameInput.addEventListener('input', clearFieldError);
             passwordInput.addEventListener('input', clearFieldError);
+
+            // 注册表单输入框事件
+            document.getElementById('regUsername').addEventListener('input', clearFieldError);
+            document.getElementById('regEmail').addEventListener('input', clearFieldError);
+            document.getElementById('regPassword').addEventListener('input', clearFieldError);
+            document.getElementById('confirmPassword').addEventListener('input', clearFieldError);
 
             // 回车键快捷登录
             usernameInput.addEventListener('keypress', function(e) {
@@ -468,30 +586,38 @@
 
         // 执行登录
         async function performLogin(username, password) {
-            // 模拟API调用延迟
-            await new Promise(resolve => setTimeout(resolve, 800));
-
-            // 简单的登录验证（实际项目中应该调用后端API）
-            const validCredentials = [
-                { username: 'admin', password: 'admin123', role: 'super_admin' },
-                { username: 'manager', password: 'manager123', role: 'admin' },
-                { username: 'shop01', password: 'shop123', role: 'shop_owner' }
-            ];
-
-            const user = validCredentials.find(cred => 
-                cred.username === username && cred.password === password
-            );
-
-            if (user) {
-                return {
-                    success: true,
-                    role: user.role,
-                    message: '登录成功'
-                };
-            } else {
+            console.log('🔐 开始用户登录:', username);
+            
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    console.log('✅ 登录成功:', data);
+                    return {
+                        success: true,
+                        role: data.data.user.role,
+                        message: '登录成功'
+                    };
+                } else {
+                    console.error('❌ 登录失败:', data.message);
+                    return {
+                        success: false,
+                        message: data.message || '用户名或密码错误'
+                    };
+                }
+            } catch (error) {
+                console.error('❌ 登录请求错误:', error);
                 return {
                     success: false,
-                    message: '用户名或密码错误'
+                    message: '网络错误，请检查连接后重试'
                 };
             }
         }
@@ -546,6 +672,17 @@
             }
         }
 
+        // 隐藏消息
+        function hideMessage() {
+            const successEl = document.getElementById('successMessage');
+            const errorEl = document.getElementById('errorMessage');
+            
+            successEl.style.display = 'none';
+            errorEl.style.display = 'none';
+            successEl.textContent = '';
+            errorEl.textContent = '';
+        }
+
         // 显示字段错误
         function showFieldError(fieldName, message) {
             const input = document.getElementById(fieldName);
@@ -574,6 +711,138 @@
             
             inputs.forEach(input => input.classList.remove('error'));
             errors.forEach(error => error.textContent = '');
+        }
+
+        // 处理注册
+        async function handleRegister(event) {
+            event.preventDefault();
+            
+            if (isLogging) return;
+
+            const username = document.getElementById('regUsername').value.trim();
+            const email = document.getElementById('regEmail').value.trim();
+            const password = document.getElementById('regPassword').value.trim();
+            const confirmPassword = document.getElementById('confirmPassword').value.trim();
+            const role = document.getElementById('role').value;
+
+            // 前端验证
+            if (!username) {
+                showFieldError('regUsername', '请输入用户名');
+                return;
+            }
+
+            if (!email) {
+                showFieldError('regEmail', '请输入邮箱地址');
+                return;
+            }
+
+            if (!password) {
+                showFieldError('regPassword', '请输入密码');
+                return;
+            }
+
+            if (password.length < 6) {
+                showFieldError('regPassword', '密码至少需要6位');
+                return;
+            }
+
+            if (password !== confirmPassword) {
+                showFieldError('confirmPassword', '两次输入的密码不一致');
+                return;
+            }
+
+            // 开始注册
+            isLogging = true;
+            const registerBtn = document.getElementById('registerBtn');
+            const btnText = registerBtn.querySelector('.btn-text');
+            const btnLoading = document.getElementById('regBtnLoading');
+            
+            registerBtn.disabled = true;
+            btnText.style.display = 'none';
+            btnLoading.style.display = 'block';
+
+            clearAllErrors();
+            hideMessage();
+
+            try {
+                console.log('📝 开始用户注册:', username);
+                
+                const response = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, email, password, role })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    console.log('✅ 注册成功:', data);
+                    showMessage('注册成功！请使用新账户登录', 'success');
+                    
+                    // 清空注册表单
+                    document.getElementById('registerForm').reset();
+                    
+                    // 3秒后切换到登录界面
+                    setTimeout(() => {
+                        toggleForms();
+                    }, 3000);
+                } else {
+                    console.error('❌ 注册失败:', data.message);
+                    showMessage(data.message || '注册失败，请重试', 'error');
+                }
+            } catch (error) {
+                console.error('❌ 注册请求错误:', error);
+                showMessage('网络错误，请检查连接后重试', 'error');
+            } finally {
+                isLogging = false;
+                registerBtn.disabled = false;
+                btnText.style.display = 'inline';
+                btnLoading.style.display = 'none';
+            }
+        }
+
+        // 切换登录/注册表单
+        function toggleForms() {
+            const loginForm = document.getElementById('loginForm');
+            const registerForm = document.getElementById('registerForm');
+            const toggleText = document.getElementById('toggleText');
+            const toggleLink = document.getElementById('toggleLink');
+            const logoTitle = document.querySelector('.logo-title');
+            const logoSubtitle = document.querySelector('.logo-subtitle');
+            const demoInfo = document.querySelector('.demo-info');
+            
+            if (loginForm.style.display === 'none') {
+                // 切换到登录
+                loginForm.style.display = 'block';
+                registerForm.style.display = 'none';
+                toggleText.textContent = '还没有账号？';
+                toggleLink.textContent = '立即注册';
+                logoTitle.textContent = 'QuickTalk';
+                logoSubtitle.textContent = '移动端客服管理系统';
+                demoInfo.style.display = 'block';
+                
+                // 清空注册表单
+                registerForm.reset();
+            } else {
+                // 切换到注册
+                loginForm.style.display = 'none';
+                registerForm.style.display = 'block';
+                toggleText.textContent = '已有账号？';
+                toggleLink.textContent = '立即登录';
+                logoTitle.textContent = '用户注册';
+                logoSubtitle.textContent = '创建您的管理账户';
+                demoInfo.style.display = 'none';
+                
+                // 清空登录表单的默认值
+                document.getElementById('username').value = '';
+                document.getElementById('password').value = '';
+            }
+            
+            // 清空消息和错误
+            hideMessage();
+            clearAllErrors();
         }
 
         // 防止页面被缓存
