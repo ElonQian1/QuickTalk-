@@ -1426,7 +1426,7 @@ pub async fn serve_embed_styles(
 
 // 商店管理
 pub async fn get_shops(State(state): State<Arc<AppState>>) -> Result<Json<ApiResponse<Vec<Shop>>>, StatusCode> {
-    match sqlx::query("SELECT id, name, domain, api_key, owner_id, status, payment_status, subscription_type, subscription_status, subscription_expires_at, contact_email, contact_phone, created_at FROM shops ORDER BY created_at DESC")
+    match sqlx::query("SELECT id, name, domain, api_key, owner_id, status, created_at FROM shops ORDER BY created_at DESC")
         .fetch_all(&state.db)
         .await
     {
@@ -1441,12 +1441,12 @@ pub async fn get_shops(State(state): State<Arc<AppState>>) -> Result<Json<ApiRes
                     owner_id: row.try_get("owner_id").unwrap_or_else(|_| "legacy_data".to_string()),
                     status: row.get("status"),
                     created_at: row.get("created_at"),
-                    payment_status: row.try_get("payment_status").ok(),
-                    subscription_type: row.try_get("subscription_type").ok(),
-                    subscription_status: row.try_get("subscription_status").ok(),
-                    subscription_expires_at: row.try_get("subscription_expires_at").ok(),
-                    contact_email: row.try_get("contact_email").ok(),
-                    contact_phone: row.try_get("contact_phone").ok(),
+                    payment_status: None,
+                    subscription_type: None,
+                    subscription_status: None,
+                    subscription_expires_at: None,
+                    contact_email: None,
+                    contact_phone: None,
                     contact_info: {
                         let email: Option<String> = row.try_get("contact_email").ok();
                         let phone: Option<String> = row.try_get("contact_phone").ok();

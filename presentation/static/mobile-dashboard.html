@@ -46,6 +46,30 @@
             gap: 10px;
         }
 
+        .top-bar-actions {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .promotion-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 12px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .promotion-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: translateY(-2px);
+        }
+
         .app-title {
             font-size: 18px;
             font-weight: 600;
@@ -115,17 +139,27 @@
             top: 0;
             left: 0;
             width: 100%;
-            height: 100%;
+            min-height: 100%;
+            height: auto;
             overflow-y: auto;
             background: #f8f9fa;
             transform: translateX(100%);
             transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
             opacity: 0;
+            padding-bottom: 100px;
+            z-index: -1; /* 默认层级更低 */
+            visibility: hidden;
+            pointer-events: none; /* 禁用非活跃页面的交互 */
+            display: none; /* 强制隐藏非活跃页面 */
         }
 
         .page.active {
             transform: translateX(0);
             opacity: 1;
+            z-index: 10;
+            visibility: visible;
+            pointer-events: all; /* 恢复活跃页面的交互 */
+            display: block; /* 显示活跃页面 */
         }
 
         .page-header {
@@ -166,6 +200,7 @@
 
         .page-content {
             padding: 20px;
+            padding-bottom: 120px; /* 增加底部padding，避免被底部导航栏遮挡 */
         }
 
         /* 首页样式 */
@@ -1304,51 +1339,12 @@
             width: 100%;
         }
 
-        /* 我的页面样式 */
-        .profile-header {
-            background: white;
-            border-radius: 16px;
-            padding: 30px 20px;
-            text-align: center;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-        }
-
-        .profile-avatar {
-            width: 80px;
-            height: 80px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 32px;
-            font-weight: 600;
-            margin: 0 auto 15px;
-        }
-
-        .profile-name {
-            font-size: 20px;
-            font-weight: 600;
-            color: #2c3e50;
-            margin-bottom: 5px;
-        }
-
-        .profile-role {
-            font-size: 14px;
-            color: #6c757d;
-            padding: 4px 12px;
-            background: #f8f9fa;
-            border-radius: 20px;
-            display: inline-block;
-        }
-
         .settings-list {
             background: white;
             border-radius: 16px;
             overflow: hidden;
             box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            margin-bottom: 30px; /* 增加底部间距 */
         }
 
         .settings-item {
@@ -1688,6 +1684,50 @@
             margin-top: 20px;
         }
 
+        /* 状态提示样式 */
+        .status-info {
+            display: block !important;
+            margin: 15px 0;
+        }
+
+        .status-message {
+            display: flex;
+            align-items: flex-start;
+            padding: 15px;
+            border-radius: 8px;
+            background: #f8f9fa;
+            border-left: 4px solid #007bff;
+        }
+
+        .status-message.pending {
+            background: #fff3cd;
+            border-left-color: #ffc107;
+        }
+
+        .status-message.payment-pending {
+            background: #d1ecf1;
+            border-left-color: #17a2b8;
+        }
+
+        .status-icon {
+            font-size: 24px;
+            margin-right: 12px;
+            flex-shrink: 0;
+        }
+
+        .status-text h4 {
+            margin: 0 0 5px 0;
+            font-size: 16px;
+            color: #333;
+        }
+
+        .status-text p {
+            margin: 0;
+            font-size: 14px;
+            color: #666;
+            line-height: 1.4;
+        }
+
         /* 平台选择样式 */
         .platform-selection {
             margin-bottom: 20px;
@@ -1745,6 +1785,1279 @@
             margin-top: 0;
             color: #007bff;
         }
+
+        /* 创建店铺模态框样式 - 移动端适配 */
+        .modal {
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(2px);
+        }
+
+        .modal-content.mobile-modal {
+            background-color: #fefefe;
+            margin: 10% auto;
+            padding: 0;
+            border: none;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px 12px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .close {
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: background-color 0.3s;
+        }
+
+        .close:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .modal-form {
+            padding: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 16px;
+            box-sizing: border-box;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-group small {
+            display: block;
+            margin-top: 5px;
+            color: #666;
+            font-size: 12px;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 30px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 14px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+        }
+
+        .btn-secondary {
+            background-color: #f8f9fa;
+            color: #6c757d;
+            border: 2px solid #e9ecef;
+        }
+
+        .btn-secondary:hover {
+            background-color: #e9ecef;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        /* 移动端响应式 */
+        @media (max-width: 480px) {
+            .modal-content.mobile-modal {
+                margin: 5% auto;
+                width: 95%;
+                max-height: 90vh;
+            }
+
+            .modal-header {
+                padding: 16px;
+            }
+
+            .modal-header h3 {
+                font-size: 16px;
+            }
+
+            .modal-form {
+                padding: 16px;
+            }
+
+            .form-group input,
+            .form-group textarea {
+                font-size: 16px; /* 防止iOS缩放 */
+            }
+
+            .btn {
+                padding: 12px;
+                font-size: 14px;
+            }
+        }
+
+        /* 店铺状态样式 */
+        .shop-status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+
+        .status-pending {
+            background: linear-gradient(135deg, #ff9800, #f57c00);
+            color: white;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.8; }
+            100% { opacity: 1; }
+        }
+
+        .status-approved {
+            background: linear-gradient(135deg, #4caf50, #2e7d32);
+            color: white;
+        }
+
+        .status-rejected {
+            background: linear-gradient(135deg, #f44336, #c62828);
+            color: white;
+        }
+
+        .status-active {
+            background: linear-gradient(135deg, #2196f3, #1976d2);
+            color: white;
+        }
+
+        .status-inactive {
+            background: linear-gradient(135deg, #9e9e9e, #616161);
+            color: white;
+        }
+
+        /* 付费按钮样式 */
+        .payment-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+
+        .payment-btn:hover {
+            background: #218838;
+        }
+
+        /* 付费模态框样式 */
+        .payment-options {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        @media (min-width: 768px) {
+            .payment-options {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        .payment-plan {
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            position: relative;
+            background: white;
+            transition: all 0.3s ease;
+        }
+
+        .payment-plan:hover {
+            border-color: #007bff;
+            box-shadow: 0 4px 12px rgba(0, 123, 255, 0.15);
+        }
+
+        .payment-plan.popular {
+            border-color: #28a745;
+            transform: scale(1.05);
+        }
+
+        .popular-badge {
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #28a745;
+            color: white;
+            padding: 4px 16px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .payment-plan h4 {
+            margin: 0 0 10px 0;
+            color: #333;
+            font-size: 18px;
+        }
+
+        .payment-plan .price {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+            margin-bottom: 15px;
+        }
+
+        .payment-plan ul {
+            list-style: none;
+            padding: 0;
+            margin: 0 0 20px 0;
+            text-align: left;
+        }
+
+        .payment-plan li {
+            padding: 5px 0;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .payment-plan .btn {
+            width: 100%;
+            padding: 10px;
+            font-size: 14px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .payment-plan .btn.primary {
+            background: #007bff;
+            color: white;
+        }
+
+        .payment-plan .btn.primary:hover {
+            background: #0056b3;
+        }
+
+        /* 推广模态框样式 */
+        .promotion-content {
+            padding: 0;
+        }
+
+        .promotion-section {
+            margin-bottom: 25px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+
+        .promotion-section h4 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .reward-info {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .reward-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 12px;
+            background: white;
+            border-radius: 6px;
+            border: 1px solid #e9ecef;
+        }
+
+        .reward-icon {
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+
+        .reward-item strong {
+            color: #007bff;
+            font-size: 14px;
+        }
+
+        .reward-item p {
+            color: #666;
+            font-size: 13px;
+            margin: 5px 0 0 0;
+            line-height: 1.4;
+        }
+
+        .link-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .promotion-link-input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            background: white;
+        }
+
+        .copy-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            white-space: nowrap;
+        }
+
+        .copy-btn:hover {
+            background: #218838;
+        }
+
+        .link-tip {
+            color: #666;
+            font-size: 13px;
+            line-height: 1.4;
+            margin: 0;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 15px;
+            background: white;
+            border-radius: 6px;
+            border: 1px solid #e9ecef;
+        }
+
+        .stat-number {
+            font-size: 18px;
+            font-weight: bold;
+            color: #007bff;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .share-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+        }
+
+        .share-btn {
+            background: white;
+            border: 2px solid #007bff;
+            color: #007bff;
+            padding: 12px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+
+        .share-btn:hover {
+            background: #007bff;
+            color: white;
+        }
+
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+            
+            .link-container {
+                flex-direction: column;
+            }
+            
+            .share-buttons {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* 消息页面增强样式 */
+        .search-container {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .search-input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            font-size: 14px;
+            background: rgba(255, 255, 255, 0.9);
+        }
+
+        .search-btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 20px;
+            cursor: pointer;
+        }
+
+        .conversations-header {
+            background: #f8f9fa;
+            padding: 15px 20px;
+            border-bottom: 1px solid #e9ecef;
+            margin: -20px -20px 20px -20px;
+        }
+
+        .conversations-stats {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .separator {
+            margin: 0 8px;
+        }
+
+        .conversations-filter {
+            display: flex;
+            gap: 10px;
+        }
+
+        .filter-btn {
+            background: transparent;
+            border: 1px solid #ddd;
+            color: #666;
+            padding: 6px 12px;
+            border-radius: 15px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .filter-btn.active {
+            background: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+
+        .chat-header {
+            background: white;
+            padding: 15px 20px;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: -20px -20px 20px -20px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .customer-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .customer-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #007bff;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .customer-details {
+            flex: 1;
+        }
+
+        .customer-name {
+            font-weight: bold;
+            font-size: 16px;
+            color: #333;
+        }
+
+        .customer-status {
+            font-size: 12px;
+            color: #28a745;
+        }
+
+        .chat-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .chat-action-btn {
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            padding: 8px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 14px;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .chat-action-btn:hover {
+            background: #e9ecef;
+        }
+
+        .quick-replies {
+            background: #f8f9fa;
+            padding: 10px;
+            border-top: 1px solid #e9ecef;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .quick-reply-btn {
+            background: white;
+            border: 1px solid #ddd;
+            padding: 8px 12px;
+            border-radius: 15px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+
+        .quick-reply-btn:hover {
+            background: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+
+        .input-toolbar {
+            display: flex;
+            gap: 8px;
+            padding: 8px 15px;
+            background: #f8f9fa;
+            border-top: 1px solid #e9ecef;
+        }
+
+        .input-toolbar button {
+            background: white;
+            border: 1px solid #ddd;
+            padding: 8px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 16px;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .input-toolbar button:hover {
+            background: #e9ecef;
+        }
+
+        .main-input-area {
+            display: flex;
+            gap: 8px;
+            padding: 15px;
+            background: white;
+            align-items: center;
+        }
+
+        .main-input-area .chat-input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid #ddd;
+            border-radius: 25px;
+            font-size: 14px;
+            outline: none;
+        }
+
+        .main-input-area .chat-input:focus {
+            border-color: #007bff;
+        }
+
+        .main-input-area .voice-btn,
+        .main-input-area .send-btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 16px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 14px;
+            white-space: nowrap;
+        }
+
+        .main-input-area .voice-btn:hover,
+        .main-input-area .send-btn:hover {
+            background: #0056b3;
+        }
+
+        /* 店铺管理模态框样式 */
+        .shop-management-modal {
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .tab-nav {
+            display: flex;
+            border-bottom: 2px solid #e9ecef;
+            margin-bottom: 20px;
+            overflow-x: auto;
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            padding: 12px 20px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #666;
+            border-bottom: 2px solid transparent;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .tab-btn.active {
+            color: #007bff;
+            border-bottom-color: #007bff;
+            background: #f8f9fa;
+        }
+
+        .tab-btn:hover {
+            color: #007bff;
+            background: #f8f9fa;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .section-header h4 {
+            margin: 0;
+            color: #333;
+            font-size: 16px;
+        }
+
+        .add-employee-form {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+            margin-bottom: 20px;
+        }
+
+        .add-employee-form h5 {
+            margin: 0 0 15px 0;
+            color: #333;
+            font-size: 16px;
+        }
+
+        .employee-help-text {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .employee-help-text p {
+            margin: 0 0 10px 0;
+        }
+
+        .employee-help-text ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+
+        .employee-help-text li {
+            margin-bottom: 5px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        @media (max-width: 480px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .form-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 15px;
+        }
+
+        .form-buttons button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .form-buttons button[type="submit"] {
+            background: #28a745;
+            color: white;
+        }
+
+        .form-buttons button[type="button"] {
+            background: #6c757d;
+            color: white;
+        }
+
+        .employees-list {
+            min-height: 200px;
+        }
+
+        .employee-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            background: white;
+        }
+
+        .employee-info {
+            flex: 1;
+        }
+
+        .employee-name {
+            font-weight: bold;
+            font-size: 16px;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .employee-role {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 3px;
+        }
+
+        .employee-status {
+            font-size: 12px;
+            padding: 2px 8px;
+            border-radius: 12px;
+        }
+
+        .employee-status.status-active {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .employee-status.status-offline {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .employee-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn.btn-small {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        .btn.danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn.danger:hover {
+            background: #c82333;
+        }
+
+        .domain-help {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 10px;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .domain-help h4 {
+            margin: 0 0 10px 0;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .domain-help ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+
+        .domain-help li {
+            margin-bottom: 5px;
+        }
+
+        .domain-help code {
+            background: #e9ecef;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+
+        .empty-state, .error-message {
+            text-align: center;
+            padding: 40px 20px;
+            color: #666;
+        }
+
+        .empty-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+
+        .empty-state h3 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+
+        .error-message {
+            color: #dc3545;
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            border-radius: 6px;
+        }
+
+        /* 管理面板样式 */
+        .admin-only-section {
+            margin-top: 20px;
+            border-top: 1px solid #e9ecef;
+            padding-top: 20px;
+        }
+
+        .settings-divider {
+            font-size: 14px;
+            font-weight: 600;
+            color: #6c757d;
+            margin-bottom: 12px;
+            padding: 8px 16px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        /* 管理面板模态框 */
+        .admin-modal {
+            max-width: 95vw;
+            max-height: 85vh;
+            width: 100%;
+        }
+
+        .admin-modal .modal-body {
+            padding: 0;
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+
+        .tab-nav {
+            display: flex;
+            border-bottom: 1px solid #e9ecef;
+            background: #f8f9fa;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 12px 8px;
+            border: none;
+            background: transparent;
+            font-size: 12px;
+            font-weight: 500;
+            color: #6c757d;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+        }
+
+        .tab-btn.active {
+            background: white;
+            color: #667eea;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .tab-content {
+            display: none;
+            padding: 20px 16px;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .admin-section h4 {
+            margin: 0 0 16px 0;
+            font-size: 16px;
+            color: #2c3e50;
+        }
+
+        /* 系统统计样式 */
+        .system-stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .system-stat-item {
+            background: #f8f9fa;
+            padding: 16px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid #e9ecef;
+        }
+
+        .system-stat-number {
+            font-size: 24px;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 4px;
+        }
+
+        .system-stat-label {
+            font-size: 12px;
+            color: #6c757d;
+        }
+
+        /* 店主管理样式 */
+        .search-container {
+            margin-bottom: 16px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .owners-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .owner-item {
+            background: white;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 8px;
+        }
+
+        .owner-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 8px;
+        }
+
+        .owner-info h6 {
+            margin: 0;
+            font-size: 14px;
+            color: #2c3e50;
+        }
+
+        .owner-info p {
+            margin: 2px 0;
+            font-size: 12px;
+            color: #6c757d;
+        }
+
+        .owner-actions {
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+        }
+
+        .owner-actions .btn {
+            padding: 4px 8px;
+            font-size: 10px;
+            min-width: auto;
+        }
+
+        /* 店铺监控样式 */
+        .shops-monitor {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .shop-monitor-item {
+            background: white;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .shop-monitor-info h6 {
+            margin: 0;
+            font-size: 14px;
+            color: #2c3e50;
+        }
+
+        .shop-monitor-info p {
+            margin: 2px 0;
+            font-size: 11px;
+            color: #6c757d;
+        }
+
+        /* 审核管理样式 */
+        .pending-shops-container {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .pending-shop-item {
+            background: white;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+
+        .pending-shop-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+
+        .pending-shop-info h5 {
+            margin: 0 0 4px 0;
+            font-size: 16px;
+            color: #2c3e50;
+        }
+
+        .pending-shop-info .domain {
+            font-size: 12px;
+            color: #6c757d;
+            margin-bottom: 6px;
+        }
+
+        .pending-shop-info .description {
+            font-size: 13px;
+            color: #495057;
+            line-height: 1.4;
+            background: #f8f9fa;
+            padding: 8px;
+            border-radius: 4px;
+        }
+
+        .pending-shop-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 8px 0;
+            font-size: 11px;
+            color: #6c757d;
+        }
+
+        .pending-shop-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .review-btn {
+            flex: 1;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .review-approve {
+            background: #28a745;
+            color: white;
+        }
+
+        .review-approve:hover {
+            background: #218838;
+        }
+
+        .review-reject {
+            background: #dc3545;
+            color: white;
+        }
+
+        .review-reject:hover {
+            background: #c82333;
+        }
+
+        .empty-pending {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+        }
+
+        .empty-pending i {
+            font-size: 48px;
+            margin-bottom: 15px;
+            display: block;
+        }
+
+        /* 状态样式 */
+        .status-active {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-suspended {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-approved {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-rejected {
+            background: #f8d7da;
+            color: #721c24;
+        }
     </style>
 </head>
 <body>
@@ -1758,9 +3071,14 @@
                     <span id="connectionText">已连接</span>
                 </div>
             </div>
-            <div class="user-info">
-                <div class="user-avatar" id="userAvatar">A</div>
-                <span id="userName">管理员</span>
+            <div class="top-bar-actions">
+                <button class="promotion-btn" onclick="showPromotionModal()" title="推广赚钱">
+                    🎁
+                </button>
+                <div class="user-info">
+                    <div class="user-avatar" id="userAvatar">A</div>
+                    <span id="userName">管理员</span>
+                </div>
             </div>
         </div>
 
@@ -1795,10 +3113,10 @@
                     <div class="quick-actions">
                         <h3 class="actions-title">快速操作</h3>
                         <div class="action-buttons">
-                            <button class="action-btn tap-feedback" onclick="switchPage('messages')">
+                            <button class="action-btn tap-feedback" data-switch-page="messages">
                                 💬 查看消息
                             </button>
-                            <button class="action-btn tap-feedback" onclick="switchPage('shops')">
+                            <button class="action-btn tap-feedback" data-switch-page="shops">
                                 🏪 管理店铺
                             </button>
                             <button class="action-btn tap-feedback" onclick="createNewShop()">
@@ -1819,6 +3137,10 @@
                     <p class="page-subtitle" id="messagesSubtitle">管理所有客服对话</p>
                     <div class="page-actions" id="messagesActions" style="display: none;">
                         <button class="back-btn tap-feedback" id="messagesBackBtn" onclick="goBackInMessages()">← 返回</button>
+                        <div class="search-container">
+                            <input type="text" id="conversationSearch" class="search-input" placeholder="搜索对话...">
+                            <button class="search-btn" onclick="searchConversations()">🔍</button>
+                        </div>
                     </div>
                 </div>
                 <div class="page-content">
@@ -1832,6 +3154,18 @@
                     
                     <!-- 店铺对话列表视图 -->
                     <div id="conversationsListView" style="display: none;">
+                        <div class="conversations-header">
+                            <div class="conversations-stats">
+                                <span id="totalConversationsCount">0</span> 个对话
+                                <span class="separator">•</span>
+                                <span id="unreadConversationsCount">0</span> 未读
+                            </div>
+                            <div class="conversations-filter">
+                                <button class="filter-btn active" data-filter="all">全部</button>
+                                <button class="filter-btn" data-filter="unread">未读</button>
+                                <button class="filter-btn" data-filter="active">活跃</button>
+                            </div>
+                        </div>
                         <div class="loading-state">
                             <div class="loading-spinner"></div>
                             <div class="loading-text">正在加载对话...</div>
@@ -1840,26 +3174,64 @@
                     
                     <!-- 聊天对话视图 -->
                     <div id="chatView" style="display: none;">
+                        <div class="chat-header">
+                            <div class="customer-info">
+                                <div class="customer-avatar" id="customerAvatar">C</div>
+                                <div class="customer-details">
+                                    <div class="customer-name" id="customerName">客户</div>
+                                    <div class="customer-status" id="customerStatus">在线</div>
+                                </div>
+                            </div>
+                            <div class="chat-actions">
+                                <button class="chat-action-btn" onclick="viewCustomerInfo()" title="客户信息">👤</button>
+                                <button class="chat-action-btn" onclick="transferConversation()" title="转接">🔄</button>
+                                <button class="chat-action-btn" onclick="endConversation()" title="结束对话">❌</button>
+                            </div>
+                        </div>
                         <div class="chat-container">
                             <div class="chat-messages" id="chatMessages">
                                 <!-- 消息列表将在这里动态加载 -->
                             </div>
                             <div class="chat-input-container">
-                                <!-- 多媒体按钮 -->
-                                <button id="mediaBtn" class="media-btn tap-feedback" title="发送文件">
-                                    <span class="media-icon">📎</span>
-                                </button>
+                                <!-- 快捷回复 -->
+                                <div class="quick-replies" id="quickReplies" style="display: none;">
+                                    <button class="quick-reply-btn">您好，我是客服，有什么可以帮您的吗？</button>
+                                    <button class="quick-reply-btn">请稍等，我帮您查询一下</button>
+                                    <button class="quick-reply-btn">感谢您的咨询，还有其他问题吗？</button>
+                                    <button class="quick-reply-btn">已为您记录，我们会尽快处理</button>
+                                </div>
                                 
-                                <!-- 文本输入框 -->
-                                <input type="text" id="chatInput" class="chat-input" placeholder="输入消息...">
+                                <!-- 输入工具栏 -->
+                                <div class="input-toolbar">
+                                    <!-- 多媒体按钮 -->
+                                    <button id="mediaBtn" class="media-btn tap-feedback" title="发送文件">
+                                        <span class="media-icon">📎</span>
+                                    </button>
+                                    
+                                    <!-- 快捷回复按钮 -->
+                                    <button id="quickReplyBtn" class="quick-reply-toggle tap-feedback" title="快捷回复">
+                                        <span class="quick-icon">⚡</span>
+                                    </button>
+                                    
+                                    <!-- 表情按钮 -->
+                                    <button id="emojiBtn" class="emoji-btn tap-feedback" title="表情">
+                                        <span class="emoji-icon">😊</span>
+                                    </button>
+                                </div>
                                 
-                                <!-- 语音按钮 -->
-                                <button id="voiceBtn" class="voice-btn tap-feedback" title="语音消息">
-                                    <span class="voice-icon">🎤</span>
-                                </button>
-                                
-                                <!-- 发送按钮 -->
-                                <button id="sendBtn" class="send-btn tap-feedback">发送</button>
+                                <!-- 主输入区域 -->
+                                <div class="main-input-area">
+                                    <!-- 文本输入框 -->
+                                    <input type="text" id="chatInput" class="chat-input" placeholder="输入消息...">
+                                    
+                                    <!-- 语音按钮 -->
+                                    <button id="voiceBtn" class="voice-btn tap-feedback" title="语音消息">
+                                        <span class="voice-icon">🎤</span>
+                                    </button>
+                                    
+                                    <!-- 发送按钮 -->
+                                    <button id="sendBtn" class="send-btn tap-feedback">发送</button>
+                                </div>
                                 
                                 <!-- 隐藏的文件选择器 -->
                                 <input type="file" id="fileInput" multiple accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.txt" style="display: none;">
@@ -1892,12 +3264,6 @@
                     <p class="page-subtitle">账户设置与个人信息</p>
                 </div>
                 <div class="page-content">
-                    <div class="profile-header">
-                        <div class="profile-avatar" id="profileAvatar">A</div>
-                        <div class="profile-name" id="profileName">管理员</div>
-                        <div class="profile-role" id="profileRole">超级管理员</div>
-                    </div>
-
                     <div class="settings-list">
                         <div class="settings-item tap-feedback" onclick="editProfile()">
                             <div class="settings-icon">👤</div>
@@ -1919,15 +3285,37 @@
                             <div class="settings-text">系统设置</div>
                             <div class="settings-arrow">›</div>
                         </div>
+                        
+                        <!-- 超级管理员专属功能 -->
+                        <div id="adminOnlySettings" class="admin-only-section" style="display: none;">
+                            <div class="settings-divider">超级管理员功能</div>
+                            <div class="settings-item tap-feedback" onclick="showAdminPanel()">
+                                <div class="settings-icon">🔧</div>
+                                <div class="settings-text">管理面板</div>
+                                <div class="settings-arrow">›</div>
+                            </div>
+                            <div class="settings-item tap-feedback" onclick="showReviewPanel()">
+                                <div class="settings-icon">📋</div>
+                                <div class="settings-text">审核管理</div>
+                                <div class="settings-arrow">›</div>
+                            </div>
+                        </div>
+                        
+                        <!-- 常规功能继续 -->
                         <div class="settings-item tap-feedback" onclick="aboutApp()">
                             <div class="settings-icon">ℹ️</div>
                             <div class="settings-text">关于应用</div>
                             <div class="settings-arrow">›</div>
                         </div>
-                        <div class="settings-item tap-feedback" onclick="logout()">
+                        
+                        <!-- 退出登录分隔线 -->
+                        <div style="height: 20px; background: #f8f9fa; margin: 0;"></div>
+                        
+                        <!-- 退出登录按钮 -->
+                        <div class="settings-item tap-feedback logout-button" onclick="logout()" style="cursor: pointer; background-color: #fff5f5; border: 2px solid #ff6b6b; color: #d63384;">
                             <div class="settings-icon">🚪</div>
-                            <div class="settings-text">退出登录</div>
-                            <div class="settings-arrow">›</div>
+                            <div class="settings-text" style="color: #d63384; font-weight: 600;">退出登录</div>
+                            <div class="settings-arrow" style="color: #d63384;">›</div>
                         </div>
                     </div>
                 </div>
@@ -1936,20 +3324,20 @@
 
         <!-- 底部导航栏 -->
         <div class="bottom-nav">
-            <div class="nav-item active tap-feedback" data-page="home" onclick="switchPage('home')">
+            <div class="nav-item active tap-feedback" data-page="home">
                 <div class="nav-icon">🏠</div>
                 <div class="nav-label">首页</div>
             </div>
-            <div class="nav-item tap-feedback" data-page="messages" onclick="switchPage('messages')">
+            <div class="nav-item tap-feedback" data-page="messages">
                 <div class="nav-icon">💬</div>
                 <div class="nav-label">消息</div>
                 <div class="nav-badge hidden" id="messagesBadge">0</div>
             </div>
-            <div class="nav-item tap-feedback" data-page="shops" onclick="switchPage('shops')">
+            <div class="nav-item tap-feedback" data-page="shops">
                 <div class="nav-icon">🏪</div>
                 <div class="nav-label">店铺</div>
             </div>
-            <div class="nav-item tap-feedback" data-page="profile" onclick="switchPage('profile')">
+            <div class="nav-item tap-feedback" data-page="profile">
                 <div class="nav-icon">👤</div>
                 <div class="nav-label">我的</div>
             </div>
@@ -1964,6 +3352,7 @@
         let conversationsData = [];
         let websocket = null;
         let currentShopId = null; // 当前操作的店铺ID
+        let isPageSwitching = false; // 页面切换防抖标志
 
         // 应用初始化
         document.addEventListener('DOMContentLoaded', function() {
@@ -1977,16 +3366,165 @@
                 // 检查登录状态
                 await checkLoginStatus();
                 
+                // 绑定导航事件
+                bindNavigationEvents();
+                
                 // 初始化WebSocket连接
                 initializeWebSocket();
                 
                 // 加载初始数据
                 await loadDashboardData();
                 
+                // 初始化个人资料页面
+                initializeProfilePage();
+                
+                // 确保页面状态正确初始化
+                initializePageStates();
+                
                 console.log('✅ 应用初始化完成');
             } catch (error) {
                 console.error('❌ 应用初始化失败:', error);
                 showToast('系统启动失败，请刷新页面重试', 'error');
+            }
+        }
+
+        // 绑定导航事件
+        function bindNavigationEvents() {
+            console.log('🔗 开始绑定导航事件...');
+            
+            // 绑定底部导航栏点击事件
+            const navItems = document.querySelectorAll('.nav-item[data-page]');
+            console.log(`🔗 找到 ${navItems.length} 个导航项`);
+            navItems.forEach(item => {
+                item.addEventListener('click', function() {
+                    const page = this.getAttribute('data-page');
+                    console.log(`🖱️ 点击导航项: ${page}`);
+                    switchPage(page);
+                });
+            });
+            
+            // 绑定快速操作按钮事件
+            const switchPageButtons = document.querySelectorAll('[data-switch-page]');
+            console.log(`🔗 找到 ${switchPageButtons.length} 个快速操作按钮`);
+            switchPageButtons.forEach((btn, index) => {
+                const page = btn.getAttribute('data-switch-page');
+                console.log(`🔗 绑定按钮 ${index + 1}: ${page}`);
+                btn.addEventListener('click', function(e) {
+                    console.log(`🖱️ 点击快速操作按钮: ${page}`);
+                    e.preventDefault();
+                    e.stopPropagation();
+                    switchPage(page);
+                });
+            });
+
+            // 绑定消息页面增强功能
+            initializeMessagePageEnhancements();
+            
+            // 添加测试功能 - 检查按钮状态
+            setTimeout(() => {
+                console.log('🔍 延迟检查按钮状态...');
+                const testButtons = document.querySelectorAll('[data-switch-page]');
+                console.log(`🔍 延迟检查找到 ${testButtons.length} 个按钮`);
+                testButtons.forEach((btn, i) => {
+                    const page = btn.getAttribute('data-switch-page');
+                    const rect = btn.getBoundingClientRect();
+                    console.log(`🔍 按钮 ${i+1} (${page}): 可见=${rect.width > 0 && rect.height > 0}, 位置=${rect.top},${rect.left}`);
+                });
+                
+                // 添加全局测试函数
+                window.testSwitchPage = function(page) {
+                    console.log(`🧪 测试切换页面: ${page}`);
+                    switchPage(page);
+                };
+                
+                // 添加按钮点击测试
+                window.testButtonClick = function(buttonIndex = 0) {
+                    const buttons = document.querySelectorAll('[data-switch-page]');
+                    if (buttons[buttonIndex]) {
+                        console.log(`🧪 模拟点击按钮 ${buttonIndex}`);
+                        buttons[buttonIndex].click();
+                    } else {
+                        console.log(`❌ 按钮 ${buttonIndex} 不存在`);
+                    }
+                };
+                
+                // 添加新增店铺测试
+                window.testCreateShop = function() {
+                    console.log('🧪 测试新增店铺功能');
+                    try {
+                        createNewShop();
+                    } catch (error) {
+                        console.error('❌ 测试新增店铺出错:', error);
+                    }
+                };
+                
+                // 添加关闭模态框测试
+                window.testCloseShop = function() {
+                    console.log('🧪 测试关闭店铺模态框');
+                    try {
+                        hideCreateShopModal();
+                    } catch (error) {
+                        console.error('❌ 测试关闭模态框出错:', error);
+                    }
+                };
+                
+                // 添加表单提交测试
+                window.testSubmitShop = function() {
+                    console.log('🧪 测试提交店铺表单');
+                    const form = document.getElementById('createShopForm');
+                    if (form) {
+                        const event = new Event('submit', { bubbles: true, cancelable: true });
+                        form.dispatchEvent(event);
+                    } else {
+                        console.error('❌ 未找到表单元素');
+                    }
+                };
+            }, 1000);
+        }
+
+        // 初始化消息页面增强功能
+        function initializeMessagePageEnhancements() {
+            // 搜索输入框事件
+            const searchInput = document.getElementById('conversationSearch');
+            if (searchInput) {
+                searchInput.addEventListener('input', searchConversations);
+            }
+
+            // 过滤按钮事件
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const filterType = this.getAttribute('data-filter');
+                    filterConversations(filterType);
+                });
+            });
+
+            // 快捷回复按钮事件
+            const quickReplyBtn = document.getElementById('quickReplyBtn');
+            if (quickReplyBtn) {
+                quickReplyBtn.addEventListener('click', toggleQuickReplies);
+            }
+
+            // 快捷回复选项事件
+            document.querySelectorAll('.quick-reply-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    sendQuickReply(this.textContent);
+                });
+            });
+
+            // 表情按钮事件
+            const emojiBtn = document.getElementById('emojiBtn');
+            if (emojiBtn) {
+                emojiBtn.addEventListener('click', function() {
+                    showToast('表情功能开发中...', 'info');
+                });
+            }
+
+            // 文件上传按钮事件
+            const mediaBtn = document.getElementById('mediaBtn');
+            if (mediaBtn) {
+                mediaBtn.addEventListener('click', function() {
+                    showToast('文件上传功能开发中...', 'info');
+                });
             }
         }
 
@@ -2015,9 +3553,16 @@
             if (userData) {
                 document.getElementById('userAvatar').textContent = userData.avatar || userData.username.charAt(0).toUpperCase();
                 document.getElementById('userName').textContent = userData.username;
-                document.getElementById('profileAvatar').textContent = userData.avatar || userData.username.charAt(0).toUpperCase();
-                document.getElementById('profileName').textContent = userData.username;
-                document.getElementById('profileRole').textContent = getRoleDisplayName(userData.role);
+                
+                // 根据用户角色显示/隐藏超级管理员功能
+                const adminOnlySettings = document.getElementById('adminOnlySettings');
+                if (userData.role === 'super_admin' || userData.role === 'administrator') {
+                    adminOnlySettings.style.display = 'block';
+                    console.log('👨‍💼 显示超级管理员功能');
+                } else {
+                    adminOnlySettings.style.display = 'none';
+                    console.log('🔒 隐藏超级管理员功能');
+                }
             }
         }
 
@@ -2025,6 +3570,7 @@
         function getRoleDisplayName(role) {
             const roleMap = {
                 'super_admin': '超级管理员',
+                'administrator': '超级管理员',
                 'admin': '管理员',
                 'shop_owner': '店主',
                 'agent': '客服'
@@ -2034,7 +3580,7 @@
 
         // 权限检查函数
         function isAdmin() {
-            const isAdminRole = userData && (userData.role === 'admin' || userData.role === 'super_admin');
+            const isAdminRole = userData && (userData.role === 'admin' || userData.role === 'super_admin' || userData.role === 'administrator');
             console.log(`管理员权限检查: 用户角色=${userData?.role || 'undefined'}, 是管理员=${isAdminRole}`);
             return isAdminRole;
         }
@@ -2143,41 +3689,91 @@
             }
         }
 
+        // 防抖计时器
+        let switchPageTimer = null;
+        
         // 页面切换
         function switchPage(pageName) {
-            if (pageName === currentPage) return;
+            console.log(`🔄 switchPage 被调用: ${pageName}, 当前页面: ${currentPage}`);
             
-            console.log(`🔄 切换到页面: ${pageName}`);
-            
-            // 隐藏当前页面
-            document.querySelectorAll('.page.active').forEach(page => {
-                page.classList.remove('active');
-            });
-            
-            // 显示目标页面
-            const targetPage = document.getElementById(pageName + 'Page');
-            if (targetPage) {
-                targetPage.classList.add('active');
+            // 清除之前的计时器
+            if (switchPageTimer) {
+                clearTimeout(switchPageTimer);
             }
             
-            // 更新导航栏状态
-            document.querySelectorAll('.nav-item').forEach(item => {
-                item.classList.remove('active');
-            });
-            document.querySelector(`[data-page="${pageName}"]`)?.classList.add('active');
-            
-            // 更新当前页面
-            currentPage = pageName;
-            
-            // 根据页面加载相应数据
-            loadPageData(pageName);
-            
-            // 重置消息徽章
-            if (pageName === 'messages') {
-                const badge = document.getElementById('messagesBadge');
-                badge.classList.add('hidden');
-                badge.textContent = '0';
+            // 防抖保护
+            if (isPageSwitching) {
+                console.log(`⚠️ 页面正在切换中，忽略本次请求`);
+                return;
             }
+            
+            if (pageName === currentPage) {
+                console.log(`⚠️ 已经在页面 ${pageName}, 跳过切换`);
+                return;
+            }
+            
+            // 防抖延迟执行
+            switchPageTimer = setTimeout(() => {
+                isPageSwitching = true;
+                console.log(`🔄 切换到页面: ${pageName}`);
+                
+                try {
+                    // 强制隐藏所有页面
+                    const allPages = document.querySelectorAll('.page');
+                    console.log(`📱 找到 ${allPages.length} 个页面元素`);
+                    allPages.forEach(page => {
+                        page.classList.remove('active');
+                        page.style.visibility = 'hidden';
+                        page.style.zIndex = '-1';
+                        page.style.display = 'none';
+                        page.style.pointerEvents = 'none';
+                        console.log(`🙈 强制隐藏页面: ${page.id}`);
+                    });
+                    
+                    // 显示目标页面
+                    const targetPage = document.getElementById(pageName + 'Page');
+                    console.log(`🎯 目标页面元素: ${targetPage ? targetPage.id : '未找到'}`);
+                    if (targetPage) {
+                        targetPage.classList.add('active');
+                        targetPage.style.visibility = 'visible';
+                        targetPage.style.zIndex = '10';
+                        targetPage.style.display = 'block';
+                        targetPage.style.pointerEvents = 'all';
+                        console.log(`👁️ 显示页面: ${targetPage.id}`);
+                    } else {
+                        console.error(`❌ 未找到页面元素: ${pageName}Page`);
+                        return;
+                    }
+                    
+                    // 更新导航栏状态
+                    document.querySelectorAll('.nav-item').forEach(item => {
+                        item.classList.remove('active');
+                    });
+                    document.querySelector(`[data-page="${pageName}"]`)?.classList.add('active');
+                    
+                    // 更新当前页面
+                    currentPage = pageName;
+                    
+                    // 根据页面加载相应数据
+                    loadPageData(pageName);
+                    
+                    // 重置消息徽章
+                    if (pageName === 'messages') {
+                        const badge = document.getElementById('messagesBadge');
+                        if (badge) {
+                            badge.classList.add('hidden');
+                        }
+                    }
+                } catch (error) {
+                    console.error('❌ 页面切换出错:', error);
+                } finally {
+                    // 延迟重置切换标志，防止过快连续切换
+                    setTimeout(() => {
+                        isPageSwitching = false;
+                        console.log('✅ 页面切换完成，重置标志');
+                    }, 100);
+                }
+            }, 50); // 防抖延迟50ms
         }
 
         // 根据页面加载数据
@@ -2193,8 +3789,66 @@
                     await loadShops();
                     break;
                 case 'profile':
-                    // 个人资料页面不需要额外加载数据
+                    // 个人资料页面 - 初始化用户信息和权限
+                    initializeProfilePage();
                     break;
+            }
+        }
+
+        // 初始化页面状态，确保只有首页显示
+        function initializePageStates() {
+            console.log('🔧 初始化页面状态');
+            
+            // 强制隐藏所有页面
+            const allPages = document.querySelectorAll('.page');
+            allPages.forEach(page => {
+                page.classList.remove('active');
+                page.style.visibility = 'hidden';
+                page.style.zIndex = '-1';
+                page.style.display = 'none';
+                page.style.pointerEvents = 'none';
+                console.log(`🙈 强制隐藏页面: ${page.id}`);
+            });
+            
+            // 显示首页
+            const homePage = document.getElementById('homePage');
+            if (homePage) {
+                homePage.classList.add('active');
+                homePage.style.visibility = 'visible';
+                homePage.style.zIndex = '10';
+                homePage.style.display = 'block';
+                homePage.style.pointerEvents = 'all';
+                console.log('✅ 首页已激活');
+            }
+            
+            // 设置首页导航为激活状态
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            document.querySelector('[data-page="home"]')?.classList.add('active');
+            
+            // 确保当前页面状态
+            currentPage = 'home';
+            console.log('✅ 页面状态初始化完成');
+        }
+
+        // 初始化个人资料页面
+        function initializeProfilePage() {
+            console.log('🔧 初始化个人资料页面');
+            
+            // 更新用户信息显示
+            if (userData) {
+                // 显示/隐藏超级管理员功能
+                const adminOnlySettings = document.getElementById('adminOnlySettings');
+                if (adminOnlySettings) {
+                    if (userData.role === 'super_admin' || userData.role === 'administrator') {
+                        adminOnlySettings.style.display = 'block';
+                        console.log('✅ 显示超级管理员功能');
+                    } else {
+                        adminOnlySettings.style.display = 'none';
+                        console.log('❌ 隐藏超级管理员功能 - 权限不足');
+                    }
+                }
             }
         }
 
@@ -2215,17 +3869,33 @@
 
         // 获取仪表板统计数据
         async function fetchDashboardStats() {
-            // 模拟API调用
-            return new Promise((resolve) => {
-                setTimeout(() => {
-                    resolve({
-                        totalShops: Math.floor(Math.random() * 10) + 3,
-                        todayMessages: Math.floor(Math.random() * 100) + 50,
-                        activeChats: Math.floor(Math.random() * 20) + 5,
-                        responseRate: Math.floor(Math.random() * 10) + 90
-                    });
-                }, 500);
-            });
+            try {
+                // 调用不需要认证的店铺API（与成功的店铺列表API保持一致）
+                const shopsResponse = await fetch('/api/shops');
+
+                if (shopsResponse.ok) {
+                    const shopsData = await shopsResponse.json();
+                    const shops = shopsData.data || [];
+                    
+                    return {
+                        totalShops: shops.length,
+                        todayMessages: 0,  // 暂时设为0，需要消息API
+                        activeChats: 0,    // 暂时设为0，需要对话API  
+                        responseRate: shops.length > 0 ? 95 : 0  // 有店铺时显示95%，否则0%
+                    };
+                } else {
+                    throw new Error('获取店铺数据失败');
+                }
+            } catch (error) {
+                console.error('获取统计数据失败:', error);
+                // 如果API调用失败，返回空数据而不是随机数据
+                return {
+                    totalShops: 0,
+                    todayMessages: 0,
+                    activeChats: 0,
+                    responseRate: 0
+                };
+            }
         }
 
         // 消息模块 - 管理三层结构的消息系统
@@ -3165,12 +4835,12 @@
                     `;
                 } else {
                     const shopsHTML = shopsData.map(shop => {
-                        const statusClass = getShopStatusClass(shop.status);
-                        const statusText = getShopStatusText(shop.status);
+                        const statusClass = getShopStatusClass(shop.approvalStatus || shop.status);
+                        const statusText = getShopStatusText(shop.approvalStatus || shop.status);
                         const actions = getShopActions(shop);
                         
                         return `
-                        <div class="shop-card ${shop.status === 'inactive' ? 'shop-card-inactive' : ''}" onclick="handleShopClick('${shop.id}', event)">
+                        <div class="shop-card ${(shop.approvalStatus === 'inactive' || shop.status === 'inactive') ? 'shop-card-inactive' : ''}" onclick="handleShopClick('${shop.id}', event)">
                             <div class="shop-header">
                                 <div class="shop-left">
                                     <div class="shop-icon">${shop.name.charAt(0).toUpperCase()}</div>
@@ -4076,6 +5746,16 @@
 
         // 工具函数
         function getAuthToken() {
+            const savedUser = localStorage.getItem('quicktalk_user');
+            if (savedUser) {
+                try {
+                    const userData = JSON.parse(savedUser);
+                    return userData.token || '';
+                } catch (error) {
+                    console.error('获取认证token失败:', error);
+                    return '';
+                }
+            }
             return localStorage.getItem('admin_token') || '';
         }
 
@@ -4149,13 +5829,15 @@
         function getShopActions(shop) {
             const actions = [];
             const userIsAdmin = isAdmin();
+            const status = shop.approvalStatus || shop.status;
             
-            switch (shop.status) {
+            switch (status) {
                 case 'pending':
                     // 待审核状态
                     if (userIsAdmin) {
                         // 管理员可以审核店铺
-                        actions.push(`<div class="shop-action-btn success" onclick="manageShop('${shop.id}', event)">审核</div>`);
+                        actions.push(`<div class="shop-action-btn success" onclick="approveShop('${shop.id}', event)">通过</div>`);
+                        actions.push(`<div class="shop-action-btn danger" onclick="rejectShop('${shop.id}', event)">拒绝</div>`);
                     } else {
                         // 店主只能编辑和查看
                         actions.push(`<div class="shop-action-btn warning" onclick="editShop('${shop.id}', event)">编辑</div>`);
@@ -4167,7 +5849,8 @@
                     // 已批准状态
                     if (userIsAdmin) {
                         // 管理员可以激活或停用店铺
-                        actions.push(`<div class="shop-action-btn primary" onclick="manageShop('${shop.id}', event)">管理</div>`);
+                        actions.push(`<div class="shop-action-btn primary" onclick="activateShop('${shop.id}', event)">激活</div>`);
+                        actions.push(`<div class="shop-action-btn danger" onclick="rejectShop('${shop.id}', event)">拒绝</div>`);
                     } else {
                         // 店主可以付费开通
                         actions.push(`<div class="shop-action-btn primary" onclick="payToActivate('${shop.id}', event)">付费开通</div>`);
@@ -4180,10 +5863,10 @@
                     actions.push(`<div class="shop-action-btn" onclick="viewShopMessages('${shop.id}', event)">消息</div>`);
                     if (userIsAdmin) {
                         // 管理员可以管理店铺状态
-                        actions.push(`<div class="shop-action-btn primary" onclick="manageShop('${shop.id}', event)">管理</div>`);
+                        actions.push(`<div class="shop-action-btn warning" onclick="deactivateShop('${shop.id}', event)">停用</div>`);
                     } else {
                         // 店主可以查看详情和生成集成代码
-                        actions.push(`<div class="shop-action-btn primary" onclick="viewShop('${shop.id}', event)">管理</div>`);
+                        actions.push(`<div class="shop-action-btn" onclick="manageShop('${shop.id}', event)">管理</div>`);
                     }
                     break;
                     
@@ -4313,48 +5996,171 @@
         // 显示店铺详细信息模态框
         function showShopDetails(shop) {
             const statusText = getStatusText(shop.status);
-            const modal = document.getElementById('shop-details-modal');
+            let modal = document.getElementById('shop-details-modal');
+            
+            // 检查是否已付费或审核通过
+            const isPaid = shop.payment_status === 'paid';
+            const isApproved = shop.status === 'approved' || shop.status === 'active';
+            const shouldShowAdvancedFeatures = isPaid && isApproved;
+            
             if (!modal) {
-                // 创建店铺详情模态框
+                // 创建店铺详情模态框，支持多标签页结构
                 const modalHtml = `
                     <div id="shop-details-modal" class="modal">
-                        <div class="modal-content">
+                        <div class="modal-content shop-management-modal">
                             <div class="modal-header">
-                                <h3>店铺详情</h3>
+                                <h3 id="shop-details-title">${shop.name} - 店铺管理</h3>
                                 <button class="modal-close" onclick="closeModal('shop-details-modal')">×</button>
                             </div>
                             <div class="modal-body">
-                                <div class="shop-detail-info">
-                                    <div class="detail-item">
-                                        <label>店铺名称：</label>
-                                        <span id="detail-shop-name"></span>
-                                    </div>
-                                    <div class="detail-item">
-                                        <label>域名：</label>
-                                        <span id="detail-shop-domain"></span>
-                                    </div>
-                                    <div class="detail-item">
-                                        <label>状态：</label>
-                                        <span id="detail-shop-status" class="status-badge"></span>
-                                    </div>
-                                    <div class="detail-item">
-                                        <label>API密钥：</label>
-                                        <span id="detail-shop-api-key" class="api-key-display"></span>
-                                    </div>
-                                    <div class="detail-item">
-                                        <label>创建时间：</label>
-                                        <span id="detail-shop-created"></span>
-                                    </div>
+                                <!-- 标签页导航 -->
+                                <div class="tab-nav">
+                                    <button class="tab-btn active" onclick="showShopTab('info')">📋 基本信息</button>
+                                    ${shouldShowAdvancedFeatures ? `
+                                        <button class="tab-btn" onclick="showShopTab('employees')">👥 员工管理</button>
+                                        <button class="tab-btn" onclick="showShopTab('settings')">⚙️ 店铺设置</button>
+                                    ` : ''}
                                 </div>
-                                <div class="shop-detail-actions">
-                                    <button class="btn primary" onclick="generateIntegrationCode()">生成集成代码</button>
-                                    <button class="btn secondary" onclick="manageShopEmployees()">员工管理</button>
+
+                                <!-- 基本信息标签页 -->
+                                <div id="infoTab" class="tab-content active">
+                                    <div class="shop-detail-info">
+                                        <div class="detail-item">
+                                            <label>店铺名称：</label>
+                                            <span id="detail-shop-name"></span>
+                                        </div>
+                                        <div class="detail-item">
+                                            <label>域名：</label>
+                                            <span id="detail-shop-domain"></span>
+                                        </div>
+                                        <div class="detail-item">
+                                            <label>状态：</label>
+                                            <span id="detail-shop-status" class="status-badge"></span>
+                                        </div>
+                                        ${shouldShowAdvancedFeatures ? `
+                                            <div class="detail-item">
+                                                <label>API密钥：</label>
+                                                <span id="detail-shop-api-key" class="api-key-display"></span>
+                                            </div>
+                                        ` : ''}
+                                        <div class="detail-item">
+                                            <label>创建时间：</label>
+                                            <span id="detail-shop-created"></span>
+                                        </div>
+                                        ${shop.status === 'pending' ? `
+                                            <div class="detail-item status-info">
+                                                <div class="status-message pending">
+                                                    <div class="status-icon">⏳</div>
+                                                    <div class="status-text">
+                                                        <h4>等待审核中</h4>
+                                                        <p>您的店铺申请正在审核中，我们会在1-2个工作日内完成审核。</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ` : ''}
+                                        ${shop.status === 'approved' && !isPaid ? `
+                                            <div class="detail-item status-info">
+                                                <div class="status-message payment-pending">
+                                                    <div class="status-icon">💳</div>
+                                                    <div class="status-text">
+                                                        <h4>等待付费</h4>
+                                                        <p>店铺已审核通过，请完成付费后即可使用API密钥和集成代码等高级功能。</p>
+                                                        <button class="payment-btn" onclick="goToPayment('${shop.id}')">立即付费</button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ` : ''}
+                                    </div>
+                                    ${shouldShowAdvancedFeatures ? `
+                                        <div class="shop-detail-actions">
+                                            <button class="btn primary" onclick="generateIntegrationCode()">生成集成代码</button>
+                                            <button class="btn secondary" onclick="refreshApiKey()">重新生成API密钥</button>
+                                        </div>
+                                    ` : ''}
                                 </div>
+
+                                <!-- 员工管理标签页 -->
+                                ${shouldShowAdvancedFeatures ? `
+                                    <div id="employeesTab" class="tab-content">
+                                        <div class="section-header">
+                                            <h4>员工列表</h4>
+                                            <button class="btn btn-small" onclick="showAddEmployeeForm()">➕ 添加员工</button>
+                                        </div>
+                                        
+                                        <!-- 添加员工表单 -->
+                                        <div id="addEmployeeForm" class="add-employee-form" style="display: none;">
+                                            <h5>添加新员工</h5>
+                                            <div class="employee-help-text">
+                                                <p>💡 <strong>员工权限说明：</strong></p>
+                                                <ul>
+                                                    <li><strong>员工</strong>：可以回复客户消息，处理客服对话</li>
+                                                    <li><strong>经理</strong>：可以回复客户消息，查看统计报表，管理其他员工</li>
+                                                </ul>
+                                                <p>✅ 添加的员工将能够登录系统并处理本店铺的客服工作</p>
+                                            </div>
+                                            <form id="addEmployeeFormData" onsubmit="addEmployee(event)">
+                                                <div class="form-row">
+                                                    <div class="form-group">
+                                                        <label for="employeeUsername">用户名</label>
+                                                        <input type="text" id="employeeUsername" placeholder="输入要添加的用户名" required>
+                                                    </div>
+                                                    <div class="form-group">
+                                                        <label for="employeeRole">角色权限</label>
+                                                        <select id="employeeRole" required>
+                                                            <option value="employee">员工 (客服权限)</option>
+                                                            <option value="manager">经理 (管理权限)</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                                <div class="form-buttons">
+                                                    <button type="button" onclick="cancelAddEmployee()">取消</button>
+                                                    <button type="submit">➕ 添加员工</button>
+                                                </div>
+                                            </form>
+                                        </div>
+
+                                        <!-- 员工列表 -->
+                                        <div id="employeesList" class="employees-list">
+                                            <div class="loading">正在加载员工信息...</div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 店铺设置标签页 -->
+                                    <div id="settingsTab" class="tab-content">
+                                        <form id="shopSettingsForm" onsubmit="updateShopSettings(event)">
+                                            <div class="form-group">
+                                                <label for="editShopName">店铺名称</label>
+                                                <input type="text" id="editShopName" required>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="editShopDomain">店铺域名</label>
+                                                <input type="text" id="editShopDomain" required>
+                                                <div class="domain-help">
+                                                    <h4>📝 域名填写格式说明：</h4>
+                                                    <ul>
+                                                        <li><strong>✅ 正确格式：</strong> <code>example.com</code></li>
+                                                        <li><strong>❌ 错误格式：</strong> <code>https://example.com/</code></li>
+                                                        <li><strong>🌟 通配符支持：</strong> <code>*.example.com</code></li>
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="editShopDescription">店铺描述</label>
+                                                <textarea id="editShopDescription" rows="3"></textarea>
+                                            </div>
+                                            <div class="form-buttons">
+                                                <button type="button" onclick="closeModal('shop-details-modal')">取消</button>
+                                                <button type="submit">💾 保存设置</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                ` : ''}
                             </div>
                         </div>
                     </div>
                 `;
                 document.body.insertAdjacentHTML('beforeend', modalHtml);
+                modal = document.getElementById('shop-details-modal');
             }
             
             // 填充店铺信息
@@ -4362,14 +6168,27 @@
             document.getElementById('detail-shop-domain').textContent = shop.domain;
             document.getElementById('detail-shop-status').textContent = statusText;
             document.getElementById('detail-shop-status').className = `status-badge status-${shop.status}`;
-            document.getElementById('detail-shop-api-key').textContent = shop.api_key || '未生成';
+            
+            // 只有付费用户才显示API密钥
+            if (shouldShowAdvancedFeatures) {
+                const apiKeyElement = document.getElementById('detail-shop-api-key');
+                if (apiKeyElement) {
+                    apiKeyElement.textContent = shop.api_key || '未生成';
+                }
+            }
+            
             document.getElementById('detail-shop-created').textContent = shop.created_at ? new Date(shop.created_at).toLocaleDateString() : '未知';
             
             // 存储当前店铺ID
             currentShopId = shop.id;
             
-            // 显示模态框
-            document.getElementById('shop-details-modal').style.display = 'flex';
+            // 使用统一的模态框显示方式
+            const overlay = document.getElementById('modal-overlay');
+            if (overlay && modal) {
+                overlay.style.display = 'flex';
+                modal.classList.add('show');
+                document.body.style.overflow = 'hidden';
+            }
         }
 
         // 生成集成代码
@@ -4421,7 +6240,15 @@
             }
             
             document.body.insertAdjacentHTML('beforeend', modalHtml);
-            document.getElementById('integration-code-modal').style.display = 'flex';
+            
+            // 使用统一的模态框显示方式
+            const modal = document.getElementById('integration-code-modal');
+            const overlay = document.getElementById('modal-overlay');
+            if (overlay && modal) {
+                overlay.style.display = 'flex';
+                modal.classList.add('show');
+                document.body.style.overflow = 'hidden';
+            }
         }
 
         // 生成指定平台的集成代码
@@ -4518,90 +6345,610 @@
             // TODO: 实现员工管理功能
         }
 
-        // 显示创建店铺模态框
-        function showCreateShopModal() {
-            console.log('显示创建店铺模态框');
+        // 跳转到付费页面
+        function goToPayment(shopId) {
+            if (!shopId) {
+                showToast('店铺ID无效', 'error');
+                return;
+            }
             
-            const overlay = document.getElementById('modal-overlay');
-            overlay.innerHTML = `
-                <div class="modal show">
+            // 关闭当前模态框
+            closeModal('shop-details-modal');
+            
+            // 跳转到付费页面
+            showToast('正在跳转到付费页面...', 'info');
+            
+            // 这里可以跳转到实际的付费页面
+            // window.location.href = `/payment/${shopId}`;
+            
+            // 或者显示付费模态框
+            showPaymentModal(shopId);
+        }
+
+        // 显示付费模态框
+        function showPaymentModal(shopId) {
+            const modalHtml = `
+                <div id="payment-modal" class="modal">
                     <div class="modal-content">
                         <div class="modal-header">
-                            <h3>🏪 创建新店铺</h3>
-                            <button class="modal-close" onclick="closeModal()">×</button>
+                            <h3>💳 选择付费套餐</h3>
+                            <button class="modal-close" onclick="closeModal('payment-modal')">×</button>
                         </div>
                         <div class="modal-body">
-                            <div style="text-align: center; padding: 20px;">
-                                <div style="font-size: 48px; margin-bottom: 20px;">🏪</div>
-                                <h4 style="margin-bottom: 15px; color: #333;">开始您的客服之旅</h4>
-                                <p style="color: #666; margin-bottom: 30px; line-height: 1.6;">
-                                    我们提供完整的店铺注册和支付系统，让您快速开通专业的客服服务。
-                                </p>
-                                
-                                <div style="background: #f8f9fa; border-radius: 12px; padding: 20px; margin-bottom: 25px;">
-                                    <h5 style="color: #495057; margin-bottom: 15px;">💎 套餐选择</h5>
-                                    <div style="display: grid; gap: 10px; font-size: 14px; color: #6c757d;">
-                                        <div>📦 <strong>基础版</strong>：¥99/年 - 适合小型店铺</div>
-                                        <div>🚀 <strong>标准版</strong>：¥299/年 - 适合中型企业</div>
-                                        <div>👑 <strong>高级版</strong>：¥599/年 - 适合大型企业</div>
-                                    </div>
+                            <div class="payment-options">
+                                <div class="payment-plan">
+                                    <h4>基础版</h4>
+                                    <div class="price">¥99/年</div>
+                                    <ul>
+                                        <li>✅ API密钥</li>
+                                        <li>✅ 集成代码生成</li>
+                                        <li>✅ 基础客服功能</li>
+                                        <li>✅ 月访问量1万次</li>
+                                    </ul>
+                                    <button class="btn primary" onclick="processPayment('${shopId}', 'basic', 99)">选择基础版</button>
                                 </div>
-                                
-                                <div style="display: grid; gap: 15px;">
-                                    <button onclick="goToShopRegister()" style="
-                                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                                        color: white;
-                                        border: none;
-                                        padding: 15px 25px;
-                                        border-radius: 10px;
-                                        font-size: 16px;
-                                        font-weight: 600;
-                                        cursor: pointer;
-                                        transition: all 0.3s ease;
-                                    " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 25px rgba(102, 126, 234, 0.3)'" 
-                                       onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
-                                        立即注册店铺 →
-                                    </button>
-                                    
-                                    <button onclick="goToShopLogin()" style="
-                                        background: transparent;
-                                        color: #667eea;
-                                        border: 2px solid #667eea;
-                                        padding: 12px 25px;
-                                        border-radius: 10px;
-                                        font-size: 14px;
-                                        font-weight: 600;
-                                        cursor: pointer;
-                                        transition: all 0.3s ease;
-                                    " onmouseover="this.style.background='#667eea'; this.style.color='white'" 
-                                       onmouseout="this.style.background='transparent'; this.style.color='#667eea'">
-                                        已有店铺？立即登录
-                                    </button>
+                                <div class="payment-plan popular">
+                                    <div class="popular-badge">推荐</div>
+                                    <h4>标准版</h4>
+                                    <div class="price">¥299/年</div>
+                                    <ul>
+                                        <li>✅ 包含基础版所有功能</li>
+                                        <li>✅ 高级定制选项</li>
+                                        <li>✅ 优先技术支持</li>
+                                        <li>✅ 月访问量10万次</li>
+                                        <li>✅ 数据分析报告</li>
+                                    </ul>
+                                    <button class="btn primary" onclick="processPayment('${shopId}', 'standard', 299)">选择标准版</button>
                                 </div>
-                                
-                                <div style="margin-top: 25px; padding-top: 20px; border-top: 1px solid #dee2e6;">
-                                    <p style="font-size: 12px; color: #adb5bd; line-height: 1.5;">
-                                        🔐 安全支付 | 💰 支持支付宝/微信 | 🎯 7天免费试用
-                                    </p>
+                                <div class="payment-plan">
+                                    <h4>高级版</h4>
+                                    <div class="price">¥599/年</div>
+                                    <ul>
+                                        <li>✅ 包含标准版所有功能</li>
+                                        <li>✅ 无限访问量</li>
+                                        <li>✅ 专属客服经理</li>
+                                        <li>✅ 定制开发支持</li>
+                                        <li>✅ 企业级SLA保障</li>
+                                    </ul>
+                                    <button class="btn primary" onclick="processPayment('${shopId}', 'premium', 599)">选择高级版</button>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
             `;
-            overlay.style.display = 'block';
+            
+            // 移除已存在的付费模态框
+            const existingModal = document.getElementById('payment-modal');
+            if (existingModal) {
+                existingModal.remove();
+            }
+            
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            
+            // 使用统一的模态框显示方式
+            const modal = document.getElementById('payment-modal');
+            const overlay = document.getElementById('modal-overlay');
+            if (overlay && modal) {
+                overlay.style.display = 'flex';
+                modal.classList.add('show');
+                document.body.style.overflow = 'hidden';
+            }
         }
 
-        // 跳转到店铺注册页面
-        function goToShopRegister() {
-            closeModal();
-            window.open('/shop-register.html', '_blank');
+        // 处理付费
+        function processPayment(shopId, plan, amount) {
+            showToast(`正在处理 ${plan} 套餐付费 (¥${amount})...`, 'info');
+            
+            // 这里应该调用真实的付费API
+            // 暂时模拟付费成功
+            setTimeout(() => {
+                showToast('付费成功！店铺功能已激活', 'success');
+                closeModal('payment-modal');
+                
+                // 刷新店铺数据
+                loadShops();
+            }, 2000);
         }
 
-        // 跳转到店铺登录页面
-        function goToShopLogin() {
-            closeModal();
-            window.open('/shop-login.html', '_blank');
+        // ============ 推广赚钱功能 ============
+        
+        // 显示推广模态框
+        function showPromotionModal() {
+            const modal = document.getElementById('promotionModal');
+            
+            // 更新推广链接
+            const currentUser = userData ? userData.username : 'user';
+            const link = `http://localhost:3030?ref=${currentUser}`;
+            const linkInput = document.getElementById('promotionLink');
+            if (linkInput) {
+                linkInput.value = link;
+            }
+            
+            // 这里可以加载推广数据
+            loadPromotionData();
+            
+            // 显示模态框
+            if (modal) {
+                modal.classList.add('show');
+                document.body.style.overflow = 'hidden'; // 防止背景滚动
+            }
+        }
+        
+        // 隐藏推广模态框
+        function hidePromotionModal() {
+            const modal = document.getElementById('promotionModal');
+            if (modal) {
+                modal.classList.remove('show');
+                document.body.style.overflow = ''; // 恢复背景滚动
+            }
+        }
+        
+        // 复制推广链接
+        function copyPromotionLink() {
+            const linkInput = document.getElementById('promotionLink');
+            linkInput.select();
+            linkInput.setSelectionRange(0, 99999); // 移动端兼容
+            
+            try {
+                document.execCommand('copy');
+                showToast('推广链接已复制到剪贴板！', 'success');
+            } catch (err) {
+                // 使用现代API
+                navigator.clipboard.writeText(linkInput.value).then(() => {
+                    showToast('推广链接已复制到剪贴板！', 'success');
+                }).catch(() => {
+                    showToast('复制失败，请手动复制链接', 'error');
+                });
+            }
+        }
+        
+        // 分享到微信
+        function shareToWeChat() {
+            const link = document.getElementById('promotionLink').value;
+            const message = `🎁 邀请您免费体验我们的客服系统！通过我的专属链接注册，我们都能获得优惠哦！\n\n点击链接：${link}`;
+            
+            // 创建分享文本
+            if (navigator.share) {
+                navigator.share({
+                    title: '邀请您体验客服系统',
+                    text: message,
+                    url: link
+                });
+            } else {
+                // 复制到剪贴板
+                navigator.clipboard.writeText(message).then(() => {
+                    showToast('分享内容已复制，请在微信中粘贴分享！', 'success');
+                }).catch(() => {
+                    showToast('复制失败，请手动复制', 'error');
+                });
+            }
+        }
+        
+        // 分享到QQ
+        function shareToQQ() {
+            const link = document.getElementById('promotionLink').value;
+            const title = encodeURIComponent('邀请您体验客服系统');
+            const summary = encodeURIComponent('免费体验专业客服系统，通过我的推广链接注册还有优惠！');
+            
+            const qqUrl = `https://connect.qq.com/widget/shareqq/index.html?url=${encodeURIComponent(link)}&title=${title}&summary=${summary}`;
+            window.open(qqUrl, '_blank');
+        }
+        
+        // 生成二维码
+        function generateQRCode() {
+            const link = document.getElementById('promotionLink').value;
+            const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(link)}`;
+            
+            // 在新窗口显示二维码
+            const qrWindow = window.open('', '_blank', 'width=300,height=350');
+            qrWindow.document.write(`
+                <html>
+                <head>
+                    <title>推广二维码</title>
+                    <style>
+                        body { 
+                            text-align: center; 
+                            padding: 20px; 
+                            font-family: Arial, sans-serif; 
+                        }
+                        img { 
+                            border: 1px solid #ddd; 
+                            border-radius: 8px; 
+                            padding: 10px; 
+                        }
+                    </style>
+                </head>
+                <body>
+                    <h3>📱 推广二维码</h3>
+                    <img src="${qrUrl}" alt="推广二维码" />
+                    <p>扫描二维码访问推广链接</p>
+                </body>
+                </html>
+            `);
+        }
+        
+        // 加载推广数据
+        async function loadPromotionData() {
+            // 这里可以从后端API获取真实的推广数据
+            // 暂时使用模拟数据
+            try {
+                // 模拟API调用
+                const promotionData = {
+                    referralCount: 0,
+                    totalCommission: 0,
+                    monthlyCommission: 0
+                };
+                
+                // 更新显示
+                document.querySelector('.stat-item:nth-child(1) .stat-number').textContent = promotionData.referralCount;
+                document.querySelector('.stat-item:nth-child(2) .stat-number').textContent = `￥${promotionData.totalCommission}`;
+                document.querySelector('.stat-item:nth-child(3) .stat-number').textContent = `￥${promotionData.monthlyCommission}`;
+            } catch (error) {
+                console.error('加载推广数据失败:', error);
+            }
+        }
+
+        // ============ 消息管理增强功能 ============
+
+        // 搜索对话
+        function searchConversations() {
+            const searchInput = document.getElementById('conversationSearch');
+            const searchTerm = searchInput.value.toLowerCase().trim();
+            
+            const conversationItems = document.querySelectorAll('.conversation-item');
+            conversationItems.forEach(item => {
+                const customerName = item.querySelector('.customer-name').textContent.toLowerCase();
+                const lastMessage = item.querySelector('.last-message').textContent.toLowerCase();
+                
+                if (customerName.includes(searchTerm) || lastMessage.includes(searchTerm)) {
+                    item.style.display = 'flex';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        }
+
+        // 过滤对话
+        function filterConversations(filterType) {
+            // 更新过滤按钮状态
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelector(`[data-filter="${filterType}"]`).classList.add('active');
+
+            const conversationItems = document.querySelectorAll('.conversation-item');
+            conversationItems.forEach(item => {
+                const unreadBadge = item.querySelector('.unread-badge');
+                const hasUnread = unreadBadge && unreadBadge.textContent !== '0';
+                
+                switch (filterType) {
+                    case 'all':
+                        item.style.display = 'flex';
+                        break;
+                    case 'unread':
+                        item.style.display = hasUnread ? 'flex' : 'none';
+                        break;
+                    case 'active':
+                        // 简单判断：最近1小时内有消息
+                        const messageTime = item.querySelector('.message-time').textContent;
+                        const isRecent = isRecentMessage(messageTime);
+                        item.style.display = isRecent ? 'flex' : 'none';
+                        break;
+                }
+            });
+        }
+
+        // 判断消息是否为最近消息
+        function isRecentMessage(timeString) {
+            try {
+                const messageTime = new Date(timeString);
+                const now = new Date();
+                const diffHours = (now - messageTime) / (1000 * 60 * 60);
+                return diffHours <= 1;
+            } catch (error) {
+                return false;
+            }
+        }
+
+        // 切换快捷回复
+        function toggleQuickReplies() {
+            const quickReplies = document.getElementById('quickReplies');
+            if (quickReplies.style.display === 'none' || quickReplies.style.display === '') {
+                quickReplies.style.display = 'flex';
+            } else {
+                quickReplies.style.display = 'none';
+            }
+        }
+
+        // 发送快捷回复
+        function sendQuickReply(text) {
+            const chatInput = document.getElementById('chatInput');
+            chatInput.value = text;
+            sendMessage();
+            
+            // 隐藏快捷回复
+            document.getElementById('quickReplies').style.display = 'none';
+        }
+
+        // 查看客户信息
+        function viewCustomerInfo() {
+            if (!messageManager.currentCustomer) {
+                showToast('请先选择一个对话', 'error');
+                return;
+            }
+            
+            showToast('客户信息功能开发中...', 'info');
+            // TODO: 实现客户信息模态框
+        }
+
+        // 转接对话
+        function transferConversation() {
+            if (!messageManager.currentConversationId) {
+                showToast('请先选择一个对话', 'error');
+                return;
+            }
+            
+            showToast('对话转接功能开发中...', 'info');
+            // TODO: 实现对话转接功能
+        }
+
+        // 结束对话
+        function endConversation() {
+            if (!messageManager.currentConversationId) {
+                showToast('请先选择一个对话', 'error');
+                return;
+            }
+            
+            if (confirm('确定要结束这个对话吗？')) {
+                showToast('对话已结束', 'success');
+                // TODO: 实现结束对话逻辑
+                goBackInMessages();
+            }
+        }
+
+        // ============ 店铺标签页管理功能 ============
+
+        // 显示店铺标签页
+        function showShopTab(tabName) {
+            // 更新标签按钮状态
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelector(`[onclick="showShopTab('${tabName}')"]`).classList.add('active');
+
+            // 隐藏所有标签页内容
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+
+            // 显示目标标签页
+            const targetTab = document.getElementById(tabName + 'Tab');
+            if (targetTab) {
+                targetTab.classList.add('active');
+            }
+
+            // 根据标签页加载相应数据
+            switch (tabName) {
+                case 'employees':
+                    loadEmployeesList();
+                    break;
+                case 'settings':
+                    loadShopSettings();
+                    break;
+                case 'info':
+                default:
+                    // 基本信息已在showShopDetails中加载
+                    break;
+            }
+        }
+
+        // 显示添加员工表单
+        function showAddEmployeeForm() {
+            const form = document.getElementById('addEmployeeForm');
+            if (form) {
+                form.style.display = 'block';
+                document.getElementById('employeeUsername').focus();
+            }
+        }
+
+        // 取消添加员工
+        function cancelAddEmployee() {
+            const form = document.getElementById('addEmployeeForm');
+            if (form) {
+                form.style.display = 'none';
+                document.getElementById('addEmployeeFormData').reset();
+            }
+        }
+
+        // 添加员工
+        async function addEmployee(event) {
+            event.preventDefault();
+            
+            if (!currentShopId) {
+                showToast('请先选择一个店铺', 'error');
+                return;
+            }
+
+            const username = document.getElementById('employeeUsername').value.trim();
+            const role = document.getElementById('employeeRole').value;
+
+            if (!username) {
+                showToast('请输入用户名', 'error');
+                return;
+            }
+
+            try {
+                // 这里应该调用后端API添加员工
+                showToast('正在添加员工...', 'info');
+                
+                // 模拟API调用
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                showToast(`成功添加员工 ${username}`, 'success');
+                cancelAddEmployee();
+                loadEmployeesList();
+            } catch (error) {
+                console.error('添加员工失败:', error);
+                showToast('添加员工失败，请重试', 'error');
+            }
+        }
+
+        // 加载员工列表
+        async function loadEmployeesList() {
+            if (!currentShopId) return;
+
+            const container = document.getElementById('employeesList');
+            if (!container) return;
+
+            try {
+                container.innerHTML = '<div class="loading">正在加载员工信息...</div>';
+                
+                // 这里应该调用后端API获取员工列表
+                // 暂时使用模拟数据
+                const employees = [
+                    { id: 1, username: 'employee1', role: 'employee', status: 'active', created_at: '2024-01-01' },
+                    { id: 2, username: 'manager1', role: 'manager', status: 'active', created_at: '2024-01-02' }
+                ];
+
+                if (employees.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon">👥</div>
+                            <h3>暂无员工</h3>
+                            <p>点击上方"添加员工"按钮来添加第一个员工</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const employeesHtml = employees.map(employee => `
+                    <div class="employee-item">
+                        <div class="employee-info">
+                            <div class="employee-name">${employee.username}</div>
+                            <div class="employee-role">${employee.role === 'manager' ? '经理' : '员工'}</div>
+                            <div class="employee-status status-${employee.status}">
+                                ${employee.status === 'active' ? '活跃' : '离线'}
+                            </div>
+                        </div>
+                        <div class="employee-actions">
+                            <button class="btn btn-small secondary" onclick="editEmployee(${employee.id})">编辑</button>
+                            <button class="btn btn-small danger" onclick="removeEmployee(${employee.id}, '${employee.username}')">移除</button>
+                        </div>
+                    </div>
+                `).join('');
+
+                container.innerHTML = employeesHtml;
+            } catch (error) {
+                console.error('加载员工列表失败:', error);
+                container.innerHTML = '<div class="error-message">加载员工列表失败，请重试</div>';
+            }
+        }
+
+        // 编辑员工
+        function editEmployee(employeeId) {
+            showToast('编辑员工功能开发中...', 'info');
+            // TODO: 实现编辑员工功能
+        }
+
+        // 移除员工
+        async function removeEmployee(employeeId, username) {
+            if (!confirm(`确定要移除员工 ${username} 吗？`)) {
+                return;
+            }
+
+            try {
+                showToast('正在移除员工...', 'info');
+                
+                // 这里应该调用后端API移除员工
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                showToast(`成功移除员工 ${username}`, 'success');
+                loadEmployeesList();
+            } catch (error) {
+                console.error('移除员工失败:', error);
+                showToast('移除员工失败，请重试', 'error');
+            }
+        }
+
+        // 加载店铺设置
+        function loadShopSettings() {
+            if (!currentShopId) return;
+
+            // 从当前店铺数据加载设置
+            const nameField = document.getElementById('editShopName');
+            const domainField = document.getElementById('editShopDomain');
+            const descField = document.getElementById('editShopDescription');
+
+            // 这里应该从店铺数据中加载，暂时使用空值
+            if (nameField) nameField.value = '';
+            if (domainField) domainField.value = '';
+            if (descField) descField.value = '';
+        }
+
+        // 更新店铺设置
+        async function updateShopSettings(event) {
+            event.preventDefault();
+            
+            if (!currentShopId) {
+                showToast('请先选择一个店铺', 'error');
+                return;
+            }
+
+            const name = document.getElementById('editShopName').value.trim();
+            const domain = document.getElementById('editShopDomain').value.trim();
+            const description = document.getElementById('editShopDescription').value.trim();
+
+            if (!name || !domain) {
+                showToast('请填写店铺名称和域名', 'error');
+                return;
+            }
+
+            try {
+                showToast('正在保存设置...', 'info');
+                
+                // 这里应该调用后端API更新店铺设置
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                showToast('店铺设置已保存', 'success');
+                
+                // 刷新店铺列表
+                loadShops();
+            } catch (error) {
+                console.error('保存店铺设置失败:', error);
+                showToast('保存设置失败，请重试', 'error');
+            }
+        }
+
+        // 刷新API密钥
+        async function refreshApiKey() {
+            if (!currentShopId) {
+                showToast('请先选择一个店铺', 'error');
+                return;
+            }
+
+            if (!confirm('确定要重新生成API密钥吗？旧密钥将失效。')) {
+                return;
+            }
+
+            try {
+                showToast('正在生成新密钥...', 'info');
+                
+                // 这里应该调用后端API重新生成密钥
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                const newApiKey = 'qk_' + Math.random().toString(36).substring(2, 15);
+                
+                const apiKeyElement = document.getElementById('detail-shop-api-key');
+                if (apiKeyElement) {
+                    apiKeyElement.textContent = newApiKey;
+                }
+                
+                showToast('API密钥已更新', 'success');
+            } catch (error) {
+                console.error('重新生成API密钥失败:', error);
+                showToast('生成密钥失败，请重试', 'error');
+            }
         }
 
         // 显示店铺管理模态框
@@ -4615,7 +6962,24 @@
         async function fetchShops() {
             try {
                 console.log('🔄 正在获取店铺列表...');
-                const response = await fetch('/api/shops');
+                
+                // 所有用户都使用 /api/shops 端点来获取自己的店铺
+                const apiUrl = '/api/shops';
+                
+                const authToken = getAuthToken();
+                const headers = {
+                    'Content-Type': 'application/json'
+                };
+                
+                // 如果有认证token，添加认证头
+                if (authToken) {
+                    headers['Authorization'] = `Bearer ${authToken}`;
+                    headers['X-Session-Id'] = authToken;
+                }
+                
+                console.log(`📡 调用API: ${apiUrl}`, { hasToken: !!authToken });
+                
+                const response = await fetch(apiUrl, { headers });
                 if (response.ok) {
                     const result = await response.json();
                     console.log('📦 API响应:', result);
@@ -4631,66 +6995,14 @@
                         console.warn('⚠️ 意外的响应格式:', result);
                         return [];
                     }
+                } else {
+                    console.error('❌ API响应失败:', response.status, response.statusText);
+                    return [];
                 }
             } catch (error) {
                 console.error('❌ 获取店铺列表API调用失败:', error);
+                return [];
             }
-            
-            // 返回模拟数据
-            console.log('🔄 使用模拟店铺数据');
-            return [
-                {
-                    id: '1',
-                    name: '精品服装店',
-                    domain: 'fashion.shop.com',
-                    status: 'active',
-                    conversations: 15,
-                    messages: 156,
-                    customers: 45,
-                    unreadCount: 3
-                },
-                {
-                    id: '2',
-                    name: '数码产品专营',
-                    domain: 'digital.store.com',
-                    status: 'approved',
-                    conversations: 8,
-                    messages: 89,
-                    customers: 23,
-                    unreadCount: 0
-                },
-                {
-                    id: '3',
-                    name: '家居生活馆',
-                    domain: 'home.example.com',
-                    status: 'pending',
-                    conversations: 0,
-                    messages: 0,
-                    customers: 0,
-                    unreadCount: 0
-                },
-                {
-                    id: '4',
-                    name: '美食天堂',
-                    domain: 'food.test.com',
-                    status: 'rejected',
-                    conversations: 0,
-                    messages: 0,
-                    customers: 0,
-                    unreadCount: 0,
-                    rejectReason: '域名信息不完整，请重新提交'
-                },
-                {
-                    id: '5',
-                    name: '运动装备店',
-                    domain: 'sports.myshop.com',
-                    status: 'active',
-                    conversations: 22,
-                    messages: 312,
-                    customers: 78,
-                    unreadCount: 7
-                }
-            ];
         }
 
         // 时间格式化
@@ -4730,8 +7042,198 @@
         }
 
         function createNewShop() {
-            console.log('创建新店铺');
-            showToast('新建店铺功能开发中...', 'info');
+            console.log('🏪 createNewShop 函数被调用');
+            try {
+                showCreateShopModal();
+            } catch (error) {
+                console.error('❌ createNewShop 错误:', error);
+                showToast('显示创建店铺对话框时出错: ' + error.message, 'error');
+            }
+        }
+
+        // 显示创建店铺模态框
+        function showCreateShopModal() {
+            console.log('🏪 showCreateShopModal 函数被调用');
+            const modal = document.getElementById('createShopModal');
+            
+            console.log('🔍 模态框元素:', modal ? '找到' : '未找到');
+            
+            if (modal) {
+                console.log('✅ 显示创建店铺模态框');
+                
+                // 设置模态框为flex显示（覆盖内联的 display: none）
+                modal.style.display = 'flex';
+                modal.classList.add('show');
+                document.body.style.overflow = 'hidden';
+                
+                console.log('🎯 模态框应该已显示');
+                console.log('🔍 模态框当前样式:', window.getComputedStyle(modal).display);
+            } else {
+                console.error('❌ 模态框元素未找到');
+                showToast('无法显示创建店铺对话框，请刷新页面重试', 'error');
+            }
+        }
+
+        // 隐藏创建店铺模态框
+        function hideCreateShopModal() {
+            console.log('🏪 hideCreateShopModal 函数被调用');
+            const modal = document.getElementById('createShopModal');
+            const form = document.getElementById('createShopForm');
+            
+            if (modal) {
+                console.log('✅ 隐藏创建店铺模态框');
+                modal.style.display = 'none';
+                modal.classList.remove('show');
+                document.body.style.overflow = 'auto';
+                console.log('🎯 模态框应该已隐藏');
+            } else {
+                console.error('❌ 未找到创建店铺模态框');
+            }
+            
+            if (form) {
+                form.reset();
+                console.log('📝 表单已重置');
+            } else {
+                console.error('❌ 未找到创建店铺表单');
+            }
+        }
+
+        // 审核操作函数
+        async function approveShop(shopId, event) {
+            event.stopPropagation();
+            
+            if (!confirm('确认通过这个店铺的审核吗？')) {
+                return;
+            }
+            
+            try {
+                const authToken = getAuthToken();
+                const response = await fetch(`/api/shops/${shopId}/approve`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`,
+                        'X-Session-Id': authToken
+                    },
+                    body: JSON.stringify({ 
+                        note: '审核通过，欢迎使用我们的客服系统！' 
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showToast('✅ 店铺审核通过！', 'success');
+                    await loadShops();
+                    fetchDashboardStats();
+                } else {
+                    showToast(data.error || '审核失败，请重试', 'error');
+                }
+            } catch (error) {
+                showToast('网络错误，请稍后重试', 'error');
+                console.error('审核店铺错误:', error);
+            }
+        }
+
+        async function rejectShop(shopId, event) {
+            event.stopPropagation();
+            
+            const reason = prompt('请输入拒绝原因：');
+            if (!reason) return;
+            
+            try {
+                const authToken = getAuthToken();
+                const response = await fetch(`/api/shops/${shopId}/reject`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`,
+                        'X-Session-Id': authToken
+                    },
+                    body: JSON.stringify({ 
+                        note: reason 
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showToast('❌ 店铺申请已拒绝', 'success');
+                    await loadShops();
+                    fetchDashboardStats();
+                } else {
+                    showToast(data.error || '拒绝失败，请重试', 'error');
+                }
+            } catch (error) {
+                showToast('网络错误，请稍后重试', 'error');
+                console.error('拒绝店铺错误:', error);
+            }
+        }
+
+        async function activateShop(shopId, event) {
+            event.stopPropagation();
+            
+            if (!confirm('确认激活这个店铺吗？')) {
+                return;
+            }
+            
+            try {
+                const authToken = getAuthToken();
+                const response = await fetch(`/api/shops/${shopId}/activate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`,
+                        'X-Session-Id': authToken
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showToast('🚀 店铺已激活！', 'success');
+                    await loadShops();
+                    fetchDashboardStats();
+                } else {
+                    showToast(data.error || '激活失败，请重试', 'error');
+                }
+            } catch (error) {
+                showToast('网络错误，请稍后重试', 'error');
+                console.error('激活店铺错误:', error);
+            }
+        }
+
+        async function deactivateShop(shopId, event) {
+            event.stopPropagation();
+            
+            if (!confirm('确认停用这个店铺吗？')) {
+                return;
+            }
+            
+            try {
+                const authToken = getAuthToken();
+                const response = await fetch(`/api/shops/${shopId}/deactivate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`,
+                        'X-Session-Id': authToken
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showToast('💤 店铺已停用', 'success');
+                    await loadShops();
+                    fetchDashboardStats();
+                } else {
+                    showToast(data.error || '停用失败，请重试', 'error');
+                }
+            } catch (error) {
+                showToast('网络错误，请稍后重试', 'error');
+                console.error('停用店铺错误:', error);
+            }
         }
 
         function viewAnalytics() {
@@ -4741,36 +7243,549 @@
 
         function editProfile() {
             console.log('编辑个人信息');
-            showToast('编辑个人信息功能开发中...', 'info');
+            const newName = prompt('请输入新的显示名称:', userData ? userData.username : 'admin');
+            if (newName && newName.trim()) {
+                // 这里可以调用API更新用户信息
+                document.getElementById('profileName').textContent = newName;
+                showToast('个人信息已更新', 'success');
+            }
         }
 
         function changePassword() {
             console.log('修改密码');
-            showToast('修改密码功能开发中...', 'info');
+            const oldPassword = prompt('请输入当前密码:');
+            if (oldPassword) {
+                const newPassword = prompt('请输入新密码:');
+                if (newPassword && newPassword.length >= 6) {
+                    const confirmPassword = prompt('请确认新密码:');
+                    if (newPassword === confirmPassword) {
+                        showToast('密码修改成功，请重新登录', 'success');
+                        // 这里可以调用API修改密码
+                    } else {
+                        showToast('两次输入的密码不一致', 'error');
+                    }
+                } else {
+                    showToast('密码长度至少6位', 'warning');
+                }
+            }
         }
 
         function notificationSettings() {
             console.log('消息通知设置');
-            showToast('通知设置功能开发中...', 'info');
+            const enabled = confirm('是否启用消息通知？\n\n• 新消息提醒\n• 系统通知\n• 邮件通知');
+            if (enabled) {
+                showToast('消息通知已启用', 'success');
+            } else {
+                showToast('消息通知已关闭', 'info');
+            }
+            // 这里可以保存通知设置到localStorage或API
+            localStorage.setItem('notification_enabled', enabled);
         }
 
         function systemSettings() {
             console.log('系统设置');
-            showToast('系统设置功能开发中...', 'info');
+            const settings = [
+                '• 当前版本: QuickTalk v1.0.0',
+                '• 服务器状态: 运行中',
+                '• 数据库: SQLite',
+                '• 架构: 纯Rust + WebSocket',
+                '• 端口: 3030'
+            ];
+            alert('系统信息:\n\n' + settings.join('\n'));
         }
 
         function aboutApp() {
             console.log('关于应用');
-            showToast('QuickTalk v1.0.0 - 专业客服系统', 'info');
+            const aboutInfo = [
+                'QuickTalk 专业客服系统 v1.0.0',
+                '',
+                '• 纯Rust后端架构',
+                '• 实时WebSocket通信',
+                '• 移动端优先设计',
+                '• 多店铺管理支持',
+                '• 完整的权限控制',
+                '',
+                '© 2025 QuickTalk Team'
+            ];
+            alert(aboutInfo.join('\n'));
+        }
+
+        // ============ 超级管理员功能 ============
+
+        // 显示超级管理员面板
+        function showAdminPanel() {
+            if (!userData || (userData.role !== 'super_admin' && userData.role !== 'administrator')) {
+                showToast('只有超级管理员才能访问此功能', 'warning');
+                return;
+            }
+            
+            const modal = document.getElementById('adminPanelModal');
+            if (modal) {
+                modal.classList.add('show');
+                document.body.style.overflow = 'hidden';
+            }
+            
+            // 默认显示系统概览
+            showAdminTab('overview');
+            
+            // 加载初始数据
+            loadSystemStats();
+            loadShopOwnersStats();
+        }
+
+        // 隐藏超级管理员面板
+        function hideAdminPanel() {
+            const modal = document.getElementById('adminPanelModal');
+            if (modal) {
+                modal.classList.remove('show');
+                document.body.style.overflow = '';
+            }
+        }
+
+        // 切换管理员标签页
+        function showAdminTab(tabName) {
+            // 隐藏所有标签内容
+            document.querySelectorAll('#adminPanelModal .tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // 移除所有标签按钮的激活状态
+            document.querySelectorAll('#adminPanelModal .tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // 显示指定标签内容
+            document.getElementById(tabName + 'Tab').classList.add('active');
+            
+            // 激活对应的标签按钮
+            const targetBtn = event ? event.target : document.querySelector(`[onclick="showAdminTab('${tabName}')"]`);
+            if (targetBtn) {
+                targetBtn.classList.add('active');
+            }
+            
+            // 根据标签加载相应数据
+            if (tabName === 'overview') {
+                loadSystemStats();
+            } else if (tabName === 'owners') {
+                loadShopOwnersStats();
+            } else if (tabName === 'shops') {
+                loadAllShopsMonitor();
+            }
+        }
+
+        // 加载系统统计
+        async function loadSystemStats() {
+            try {
+                const authToken = getAuthToken();
+                const response = await fetch('/api/admin/system-stats', {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'X-Session-Id': authToken
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const stats = data.stats;
+                    
+                    document.getElementById('totalUsers').textContent = stats.totalUsers || 0;
+                    document.getElementById('totalShops').textContent = stats.totalShops || 0;
+                    document.getElementById('shopOwners').textContent = stats.usersByRole?.shop_owner || 0;
+                    document.getElementById('employees').textContent = stats.usersByRole?.employee || 0;
+                } else {
+                    console.error('加载系统统计失败');
+                    showToast('加载系统统计失败', 'error');
+                }
+            } catch (error) {
+                console.error('加载系统统计错误:', error);
+                showToast('网络错误，请稍后重试', 'error');
+            }
+        }
+
+        // 加载店主统计
+        async function loadShopOwnersStats(keyword = '') {
+            try {
+                const authToken = getAuthToken();
+                const url = keyword ? 
+                    `/api/admin/shop-owners-stats?keyword=${encodeURIComponent(keyword)}` : 
+                    '/api/admin/shop-owners-stats';
+
+                const response = await fetch(url, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'X-Session-Id': authToken
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    renderOwnersList(data.stats);
+                } else {
+                    document.getElementById('ownersList').innerHTML = '<div class="error-message">加载店主数据失败</div>';
+                }
+            } catch (error) {
+                console.error('加载店主统计错误:', error);
+                document.getElementById('ownersList').innerHTML = '<div class="error-message">加载店主数据错误</div>';
+            }
+        }
+
+        // 渲染店主列表
+        function renderOwnersList(owners) {
+            const container = document.getElementById('ownersList');
+            
+            if (owners.length === 0) {
+                container.innerHTML = '<div class="empty-state">没有找到店主数据</div>';
+                return;
+            }
+            
+            container.innerHTML = owners.map(owner => `
+                <div class="owner-item">
+                    <div class="owner-header">
+                        <div class="owner-info">
+                            <h6>${owner.user.username}</h6>
+                            <p>📧 ${owner.user.email}</p>
+                            <p>🏪 管理 ${owner.shopsCount} 个店铺 | 👥 总员工 ${owner.totalMembers} 人</p>
+                            <p>🕒 注册时间: ${new Date(owner.user.createdAt).toLocaleDateString()}</p>
+                            ${owner.user.lastLoginAt ? `<p>🔐 最后登录: ${new Date(owner.user.lastLoginAt).toLocaleDateString()}</p>` : ''}
+                        </div>
+                        <div class="owner-actions">
+                            <button class="btn btn-primary btn-small" onclick="viewOwnerDetails('${owner.user.id}')">
+                                📊 详情
+                            </button>
+                            <button class="btn ${owner.user.status === 'suspended' ? 'btn-success' : 'btn-secondary'} btn-small" 
+                                    onclick="toggleOwnerStatus('${owner.user.id}', '${owner.user.status === 'suspended' ? 'active' : 'suspended'}')">
+                                ${owner.user.status === 'suspended' ? '✅ 启用' : '⏸️ 禁用'}
+                            </button>
+                        </div>
+                    </div>
+                    ${owner.shops.length > 0 ? `
+                        <div class="owner-shops">
+                            <h6>管理的店铺:</h6>
+                            <div class="shops-list">
+                                ${owner.shops.map(shop => `
+                                    <span class="shop-tag">
+                                        ${shop.name} 
+                                        <span class="shop-status status-${shop.status}">${shop.status}</span>
+                                        (${shop.memberCount}人)
+                                    </span>
+                                `).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>
+            `).join('');
+        }
+
+        // 搜索店主
+        function searchShopOwners() {
+            const keyword = document.getElementById('ownerSearch').value.trim();
+            loadShopOwnersStats(keyword);
+        }
+
+        // 查看店主详情
+        async function viewOwnerDetails(ownerId) {
+            try {
+                const authToken = getAuthToken();
+                const response = await fetch(`/api/admin/shop-owner/${ownerId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'X-Session-Id': authToken
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    showOwnerDetailsModal(data);
+                } else {
+                    showToast('获取店主详情失败', 'error');
+                }
+            } catch (error) {
+                console.error('获取店主详情错误:', error);
+                showToast('获取店主详情错误', 'error');
+            }
+        }
+
+        // 显示店主详情模态框
+        function showOwnerDetailsModal(data) {
+            // 创建临时模态框显示详情
+            showToast(`店主详情 - ${data.owner.username}\\n邮箱: ${data.owner.email}\\n店铺数: ${data.shopsCount}`, 'info');
+        }
+
+        // 切换店主状态
+        async function toggleOwnerStatus(ownerId, newStatus) {
+            const action = newStatus === 'active' ? '启用' : '禁用';
+            
+            if (!confirm(`确定要${action}该店主账号吗？这将同时影响其管理的所有店铺。`)) {
+                return;
+            }
+
+            try {
+                const authToken = getAuthToken();
+                const response = await fetch(`/api/admin/shop-owner/${ownerId}/status`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`,
+                        'X-Session-Id': authToken
+                    },
+                    body: JSON.stringify({ status: newStatus })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    showToast(data.message, 'success');
+                    loadShopOwnersStats(); // 刷新列表
+                } else {
+                    const error = await response.json();
+                    showToast(`操作失败: ${error.error}`, 'error');
+                }
+            } catch (error) {
+                console.error('切换店主状态错误:', error);
+                showToast('操作失败，请重试', 'error');
+            }
+        }
+
+        // 加载所有店铺监控
+        async function loadAllShopsMonitor() {
+            try {
+                const authToken = getAuthToken();
+                const response = await fetch('/api/admin/shops', {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'X-Session-Id': authToken
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    renderShopsMonitor(data.shops);
+                } else {
+                    document.getElementById('shopsMonitor').innerHTML = '<div class="error-message">加载店铺数据失败</div>';
+                }
+            } catch (error) {
+                console.error('加载店铺监控错误:', error);
+                document.getElementById('shopsMonitor').innerHTML = '<div class="error-message">加载店铺数据错误</div>';
+            }
+        }
+
+        // 渲染店铺监控列表
+        function renderShopsMonitor(shops) {
+            const container = document.getElementById('shopsMonitor');
+            
+            if (shops.length === 0) {
+                container.innerHTML = '<div class="empty-state">暂无店铺数据</div>';
+                return;
+            }
+            
+            container.innerHTML = shops.map(shop => `
+                <div class="shop-monitor-item">
+                    <div class="shop-monitor-info">
+                        <h6>${shop.name}</h6>
+                        <p>🌐 ${shop.domain}</p>
+                        <p>👤 店主ID: ${shop.ownerId}</p>
+                        <p>🕒 创建时间: ${new Date(shop.createdAt).toLocaleDateString()}</p>
+                    </div>
+                    <div class="shop-monitor-actions">
+                        <span class="shop-status status-${shop.status}">${shop.status}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 刷新管理员数据
+        function refreshAdminData() {
+            if (!userData || (userData.role !== 'super_admin' && userData.role !== 'administrator')) return;
+            
+            loadSystemStats();
+            loadShopOwnersStats();
+            loadAllShopsMonitor();
+            
+            showToast('数据已刷新', 'success');
+        }
+
+        // ============ 审核管理功能 ============
+
+        // 显示审核管理面板
+        function showReviewPanel() {
+            if (!userData || (userData.role !== 'super_admin' && userData.role !== 'administrator')) {
+                showToast('只有超级管理员才能访问此功能', 'warning');
+                return;
+            }
+            
+            const modal = document.getElementById('reviewPanelModal');
+            if (modal) {
+                modal.classList.add('show');
+                document.body.style.overflow = 'hidden';
+            }
+            
+            loadPendingShops();
+        }
+
+        // 隐藏审核管理面板
+        function hideReviewPanel() {
+            const modal = document.getElementById('reviewPanelModal');
+            if (modal) {
+                modal.classList.remove('show');
+                document.body.style.overflow = '';
+            }
+        }
+
+        // 加载待审核店铺
+        async function loadPendingShops() {
+            try {
+                const authToken = getAuthToken();
+                const response = await fetch('/api/admin/pending-shops', {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'X-Session-Id': authToken
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    renderPendingShops(data.shops);
+                } else {
+                    document.getElementById('pendingShopsContainer').innerHTML = '<div class="error-message">加载待审核店铺失败</div>';
+                }
+            } catch (error) {
+                console.error('加载待审核店铺错误:', error);
+                document.getElementById('pendingShopsContainer').innerHTML = '<div class="error-message">加载待审核店铺错误</div>';
+            }
+        }
+
+        // 渲染待审核店铺列表
+        function renderPendingShops(shops) {
+            const container = document.getElementById('pendingShopsContainer');
+            
+            if (shops.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-pending">
+                        <i>📋</i>
+                        <h4>暂无待审核店铺</h4>
+                        <p>所有店铺申请都已处理完毕</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = shops.map(shop => `
+                <div class="pending-shop-item">
+                    <div class="pending-shop-header">
+                        <div class="pending-shop-info">
+                            <h5>${shop.name}</h5>
+                            <div class="domain">🌐 ${shop.domain}</div>
+                            <div class="description">${shop.description || '暂无描述'}</div>
+                        </div>
+                    </div>
+                    <div class="pending-shop-meta">
+                        <span>👤 店主ID: ${shop.ownerId}</span>
+                        <span>🕒 创建时间: ${new Date(shop.createdAt).toLocaleDateString()}</span>
+                    </div>
+                    <div class="pending-shop-actions">
+                        <button class="review-btn review-approve" onclick="reviewApprove('${shop.id}')">
+                            ✅ 通过
+                        </button>
+                        <button class="review-btn review-reject" onclick="reviewReject('${shop.id}')">
+                            ❌ 拒绝
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 审核通过
+        async function reviewApprove(shopId) {
+            if (!confirm('确定要通过这个店铺的审核吗？')) {
+                return;
+            }
+
+            try {
+                const authToken = getAuthToken();
+                const response = await fetch(`/api/shops/${shopId}/approve`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`,
+                        'X-Session-Id': authToken
+                    },
+                    body: JSON.stringify({ 
+                        note: '审核通过，欢迎使用我们的客服系统！' 
+                    })
+                });
+
+                if (response.ok) {
+                    showToast('✅ 店铺审核通过！', 'success');
+                    loadPendingShops(); // 刷新列表
+                } else {
+                    const error = await response.json();
+                    showToast(`审核失败: ${error.error}`, 'error');
+                }
+            } catch (error) {
+                console.error('审核店铺错误:', error);
+                showToast('网络错误，请稍后重试', 'error');
+            }
+        }
+
+        // 审核拒绝
+        async function reviewReject(shopId) {
+            const reason = prompt('请输入拒绝原因：');
+            if (!reason) return;
+
+            try {
+                const authToken = getAuthToken();
+                const response = await fetch(`/api/shops/${shopId}/reject`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`,
+                        'X-Session-Id': authToken
+                    },
+                    body: JSON.stringify({ 
+                        note: reason 
+                    })
+                });
+
+                if (response.ok) {
+                    showToast('❌ 店铺申请已拒绝', 'success');
+                    loadPendingShops(); // 刷新列表
+                } else {
+                    const error = await response.json();
+                    showToast(`拒绝失败: ${error.error}`, 'error');
+                }
+            } catch (error) {
+                console.error('拒绝店铺错误:', error);
+                showToast('网络错误，请稍后重试', 'error');
+            }
+        }
+
+        // 刷新待审核店铺列表
+        function refreshPendingShops() {
+            loadPendingShops();
+            showToast('列表已刷新', 'success');
         }
 
         function logout() {
-            console.log('退出登录');
+            console.log('🚪 退出登录功能被调用');
+            
+            // 添加调试信息
+            const currentUser = localStorage.getItem('quicktalk_user');
+            console.log('当前存储的用户信息:', currentUser);
+            
             if (confirm('确定要退出登录吗？')) {
+                // 清理所有相关的本地存储
                 localStorage.removeItem('quicktalk_user');
-                showToast('已退出登录', 'success');
-                // 这里可以跳转到登录页面
-                window.location.reload();
+                localStorage.removeItem('admin_token');
+                localStorage.removeItem('user_data');
+                
+                console.log('✅ 本地存储已清理');
+                
+                showToast('已退出登录，即将跳转...', 'success');
+                
+                // 延迟跳转到登录页面
+                setTimeout(() => {
+                    console.log('🔄 正在跳转到登录页面');
+                    window.location.href = '/mobile/login';
+                }, 1500);
             }
         }
 
@@ -4804,6 +7819,115 @@
             if (sendBtn) {
                 sendBtn.addEventListener('click', sendMessage);
             }
+
+            // 创建店铺表单提交处理
+            const createShopForm = document.getElementById('createShopForm');
+            console.log('🔍 创建店铺表单元素:', createShopForm ? '找到' : '未找到');
+            
+            // 退出登录按钮额外事件绑定
+            console.log('🔍 正在绑定退出登录按钮事件...');
+            const logoutButtons = document.querySelectorAll('[onclick="logout()"]');
+            logoutButtons.forEach(button => {
+                console.log('📋 找到退出登录按钮:', button);
+                button.addEventListener('click', function(e) {
+                    console.log('🚪 退出登录按钮被点击 (addEventListener)');
+                    e.preventDefault();
+                    logout();
+                });
+            });
+            
+            if (createShopForm) {
+                console.log('🔗 绑定表单提交事件监听器');
+                createShopForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    console.log('🏪 表单提交事件触发');
+                    
+                    const name = document.getElementById('shopName').value;
+                    const domain = document.getElementById('shopDomain').value;
+                    const contact_email = document.getElementById('shopEmail').value;
+                    const description = document.getElementById('shopDescription').value;
+                    
+                    console.log('📝 表单数据:', { name, domain, contact_email, description });
+                    
+                    // 验证必填字段
+                    if (!name || !domain || !contact_email) {
+                        showToast('请填写所有必填字段', 'error');
+                        return;
+                    }
+                    
+                    // 检查登录状态
+                    const authToken = getAuthToken();
+                    if (!authToken) {
+                        showToast('请先登录后再创建店铺', 'error');
+                        console.log('❌ 用户未登录，无法创建店铺');
+                        return;
+                    }
+                    
+                    try {
+                        console.log('🚀 开始提交店铺申请...');
+                        console.log('🔑 使用认证令牌:', authToken ? '已提供' : '未提供');
+                        const requestData = {
+                            name,
+                            domain,
+                            contact_email,
+                            description: description || '',
+                            // 添加可能需要的字段
+                            status: 'pending',
+                            subscription_type: 'basic'
+                        };
+                        
+                        console.log('📦 请求数据:', requestData);
+                        
+                        const response = await fetch('/api/shops', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${authToken}`,
+                                'X-Session-Id': authToken
+                            },
+                            body: JSON.stringify(requestData)
+                        });
+                        
+                        console.log('📊 响应状态:', response.status, response.statusText);
+                        console.log('📋 响应头:', Object.fromEntries(response.headers.entries()));
+                        
+                        // 获取响应文本，而不是直接解析JSON
+                        const responseText = await response.text();
+                        console.log('📦 原始响应内容:', responseText);
+                        
+                        let data;
+                        try {
+                            data = JSON.parse(responseText);
+                        } catch (parseError) {
+                            console.error('❌ JSON解析错误:', parseError);
+                            console.error('📦 响应内容不是有效JSON:', responseText);
+                            throw new Error(`服务器响应格式错误: ${responseText.substring(0, 100)}`);
+                        }
+                        
+                        console.log('📦 解析后的响应:', data);
+                        
+                        if (response.ok && data.success) {
+                            showToast('🎉 店铺申请已成功提交！审核通过后即可开始使用客服功能。', 'success');
+                            // 关闭模态框
+                            hideCreateShopModal();
+                            // 重新加载店铺数据
+                            await loadShops();
+                            // 刷新仪表板统计
+                            fetchDashboardStats();
+                            // 自动切换到店铺页面显示新创建的店铺
+                            switchPage('shops');
+                        } else {
+                            const errorMsg = data.error || data.message || `请求失败 (${response.status})`;
+                            showToast(errorMsg, 'error');
+                            console.error('❌ 服务器错误:', data);
+                        }
+                    } catch (error) {
+                        console.error('❌ 创建店铺错误:', error);
+                        const errorMsg = error.message || '网络错误，请稍后重试';
+                        showToast(errorMsg, 'error');
+                    }
+                });
+            }
         });
 
         // 防止页面滚动回弹
@@ -4811,6 +7935,14 @@
             if (e.target.closest('.page')) return;
             e.preventDefault();
         }, { passive: false });
+
+        // 点击模态框外部关闭
+        window.onclick = function(event) {
+            const createModal = document.getElementById('createShopModal');
+            if (event.target === createModal) {
+                hideCreateShopModal();
+            }
+        }
 
         console.log('📱 QuickTalk Mobile Dashboard 已加载');
     </script>
@@ -5039,6 +8171,225 @@
                         </button>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 创建店铺模态框 -->
+    <div id="createShopModal" class="modal" style="display: none;">
+        <div class="modal-content mobile-modal">
+            <div class="modal-header">
+                <h3>🏪 创建新店铺</h3>
+                <span class="close" onclick="hideCreateShopModal()">&times;</span>
+            </div>
+            <form id="createShopForm" class="modal-form">
+                <div class="form-group">
+                    <label for="shopName">店铺名称 *</label>
+                    <input type="text" id="shopName" name="name" required 
+                           placeholder="请输入店铺名称" maxlength="50">
+                </div>
+                
+                <div class="form-group">
+                    <label for="shopDomain">店铺域名 *</label>
+                    <input type="text" id="shopDomain" name="domain" required 
+                           placeholder="example.com" pattern="^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)*$">
+                    <small>请输入有效的域名格式</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="shopEmail">联系邮箱 *</label>
+                    <input type="email" id="shopEmail" name="contact_email" required 
+                           placeholder="contact@example.com">
+                    <small>用于接收重要通知和客服消息</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="shopDescription">店铺描述</label>
+                    <textarea id="shopDescription" name="description" 
+                              placeholder="简单描述您的店铺业务..." maxlength="500" rows="3"></textarea>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="hideCreateShopModal()">取消</button>
+                    <button type="submit" class="btn btn-primary">🚀 提交申请</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 推广赚钱模态框 -->
+    <div id="promotionModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>🎁 推广赚钱 - 获得10%回报</h3>
+                <button class="modal-close" onclick="hidePromotionModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="promotion-content">
+                    <div class="promotion-section">
+                        <h4>💰 推广奖励政策</h4>
+                        <div class="reward-info">
+                            <div class="reward-item">
+                                <span class="reward-icon">🎯</span>
+                                <div>
+                                    <strong>推广佣金：10%</strong>
+                                    <p>每成功推荐一位朋友注册并使用服务，您将获得他们消费金额的10%作为佣金回报</p>
+                                </div>
+                            </div>
+                            <div class="reward-item">
+                                <span class="reward-icon">⚡</span>
+                                <div>
+                                    <strong>实时结算</strong>
+                                    <p>朋友每次消费后，佣金立即到账，无需等待</p>
+                                </div>
+                            </div>
+                            <div class="reward-item">
+                                <span class="reward-icon">🔄</span>
+                                <div>
+                                    <strong>长期有效</strong>
+                                    <p>只要是通过您的推广链接注册的用户，终身享受佣金分成</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="promotion-section">
+                        <h4>🔗 您的专属推广链接</h4>
+                        <div class="link-container">
+                            <input type="text" id="promotionLink" readonly 
+                                   value="http://localhost:3030?ref=user" 
+                                   class="promotion-link-input">
+                            <button class="copy-btn" onclick="copyPromotionLink()">📋 复制</button>
+                        </div>
+                        <p class="link-tip">将此链接分享给朋友，他们通过此链接注册后，您就能获得佣金！</p>
+                    </div>
+                    
+                    <div class="promotion-section">
+                        <h4>📊 推广数据</h4>
+                        <div class="stats-grid">
+                            <div class="stat-item">
+                                <div class="stat-number">0</div>
+                                <div class="stat-label">推荐人数</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-number">￥0</div>
+                                <div class="stat-label">累计佣金</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-number">￥0</div>
+                                <div class="stat-label">本月佣金</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="promotion-section">
+                        <h4>📱 分享方式</h4>
+                        <div class="share-buttons">
+                            <button class="share-btn" onclick="shareToWeChat()">
+                                💬 分享到微信
+                            </button>
+                            <button class="share-btn" onclick="shareToQQ()">
+                                🎯 分享到QQ
+                            </button>
+                            <button class="share-btn" onclick="generateQRCode()">
+                                📱 生成二维码
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 超级管理员面板模态框 -->
+    <div id="adminPanelModal" class="modal">
+        <div class="modal-content admin-modal">
+            <div class="modal-header">
+                <h3>🔧 超级管理员面板</h3>
+                <button class="modal-close" onclick="hideAdminPanel()">×</button>
+            </div>
+            <div class="modal-body">
+                <!-- 管理员导航标签 -->
+                <div class="tab-nav">
+                    <button class="tab-btn active" onclick="showAdminTab('overview')">📊 系统概览</button>
+                    <button class="tab-btn" onclick="showAdminTab('owners')">👥 店主管理</button>
+                    <button class="tab-btn" onclick="showAdminTab('shops')">🏪 店铺监控</button>
+                </div>
+
+                <!-- 系统概览标签页 -->
+                <div id="overviewTab" class="tab-content active">
+                    <div class="admin-section">
+                        <h4>📈 系统统计</h4>
+                        <div class="system-stats-grid" id="systemStats">
+                            <div class="system-stat-item">
+                                <div class="system-stat-number" id="totalUsers">-</div>
+                                <div class="system-stat-label">总用户数</div>
+                            </div>
+                            <div class="system-stat-item">
+                                <div class="system-stat-number" id="totalShops">-</div>
+                                <div class="system-stat-label">总店铺数</div>
+                            </div>
+                            <div class="system-stat-item">
+                                <div class="system-stat-number" id="shopOwners">-</div>
+                                <div class="system-stat-label">店主数量</div>
+                            </div>
+                            <div class="system-stat-item">
+                                <div class="system-stat-number" id="employees">-</div>
+                                <div class="system-stat-label">员工数量</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 店主管理标签页 -->
+                <div id="ownersTab" class="tab-content">
+                    <div class="admin-section">
+                        <h4>👥 店主管理</h4>
+                        <div class="search-container">
+                            <input type="text" id="ownerSearch" class="search-input" placeholder="搜索店主用户名、邮箱或店铺名..." onkeyup="searchShopOwners()">
+                        </div>
+                        
+                        <div class="owners-list" id="ownersList">
+                            <div class="loading">正在加载店主数据...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 店铺监控标签页 -->
+                <div id="shopsTab" class="tab-content">
+                    <div class="admin-section">
+                        <h4>🏪 所有店铺监控</h4>
+                        <div class="shops-monitor" id="shopsMonitor">
+                            <div class="loading">正在加载店铺数据...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-buttons">
+                <button type="button" class="btn btn-secondary" onclick="hideAdminPanel()">关闭</button>
+                <button type="button" class="btn btn-primary" onclick="refreshAdminData()">🔄 刷新数据</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 审核管理面板模态框 -->
+    <div id="reviewPanelModal" class="modal">
+        <div class="modal-content admin-modal">
+            <div class="modal-header">
+                <h3>📋 审核管理</h3>
+                <button class="modal-close" onclick="hideReviewPanel()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="review-section">
+                    <h4>📝 待审核店铺列表</h4>
+                    <div class="pending-shops-container" id="pendingShopsContainer">
+                        <div class="loading">正在加载待审核店铺...</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-buttons">
+                <button type="button" class="btn btn-secondary" onclick="hideReviewPanel()">关闭</button>
+                <button type="button" class="btn btn-primary" onclick="refreshPendingShops()">🔄 刷新列表</button>
             </div>
         </div>
     </div>

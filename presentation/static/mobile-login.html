@@ -527,11 +527,13 @@
                 const loginResult = await performLogin(username, password);
                 
                 if (loginResult.success) {
-                    // 保存用户信息
+                    // 保存用户信息和认证token
                     const userData = {
                         username: username,
                         role: loginResult.role || 'admin',
                         avatar: username.charAt(0).toUpperCase(),
+                        token: loginResult.token,
+                        user: loginResult.user,
                         loginTime: new Date().toISOString()
                     };
                     localStorage.setItem('quicktalk_user', JSON.stringify(userData));
@@ -604,6 +606,8 @@
                     return {
                         success: true,
                         role: data.data.user.role,
+                        token: data.data.token,
+                        user: data.data.user,
                         message: '登录成功'
                     };
                 } else {
