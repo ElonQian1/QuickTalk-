@@ -3058,6 +3058,283 @@
             background: #f8d7da;
             color: #721c24;
         }
+
+        /* 付费开通模态框样式 */
+        .activation-info {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            border: 1px solid #dee2e6;
+        }
+
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .info-item:last-child {
+            border-bottom: none;
+        }
+
+        .info-item strong {
+            color: #495057;
+            font-weight: 600;
+        }
+
+        .amount {
+            color: #dc3545;
+            font-weight: 700;
+            font-size: 16px;
+        }
+
+        .activation-benefit .benefit-text {
+            color: #28a745;
+            font-weight: 600;
+        }
+
+        .payment-methods {
+            margin: 20px 0;
+        }
+
+        .payment-methods h4 {
+            color: #333;
+            margin-bottom: 16px;
+            text-align: center;
+            font-size: 16px;
+        }
+
+        .payment-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+
+        .payment-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px 16px;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 120px;
+            text-align: center;
+        }
+
+        .payment-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .alipay-btn:hover {
+            border-color: #1677ff;
+            background: linear-gradient(135deg, #f0f8ff 0%, #e6f7ff 100%);
+        }
+
+        .wechat-btn:hover {
+            border-color: #07c160;
+            background: linear-gradient(135deg, #f0fff4 0%, #e6f7ec 100%);
+        }
+
+        .payment-icon {
+            font-size: 28px;
+            margin-bottom: 8px;
+            transition: transform 0.3s ease;
+        }
+
+        .payment-btn:hover .payment-icon {
+            transform: scale(1.1);
+        }
+
+        .payment-text {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .alipay-btn:hover .payment-text {
+            color: #1677ff;
+        }
+
+        .wechat-btn:hover .payment-text {
+            color: #07c160;
+        }
+
+        .qr-code-section {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .qr-code-section h4 {
+            color: #333;
+            margin-bottom: 16px;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .qr-code-section h4::before {
+            content: "💰";
+            font-size: 18px;
+        }
+
+        .qr-code-section[data-method="wechat"] h4::before {
+            content: "💚";
+        }
+
+        .qr-code-container {
+            display: inline-block;
+            padding: 16px;
+            background: white;
+            border: 2px solid #eee;
+            border-radius: 12px;
+            margin: 16px 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+
+        .qr-code-container:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+        }
+
+        .qr-code-container.alipay-style {
+            border-color: #1677ff;
+        }
+
+        .qr-code-container.wechat-style {
+            border-color: #07c160;
+        }
+
+        .qr-code-container img {
+            width: 180px;
+            height: 180px;
+            border: none;
+            display: block;
+            margin: 0 auto;
+            border-radius: 8px;
+        }
+
+        .qr-tips {
+            margin-top: 12px;
+        }
+
+        .qr-tips p {
+            margin: 6px 0;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .tip-text {
+            color: #666 !important;
+            font-size: 12px;
+        }
+
+        .qr-actions {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #f0f0f0;
+        }
+
+        .refresh-btn {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            color: #495057;
+            border: 1px solid #ced4da;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .refresh-btn:hover {
+            background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+            color: #212529;
+            transform: translateY(-1px);
+        }
+
+        .test-buttons {
+            margin-top: 16px;
+        }
+
+        .test-btn {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background-color 0.3s;
+        }
+
+        .test-btn:hover {
+            background: #5a6268;
+        }
+
+        .payment-success {
+            text-align: center;
+            padding: 30px 20px;
+        }
+
+        .success-icon {
+            font-size: 42px;
+            margin-bottom: 16px;
+        }
+
+        .payment-success h4 {
+            color: #28a745;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+
+        .payment-success p {
+            color: #666;
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
+
+        .success-actions {
+            margin-top: 16px;
+        }
+
+        /* 移动端适配 */
+        @media (max-width: 480px) {
+            .payment-buttons {
+                flex-direction: column;
+                gap: 8px;
+            }
+            
+            .payment-btn {
+                flex-direction: row;
+                gap: 12px;
+                min-width: auto;
+                padding: 16px;
+            }
+            
+            .payment-icon {
+                font-size: 24px;
+                margin-bottom: 0;
+            }
+            
+            .qr-code-container img {
+                width: 160px;
+                height: 160px;
+            }
+            
+            .activation-info {
+                padding: 16px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -5127,8 +5404,15 @@
         }
 
         function handleShopAction(action, shopId = currentShopId) {
-            // 权限验证
-            if (!hasActionPermission(action)) {
+            // 获取店铺信息
+            const shop = shopsData.find(s => s.id === shopId);
+            if (!shop) {
+                showToast('店铺信息不存在', 'error');
+                return;
+            }
+            
+            // 权限验证 - 传入店铺信息
+            if (!hasActionPermission(action, shop)) {
                 showToast('您没有权限执行此操作', 'error');
                 return;
             }
@@ -5162,40 +5446,100 @@
         }
 
         // 检查用户是否有权限执行特定操作
-        function hasActionPermission(action) {
-            const userIsAdmin = isAdmin();
-            console.log(`权限检查: 用户是管理员=${userIsAdmin}, 操作=${action}`);
-            
-            // 管理员专有操作
-            const adminOnlyActions = ['approve', 'reject', 'activate', 'deactivate'];
-            if (adminOnlyActions.includes(action) && !userIsAdmin) {
-                console.log(`权限拒绝: ${action} 需要管理员权限`);
+        function hasActionPermission(action, shop = null) {
+            const userData = getUserData();
+            if (!userData) {
+                console.log('⚠️ 用户数据为空，拒绝所有操作');
                 return false;
             }
             
-            // 所有用户都可以执行的操作
-            const publicActions = ['edit', 'integration'];
-            if (publicActions.includes(action)) {
-                console.log(`权限允许: ${action} 是公共操作`);
+            // 超级管理员有所有权限
+            const isSuperAdmin = userData.role === 'super_admin';
+            if (isSuperAdmin) {
+                console.log('👑 超级管理员，允许所有操作:', action);
                 return true;
             }
             
-            // 员工管理需要额外权限检查
-            if (action === 'employees') {
-                const hasPermission = userIsAdmin || canManageEmployees();
-                console.log(`员工管理权限检查: ${hasPermission}`);
-                return hasPermission;
+            // 管理员专有操作（审核、激活等）- 只有超级管理员可以执行
+            const adminOnlyActions = ['approve', 'reject', 'activate', 'deactivate'];
+            if (adminOnlyActions.includes(action)) {
+                console.log(`❌ ${action} 操作需要超级管理员权限`);
+                return false;
             }
             
-            console.log(`权限允许: ${action} 默认允许`);
-            return true;
+            // 对于其他操作，检查店铺所有权
+            if (shop) {
+                // 检查是否为店铺创建者/所有者
+                const isShopOwner = shop.owner_id === userData.id || shop.user_id === userData.id;
+                console.log(`🏢 店铺所有权检查: 店铺所有者=${shop.owner_id || shop.user_id}, 当前用户=${userData.id}, 是所有者=${isShopOwner}`);
+                
+                if (isShopOwner) {
+                    console.log(`✅ 店铺所有者，允许操作: ${action}`);
+                    return true;
+                } else {
+                    console.log(`❌ 非店铺所有者，拒绝操作: ${action}`);
+                    return false;
+                }
+            }
+            
+            // 如果没有店铺信息，对于公共操作允许，其他拒绝
+            const publicActions = ['edit', 'integration'];
+            if (publicActions.includes(action)) {
+                console.log(`✅ 公共操作，允许: ${action}`);
+                return true;
+            }
+            
+            // 默认拒绝
+            console.log(`⚠️ 缺少店铺信息，拒绝操作: ${action}`);
+            return false;
         }
 
         // 检查是否可以管理员工
         function canManageEmployees() {
-            const userData = getUserData();
-            // 店主可以管理自己店铺的员工
-            return userData.role === 'shop_owner';
+            const user = getUserData();
+            if (!user) {
+                console.warn('ℹ️ 用户数据为空，无法管理员工');
+                return false;
+            }
+            
+            // 超级管理员可以管理所有店铺的员工
+            if (user.role === 'super_admin') {
+                console.log('👑 超级管理员，可管理所有店铺员工');
+                return true;
+            }
+            
+            // 对于普通用户，只能管理自己创建的店铺的员工
+            // 这个检查在openEmployeeManagement函数中进行，需要结合店铺所有者信息
+            console.log(`💼 普通用户(${user.role})，需要验证店铺所有权`);
+            return true; // 在这里返回true，具体权限在openEmployeeManagement中检查
+        }
+
+        // 获取用户数据
+        function getUserData() {
+            // 优先返回全局变量userData（如果存在）
+            if (typeof userData !== 'undefined' && userData) {
+                return userData;
+            }
+            
+            // 如果全局变量为空，尝试从 localStorage 获取
+            try {
+                const savedUser = localStorage.getItem('userData');
+                if (savedUser) {
+                    const user = JSON.parse(savedUser);
+                    console.log('💾 从 localStorage 获取用户数据:', user);
+                    return user;
+                }
+            } catch (error) {
+                console.error('❌ 解析 localStorage 中的用户数据失败:', error);
+            }
+            
+            // 如果都没有，返回默认值
+            console.warn('⚠️ 未找到用户数据，返回默认值');
+            return {
+                id: null,
+                username: 'unknown',
+                role: 'guest'
+            };
         }
 
         // 获取状态显示文本
@@ -5210,16 +5554,7 @@
             return statusMap[status] || status;
         }
 
-        // 付费激活店铺
-        async function payToActivate(shopId, event) {
-            if (event) {
-                event.preventDefault();
-                event.stopPropagation();
-            }
-            
-            showToast('付费激活功能开发中，请联系管理员', 'info');
-            // TODO: 实现付费逻辑
-        }
+        // 付费激活店铺（已移动到文件末尾的完整实现）
 
         // 查看店铺详情
         function viewShop(shopId, event) {
@@ -5460,6 +5795,31 @@
 
         // 员工管理功能
         function openEmployeeManagement(shopId) {
+            const userData = getUserData();
+            if (!userData) {
+                showToast('用户信息错误，请重新登录', 'error');
+                return;
+            }
+            
+            // 查找对应的店铺信息
+            const shop = shopsData.find(s => s.id === shopId);
+            if (!shop) {
+                showToast('店铺信息不存在', 'error');
+                return;
+            }
+            
+            // 检查权限：只有超级管理员或店铺所有者可以管理员工
+            const isSuperAdmin = userData.role === 'super_admin';
+            const isShopOwner = shop.owner_id === userData.id || shop.user_id === userData.id;
+            
+            if (!isSuperAdmin && !isShopOwner) {
+                console.log(`❌ 权限拒绝: 用户${userData.id}不是店铺${shopId}的所有者`);
+                showToast('您没有管理该店铺员工的权限', 'error');
+                return;
+            }
+            
+            console.log(`✅ 权限验证通过: ${isSuperAdmin ? '超级管理员' : '店铺所有者'}，开始加载员工列表`);
+            
             currentShopId = shopId;
             loadEmployees(shopId);
             openModal('employee-management-modal');
@@ -5524,15 +5884,23 @@
 
         async function addEmployee() {
             const email = document.getElementById('employee-email').value.trim();
-            const role = document.getElementById('employee-role').value;
 
             if (!email) {
-                showError('请输入员工邮箱');
+                showToast('请输入员工邮箱', 'error');
+                return;
+            }
+            
+            // 简单的邮箱格式验证
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                showToast('请输入正确的邮箱格式', 'error');
                 return;
             }
 
             try {
+                console.log('💼 添加员工:', email, '角色: 客服专员(默认)');
                 showLoading('正在添加员工...');
+                
                 const response = await fetch(`/api/shops/${currentShopId}/employees`, {
                     method: 'POST',
                     headers: {
@@ -5540,22 +5908,22 @@
                         'Authorization': `Bearer ${getAuthToken()}`
                     },
                     body: JSON.stringify({
-                        email,
-                        role
+                        email: email,
+                        role: 'agent' // 默认角色为客服专员
                     })
                 });
 
                 if (response.ok) {
-                    showSuccess('员工已添加');
+                    showToast('✅ 员工添加成功！邀请邮件已发送', 'success');
                     document.getElementById('employee-email').value = '';
                     await loadEmployees(currentShopId);
                 } else {
                     const error = await response.json();
-                    showError(error.message || '添加员工失败');
+                    showToast('员工添加失败: ' + (error.message || '未知错误'), 'error');
                 }
             } catch (error) {
-                console.error('添加员工失败:', error);
-                showError('网络错误，请重试');
+                console.error('📧 添加员工网络错误:', error);
+                showToast('网络错误，请重试', 'error');
             } finally {
                 hideLoading();
             }
@@ -5828,74 +6196,91 @@
         // 获取店铺操作按钮
         function getShopActions(shop) {
             const actions = [];
-            const userIsAdmin = isAdmin();
+            const userData = getUserData();
             const status = shop.approvalStatus || shop.status;
+            
+            // 权限检查
+            const isSuperAdmin = userData && userData.role === 'super_admin';
+            const isShopOwner = userData && (shop.owner_id === userData.id || shop.user_id === userData.id);
+            
+            console.log(`🎯 店铺${shop.id}操作权限: 超级管理员=${isSuperAdmin}, 店铺所有者=${isShopOwner}`);
             
             switch (status) {
                 case 'pending':
                     // 待审核状态
-                    if (userIsAdmin) {
-                        // 管理员可以审核店铺
+                    if (isSuperAdmin) {
+                        // 超级管理员可以审核店铺
                         actions.push(`<div class="shop-action-btn success" onclick="approveShop('${shop.id}', event)">通过</div>`);
                         actions.push(`<div class="shop-action-btn danger" onclick="rejectShop('${shop.id}', event)">拒绝</div>`);
-                    } else {
-                        // 店主只能编辑和查看
+                    }
+                    if (isShopOwner) {
+                        // 店主可以付费开通、编辑
+                        actions.push(`<div class="shop-action-btn primary" onclick="payToActivate('${shop.id}', event)">付费开通</div>`);
                         actions.push(`<div class="shop-action-btn warning" onclick="editShop('${shop.id}', event)">编辑</div>`);
                     }
+                    // 所有人都可以查看
                     actions.push(`<div class="shop-action-btn" onclick="viewShop('${shop.id}', event)">查看</div>`);
                     break;
                     
                 case 'approved':
                     // 已批准状态
-                    if (userIsAdmin) {
-                        // 管理员可以激活或停用店铺
+                    if (isSuperAdmin) {
+                        // 超级管理员可以激活或拒绝店铺
                         actions.push(`<div class="shop-action-btn primary" onclick="activateShop('${shop.id}', event)">激活</div>`);
                         actions.push(`<div class="shop-action-btn danger" onclick="rejectShop('${shop.id}', event)">拒绝</div>`);
-                    } else {
-                        // 店主可以付费开通
-                        actions.push(`<div class="shop-action-btn primary" onclick="payToActivate('${shop.id}', event)">付费开通</div>`);
                     }
+                    if (isShopOwner) {
+                        // 店主可以编辑店铺信息
+                        actions.push(`<div class="shop-action-btn warning" onclick="editShop('${shop.id}', event)">编辑</div>`);
+                    }
+                    // 所有人都可以查看
                     actions.push(`<div class="shop-action-btn" onclick="viewShop('${shop.id}', event)">查看</div>`);
                     break;
                     
                 case 'active':
                     // 活跃状态
-                    actions.push(`<div class="shop-action-btn" onclick="viewShopMessages('${shop.id}', event)">消息</div>`);
-                    if (userIsAdmin) {
-                        // 管理员可以管理店铺状态
+                    if (isShopOwner || isSuperAdmin) {
+                        // 店主和超级管理员可以查看消息和管理店铺
+                        actions.push(`<div class="shop-action-btn" onclick="viewShopMessages('${shop.id}', event)">消息</div>`);
+                        actions.push(`<div class="shop-action-btn primary" onclick="manageShop('${shop.id}', event)">管理</div>`);
+                    }
+                    if (isSuperAdmin) {
+                        // 只有超级管理员可以停用店铺
                         actions.push(`<div class="shop-action-btn warning" onclick="deactivateShop('${shop.id}', event)">停用</div>`);
-                    } else {
-                        // 店主可以查看详情和生成集成代码
-                        actions.push(`<div class="shop-action-btn" onclick="manageShop('${shop.id}', event)">管理</div>`);
                     }
                     break;
                     
                 case 'rejected':
                     // 被拒绝状态
-                    if (!userIsAdmin) {
+                    if (isShopOwner) {
                         // 店主可以修改并重新申请
                         actions.push(`<div class="shop-action-btn warning" onclick="editShop('${shop.id}', event)">修改</div>`);
                         actions.push(`<div class="shop-action-btn" onclick="resubmitShop('${shop.id}', event)">重新申请</div>`);
-                    } else {
-                        // 管理员可以重新审核
+                    }
+                    if (isSuperAdmin) {
+                        // 超级管理员可以重新审核
                         actions.push(`<div class="shop-action-btn warning" onclick="manageShop('${shop.id}', event)">重新审核</div>`);
                     }
+                    // 所有人都可以查看
                     actions.push(`<div class="shop-action-btn" onclick="viewShop('${shop.id}', event)">查看</div>`);
                     break;
                     
                 case 'inactive':
                     // 非活跃状态
-                    if (userIsAdmin) {
-                        // 管理员可以重新激活
+                    if (isSuperAdmin) {
+                        // 超级管理员可以管理店铺
                         actions.push(`<div class="shop-action-btn primary" onclick="manageShop('${shop.id}', event)">管理</div>`);
-                    } else {
+                    }
+                    if (isShopOwner) {
                         // 店主可以续费重新激活
                         actions.push(`<div class="shop-action-btn primary" onclick="payToActivate('${shop.id}', event)">续费激活</div>`);
                     }
+                    // 所有人都可以查看
                     actions.push(`<div class="shop-action-btn" onclick="viewShop('${shop.id}', event)">查看</div>`);
                     break;
                     
                 default:
+                    // 默认只能查看
                     actions.push(`<div class="shop-action-btn" onclick="viewShop('${shop.id}', event)">查看</div>`);
             }
             
@@ -5937,18 +6322,7 @@
             // TODO: 实现编辑店铺功能
         }
 
-        // 付费激活店铺
-        function payToActivate(shopId, event) {
-            event.stopPropagation();
-            const shop = shopsData.find(s => s.id === shopId);
-            if (!shop) return;
-            
-            if (confirm(`确认要为店铺"${shop.name}"付费开通吗？\n费用：￥2000/年`)) {
-                console.log('付费激活店铺:', shopId);
-                showToast('付费开通功能开发中...', 'info');
-                // TODO: 实现付费激活功能
-            }
-        }
+        // 付费激活店铺（已移动到文件末尾的完整实现）
 
         // 查看店铺消息
         function viewShopMessages(shopId, event) {
@@ -7944,6 +8318,387 @@
             }
         }
 
+        // ============ 付费开通功能 ============
+
+        // 付费激活店铺 - 主入口函数
+        async function payToActivate(shopId, event) {
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            
+            console.log('🎯 付费开通按钮被点击:', shopId);
+            
+            // 从当前加载的店铺数据中查找店铺
+            let shop = null;
+            if (shopsData && shopsData.length > 0) {
+                shop = shopsData.find(s => s.id === shopId);
+                console.log('🔍 找到的店铺:', shop);
+            } else {
+                console.error('❌ shopsData为空或未定义:', shopsData);
+            }
+
+            if (!shop) {
+                showToast('店铺不存在或数据未加载，请刷新页面后重试', 'error');
+                console.error('❌ Shop not found:', shopId, 'Available shops:', shopsData);
+                return;
+            }
+
+            console.log('✅ 店铺验证通过，开始付费开通流程');
+            
+            // 直接调用activateShop函数（显示二维码模态框）
+            await activateShop(shopId);
+        }
+
+        // 店铺付费开通
+        async function activateShop(shopId) {
+            console.log('🎯 开始付费开通流程:', shopId);
+            
+            // 从当前加载的店铺数据中查找店铺
+            let shop = null;
+            if (shopsData && shopsData.length > 0) {
+                shop = shopsData.find(s => s.id === shopId);
+                console.log('🔍 找到的店铺:', shop);
+            } else {
+                console.error('❌ shopsData为空或未定义:', shopsData);
+            }
+
+            if (!shop) {
+                showToast('店铺不存在或数据未加载，请刷新页面后重试', 'error');
+                console.error('❌ Shop not found:', shopId, 'Available shops:', shopsData);
+                return;
+            }
+
+            console.log('✅ 店铺验证通过，显示付费开通模态框');
+            try {
+                // 创建付费开通订单
+                const authToken = getAuthToken();
+                const response = await fetch(`/api/shops/${shopId}/create-activation-order`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`,
+                        'X-Session-Id': authToken
+                    }
+                });
+
+                console.log('📡 API响应状态:', response.status);
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('✅ 订单创建成功:', data);
+                    // 后端返回的数据在data字段中，不是data.order
+                    showActivationPaymentModal(data.data);
+                } else {
+                    const error = await response.json();
+                    console.error('❌ API错误:', error);
+                    showToast('创建付费开通订单失败: ' + (error.message || error.error || '未知错误'), 'error');
+                }
+            } catch (error) {
+                console.error('❌ 网络错误:', error);
+                showToast('网络错误，请重试', 'error');
+            }
+        }
+
+        // 显示付费开通支付模态框
+        function showActivationPaymentModal(order) {
+            console.log('📦 显示付费开通模态框，订单数据:', order);
+            
+            // 验证订单数据
+            if (!order) {
+                console.error('❌ 订单数据为空');
+                showToast('订单数据异常，请重试', 'error');
+                return;
+            }
+            
+            // 填充订单信息 - 使用后端返回的字段名
+            const orderIdElement = document.getElementById('activationOrderId');
+            const shopNameElement = document.getElementById('activationShopName');
+            const expiryElement = document.getElementById('activationExpiry');
+            
+            if (orderIdElement) orderIdElement.textContent = order.orderId || order.order_id || '未知';
+            if (shopNameElement) shopNameElement.textContent = order.shopName || order.shop_name || '未知店铺';
+            if (expiryElement) {
+                const expiryTime = order.expiresAt || order.expires_at;
+                expiryElement.textContent = expiryTime ? 
+                    new Date(expiryTime).toLocaleString() : '无';
+            }
+
+            // 显示模态框
+            const modal = document.getElementById('activationModal');
+            if (modal) {
+                modal.classList.add('show');
+                document.body.style.overflow = 'hidden';
+            } else {
+                console.error('❌ 找不到activationModal元素');
+                showToast('界面错误，请刷新页面', 'error');
+                return;
+            }
+            
+            // 存储当前订单ID
+            window.currentActivationOrder = order;
+            console.log('✅ 付费开通模态框已显示');
+        }
+
+        // 选择付费开通支付方式并生成二维码
+        async function selectActivationPaymentMethod(method) {
+            console.log('🎯 选择支付方式:', method);
+            
+            if (!window.currentActivationOrder) {
+                console.error('❌ 当前订单信息为空');
+                showToast('订单信息异常，请重新发起付费开通', 'error');
+                return;
+            }
+
+            try {
+                const authToken = getAuthToken();
+                // 使用正确的订单ID字段
+                const orderId = window.currentActivationOrder.orderId || window.currentActivationOrder.order_id;
+                console.log('📡 发送二维码生成请求，订单ID:', orderId);
+                
+                const response = await fetch(`/api/activation-orders/${orderId}/qrcode`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`,
+                        'X-Session-Id': authToken
+                    },
+                    body: JSON.stringify({
+                        paymentMethod: method
+                    })
+                });
+
+                console.log('📡 二维码API响应状态:', response.status);
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('✅ 二维码生成成功:', data);
+                    // 使用正确的数据字段
+                    showActivationQRCode(data.data || data, method);
+                } else {
+                    const error = await response.json();
+                    console.error('❌ 二维码生成失败:', error);
+                    showToast('生成支付二维码失败: ' + (error.message || error.error || '未知错误'), 'error');
+                }
+            } catch (error) {
+                console.error('❌ 生成付费开通二维码网络错误:', error);
+                showToast('网络错误，请重试', 'error');
+            }
+        }
+
+        // 显示付费开通支付二维码
+        function showActivationQRCode(qrData, method) {
+            console.log('🖼️ 显示二维码，数据:', qrData, '支付方式:', method);
+            
+            if (!qrData) {
+                console.error('❌ 二维码数据为空');
+                showToast('二维码数据异常', 'error');
+                return;
+            }
+            
+            const methodName = method === 'alipay' ? '支付宝' : '微信';
+            const appName = method === 'alipay' ? '支付宝' : '微信';
+            
+            // 获取正确的字段值 - 兼容不同的命名格式
+            const qrCodeUrl = qrData.qrCodeUrl || qrData.qr_code_url || qrData.qrcode_url;
+            const orderId = qrData.orderId || qrData.order_id;
+            const amount = qrData.amount;
+            
+            if (!qrCodeUrl) {
+                console.error('❌ 二维码URL为空:', qrData);
+                showToast('二维码生成失败，请重试', 'error');
+                return;
+            }
+            
+            // 更新界面显示
+            const methodNameElement = document.getElementById('activationPaymentMethodName');
+            const qrImgElement = document.getElementById('activationPaymentQRCode');
+            const appNameElement = document.getElementById('activationPaymentAppName');
+            
+            if (methodNameElement) methodNameElement.textContent = methodName;
+            if (qrImgElement) qrImgElement.src = qrCodeUrl;
+            if (appNameElement) appNameElement.textContent = appName;
+            
+            // 设置支付方式样式
+            const qrSection = document.getElementById('activationQrCodeSection');
+            if (qrSection) {
+                const qrContainer = qrSection.querySelector('.qr-code-container');
+                if (qrContainer) {
+                    // 清除旧样式
+                    qrContainer.classList.remove('alipay-style', 'wechat-style');
+                    qrSection.removeAttribute('data-method');
+                    
+                    // 应用新样式
+                    qrContainer.classList.add(method === 'alipay' ? 'alipay-style' : 'wechat-style');
+                    qrSection.setAttribute('data-method', method);
+                }
+            }
+            
+            // 存储当前支付方式，用于刷新功能
+            window.currentActivationPaymentMethod = method;
+            
+            // 添加二维码加载错误处理
+            const qrImg = document.getElementById('activationPaymentQRCode');
+            if (qrImg) {
+                qrImg.onerror = function() {
+                    console.warn('💡 付费开通二维码加载失败，使用备用方案');
+                    this.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent('模拟' + methodName + '付费开通订单:' + orderId + ' 金额:¥' + amount)}`;
+                };
+            }
+            
+            // 隐藏支付方式选择，显示二维码
+            const paymentMethods = document.getElementById('activationPaymentMethods');
+            if (paymentMethods) paymentMethods.style.display = 'none';
+            if (qrSection) qrSection.style.display = 'block';
+            
+            console.log(`✅ 显示${methodName}付费开通支付二维码:`, qrCodeUrl);
+            
+            // 开始轮询订单状态
+            if (orderId) {
+                startActivationPaymentPolling(orderId);
+            } else {
+                console.warn('⚠️ 订单ID为空，无法启动轮询');
+            }
+        }
+
+        // 开始付费开通支付状态轮询
+        function startActivationPaymentPolling(orderId) {
+            // 清理之前的轮询
+            if (window.activationPaymentPolling) {
+                clearInterval(window.activationPaymentPolling);
+            }
+
+            console.log('🔄 开始付费开通支付状态轮询...');
+            
+            window.activationPaymentPolling = setInterval(async () => {
+                try {
+                    const authToken = getAuthToken();
+                    const response = await fetch(`/api/activation-orders/${orderId}/status`, {
+                        headers: {
+                            'Authorization': `Bearer ${authToken}`,
+                            'X-Session-Id': authToken
+                        }
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        const order = data.order;
+
+                        if (order.status === 'paid') {
+                            // 支付成功
+                            clearInterval(window.activationPaymentPolling);
+                            window.activationPaymentPolling = null;
+                            showActivationPaymentSuccess();
+                        } else if (order.status === 'expired') {
+                            // 订单过期
+                            clearInterval(window.activationPaymentPolling);
+                            window.activationPaymentPolling = null;
+                            showToast('支付超时，请重新发起付费开通', 'warning');
+                            closeActivationModal();
+                        }
+                    }
+                } catch (error) {
+                    console.error('付费开通轮询错误:', error);
+                }
+            }, 3000); // 每3秒检查一次
+
+            // 30分钟后停止轮询
+            setTimeout(() => {
+                if (window.activationPaymentPolling) {
+                    clearInterval(window.activationPaymentPolling);
+                    window.activationPaymentPolling = null;
+                }
+            }, 30 * 60 * 1000);
+        }
+
+        // 显示付费开通支付成功页面
+        function showActivationPaymentSuccess() {
+            document.getElementById('activationQrCodeSection').style.display = 'none';
+            document.getElementById('activationPaymentSuccess').style.display = 'block';
+            
+            console.log('🎉 付费开通支付成功');
+            
+            // 3秒后自动关闭并刷新店铺列表
+            setTimeout(() => {
+                showToast('🎉 付费开通成功！店铺已自动审核通过并获得1年有效期！', 'success');
+                closeActivationModal();
+                loadShops(); // 刷新店铺列表
+            }, 1000);
+        }
+
+        // 刷新付费开通二维码
+        function refreshActivationQRCode() {
+            if (!window.currentActivationOrder || !window.currentActivationPaymentMethod) {
+                showToast('无法刷新二维码，请重新选择支付方式', 'warning');
+                return;
+            }
+            
+            const refreshBtn = document.querySelector('#activationQrCodeSection .refresh-btn');
+            const originalText = refreshBtn.textContent;
+            
+            // 显示加载状态
+            refreshBtn.textContent = '🔄 刷新中...';
+            refreshBtn.disabled = true;
+            
+            // 重新生成二维码
+            selectActivationPaymentMethod(window.currentActivationPaymentMethod).finally(() => {
+                // 恢复按钮状态
+                setTimeout(() => {
+                    refreshBtn.textContent = originalText;
+                    refreshBtn.disabled = false;
+                }, 500);
+            });
+        }
+
+        // 关闭付费开通模态框
+        function closeActivationModal() {
+            const modal = document.getElementById('activationModal');
+            modal.classList.remove('show');
+            document.body.style.overflow = '';
+            
+            // 重置模态框状态
+            document.getElementById('activationPaymentMethods').style.display = 'block';
+            document.getElementById('activationQrCodeSection').style.display = 'none';
+            document.getElementById('activationPaymentSuccess').style.display = 'none';
+            
+            // 清理轮询
+            if (window.activationPaymentPolling) {
+                clearInterval(window.activationPaymentPolling);
+                window.activationPaymentPolling = null;
+            }
+            
+            window.currentActivationOrder = null;
+        }
+
+        // 模拟付费开通支付成功（测试用）
+        async function mockActivationPaymentSuccess() {
+            if (!window.currentActivationOrder) {
+                showToast('没有待支付的开通订单', 'warning');
+                return;
+            }
+
+            try {
+                const authToken = getAuthToken();
+                const response = await fetch(`/api/activation-orders/${window.currentActivationOrder.orderId}/mock-success`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'X-Session-Id': authToken
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('🧪 模拟付费开通支付成功:', data);
+                    showActivationPaymentSuccess();
+                } else {
+                    const error = await response.json();
+                    showToast('模拟支付失败: ' + error.error, 'error');
+                }
+            } catch (error) {
+                console.error('模拟付费开通支付错误:', error);
+                showToast('网络错误，请重试', 'error');
+            }
+        }
+
         console.log('📱 QuickTalk Mobile Dashboard 已加载');
     </script>
 
@@ -8007,24 +8762,17 @@
             <div class="modal-body">
                 <!-- 添加员工区域 -->
                 <div class="add-employee-section">
-                    <h4>添加员工</h4>
+                    <h4>💼 添加员工</h4>
                     <div class="add-employee-form">
                         <div class="form-row">
                             <div class="form-group flex-1">
-                                <input type="email" id="employee-email" placeholder="员工邮箱">
+                                <input type="email" id="employee-email" placeholder="请输入员工邮箱地址">
                             </div>
-                            <div class="form-group">
-                                <select id="employee-role">
-                                    <option value="agent">客服专员</option>
-                                    <option value="admin">管理员</option>
-                                    <option value="viewer">观察员</option>
-                                </select>
-                            </div>
-                            <button class="btn btn-primary btn-small" onclick="addEmployee()">添加</button>
+                            <button class="btn btn-primary btn-small" onclick="addEmployee()">➕ 添加员工</button>
                         </div>
                     </div>
                     <div class="employee-help">
-                        <small class="form-help">输入员工邮箱地址，系统将发送邀请邮件</small>
+                        <small class="form-help">📮 输入员工邮箱地址，系统将发送邀请邮件（默认角色：客服专员）</small>
                     </div>
                 </div>
                 
@@ -8390,6 +9138,92 @@
             <div class="modal-buttons">
                 <button type="button" class="btn btn-secondary" onclick="hideReviewPanel()">关闭</button>
                 <button type="button" class="btn btn-primary" onclick="refreshPendingShops()">🔄 刷新列表</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 付费开通模态框 -->
+    <div id="activationModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>💎 店铺付费开通</h3>
+                <button class="modal-close" onclick="closeActivationModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <!-- 订单信息 -->
+                <div class="activation-info">
+                    <div class="info-item">
+                        <strong>订单号：</strong>
+                        <span id="activationOrderId"></span>
+                    </div>
+                    <div class="info-item">
+                        <strong>店铺名称：</strong>
+                        <span id="activationShopName"></span>
+                    </div>
+                    <div class="info-item">
+                        <strong>开通费用：</strong>
+                        <span id="activationAmount" class="amount">¥2000</span>
+                    </div>
+                    <div class="info-item">
+                        <strong>订单有效期：</strong>
+                        <span id="activationExpiry"></span>
+                    </div>
+                    <div class="info-item activation-benefit">
+                        <strong>开通后享受：</strong>
+                        <span class="benefit-text">✅ 立即审核通过 + 1年服务期</span>
+                    </div>
+                </div>
+
+                <!-- 支付方式选择 -->
+                <div id="activationPaymentMethods" class="payment-methods">
+                    <h4>请选择支付方式：</h4>
+                    <div class="payment-buttons">
+                        <button class="payment-btn alipay-btn" onclick="selectActivationPaymentMethod('alipay')">
+                            <div class="payment-icon">💰</div>
+                            <div class="payment-text">支付宝支付</div>
+                        </button>
+                        <button class="payment-btn wechat-btn" onclick="selectActivationPaymentMethod('wechat')">
+                            <div class="payment-icon">💚</div>
+                            <div class="payment-text">微信支付</div>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 二维码支付区域 -->
+                <div id="activationQrCodeSection" class="qr-code-section" style="display: none;">
+                    <h4 id="activationPaymentMethodName">支付宝</h4>
+                    <div class="qr-code-container">
+                        <img id="activationPaymentQRCode" src="" alt="付费开通支付二维码" />
+                        <div class="qr-tips">
+                            <p>请使用<span id="activationPaymentAppName">支付宝</span>扫码支付 <span class="amount">¥2000</span></p>
+                            <p class="tip-text">付费成功后，店铺将立即审核通过</p>
+                        </div>
+                        
+                        <!-- 刷新二维码按钮 -->
+                        <div class="qr-actions">
+                            <button class="refresh-btn" onclick="refreshActivationQRCode()" title="刷新二维码">
+                                🔄 刷新二维码
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- 测试按钮 -->
+                    <div class="test-buttons">
+                        <button class="test-btn" onclick="mockActivationPaymentSuccess()">
+                            🧪 模拟支付成功 (测试)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 支付成功 -->
+                <div id="activationPaymentSuccess" class="payment-success" style="display: none;">
+                    <div class="success-icon">🎉</div>
+                    <h4>付费开通成功！</h4>
+                    <p>您的店铺已自动审核通过并获得1年有效期</p>
+                    <div class="success-actions">
+                        <button class="btn btn-primary" onclick="closeActivationModal(); loadShops();">返回店铺列表</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

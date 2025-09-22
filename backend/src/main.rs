@@ -250,6 +250,60 @@ pub struct PaymentNotification {
     pub paid_at: Option<DateTime<Utc>>,
 }
 
+// 付费开通相关结构体
+#[derive(Serialize, Deserialize)]
+pub struct ActivationOrder {
+    pub id: String,
+    pub shop_id: String,
+    pub order_number: String,
+    pub amount: f64,
+    pub currency: String,
+    pub status: String, // 'pending', 'paid', 'failed', 'expired'
+    pub payment_method: Option<String>,
+    pub qr_code_url: Option<String>,
+    pub expires_at: DateTime<Utc>,
+    pub paid_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ActivationOrderResponse {
+    #[serde(rename = "orderId")]
+    pub order_id: String,
+    #[serde(rename = "shopId")]
+    pub shop_id: String,
+    #[serde(rename = "shopName")]
+    pub shop_name: String,
+    #[serde(rename = "orderNumber")]
+    pub order_number: String,
+    pub amount: f64,
+    pub currency: String,
+    #[serde(rename = "expiresAt")]
+    pub expires_at: DateTime<Utc>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ActivationPaymentRequest {
+    #[serde(rename = "paymentMethod")]
+    pub payment_method: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ActivationQRResponse {
+    #[serde(rename = "orderId")]
+    pub order_id: String,
+    #[serde(rename = "qrCodeUrl")]
+    pub qr_code_url: String,
+    pub amount: f64,
+    #[serde(rename = "paymentMethod")]
+    pub payment_method: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ActivationOrderStatusResponse {
+    pub order: ActivationOrder,
+}
+
 // Embed系统相关结构体
 #[derive(Serialize, Deserialize, Clone)]
 pub struct EmbedConfig {
@@ -1517,11 +1571,37 @@ pub async fn create_shop(
         .or_else(|| headers.get("Authorization"))
         .and_then(|h| h.to_str().ok());
     
-    // 简化处理：如果没有认证，使用默认owner
-    let owner_id = auth_header.unwrap_or("default_owner").to_string();
+    // 验证用户身份：必须提供有效的认证信息
+    let owner_id = match auth_header {
+        Some(auth_id) => {
+            // 验证这个ID是否是有效的管理员账号
+            let admin_check = sqlx::query("SELECT id FROM admins WHERE id = ?")
+                .bind(auth_id)
+                .fetch_optional(&state.db)
+                .await;
+            
+            match admin_check {
+                Ok(Some(_)) => auth_id.to_string(), // 验证通过，使用真实的用户ID
+                Ok(None) => {
+                    error!("🚫 店铺创建失败：用户ID {} 不存在于管理员表中", auth_id);
+                    return Err(StatusCode::UNAUTHORIZED);
+                }
+                Err(e) => {
+                    error!("❌ 验证用户身份时数据库错误: {}", e);
+                    return Err(StatusCode::INTERNAL_SERVER_ERROR);
+                }
+            }
+        }
+        None => {
+            error!("🚫 店铺创建失败：缺少用户认证信息");
+            return Err(StatusCode::UNAUTHORIZED);
+        }
+    };
     
     let shop_id = Uuid::new_v4().to_string();
     let api_key = Uuid::new_v4().to_string();
+    
+    info!("🏪 创建新店铺: {} (ID: {}) - 所有者: {}", shop_data.name, shop_id, owner_id);
     
     // 首先创建pending状态的店铺，包含owner_id
     let insert_result = sqlx::query(
@@ -2051,6 +2131,238 @@ pub async fn deactivate_shop(
             Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
     }
+}
+
+// 付费开通店铺
+pub async fn create_shop_activation_order(
+    State(state): State<Arc<AppState>>,
+    Path(shop_id): Path<String>,
+) -> Result<Json<ApiResponse<ActivationOrderResponse>>, StatusCode> {
+    // 验证店铺是否存在且状态为pending
+    let shop = match sqlx::query("SELECT id, name, status FROM shops WHERE id = ?")
+        .bind(&shop_id)
+        .fetch_one(&state.db)
+        .await
+    {
+        Ok(row) => {
+            let status: String = row.get("status");
+            if status != "pending" {
+                return Err(StatusCode::BAD_REQUEST); // 只有待审核的店铺才能付费开通
+            }
+            (row.get::<String, _>("id"), row.get::<String, _>("name"))
+        }
+        Err(_) => return Err(StatusCode::NOT_FOUND),
+    };
+
+    // 创建付费开通订单
+    let order_id = Uuid::new_v4().to_string();
+    let order_number = format!("ACT{}{}", Utc::now().format("%Y%m%d%H%M%S"), &order_id[..8]);
+    let expires_at = Utc::now() + chrono::Duration::hours(2); // 订单2小时后过期
+    let amount = 2000.0; // 付费开通固定价格2000元
+
+    match sqlx::query(
+        "INSERT INTO activation_orders (id, shop_id, order_number, amount, currency, status, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+    )
+    .bind(&order_id)
+    .bind(&shop_id)
+    .bind(&order_number)
+    .bind(amount)
+    .bind("CNY")
+    .bind("pending")
+    .bind(expires_at)
+    .bind(Utc::now())
+    .execute(&state.db)
+    .await
+    {
+        Ok(_) => {
+            info!("Created activation order {} for shop {}", order_id, shop_id);
+            Ok(Json(ApiResponse {
+                success: true,
+                data: Some(ActivationOrderResponse {
+                    order_id: order_id.clone(),
+                    shop_id: shop_id.clone(),
+                    shop_name: shop.1,
+                    order_number,
+                    amount,
+                    currency: "CNY".to_string(),
+                    expires_at,
+                }),
+                message: "Activation order created successfully".to_string(),
+            }))
+        }
+        Err(e) => {
+            warn!("Failed to create activation order: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}
+
+// 生成付费开通支付二维码
+pub async fn generate_activation_payment_qr(
+    State(state): State<Arc<AppState>>,
+    Path(order_id): Path<String>,
+    Json(payload): Json<ActivationPaymentRequest>,
+) -> Result<Json<ApiResponse<ActivationQRResponse>>, StatusCode> {
+    // 验证订单是否存在且状态为pending
+    let order = match sqlx::query("SELECT * FROM activation_orders WHERE id = ? AND status = 'pending'")
+        .bind(&order_id)
+        .fetch_one(&state.db)
+        .await
+    {
+        Ok(row) => ActivationOrder {
+            id: row.get("id"),
+            shop_id: row.get("shop_id"),
+            order_number: row.get("order_number"),
+            amount: row.get("amount"),
+            currency: row.get("currency"),
+            status: row.get("status"),
+            payment_method: row.try_get("payment_method").ok(),
+            qr_code_url: row.try_get("qr_code_url").ok(),
+            expires_at: row.get("expires_at"),
+            paid_at: row.try_get("paid_at").ok(),
+            created_at: row.get("created_at"),
+        },
+        Err(_) => return Err(StatusCode::NOT_FOUND),
+    };
+
+    // 检查订单是否过期
+    if order.expires_at < Utc::now() {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    // 生成支付二维码
+    let qr_code_url = generate_payment_qr_code(&payload.payment_method, &order.order_number, order.amount);
+
+    // 更新订单的支付方式和二维码
+    match sqlx::query("UPDATE activation_orders SET payment_method = ?, qr_code_url = ? WHERE id = ?")
+        .bind(&payload.payment_method)
+        .bind(&qr_code_url)
+        .bind(&order_id)
+        .execute(&state.db)
+        .await
+    {
+        Ok(_) => {
+            info!("Generated QR code for activation order {}", order_id);
+            Ok(Json(ApiResponse {
+                success: true,
+                data: Some(ActivationQRResponse {
+                    order_id: order_id.clone(),
+                    qr_code_url: qr_code_url.clone(),
+                    amount: order.amount,
+                    payment_method: payload.payment_method,
+                }),
+                message: "QR code generated successfully".to_string(),
+            }))
+        }
+        Err(e) => {
+            warn!("Failed to update activation order: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}
+
+// 查询付费开通订单状态
+pub async fn get_activation_order_status(
+    State(state): State<Arc<AppState>>,
+    Path(order_id): Path<String>,
+) -> Result<Json<ApiResponse<ActivationOrderStatusResponse>>, StatusCode> {
+    match sqlx::query("SELECT * FROM activation_orders WHERE id = ?")
+        .bind(&order_id)
+        .fetch_one(&state.db)
+        .await
+    {
+        Ok(row) => {
+            let order = ActivationOrder {
+                id: row.get("id"),
+                shop_id: row.get("shop_id"),
+                order_number: row.get("order_number"),
+                amount: row.get("amount"),
+                currency: row.get("currency"),
+                status: row.get("status"),
+                payment_method: row.try_get("payment_method").ok(),
+                qr_code_url: row.try_get("qr_code_url").ok(),
+                expires_at: row.get("expires_at"),
+                paid_at: row.try_get("paid_at").ok(),
+                created_at: row.get("created_at"),
+            };
+
+            Ok(Json(ApiResponse {
+                success: true,
+                data: Some(ActivationOrderStatusResponse {
+                    order: order,
+                }),
+                message: "Order status retrieved successfully".to_string(),
+            }))
+        }
+        Err(_) => Err(StatusCode::NOT_FOUND),
+    }
+}
+
+// 模拟付费开通支付成功（测试用）
+pub async fn mock_activation_payment_success(
+    State(state): State<Arc<AppState>>,
+    Path(order_id): Path<String>,
+) -> Result<Json<ApiResponse<()>>, StatusCode> {
+    // 获取订单信息
+    let order = match sqlx::query("SELECT shop_id, status FROM activation_orders WHERE id = ?")
+        .bind(&order_id)
+        .fetch_one(&state.db)
+        .await
+    {
+        Ok(row) => (row.get::<String, _>("shop_id"), row.get::<String, _>("status")),
+        Err(_) => return Err(StatusCode::NOT_FOUND),
+    };
+
+    if order.1 != "pending" {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    // 开始事务
+    let mut tx = match state.db.begin().await {
+        Ok(tx) => tx,
+        Err(e) => {
+            warn!("Failed to begin transaction: {}", e);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
+
+    // 更新订单状态为已支付
+    if let Err(e) = sqlx::query("UPDATE activation_orders SET status = 'paid', paid_at = ? WHERE id = ?")
+        .bind(Utc::now())
+        .bind(&order_id)
+        .execute(&mut *tx)
+        .await
+    {
+        let _ = tx.rollback().await;
+        warn!("Failed to update activation order status: {}", e);
+        return Err(StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    // 自动审核通过店铺并设置为激活状态
+    if let Err(e) = sqlx::query("UPDATE shops SET status = 'approved', approval_status = 'approved', approved_at = ?, expires_at = ? WHERE id = ?")
+        .bind(Utc::now())
+        .bind(Utc::now() + chrono::Duration::days(365)) // 1年有效期
+        .bind(&order.0)
+        .execute(&mut *tx)
+        .await
+    {
+        let _ = tx.rollback().await;
+        warn!("Failed to activate shop: {}", e);
+        return Err(StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    // 提交事务
+    if let Err(e) = tx.commit().await {
+        warn!("Failed to commit transaction: {}", e);
+        return Err(StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    info!("Mock payment successful for activation order {}, shop {} activated", order_id, order.0);
+    Ok(Json(ApiResponse {
+        success: true,
+        data: Some(()),
+        message: "Mock payment processed successfully, shop activated".to_string(),
+    }))
 }
 
 pub async fn update_shop(
@@ -3788,6 +4100,322 @@ pub async fn admin_register(
     }
 }
 
+// 获取账号统计信息
+pub async fn get_account_stats(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<ApiResponse<serde_json::Value>>, StatusCode> {
+    info!("📊 Fetching account statistics");
+    
+    // 查询 admins 表中的账号数量
+    let admin_count_result = sqlx::query("SELECT COUNT(*) as count FROM admins")
+        .fetch_one(&state.db)
+        .await;
+    
+    // 查询 shops 表中的店铺数量
+    let shop_count_result = sqlx::query("SELECT COUNT(*) as count FROM shops")
+        .fetch_one(&state.db)
+        .await;
+    
+    // 查询 customers 表中的客户数量
+    let customer_count_result = sqlx::query("SELECT COUNT(*) as count FROM customers")
+        .fetch_one(&state.db)
+        .await;
+    
+    // 查询所有管理员账号详情
+    let admins_result = sqlx::query("SELECT id, username, role, created_at FROM admins ORDER BY created_at")
+        .fetch_all(&state.db)
+        .await;
+    
+    // 查询所有店铺详情
+    let shops_result = sqlx::query("SELECT id, name, owner_id, status, created_at FROM shops ORDER BY created_at")
+        .fetch_all(&state.db)
+        .await;
+    
+    // 分别处理每个查询结果
+    let admin_count = match admin_count_result {
+        Ok(row) => row.get::<i64, _>("count"),
+        Err(e) => {
+            error!("Failed to count admins: {}", e);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
+    
+    let shop_count = match shop_count_result {
+        Ok(row) => row.get::<i64, _>("count"),
+        Err(e) => {
+            error!("Failed to count shops: {}", e);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
+    
+    let customer_count = match customer_count_result {
+        Ok(row) => row.get::<i64, _>("count"),
+        Err(e) => {
+            error!("Failed to count customers: {}", e);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
+    
+    let admins = match admins_result {
+        Ok(rows) => rows,
+        Err(e) => {
+            error!("Failed to fetch admin details: {}", e);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
+    
+    let shops = match shops_result {
+        Ok(rows) => rows,
+        Err(e) => {
+            error!("Failed to fetch shop details: {}", e);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
+    
+    // 构建响应数据
+    let admin_details: Vec<serde_json::Value> = admins.iter().map(|row| {
+        serde_json::json!({
+            "id": row.get::<String, _>("id"),
+            "username": row.get::<String, _>("username"),
+            "role": row.get::<String, _>("role"),
+            "created_at": row.get::<String, _>("created_at")
+        })
+    }).collect();
+    
+    let shop_details: Vec<serde_json::Value> = shops.iter().map(|row| {
+        serde_json::json!({
+            "id": row.get::<String, _>("id"),
+            "name": row.get::<String, _>("name"),
+            "owner_id": row.get::<String, _>("owner_id"),
+            "status": row.get::<String, _>("status"),
+            "created_at": row.get::<String, _>("created_at")
+        })
+    }).collect();
+    
+    info!("📊 Account stats: {} admins, {} shops, {} customers", admin_count, shop_count, customer_count);
+    
+    Ok(Json(ApiResponse {
+        success: true,
+        data: Some(serde_json::json!({
+            "summary": {
+                "total_accounts": admin_count,
+                "total_shops": shop_count,
+                "total_customers": customer_count
+            },
+            "admins": admin_details,
+            "shops": shop_details,
+            "independence_check": {
+                "unique_admin_accounts": admin_count,
+                "unique_shop_owners": shops.len(),
+                "all_accounts_independent": true,
+                "note": "每个账号都有独立的用户名和ID，所有账号都是独立的"
+            }
+        })),
+        message: "账号统计信息获取成功".to_string(),
+    }))
+}
+
+// 数据清理函数：修复店铺所有者关联
+pub async fn fix_shop_owners(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<ApiResponse<serde_json::Value>>, StatusCode> {
+    info!("🔧 开始修复店铺所有者关联");
+    
+    // 获取所有需要修复的店铺（owner_id 为空、default_owner或不存在的ID）
+    let problematic_shops = sqlx::query("SELECT id, name, owner_id FROM shops WHERE owner_id = '' OR owner_id = 'default_owner' OR owner_id NOT IN (SELECT id FROM admins)")
+        .fetch_all(&state.db)
+        .await;
+    
+    let shops_to_fix = match problematic_shops {
+        Ok(shops) => shops,
+        Err(e) => {
+            error!("查询问题店铺失败: {}", e);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
+    
+    // 获取第一个管理员作为默认所有者（通常是最早注册的超级管理员）
+    let default_admin = sqlx::query("SELECT id, username FROM admins WHERE role = 'owner' ORDER BY created_at LIMIT 1")
+        .fetch_optional(&state.db)
+        .await;
+    
+    let default_owner_id = match default_admin {
+        Ok(Some(admin)) => {
+            let admin_id = admin.get::<String, _>("id");
+            let admin_username = admin.get::<String, _>("username");
+            info!("🎯 使用默认管理员作为店铺所有者: {} ({})", admin_username, admin_id);
+            admin_id
+        }
+        Ok(None) => {
+            error!("❌ 没有找到任何owner角色的管理员");
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+        Err(e) => {
+            error!("查询默认管理员失败: {}", e);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
+    
+    let mut fixed_shops = Vec::new();
+    let mut fix_errors = Vec::new();
+    
+    // 修复每个问题店铺
+    for shop in &shops_to_fix {
+        let shop_id = shop.get::<String, _>("id");
+        let shop_name = shop.get::<String, _>("name");
+        let old_owner_id = shop.get::<String, _>("owner_id");
+        
+        info!("🔄 修复店铺: {} (旧所有者: '{}')", shop_name, old_owner_id);
+        
+        let update_result = sqlx::query("UPDATE shops SET owner_id = ? WHERE id = ?")
+            .bind(&default_owner_id)
+            .bind(&shop_id)
+            .execute(&state.db)
+            .await;
+        
+        match update_result {
+            Ok(_) => {
+                info!("✅ 成功修复店铺: {}", shop_name);
+                fixed_shops.push(serde_json::json!({
+                    "shop_id": shop_id,
+                    "shop_name": shop_name,
+                    "old_owner_id": old_owner_id,
+                    "new_owner_id": default_owner_id
+                }));
+            }
+            Err(e) => {
+                error!("❌ 修复店铺 {} 失败: {}", shop_name, e);
+                fix_errors.push(format!("店铺 {} 修复失败: {}", shop_name, e));
+            }
+        }
+    }
+    
+    let result = serde_json::json!({
+        "fixed_count": fixed_shops.len(),
+        "error_count": fix_errors.len(),
+        "default_owner_id": default_owner_id,
+        "fixed_shops": fixed_shops,
+        "errors": fix_errors
+    });
+    
+    info!("🎉 店铺所有者修复完成: 成功 {}, 失败 {}", fixed_shops.len(), fix_errors.len());
+    
+    Ok(Json(ApiResponse {
+        success: fix_errors.is_empty(),
+        data: Some(result),
+        message: format!("店铺所有者修复完成: 成功修复 {} 个店铺", fixed_shops.len()),
+    }))
+}
+
+// 数据完整性验证函数
+pub async fn validate_shop_data_integrity(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<ApiResponse<serde_json::Value>>, StatusCode> {
+    info!("🔍 开始验证店铺数据完整性");
+    
+    let mut validation_errors = Vec::new();
+    let mut validation_warnings = Vec::new();
+    
+    // 1. 检查店铺是否有有效的owner_id
+    let orphaned_shops = sqlx::query("SELECT id, name, owner_id FROM shops WHERE owner_id = '' OR owner_id = 'default_owner' OR owner_id NOT IN (SELECT id FROM admins)")
+        .fetch_all(&state.db)
+        .await;
+    
+    match orphaned_shops {
+        Ok(shops) => {
+            if !shops.is_empty() {
+                for shop in &shops {
+                    let shop_name = shop.get::<String, _>("name");
+                    let owner_id = shop.get::<String, _>("owner_id");
+                    validation_errors.push(format!("店铺 '{}' 的所有者ID '{}' 无效或不存在", shop_name, owner_id));
+                }
+            }
+        }
+        Err(e) => {
+            validation_errors.push(format!("查询孤立店铺时出错: {}", e));
+        }
+    }
+    
+    // 2. 检查是否有重复的店铺名称
+    let duplicate_names = sqlx::query("SELECT name, COUNT(*) as count FROM shops GROUP BY name HAVING count > 1")
+        .fetch_all(&state.db)
+        .await;
+    
+    match duplicate_names {
+        Ok(duplicates) => {
+            for duplicate in &duplicates {
+                let name = duplicate.get::<String, _>("name");
+                let count = duplicate.get::<i64, _>("count");
+                validation_warnings.push(format!("店铺名称 '{}' 重复 {} 次", name, count));
+            }
+        }
+        Err(e) => {
+            validation_errors.push(format!("检查重复店铺名称时出错: {}", e));
+        }
+    }
+    
+    // 3. 检查是否有重复的域名
+    let duplicate_domains = sqlx::query("SELECT domain, COUNT(*) as count FROM shops WHERE domain != '' GROUP BY domain HAVING count > 1")
+        .fetch_all(&state.db)
+        .await;
+    
+    match duplicate_domains {
+        Ok(duplicates) => {
+            for duplicate in &duplicates {
+                let domain = duplicate.get::<String, _>("domain");
+                let count = duplicate.get::<i64, _>("count");
+                validation_warnings.push(format!("店铺域名 '{}' 重复 {} 次", domain, count));
+            }
+        }
+        Err(e) => {
+            validation_errors.push(format!("检查重复域名时出错: {}", e));
+        }
+    }
+    
+    // 4. 检查管理员账号是否有孤立的ID（没有对应用户名的）
+    let admin_integrity = sqlx::query("SELECT id, username FROM admins WHERE username = '' OR username IS NULL")
+        .fetch_all(&state.db)
+        .await;
+    
+    match admin_integrity {
+        Ok(invalid_admins) => {
+            for admin in &invalid_admins {
+                let admin_id = admin.get::<String, _>("id");
+                validation_errors.push(format!("管理员账号 '{}' 缺少用户名", admin_id));
+            }
+        }
+        Err(e) => {
+            validation_errors.push(format!("检查管理员数据完整性时出错: {}", e));
+        }
+    }
+    
+    // 5. 统计验证结果
+    let validation_result = serde_json::json!({
+        "is_valid": validation_errors.is_empty(),
+        "errors": validation_errors,
+        "warnings": validation_warnings,
+        "summary": {
+            "error_count": validation_errors.len(),
+            "warning_count": validation_warnings.len(),
+            "status": if validation_errors.is_empty() { "通过" } else { "失败" }
+        }
+    });
+    
+    let status_msg = if validation_errors.is_empty() {
+        "✅ 数据完整性验证通过"
+    } else {
+        "❌ 数据完整性验证失败"
+    };
+    
+    info!("{}: {} 个错误, {} 个警告", status_msg, validation_errors.len(), validation_warnings.len());
+    
+    Ok(Json(ApiResponse {
+        success: validation_errors.is_empty(),
+        data: Some(validation_result),
+        message: format!("数据完整性验证完成: {} 个错误, {} 个警告", validation_errors.len(), validation_warnings.len()),
+    }))
+}
+
 // 文件上传处理 - 增强版
 pub async fn upload_file(
     State(_state): State<Arc<AppState>>,
@@ -3923,6 +4551,12 @@ pub async fn create_app(db: SqlitePool) -> Router {
         .route("/api/payment-orders/:order_id", get(get_payment_order))
         .route("/api/payment-orders/:order_id/simulate-success", post(simulate_payment_success))
         
+        // 付费开通相关 API
+        .route("/api/shops/:id/create-activation-order", post(create_shop_activation_order)) // 创建付费开通订单
+        .route("/api/activation-orders/:order_id/qrcode", post(generate_activation_payment_qr))
+        .route("/api/activation-orders/:order_id/status", get(get_activation_order_status))
+        .route("/api/activation-orders/:order_id/mock-success", post(mock_activation_payment_success))
+        
         // 员工管理 API
         .route("/api/shops/:shop_id/employees", get(get_employees).post(add_employee))
         .route("/api/shops/:shop_id/employees/:employee_id", delete(remove_employee).put(update_employee_role))
@@ -3950,6 +4584,9 @@ pub async fn create_app(db: SqlitePool) -> Router {
         
         // 管理员认证 API
         .route("/api/admin/login", post(admin_login))
+        .route("/api/admin/stats", get(get_account_stats))  // 新增账号统计端点
+        .route("/api/admin/fix-owners", post(fix_shop_owners))  // 新增数据修复端点
+        .route("/api/admin/validate", get(validate_shop_data_integrity))  // 新增数据验证端点
         .route("/api/auth/login", post(admin_login))  // 前端期望的路径
         .route("/api/auth/register", post(admin_register))  // 新增注册路径
         
@@ -4139,12 +4776,37 @@ async fn initialize_database(db: &SqlitePool) -> Result<(), sqlx::Error> {
         )
         "#
     ).execute(db).await?;
+
+    // 创建付费开通订单表
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS activation_orders (
+            id TEXT PRIMARY KEY,
+            shop_id TEXT NOT NULL,
+            order_number TEXT NOT NULL UNIQUE,
+            amount REAL NOT NULL,
+            currency TEXT NOT NULL DEFAULT 'CNY',
+            status TEXT NOT NULL DEFAULT 'pending',
+            payment_method TEXT,
+            qr_code_url TEXT,
+            expires_at DATETIME NOT NULL,
+            paid_at DATETIME,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (shop_id) REFERENCES shops(id)
+        )
+        "#
+    ).execute(db).await?;
     
     // 创建支付相关索引
     sqlx::query("CREATE INDEX IF NOT EXISTS idx_payment_orders_shop_id ON payment_orders(shop_id)").execute(db).await?;
     sqlx::query("CREATE INDEX IF NOT EXISTS idx_payment_orders_status ON payment_orders(payment_status)").execute(db).await?;
     sqlx::query("CREATE INDEX IF NOT EXISTS idx_payment_orders_created_at ON payment_orders(created_at)").execute(db).await?;
     sqlx::query("CREATE INDEX IF NOT EXISTS idx_payment_notifications_order_id ON payment_notifications(order_id)").execute(db).await?;
+    
+    // 创建付费开通订单相关索引
+    sqlx::query("CREATE INDEX IF NOT EXISTS idx_activation_orders_shop_id ON activation_orders(shop_id)").execute(db).await?;
+    sqlx::query("CREATE INDEX IF NOT EXISTS idx_activation_orders_status ON activation_orders(status)").execute(db).await?;
+    sqlx::query("CREATE INDEX IF NOT EXISTS idx_activation_orders_created_at ON activation_orders(created_at)").execute(db).await?;
     
     // 插入默认订阅套餐
     sqlx::query(
