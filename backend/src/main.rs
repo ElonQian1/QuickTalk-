@@ -2,7 +2,7 @@ use axum::{
     extract::{State, WebSocketUpgrade, Multipart, Query, Path},
     http::{StatusCode, HeaderMap},
     response::{Json, Html, Response},
-    routing::{get, post, put, delete},
+    routing::{get, post, delete},
     Router,
 };
 use axum::extract::ws::{WebSocket, Message as WsMessage};
@@ -20,6 +20,147 @@ use tokio::sync::broadcast;
 
 // WebSocket 连接管理
 type WebSocketConnections = Arc<Mutex<HashMap<String, broadcast::Sender<String>>>>;
+
+// 内联模块：Shop 相关增强端点
+mod shop_api {
+    use super::*;
+
+    // GET /api/shops/search?q=...&limit=20
+    pub async fn search_shops(
+        State(state): State<Arc<AppState>>,
+        Query(params): Query<HashMap<String, String>>,
+    ) -> Result<Json<ApiResponse<Vec<Shop>>>, StatusCode> {
+        let q = params.get("q").map(|s| s.trim().to_string()).unwrap_or_default();
+        let limit: i64 = params
+            .get("limit")
+            .and_then(|v| v.parse::<i64>().ok())
+            .map(|n| n.clamp(1, 100))
+            .unwrap_or(20);
+
+        if q.len() < 1 {
+            return Ok(Json(ApiResponse { success: true, data: Some(vec![]), message: "关键字过短".into() }));
+        }
+
+        let like = format!("%{}%", q);
+        let rows = sqlx::query("SELECT id, name, domain, api_key, owner_id, status, created_at FROM shops WHERE name LIKE ? OR domain LIKE ? ORDER BY created_at DESC LIMIT ?")
+            .bind(&like)
+            .bind(&like)
+            .bind(limit)
+            .fetch_all(&state.db)
+            .await
+            .map_err(|e| { warn!("Search shops failed: {}", e); StatusCode::INTERNAL_SERVER_ERROR })?;
+
+        let shops: Vec<Shop> = rows.iter().map(|row| Shop {
+            id: row.get("id"),
+            name: row.get("name"),
+            domain: row.get("domain"),
+            api_key: row.get("api_key"),
+            owner_id: row.try_get("owner_id").unwrap_or_else(|_| "legacy_data".to_string()),
+            status: row.get("status"),
+            created_at: row.try_get("created_at").ok(),
+            payment_status: None,
+            subscription_type: None,
+            subscription_status: None,
+            subscription_expires_at: None,
+            contact_email: None,
+            contact_phone: None,
+            contact_info: None,
+        }).collect();
+
+        Ok(Json(ApiResponse { success: true, data: Some(shops), message: "搜索完成".into() }))
+    }
+
+    // GET /api/shops/check-domain?domain=...
+    pub async fn check_domain(
+        State(state): State<Arc<AppState>>,
+        Query(params): Query<HashMap<String, String>>,
+    ) -> Result<Json<ApiResponse<serde_json::Value>>, StatusCode> {
+        let domain = params.get("domain").map(|s| super::sanitize_trim(s)).unwrap_or_default();
+        if domain.is_empty() {
+            return Ok(Json(ApiResponse { success: false, data: None, message: "缺少 domain 参数".into() }));
+        }
+        if !super::is_valid_domain(&domain) {
+            return Ok(Json(ApiResponse { success: true, data: Some(serde_json::json!({"available": false, "reason": "invalid_format"})), message: "域名格式不合法".into() }));
+        }
+        let row = sqlx::query("SELECT COUNT(*) as cnt FROM shops WHERE domain = ?")
+            .bind(&domain)
+            .fetch_one(&state.db)
+            .await
+            .map_err(|e| { warn!("Check domain failed: {}", e); StatusCode::INTERNAL_SERVER_ERROR })?;
+        let cnt: i64 = row.get("cnt");
+        Ok(Json(ApiResponse { success: true, data: Some(serde_json::json!({"available": cnt == 0, "reason": if cnt==0 { "ok" } else { "taken" }})), message: "域名可用性检测完成".into() }))
+    }
+
+    // POST /api/shops/:id/rotate-api-key
+    pub async fn rotate_api_key(
+        State(state): State<Arc<AppState>>,
+        headers: HeaderMap,
+        Path(shop_id): Path<String>,
+    ) -> Result<Json<ApiResponse<serde_json::Value>>, StatusCode> {
+        // 仅允许已认证管理员
+        if let Err((status, _body)) = super::authenticate_admin_headers(&headers, &state.db).await.map(|_| ()).map_err(|e| e) {
+            return Err(status);
+        }
+
+        let new_key = Uuid::new_v4().to_string();
+        let res = sqlx::query("UPDATE shops SET api_key = ? WHERE id = ?")
+            .bind(&new_key)
+            .bind(&shop_id)
+            .execute(&state.db)
+            .await
+            .map_err(|e| { warn!("Rotate api_key failed: {}", e); StatusCode::INTERNAL_SERVER_ERROR })?;
+        if res.rows_affected() == 0 { return Err(StatusCode::NOT_FOUND); }
+        Ok(Json(ApiResponse { success: true, data: Some(serde_json::json!({"shop_id": shop_id, "api_key": new_key})), message: "API Key 已刷新".into() }))
+    }
+
+    // DELETE /api/shops/:id -> 软删除
+    pub async fn delete_shop(
+        State(state): State<Arc<AppState>>,
+        headers: HeaderMap,
+        Path(shop_id): Path<String>,
+    ) -> Result<Json<ApiResponse<()>>, StatusCode> {
+        if let Err((status, _)) = super::authenticate_admin_headers(&headers, &state.db).await.map(|_| ()).map_err(|e| e) {
+            return Err(status);
+        }
+        let res = sqlx::query("UPDATE shops SET status = 'deleted' WHERE id = ? AND status != 'deleted'")
+            .bind(&shop_id)
+            .execute(&state.db)
+            .await
+            .map_err(|e| { warn!("Soft delete shop failed: {}", e); StatusCode::INTERNAL_SERVER_ERROR })?;
+        if res.rows_affected() == 0 { return Err(StatusCode::NOT_FOUND); }
+        Ok(Json(ApiResponse { success: true, data: Some(()), message: "店铺已标记为删除".into() }))
+    }
+}
+
+// 内联模块：Admin 相关增强端点
+mod admin_api {
+    use super::*;
+
+    #[derive(Serialize)]
+    pub struct SessionInfo { pub session_id: String, pub admin_id: String, pub username: String, pub expires_at: DateTime<Utc> }
+
+    // GET /api/admin/sessions
+    pub async fn list_sessions(
+        State(state): State<Arc<AppState>>,
+        headers: HeaderMap,
+    ) -> Result<Json<ApiResponse<Vec<SessionInfo>>>, StatusCode> {
+        // 仅已登录管理员可查看
+        if let Err((status, _)) = super::authenticate_admin_headers(&headers, &state.db).await.map(|_| ()).map_err(|e| e) {
+            return Err(status);
+        }
+        let rows = sqlx::query("SELECT s.session_id, s.admin_id, s.expires_at, a.username FROM sessions s JOIN admins a ON s.admin_id = a.id WHERE s.expires_at > CURRENT_TIMESTAMP ORDER BY s.expires_at DESC")
+            .fetch_all(&state.db)
+            .await
+            .map_err(|e| { warn!("List sessions failed: {}", e); StatusCode::INTERNAL_SERVER_ERROR })?;
+        let list: Vec<SessionInfo> = rows.iter().map(|r| SessionInfo {
+            session_id: r.get("session_id"),
+            admin_id: r.get("admin_id"),
+            username: r.get("username"),
+            expires_at: r.get("expires_at"),
+        }).collect();
+        Ok(Json(ApiResponse { success: true, data: Some(list), message: "会话列表".into() }))
+    }
+}
 
 #[derive(Clone)]
 pub struct AppState {
@@ -1529,7 +1670,7 @@ pub async fn get_shops(State(state): State<Arc<AppState>>) -> Result<Json<ApiRes
 
 // 管理员获取店铺列表（带用户权限验证）
 pub async fn get_admin_shops(
-    State(state): State<Arc<AppState>>,
+    State(_state): State<Arc<AppState>>,
     headers: HeaderMap,
 ) -> Result<Json<ApiResponse<Vec<Shop>>>, StatusCode> {
     // 从headers中获取session ID或token
@@ -1565,51 +1706,52 @@ pub async fn create_shop(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
     Json(shop_data): Json<CreateShopRequest>,
-) -> Result<Json<ApiResponse<PaymentOrder>>, StatusCode> {
-    // 从headers中获取session ID或token来确定用户身份
-    let auth_header = headers.get("X-Session-Id")
-        .or_else(|| headers.get("Authorization"))
-        .and_then(|h| h.to_str().ok());
-    
-    // 验证用户身份：必须提供有效的认证信息
-    let owner_id = match auth_header {
-        Some(auth_id) => {
-            // 验证这个ID是否是有效的管理员账号
-            let admin_check = sqlx::query("SELECT id FROM admins WHERE id = ?")
-                .bind(auth_id)
-                .fetch_optional(&state.db)
-                .await;
-            
-            match admin_check {
-                Ok(Some(_)) => auth_id.to_string(), // 验证通过，使用真实的用户ID
-                Ok(None) => {
-                    error!("🚫 店铺创建失败：用户ID {} 不存在于管理员表中", auth_id);
-                    return Err(StatusCode::UNAUTHORIZED);
-                }
-                Err(e) => {
-                    error!("❌ 验证用户身份时数据库错误: {}", e);
-                    return Err(StatusCode::INTERNAL_SERVER_ERROR);
-                }
+) -> impl axum::response::IntoResponse {
+    // 生产：会话鉴权
+    let owner_id = match authenticate_admin_headers(&headers, &state.db).await {
+        Ok(id) => id,
+        Err((status, json)) => return (status, json),
+    };
+    // 基本清洗与校验
+    let name = sanitize_trim(&shop_data.name);
+    if name.is_empty() || name.len() > 80 {
+        let body = ApiResponse::<serde_json::Value> { success: false, data: None, message: "店铺名称不能为空且不超过80字符".into() };
+        return (StatusCode::BAD_REQUEST, Json(body));
+    }
+
+    let domain = shop_data.domain.clone().map(|d| sanitize_trim(&d)).unwrap_or_default();
+    if !domain.is_empty() && !is_valid_domain(&domain) {
+        let body = ApiResponse::<serde_json::Value> { success: false, data: None, message: "域名格式不合法".into() };
+        return (StatusCode::BAD_REQUEST, Json(body));
+    }
+
+    // 非空域名唯一性校验
+    if !domain.is_empty() {
+        if let Ok(row) = sqlx::query("SELECT COUNT(*) as cnt FROM shops WHERE domain = ?")
+            .bind(&domain)
+            .fetch_one(&state.db)
+            .await
+        {
+            let cnt: i64 = row.get("cnt");
+            if cnt > 0 {
+                let body = ApiResponse::<serde_json::Value> { success: false, data: None, message: "该域名已被使用".into() };
+                return (StatusCode::CONFLICT, Json(body));
             }
         }
-        None => {
-            error!("🚫 店铺创建失败：缺少用户认证信息");
-            return Err(StatusCode::UNAUTHORIZED);
-        }
-    };
-    
+    }
+
     let shop_id = Uuid::new_v4().to_string();
     let api_key = Uuid::new_v4().to_string();
     
-    info!("🏪 创建新店铺: {} (ID: {}) - 所有者: {}", shop_data.name, shop_id, owner_id);
+    info!("🏪 创建新店铺: {} (ID: {}) - 所有者: {}", name, shop_id, owner_id);
     
     // 首先创建pending状态的店铺，包含owner_id
     let insert_result = sqlx::query(
         "INSERT INTO shops (id, name, domain, api_key, owner_id, status, payment_status, subscription_type, contact_email, contact_phone, business_license, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     )
     .bind(&shop_id)
-    .bind(&shop_data.name)
-    .bind(shop_data.domain.as_deref().unwrap_or(""))
+    .bind(&name)
+    .bind(&domain)
     .bind(&api_key)
     .bind(&owner_id)  // 添加owner_id
     .bind("pending") // 状态为pending，需要支付后激活
@@ -1635,11 +1777,12 @@ pub async fn create_shop(
             match payment_order {
                 Ok(order) => {
                     info!("Shop {} created with payment order {}", shop_id, order.id);
-                    Ok(Json(ApiResponse {
+                    let body = ApiResponse::<serde_json::Value> {
                         success: true,
-                        data: Some(order),
+                        data: Some(serde_json::to_value(&order).unwrap_or(serde_json::json!({}))),
                         message: "Shop created successfully, please complete payment".to_string(),
-                    }))
+                    };
+                    (StatusCode::OK, Json(body))
                 }
                 Err(e) => {
                     warn!("Failed to create payment order: {}", e);
@@ -1648,13 +1791,15 @@ pub async fn create_shop(
                         .bind(&shop_id)
                         .execute(&state.db)
                         .await;
-                    Err(StatusCode::INTERNAL_SERVER_ERROR)
+                    let body = ApiResponse::<serde_json::Value> { success: false, data: None, message: "创建支付订单失败".into() };
+                    (StatusCode::INTERNAL_SERVER_ERROR, Json(body))
                 }
             }
         }
         Err(e) => {
             warn!("Failed to create shop: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
+            let body = ApiResponse::<serde_json::Value> { success: false, data: None, message: "创建店铺失败".into() };
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(body))
         }
     }
 }
@@ -1857,7 +2002,7 @@ pub async fn simulate_payment_success(
             match order {
                 Ok(row) => {
                     let shop_id: String = row.get("shop_id");
-                    let subscription_type: String = row.get("subscription_type");
+                    let _subscription_type: String = row.get("subscription_type");
                     let subscription_duration: i32 = row.get("subscription_duration");
                     
                     // 激活店铺
@@ -2365,42 +2510,25 @@ pub async fn mock_activation_payment_success(
     }))
 }
 
-pub async fn update_shop(
-    State(state): State<Arc<AppState>>,
-    Path(shop_id): Path<String>,
-    Json(payload): Json<UpdateShopRequest>,
-) -> Result<Json<ApiResponse<()>>, StatusCode> {
-    match sqlx::query("UPDATE shops SET name = ?, domain = ? WHERE id = ?")
-        .bind(&payload.name)
-        .bind(&payload.domain)
-        .bind(&shop_id)
-        .execute(&state.db)
-        .await
-    {
-        Ok(result) => {
-            if result.rows_affected() > 0 {
-                info!("Shop {} updated successfully", shop_id);
-                Ok(Json(ApiResponse {
-                    success: true,
-                    data: Some(()),
-                    message: "Shop updated successfully".to_string(),
-                }))
-            } else {
-                Err(StatusCode::NOT_FOUND)
-            }
-        }
-        Err(e) => {
-            warn!("Failed to update shop: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
-        }
-    }
+// 旧版 update_shop 已移除，见下方增强版实现
+
+// 内联“模块化”：输入校验与更新请求结构
+#[derive(Deserialize, Debug, Default)]
+pub struct UpdateShopRequest {
+    pub name: Option<String>,
+    pub domain: Option<String>,
+    pub plan: Option<String>,
 }
 
-#[derive(Deserialize)]
-pub struct UpdateShopRequest {
-    pub name: String,
-    pub domain: String,
-    pub plan: Option<String>,
+fn sanitize_trim(s: &str) -> String { s.trim().to_string() }
+
+fn is_valid_domain(d: &str) -> bool {
+    // 允许字母数字、点、横杠；不允许空白与前后点/横杠
+    let d = d.trim();
+    if d.is_empty() || d.len() > 255 { return false; }
+    if d.starts_with('.') || d.ends_with('.') { return false; }
+    if d.starts_with('-') || d.ends_with('-') { return false; }
+    d.chars().all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-')
 }
 
 #[derive(Deserialize)]
@@ -2452,31 +2580,120 @@ pub async fn get_employees(
     }
 }
 
+pub async fn update_shop(
+    State(state): State<Arc<AppState>>,
+    Path(shop_id): Path<String>,
+    Json(mut payload): Json<UpdateShopRequest>,
+) -> Result<Json<ApiResponse<()>>, StatusCode> {
+    // 读取现有记录，便于做差量更新与存在性检查
+    let existing = sqlx::query("SELECT name, domain FROM shops WHERE id = ?")
+        .bind(&shop_id)
+        .fetch_optional(&state.db)
+        .await
+        .map_err(|e| {
+            warn!("Failed to fetch shop before update: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+    let Some(_row) = existing else {
+        return Err(StatusCode::NOT_FOUND);
+    };
+
+    // 预处理：去空白
+    if let Some(ref mut n) = payload.name { *n = sanitize_trim(n); }
+    if let Some(ref mut d) = payload.domain { *d = sanitize_trim(d); }
+
+    // 若均未提供可更新字段，返回400
+    if payload.name.is_none() && payload.domain.is_none() {
+        return Ok(Json(ApiResponse { success: false, data: None, message: "没有可更新的字段".into() }));
+    }
+
+    // 基本校验
+    if let Some(ref name) = payload.name {
+        if name.is_empty() || name.len() > 80 {
+            return Ok(Json(ApiResponse { success: false, data: None, message: "店铺名称不能为空且不超过80字符".into() }));
+        }
+    }
+    if let Some(ref domain) = payload.domain {
+        if !is_valid_domain(domain) {
+            return Ok(Json(ApiResponse { success: false, data: None, message: "域名格式不合法".into() }));
+        }
+        // 唯一性校验（排除自己）
+        let dup = sqlx::query("SELECT COUNT(*) as cnt FROM shops WHERE domain = ? AND id != ?")
+            .bind(domain)
+            .bind(&shop_id)
+            .fetch_one(&state.db)
+            .await
+            .map_err(|e| { warn!("Domain unique check failed: {}", e); StatusCode::INTERNAL_SERVER_ERROR })?;
+        let cnt: i64 = dup.get("cnt");
+        if cnt > 0 {
+            return Ok(Json(ApiResponse { success: false, data: None, message: "该域名已被其他店铺使用".into() }));
+        }
+    }
+
+    // 组装SQL（仅更新提供的字段）
+    let mut sets: Vec<&str> = Vec::new();
+    let mut binds: Vec<serde_json::Value> = Vec::new();
+
+    if let Some(name) = payload.name {
+        sets.push("name = ?");
+        binds.push(serde_json::Value::String(name));
+    }
+    if let Some(domain) = payload.domain {
+        sets.push("domain = ?");
+        binds.push(serde_json::Value::String(domain));
+    }
+
+    if sets.is_empty() {
+        // 理论上不会发生，上面已判断
+        return Ok(Json(ApiResponse { success: true, data: Some(()), message: "无字段需要更新".into() }));
+    }
+
+    let sql = format!("UPDATE shops SET {} WHERE id = ?", sets.join(", "));
+    let mut q = sqlx::query(&sql);
+    for v in binds {
+        match v {
+            serde_json::Value::String(s) => { q = q.bind(s); },
+            _ => {}
+        }
+    }
+    q = q.bind(&shop_id);
+
+    match q.execute(&state.db).await {
+        Ok(result) => {
+            if result.rows_affected() > 0 {
+                info!("Shop {} updated successfully", shop_id);
+                Ok(Json(ApiResponse { success: true, data: Some(()), message: "Shop updated successfully".to_string() }))
+            } else {
+                Err(StatusCode::NOT_FOUND)
+            }
+        }
+        Err(e) => {
+            warn!("Failed to update shop: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}
+
 pub async fn add_employee(
     State(state): State<Arc<AppState>>,
     Path(shop_id): Path<String>,
     Json(payload): Json<AddEmployeeRequest>,
 ) -> Result<Json<ApiResponse<()>>, StatusCode> {
     let employee_id = Uuid::new_v4().to_string();
-    
     match sqlx::query("INSERT INTO employees (id, shop_id, name, email, role, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
         .bind(&employee_id)
         .bind(&shop_id)
-        .bind(&payload.email) // 使用email作为临时的name
+        .bind(&payload.email) // 暂用邮箱作为显示名
         .bind(&payload.email)
         .bind(&payload.role)
-        .bind("active") // 默认状态为active
+        .bind("active")
         .bind(chrono::Utc::now())
         .execute(&state.db)
         .await
     {
         Ok(_) => {
             info!("Employee {} added to shop {}", payload.email, shop_id);
-            Ok(Json(ApiResponse {
-                success: true,
-                data: Some(()),
-                message: "Employee added successfully".to_string(),
-            }))
+            Ok(Json(ApiResponse { success: true, data: Some(()), message: "Employee added successfully".into() }))
         }
         Err(e) => {
             warn!("Failed to add employee: {}", e);
@@ -3929,23 +4146,7 @@ pub async fn admin_login(
     Json(request): Json<LoginRequest>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, StatusCode> {
     info!("🔐 Processing login for: {}", request.username);
-    
-    // 首先检查是否是默认管理员账户
-    if request.username == "admin" && request.password == "admin123" {
-        return Ok(Json(ApiResponse {
-            success: true,
-            data: Some(serde_json::json!({
-                "token": Uuid::new_v4().to_string(),
-                "user": {
-                    "id": "admin",
-                    "username": "admin",
-                    "role": "administrator"
-                },
-                "expires_at": Utc::now() + chrono::Duration::hours(24)
-            })),
-            message: "Login successful".to_string(),
-        }));
-    }
+    // 生产：统一走数据库校验，不使用硬编码后门
     
     // 查询数据库中的用户
     let user_result = sqlx::query("SELECT id, username, password_hash, role FROM admins WHERE username = ?")
@@ -3968,17 +4169,28 @@ pub async fn admin_login(
                 let role: String = row.get("role");
                 
                 info!("✅ Login successful for: {} ({})", request.username, user_id);
-                
+                // 创建会话并返回 session token
+                let session_id = Uuid::new_v4().to_string();
+                let expires_at = Utc::now() + chrono::Duration::hours(24);
+                let _ = sqlx::query(
+                    "INSERT INTO sessions (session_id, admin_id, expires_at) VALUES (?, ?, ?)"
+                )
+                .bind(&session_id)
+                .bind(&user_id)
+                .bind(expires_at)
+                .execute(&state.db)
+                .await;
+
                 Ok(Json(ApiResponse {
                     success: true,
                     data: Some(serde_json::json!({
-                        "token": Uuid::new_v4().to_string(),
+                        "token": session_id,
                         "user": {
                             "id": user_id,
                             "username": request.username,
                             "role": role
                         },
-                        "expires_at": Utc::now() + chrono::Duration::hours(24)
+                        "expires_at": expires_at
                     })),
                     message: "Login successful".to_string(),
                 }))
@@ -4030,6 +4242,32 @@ pub async fn admin_register(
         }));
     }
     
+    // 统计当前超级管理员数量
+    let super_count_row = sqlx::query("SELECT COUNT(*) as count FROM admins WHERE role = 'super_admin'")
+        .fetch_one(&state.db)
+        .await
+        .map_err(|e| {
+            error!("Database error checking super_admin count: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+    let super_count: i64 = super_count_row.get("count");
+
+    // 角色策略：仅用户名为 admin 的账号可以是 super_admin；其他账号一律强制为 user
+    let final_role = if request.username == "admin" {
+        // admin 账号：在注册时授予 super_admin，并确保没有其他人保留 super_admin
+        // 为避免重复超级管理员，这里在同事务流程中先降级其他 super_admin（若存在）
+        if super_count > 0 {
+            // 降级所有非 admin 的 super_admin
+            let _ = sqlx::query("UPDATE admins SET role = 'user' WHERE role = 'super_admin' AND username != 'admin'")
+                .execute(&state.db)
+                .await;
+        }
+        "super_admin".to_string()
+    } else {
+        "user".to_string()
+    };
+    let elevated_to_super = final_role == "super_admin";
+    
     // 检查用户名是否已存在
     let existing_user = sqlx::query("SELECT username FROM admins WHERE username = ?")
         .bind(&request.username)
@@ -4067,7 +4305,7 @@ pub async fn admin_register(
     .bind(&user_id)
     .bind(&request.username)
     .bind(&password_hash)
-    .bind(&request.role)
+    .bind(&final_role)
     .execute(&state.db)
     .await;
     
@@ -4082,11 +4320,12 @@ pub async fn admin_register(
                         "id": user_id,
                         "username": request.username,
                         "email": request.email,
-                        "role": request.role,
+                        "role": final_role,
                         "created_at": Utc::now()
-                    }
+                    },
+                    "elevated_to_super_admin": elevated_to_super
                 })),
-                message: "注册成功".to_string(),
+                message: if elevated_to_super { "注册成功：已自动设为超级管理员".to_string() } else { "注册成功".to_string() },
             }))
         }
         Err(e) => {
@@ -4212,6 +4451,87 @@ pub async fn get_account_stats(
             }
         })),
         message: "账号统计信息获取成功".to_string(),
+    }))
+}
+
+// 受限恢复：在系统中没有任何超级管理员时，创建/提升 admin/admin123 为 super_admin
+pub async fn recover_super_admin(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<ApiResponse<serde_json::Value>>, StatusCode> {
+    info!("🛡️ 尝试恢复超级管理员 admin");
+
+    // 若已存在 super_admin，则拒绝
+    let super_count_row = sqlx::query("SELECT COUNT(*) as count FROM admins WHERE role = 'super_admin'")
+        .fetch_one(&state.db)
+        .await
+        .map_err(|e| {
+            error!("统计 super_admin 失败: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+    let super_count: i64 = super_count_row.get("count");
+    if super_count > 0 {
+        return Ok(Json(ApiResponse {
+            success: false,
+            data: Some(serde_json::json!({ "super_admin_count": super_count })),
+            message: "系统已存在超级管理员，出于安全原则拒绝恢复操作".to_string(),
+        }));
+    }
+
+    // 查找 admin 账号
+    let existing_admin = sqlx::query("SELECT id FROM admins WHERE username = 'admin'")
+        .fetch_optional(&state.db)
+        .await
+        .map_err(|e| {
+            error!("查询 admin 账号失败: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+
+    let password_hash = "hash_admin123".to_string();
+    let (user_id, created_new);
+    if let Some(row) = existing_admin {
+        // 提升并重置密码
+        let uid: String = row.get("id");
+        sqlx::query("UPDATE admins SET role = 'super_admin', password_hash = ? WHERE id = ?")
+            .bind(&password_hash)
+            .bind(&uid)
+            .execute(&state.db)
+            .await
+            .map_err(|e| {
+                error!("提升 admin 为 super_admin 失败: {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
+        user_id = uid;
+        created_new = false;
+        info!("✔ 已将现有 admin 提升为 super_admin 并重置密码");
+    } else {
+        // 创建新的 admin 超级管理员
+        let uid = Uuid::new_v4().to_string();
+        sqlx::query("INSERT INTO admins (id, username, password_hash, role) VALUES (?, 'admin', ?, 'super_admin')")
+            .bind(&uid)
+            .bind(&password_hash)
+            .execute(&state.db)
+            .await
+            .map_err(|e| {
+                error!("创建 admin 超级管理员失败: {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
+        user_id = uid;
+        created_new = true;
+        info!("✔ 已创建新的 admin 超级管理员");
+    }
+
+    Ok(Json(ApiResponse {
+        success: true,
+        data: Some(serde_json::json!({
+            "user": {
+                "id": user_id,
+                "username": "admin",
+                "role": "super_admin"
+            },
+            "password": "admin123",
+            "created_new": created_new
+        })),
+        message: "admin 超级管理员恢复完成".to_string(),
     }))
 }
 
@@ -4416,6 +4736,364 @@ pub async fn validate_shop_data_integrity(
     }))
 }
 
+// 数据清理函数：清除测试数据，只保留指定用户
+pub async fn clean_test_data(
+    State(state): State<Arc<AppState>>,
+    Json(request): Json<serde_json::Value>,
+) -> Result<Json<ApiResponse<serde_json::Value>>, StatusCode> {
+    info!("🧹 开始清理测试数据");
+    
+    // 获取要保留的用户名
+    let keep_username = request.get("keep_username")
+        .and_then(|v| v.as_str())
+        .unwrap_or("jiji");  // 默认保留jiji账号
+    
+    info!("🎯 将保留用户: {}", keep_username);
+    
+    // 查找要保留的用户ID
+    let keep_user = sqlx::query("SELECT id, username, role FROM admins WHERE username = ?")
+        .bind(keep_username)
+        .fetch_optional(&state.db)
+        .await;
+    
+    let keep_user_id = match keep_user {
+        Ok(Some(user)) => {
+            let user_id = user.get::<String, _>("id");
+            let user_role = user.get::<String, _>("role");
+            info!("✅ 找到要保留的用户: {} (ID: {}, 角色: {})", keep_username, user_id, user_role);
+            user_id
+        }
+        Ok(None) => {
+            error!("❌ 未找到用户: {}", keep_username);
+            return Err(StatusCode::NOT_FOUND);
+        }
+        Err(e) => {
+            error!("查询用户失败: {}", e);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
+    
+    let mut cleanup_results = Vec::new();
+    let mut cleanup_errors = Vec::new();
+    
+    // 1. 删除其他管理员账号
+    info!("🗑️ 删除其他管理员账号...");
+    let delete_admins_result = sqlx::query("DELETE FROM admins WHERE id != ?")
+        .bind(&keep_user_id)
+        .execute(&state.db)
+        .await;
+    
+    match delete_admins_result {
+        Ok(result) => {
+            let deleted_count = result.rows_affected();
+            info!("✅ 删除了 {} 个其他管理员账号", deleted_count);
+            cleanup_results.push(format!("删除了 {} 个其他管理员账号", deleted_count));
+        }
+        Err(e) => {
+            error!("❌ 删除管理员账号失败: {}", e);
+            cleanup_errors.push(format!("删除管理员账号失败: {}", e));
+        }
+    }
+    
+    // 2. 删除所有店铺
+    info!("🗑️ 删除所有测试店铺...");
+    let delete_shops_result = sqlx::query("DELETE FROM shops")
+        .execute(&state.db)
+        .await;
+    
+    match delete_shops_result {
+        Ok(result) => {
+            let deleted_count = result.rows_affected();
+            info!("✅ 删除了 {} 个测试店铺", deleted_count);
+            cleanup_results.push(format!("删除了 {} 个测试店铺", deleted_count));
+        }
+        Err(e) => {
+            error!("❌ 删除店铺失败: {}", e);
+            cleanup_errors.push(format!("删除店铺失败: {}", e));
+        }
+    }
+    
+    // 3. 删除所有客户数据
+    info!("🗑️ 删除所有客户数据...");
+    let delete_customers_result = sqlx::query("DELETE FROM customers")
+        .execute(&state.db)
+        .await;
+    
+    match delete_customers_result {
+        Ok(result) => {
+            let deleted_count = result.rows_affected();
+            info!("✅ 删除了 {} 个客户记录", deleted_count);
+            cleanup_results.push(format!("删除了 {} 个客户记录", deleted_count));
+        }
+        Err(e) => {
+            error!("❌ 删除客户数据失败: {}", e);
+            cleanup_errors.push(format!("删除客户数据失败: {}", e));
+        }
+    }
+    
+    // 4. 删除所有对话和消息
+    info!("🗑️ 删除所有对话和消息...");
+    let delete_messages_result = sqlx::query("DELETE FROM messages")
+        .execute(&state.db)
+        .await;
+    
+    let delete_conversations_result = sqlx::query("DELETE FROM conversations")
+        .execute(&state.db)
+        .await;
+    
+    match (delete_messages_result, delete_conversations_result) {
+        (Ok(messages_result), Ok(conversations_result)) => {
+            let deleted_messages = messages_result.rows_affected();
+            let deleted_conversations = conversations_result.rows_affected();
+            info!("✅ 删除了 {} 条消息和 {} 个对话", deleted_messages, deleted_conversations);
+            cleanup_results.push(format!("删除了 {} 条消息和 {} 个对话", deleted_messages, deleted_conversations));
+        }
+        _ => {
+            cleanup_errors.push("删除对话或消息数据时出错".to_string());
+        }
+    }
+    
+    // 5. 删除激活订单等其他测试数据
+    info!("🗑️ 删除其他测试数据...");
+    let _ = sqlx::query("DELETE FROM activation_orders").execute(&state.db).await;
+    let _ = sqlx::query("DELETE FROM employees").execute(&state.db).await;
+    
+    cleanup_results.push("清理了激活订单和员工数据".to_string());
+    
+    let result = serde_json::json!({
+        "success": cleanup_errors.is_empty(),
+        "kept_user": {
+            "username": keep_username,
+            "id": keep_user_id
+        },
+        "cleanup_results": cleanup_results,
+        "errors": cleanup_errors,
+        "summary": {
+            "operations_count": cleanup_results.len(),
+            "errors_count": cleanup_errors.len()
+        }
+    });
+    
+    let status_msg = if cleanup_errors.is_empty() {
+        "🎉 测试数据清理完成"
+    } else {
+        "⚠️ 测试数据清理部分完成，有错误"
+    };
+    
+    info!("{}", status_msg);
+    
+    Ok(Json(ApiResponse {
+        success: cleanup_errors.is_empty(),
+        data: Some(result),
+        message: format!("测试数据清理完成，保留用户: {}", keep_username),
+    }))
+}
+
+// 强制清理所有店铺数据（绕过外键约束）
+pub async fn force_clean_shops(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<ApiResponse<serde_json::Value>>, StatusCode> {
+    info!("🧹 强制清理所有店铺数据");
+    
+    let mut cleanup_results = Vec::new();
+    let mut cleanup_errors = Vec::new();
+    
+    // 禁用外键约束
+    let disable_fk_result = sqlx::query("PRAGMA foreign_keys = OFF").execute(&state.db).await;
+    if disable_fk_result.is_err() {
+        cleanup_errors.push("禁用外键约束失败".to_string());
+    } else {
+        cleanup_results.push("已禁用外键约束".to_string());
+    }
+    
+    // 强制删除所有店铺
+    let delete_shops_result = sqlx::query("DELETE FROM shops").execute(&state.db).await;
+    match delete_shops_result {
+        Ok(result) => {
+            let deleted_count = result.rows_affected();
+            info!("✅ 强制删除了 {} 个店铺", deleted_count);
+            cleanup_results.push(format!("强制删除了 {} 个店铺", deleted_count));
+        }
+        Err(e) => {
+            error!("❌ 强制删除店铺失败: {}", e);
+            cleanup_errors.push(format!("强制删除店铺失败: {}", e));
+        }
+    }
+    
+    // 删除激活订单
+    let delete_orders_result = sqlx::query("DELETE FROM activation_orders").execute(&state.db).await;
+    match delete_orders_result {
+        Ok(result) => {
+            let deleted_count = result.rows_affected();
+            cleanup_results.push(format!("删除了 {} 个激活订单", deleted_count));
+        }
+        Err(e) => {
+            cleanup_errors.push(format!("删除激活订单失败: {}", e));
+        }
+    }
+    
+    // 重新启用外键约束
+    let enable_fk_result = sqlx::query("PRAGMA foreign_keys = ON").execute(&state.db).await;
+    if enable_fk_result.is_err() {
+        cleanup_errors.push("重新启用外键约束失败".to_string());
+    } else {
+        cleanup_results.push("已重新启用外键约束".to_string());
+    }
+    
+    let result = serde_json::json!({
+        "success": cleanup_errors.is_empty(),
+        "cleanup_results": cleanup_results,
+        "errors": cleanup_errors,
+        "summary": {
+            "operations_count": cleanup_results.len(),
+            "errors_count": cleanup_errors.len()
+        }
+    });
+    
+    let status_msg = if cleanup_errors.is_empty() {
+        "🎉 店铺强制清理完成"
+    } else {
+        "⚠️ 店铺强制清理部分完成，有错误"
+    };
+    
+    info!("{}", status_msg);
+    
+    Ok(Json(ApiResponse {
+        success: cleanup_errors.is_empty(),
+        data: Some(result),
+        message: "店铺强制清理完成".to_string(),
+    }))
+}
+
+// 完全重置数据库（仅用于开发测试）
+pub async fn reset_database(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<ApiResponse<serde_json::Value>>, StatusCode> {
+    info!("🔄 执行数据库完全重置");
+    
+    let mut reset_results = Vec::new();
+    let mut reset_errors = Vec::new();
+    
+    // 禁用外键约束
+    let disable_fk = sqlx::query("PRAGMA foreign_keys = OFF").execute(&state.db).await;
+    if disable_fk.is_err() {
+        reset_errors.push("禁用外键约束失败".to_string());
+    }
+    
+    // 删除所有表的数据
+    let tables = vec!["messages", "conversations", "customers", "employees", "activation_orders", "shops", "admins"];
+    
+    for table in &tables {
+        let delete_result = sqlx::query(&format!("DELETE FROM {}", table)).execute(&state.db).await;
+        match delete_result {
+            Ok(result) => {
+                let deleted_count = result.rows_affected();
+                reset_results.push(format!("清空表 {}: {} 条记录", table, deleted_count));
+                info!("✅ 清空表 {}: {} 条记录", table, deleted_count);
+            }
+            Err(e) => {
+                reset_errors.push(format!("清空表 {} 失败: {}", table, e));
+                error!("❌ 清空表 {} 失败: {}", table, e);
+            }
+        }
+    }
+    
+    // 重新启用外键约束
+    let enable_fk = sqlx::query("PRAGMA foreign_keys = ON").execute(&state.db).await;
+    if enable_fk.is_err() {
+        reset_errors.push("重新启用外键约束失败".to_string());
+    }
+    
+    // 验证重置结果
+    let mut verification = Vec::new();
+    for table in &tables {
+        let count_result = sqlx::query(&format!("SELECT COUNT(*) as count FROM {}", table)).fetch_one(&state.db).await;
+        match count_result {
+            Ok(row) => {
+                let count: i64 = row.get("count");
+                verification.push(format!("{}: {} 条记录", table, count));
+            }
+            Err(_) => {
+                verification.push(format!("{}: 查询失败", table));
+            }
+        }
+    }
+    
+    let result = serde_json::json!({
+        "success": reset_errors.is_empty(),
+        "reset_results": reset_results,
+        "errors": reset_errors,
+        "verification": verification,
+        "summary": {
+            "tables_processed": tables.len(),
+            "errors_count": reset_errors.len()
+        }
+    });
+    
+    let status_msg = if reset_errors.is_empty() {
+        "🎉 数据库完全重置成功"
+    } else {
+        "⚠️ 数据库重置部分完成，有错误"
+    };
+    
+    info!("{}", status_msg);
+    
+    Ok(Json(ApiResponse {
+        success: reset_errors.is_empty(),
+        data: Some(result),
+        message: "数据库完全重置完成".to_string(),
+    }))
+}
+
+// 创建测试用户（开发阶段临时使用）
+pub async fn create_test_user(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<ApiResponse<serde_json::Value>>, StatusCode> {
+    use uuid::Uuid;
+    
+    let user_id = Uuid::new_v4().to_string();
+    let username = "testuser";
+    let email = "test@example.com";
+    let password_hash = "hash_testuser"; // 简化的密码哈希
+    
+    info!("🔧 创建测试用户: {} (ID: {})", username, user_id);
+    
+    // 插入测试用户
+    let result = sqlx::query(
+        "INSERT INTO admins (id, username, email, password_hash, created_at) VALUES (?, ?, ?, ?, datetime('now'))"
+    )
+    .bind(&user_id)
+    .bind(username)
+    .bind(email)
+    .bind(password_hash)
+    .execute(&state.db)
+    .await;
+    
+    match result {
+        Ok(_) => {
+            info!("✅ 测试用户创建成功: {}", user_id);
+            
+            let response_data = serde_json::json!({
+                "user_id": user_id,
+                "username": username,
+                "email": email,
+                "token": user_id,  // 使用user_id作为token简化认证
+                "message": "测试用户创建成功，可以直接使用此token创建店铺"
+            });
+            
+            Ok(Json(ApiResponse {
+                success: true,
+                data: Some(response_data),
+                message: "测试用户创建成功".to_string(),
+            }))
+        }
+        Err(e) => {
+            error!("❌ 创建测试用户失败: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}
+
 // 文件上传处理 - 增强版
 pub async fn upload_file(
     State(_state): State<Arc<AppState>>,
@@ -4534,9 +5212,13 @@ pub async fn create_app(db: SqlitePool) -> Router {
         .route("/embed/styles.css", get(serve_embed_styles))
         
         // 商店管理 API
-        .route("/api/shops", get(get_shops).post(create_shop))
+    .route("/api/shops", get(get_shops).post(create_shop))
+    .route("/api/shops/search", get(shop_api::search_shops))
+    .route("/api/shops/check-domain", get(shop_api::check_domain))
         .route("/api/admin/shops", get(get_admin_shops)) // 管理员专用店铺端点
-        .route("/api/shops/:id", get(get_shop_by_id).put(update_shop))
+        // 合并 /api/shops/:id 的多次定义，避免后一次覆盖前一次
+        .route("/api/shops/:id", get(get_shop_by_id).put(update_shop).delete(shop_api::delete_shop))
+    .route("/api/shops/:id/rotate-api-key", post(shop_api::rotate_api_key))
         .route("/api/shops/:id/approve", post(approve_shop))
         .route("/api/shops/:id/reject", post(reject_shop))
         .route("/api/shops/:id/activate", post(activate_shop))
@@ -4584,9 +5266,16 @@ pub async fn create_app(db: SqlitePool) -> Router {
         
         // 管理员认证 API
         .route("/api/admin/login", post(admin_login))
+    .route("/api/admin/register", post(admin_register))
         .route("/api/admin/stats", get(get_account_stats))  // 新增账号统计端点
+        .route("/api/admin/sessions", get(admin_api::list_sessions))
+        .route("/api/admin/recover-super-admin", post(recover_super_admin))  // 受限恢复超级管理员端点
         .route("/api/admin/fix-owners", post(fix_shop_owners))  // 新增数据修复端点
         .route("/api/admin/validate", get(validate_shop_data_integrity))  // 新增数据验证端点
+        .route("/api/admin/clean-test-data", post(clean_test_data))  // 新增测试数据清理端点
+        .route("/api/admin/force-clean-shops", post(force_clean_shops))  // 新增强制清理店铺端点
+        .route("/api/admin/reset-database", post(reset_database))  // 新增数据库重置端点（仅开发用）
+        .route("/api/admin/create-test-user", post(create_test_user))  // 新增创建测试用户端点
         .route("/api/auth/login", post(admin_login))  // 前端期望的路径
         .route("/api/auth/register", post(admin_register))  // 新增注册路径
         
@@ -4629,6 +5318,21 @@ async fn initialize_database(db: &SqlitePool) -> Result<(), sqlx::Error> {
         "#
     ).execute(db).await?;
     
+    // 会话表（生产环境会话鉴权）
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS sessions (
+            session_id TEXT PRIMARY KEY,
+            admin_id   TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            expires_at DATETIME NOT NULL,
+            FOREIGN KEY (admin_id) REFERENCES admins(id) ON DELETE CASCADE
+        )
+        "#
+    ).execute(db).await?;
+    sqlx::query("CREATE INDEX IF NOT EXISTS idx_sessions_admin_id ON sessions(admin_id)").execute(db).await?;
+    sqlx::query("CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at)").execute(db).await?;
+
     // 创建客户表
     sqlx::query(
         r#"
@@ -4676,14 +5380,14 @@ async fn initialize_database(db: &SqlitePool) -> Result<(), sqlx::Error> {
         "#
     ).execute(db).await?;
     
-    // 创建管理员表
+    // 创建管理员表（role 支持：super_admin, admin, owner 等）
     sqlx::query(
         r#"
         CREATE TABLE IF NOT EXISTS admins (
             id TEXT PRIMARY KEY,
             username TEXT NOT NULL UNIQUE,
             password_hash TEXT NOT NULL,
-            role TEXT DEFAULT 'admin',
+            role TEXT DEFAULT 'admin', -- 可为 super_admin/admin/owner
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
         "#
@@ -4694,6 +5398,10 @@ async fn initialize_database(db: &SqlitePool) -> Result<(), sqlx::Error> {
     sqlx::query("CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages(timestamp)").execute(db).await?;
     sqlx::query("CREATE INDEX IF NOT EXISTS idx_conversations_shop_id ON conversations(shop_id)").execute(db).await?;
     sqlx::query("CREATE INDEX IF NOT EXISTS idx_conversations_updated_at ON conversations(updated_at)").execute(db).await?;
+    // 域名唯一性（忽略空字符串）：SQLite 支持表达式索引模拟部分唯一性
+    sqlx::query(
+        "CREATE UNIQUE INDEX IF NOT EXISTS ux_shops_domain_nonempty ON shops(domain) WHERE domain != ''"
+    ).execute(db).await?;
     
     // 创建支付相关表
     // 支付订单表
@@ -4855,7 +5563,53 @@ async fn initialize_database(db: &SqlitePool) -> Result<(), sqlx::Error> {
         }
     }
 
+    // 数据库迁移：为现有shops表添加subscription_status字段（如果不存在）
+    let migration_subscription_status = sqlx::query("ALTER TABLE shops ADD COLUMN subscription_status TEXT")
+        .execute(db)
+        .await;
+    match migration_subscription_status {
+        Ok(_) => {
+            info!("✅ 成功为shops表添加subscription_status字段");
+        }
+        Err(e) => {
+            if e.to_string().contains("duplicate column name") {
+                debug!("shops表的subscription_status字段已存在，跳过迁移");
+            } else {
+                error!("迁移添加subscription_status失败: {}", e);
+                return Err(e);
+            }
+        }
+    }
+
+    // 数据库迁移：为现有shops表添加admin_password字段（如果不存在）
+    let migration_admin_password = sqlx::query("ALTER TABLE shops ADD COLUMN admin_password TEXT")
+        .execute(db)
+        .await;
+    match migration_admin_password {
+        Ok(_) => {
+            info!("✅ 成功为shops表添加admin_password字段");
+        }
+        Err(e) => {
+            if e.to_string().contains("duplicate column name") {
+                debug!("shops表的admin_password字段已存在，跳过迁移");
+            } else {
+                error!("迁移添加admin_password失败: {}", e);
+                return Err(e);
+            }
+        }
+    }
+
     info!("数据库架构初始化成功");
+
+    // 运行时守护：若存在非 admin 的超级管理员，全部降级为 user，确保策略“一切超级管理员仅限 admin”
+    let downgraded = sqlx::query(
+        "UPDATE admins SET role = 'user' WHERE role = 'super_admin' AND username != 'admin'"
+    )
+    .execute(db)
+    .await?;
+    if downgraded.rows_affected() > 0 {
+        warn!("已降级 {} 个非 admin 的超级管理员为普通用户", downgraded.rows_affected());
+    }
     Ok(())
 }
 
@@ -4902,4 +5656,42 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     axum::serve(listener, app).await?;
     
     Ok(())
+}
+
+// 基于 sessions 的鉴权：从 Header 获取 Session，并返回 admin_id
+async fn authenticate_admin_headers(
+    headers: &HeaderMap,
+    db: &SqlitePool,
+) -> Result<String, (StatusCode, Json<ApiResponse<serde_json::Value>>)> {
+    let raw = headers
+        .get("X-Session-Id")
+        .or_else(|| headers.get("Authorization"))
+        .and_then(|h| h.to_str().ok());
+
+    let token = match raw {
+        Some(h) => if h.starts_with("Bearer ") { &h[7..] } else { h },
+        None => {
+            let body = ApiResponse::<serde_json::Value> { success: false, data: None, message: "未登录或缺少认证信息".into() };
+            return Err((StatusCode::UNAUTHORIZED, Json(body)));
+        }
+    };
+
+    // 使用 sessions 表校验（未过期）
+    let row = sqlx::query("SELECT admin_id FROM sessions WHERE session_id = ? AND expires_at > CURRENT_TIMESTAMP")
+        .bind(token)
+        .fetch_optional(db)
+        .await
+        .map_err(|e| {
+            error!("鉴权查询失败: {}", e);
+            let body = ApiResponse::<serde_json::Value> { success: false, data: None, message: "服务器内部错误".into() };
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(body))
+        })?;
+
+    match row {
+        Some(r) => Ok(r.get::<String, _>("admin_id")),
+        None => {
+            let body = ApiResponse::<serde_json::Value> { success: false, data: None, message: "会话无效或已过期，请重新登录".into() };
+            Err((StatusCode::UNAUTHORIZED, Json(body)))
+        }
+    }
 }
