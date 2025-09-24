@@ -7,3 +7,5 @@ pub mod employees;
 pub mod payments;
 pub mod integrations;
 pub mod system;
+pub mod errors;
+pub mod events;

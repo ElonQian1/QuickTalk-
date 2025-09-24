@@ -4,7 +4,10 @@ use sqlx::Row;
 use std::sync::Arc;
 use tracing::{info, error};
 
-use crate::types::{AppState, ApiResponse, ActivationPaymentRequest, ActivationQRResponse, ActivationOrderStatusResponse, ActivationOrder};
+use crate::bootstrap::app_state::AppState;
+use crate::types::ApiResponse;
+use crate::types::dto::payments::{ActivationPaymentRequest, ActivationQRResponse, ActivationOrderStatusResponse};
+use crate::types::entities::ActivationOrder;
 
 pub async fn generate_activation_payment_qr(
     State(state): State<Arc<AppState>>,

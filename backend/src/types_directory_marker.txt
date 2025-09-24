@@ -1,0 +1,1 @@
+This marker exists because Windows FS kept both a file and directory named types. Ensure only directory remains; legacy types.rs should be removed when safe.

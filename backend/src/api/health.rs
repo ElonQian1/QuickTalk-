@@ -3,7 +3,9 @@ use std::sync::Arc;
 use chrono::Utc;
 use sqlx::Row;
 
-use crate::{AppState, ApiResponse, EmbedConfig, EmbedTheme, EmbedLimits, EmbedSecurity};
+use crate::bootstrap::app_state::AppState;
+use crate::types::ApiResponse;
+use crate::types::dto::embed::{EmbedConfig, EmbedTheme, EmbedLimits, EmbedSecurity};
 
 pub async fn health_check() -> Json<ApiResponse<serde_json::Value>> {
     Json(ApiResponse {

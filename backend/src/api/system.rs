@@ -9,7 +9,8 @@ use std::sync::Arc;
 use tracing::{error, info};
 use uuid::Uuid;
 
-use crate::types::{AppState, ApiResponse};
+use crate::bootstrap::app_state::AppState;
+use crate::types::ApiResponse;
 
 pub async fn fix_shop_owners(
     State(state): State<Arc<AppState>>,

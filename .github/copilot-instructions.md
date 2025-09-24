@@ -22,7 +22,7 @@
 - **Express/Koa** - 任何 Node.js Web 框架
 - **Vue.js/React/Angular** - 任何前端框架
 - **TypeScript编译** - 任何需要构建步骤的前端技术
-- **Webpack/Vite** - 任何前端构建工具
+
 
 #### ✅ **唯一允许的技术栈**
 - **后端**: 100% 纯 Rust + Axum 框架
@@ -31,13 +31,35 @@
 - **WebSocket**: Rust 原生 WebSocket 实现
 - **启动方式**: 仅允许 `cargo run` 命令
 
-### 🏗️ 当前架构 (纯 Rust)### 后端架构 (100% 纯 Rust)
+### 🏗️ 当前架构 (纯 Rust)
+### 后端架构（100% 纯 Rust，单入口 + 模块化）
 ```
 backend/
-├── Cargo.toml          # 单一包配置，无多binary
+├── Cargo.toml              # 单一包配置（仅一个 binary）
 ├── src/
-│   └── main.rs         # 唯一入口点，包含所有功能
-└── quicktalk.sqlite    # SQLite数据库文件
+│   ├── main.rs            # 唯一入口点（启动与路由装配）
+│   ├── api/               # HTTP/WebSocket 处理模块
+│   │   ├── mod.rs
+│   │   ├── health.rs
+│   │   ├── shops.rs
+│   │   ├── conversations.rs
+│   │   ├── messages.rs
+│   │   ├── uploads.rs
+│   │   └── ws.rs
+│   ├── db/                # 数据库/仓库/模型
+│   │   ├── mod.rs
+│   │   ├── models.rs
+│   │   ├── migrations.rs
+│   │   └── repos.rs
+│   ├── domain/            # 业务领域与服务
+│   │   ├── mod.rs
+│   │   ├── auth.rs
+│   │   └── message_service.rs
+│   ├── web/               # 静态文件服务与页面
+│   │   ├── mod.rs
+│   │   └── static_serving.rs
+│   └── telemetry.rs       # 日志/追踪/错误处理
+└── quicktalk.sqlite        # SQLite 数据库文件
 ```
 
 ### 前端架构 (纯静态文件)
@@ -95,27 +117,17 @@ cargo run --bin *      # 禁止多binary
 - **WebSocket**: ws://localhost:3030/ws
 - **API健康检查**: http://localhost:3030/api/health
 
-### WebSocket 通信模式
-```javascript
-// 客户端连接模式
-ws://localhost:3030/ws
-
-// 消息格式标准
-{
-  type: 'message|join|leave|typing',
-  content: 'text',
-  userId: 'uuid',
-  timestamp: Date.now()
-}
-```
 
 
 
-### 核心API端点### 模块化初始化顺序
 
-```rust1. 数据库层 (`database-sqlite` 或 `database-memory`)
+### 模块化初始化顺序（推荐）
 
-// 静态文件服务2. 仓库层 (`ShopRepository`, `MessageAdapter`)
+1. 数据库层（db::migrations 自动建表/迁移，SQLx/SQLite）
+2. 仓库层（db::repos 定义仓库接口与 SQL 查询）
+3. 领域服务（domain::* 封装业务逻辑）
+4. API 路由装配（api::* 将路由与处理器注册到 Axum）
+5. 静态文件服务与页面路由（web::static_serving）
 
 ### 核心API端点 (纯 Rust 实现)
 ```rust
@@ -154,13 +166,11 @@ node test-client-api.js            # 禁止
 
 ## 🛠️ **开发指导 (纯 Rust)**
 
-
-
-### Rust开发约定
-- **单文件架构**: 所有代码在 `main.rs` 中，不拆分模块
-- **Axum框架**: 使用Axum处理HTTP和WebSocket
-- **SQLx数据库**: 使用SQLx + SQLite，支持异步操作
-- **错误处理**: 使用Result类型，统一错误响应格式
+### Rust 开发约定
+- **单入口 + 模块化**: 仅一个 binary（`main.rs` 作为入口），其余代码按领域拆分在 `src/` 子模块中
+- **Axum 框架**: 使用 Axum 处理 HTTP 和 WebSocket
+- **SQLx 数据库**: 使用 SQLx + SQLite，支持异步操作
+- **错误处理**: 使用 Result 类型，统一错误响应格式
 
 ### 前端开发约定  
 - **纯静态**: 不使用构建工具，直接编写HTML/CSS/JS
@@ -176,6 +186,106 @@ sqlx::query("SELECT * FROM messages WHERE conversation_id = ?")
     .fetch_all(&state.db)
     .await
 ```
+
+## 🧭 DDD 架构规范（Domain-Driven Design）
+（新增于 2025-09-24，采用增量方式：新代码遵循，旧逻辑逐步迁移）
+
+#### 分层语义对照
+| 层 | 目录 | 职责 | 关键约束 |
+|----|------|------|----------|
+| 接口层 Interface | `api/`, `web/` | 适配 HTTP/WS、DTO、输入校验、序列化 | 不含业务规则，不直接 SQL |
+| 应用层 Application | `application/` 或 `domain/usecases/` | 用例编排、事务/授权、聚合加载与保存、事件触发 | 不写核心领域规则，不含 SQL |
+| 领域层 Domain | `domain/` | 实体/值对象/聚合/领域服务/事件/不变式 | 无 Axum/SQLx 依赖，纯业务 |
+| 基础设施层 Infrastructure | `db/` | Repository 实现、SQLx 查询、外部适配 | 不放业务规则，只实现接口 |
+| 防腐层 ACL | `integration/` (按需) | 旧系统/第三方数据结构与领域模型转换 | 不污染领域命名 |
+
+#### 战术建模元素
+Entity / Value Object / Aggregate / Repository / Domain Service / Application Service / Domain Event / ACL。
+
+#### 目录建议 (示例)
+```
+src/
+  domain/
+    conversation/{conversation.rs,message.rs,events.rs}
+    shared/{ids.rs,errors.rs}
+    services/agent_assignment.rs
+  application/send_message.rs
+  db/repos.rs
+```
+
+#### ID 强类型
+使用 newtype: `pub struct ConversationId(pub i64);` 禁止裸 `i64` / `String` 代表业务标识。
+
+#### 聚合不变式示例
+```rust
+impl Conversation {
+    pub fn append_message(&mut self, msg: Message) -> Result<(), DomainError> {
+        if msg.content.is_empty() { return Err(DomainError::EmptyMessage); }
+        self.messages.push(msg);
+        Ok(())
+    }
+}
+```
+
+#### Repository 接口
+```rust
+pub trait ConversationRepository {
+    async fn find(&self, id: ConversationId) -> Result<Option<Conversation>, RepoError>;
+    async fn save(&self, agg: &Conversation) -> Result<(), RepoError>;
+}
+```
+
+#### 应用用例模式
+```rust
+pub struct SendMessageUseCase<R: ConversationRepository> { repo: R }
+impl<R: ConversationRepository> SendMessageUseCase<R> {
+    pub async fn exec(&self, input: SendMessageInput) -> Result<SendMessageOutput, UseCaseError> {
+        let mut conv = self.repo.find(input.conversation_id).await?\
+            .ok_or(UseCaseError::NotFound)?;
+        conv.append_message(Message::new(input.sender, input.content))?;
+        self.repo.save(&conv).await?;
+        Ok(SendMessageOutput { /* ... */ })
+    }
+}
+```
+
+#### 领域事件策略
+短期：聚合收集事件 -> 用例收尾派发 (内存)。未来可抽象 EventBus（仍单体，不引入 MQ）。
+
+#### 错误分层
+| 层 | 类型 | 映射 |
+|----|------|------|
+| 领域 | DomainError | 400 |
+| 仓库 | RepoError(NotFound) | 404 |
+| 用例 | UseCaseError | 400/404/500 |
+| 接口 | ApiError | 统一 HTTP |
+
+#### 防腐层 (ACL)
+旧 Node.js 结构转换集中 `integration/legacy_mapping.rs`；领域模型禁止出现 `legacy_*` 字段。
+
+#### 测试金字塔
+1. 领域（纯内存） 2. 用例（InMemoryRepo） 3. 仓库（最小 SQLx 集成） 4. API（关键路径） 5. 事件（顺序与触发）。
+
+#### 迁移阶段
+1. 新建 `Conversation` 聚合 + ID newtype。 2. 抽 Repository 接口。 3. 建首个 UseCase。 4. 加事件收集机制。 5. 迁移 handler 逻辑。 6. 补测试。
+
+#### 审核清单 (PR)
+- [ ] ID 使用 newtype
+- [ ] 不变式位于聚合方法内部
+- [ ] Handler 仅调用 use case
+- [ ] 领域层无 SQL/Axum 依赖
+- [ ] 测试覆盖新增逻辑
+- [ ] 未引入被禁止技术
+
+#### 重构对比
+Before：Handler = SQL + 规则 + 推送。
+After：Handler -> UseCase -> 聚合方法 -> Repository.save -> 事件派发。
+
+#### 后续可选增强
+读模型投影、内存 EventBus 抽象、跨聚合 Saga（仍单体）。
+
+---
+DDD 规范版本 v1 (2025-09-24)
 
 ## 🔗 集成模式
 
@@ -244,7 +354,7 @@ messages.message        →   content
 - **日志处理**: 无法获取 Rust 后端日志时，请用户复制日志内容
 - **单一数据库**: 仅使用 SQLite，无内存数据库选项
 - **WebSocket 优先**: 实时功能依赖 WebSocket，HTTP API 仅作补充
-- **单体架构**: 新功能在 `main.rs` 实现，不拆分多模块
+- **单体架构**: 仅一个 binary；代码组织采用模块化（`src/` 多文件/子文件夹），禁止拆分为多 binary 或多进程
 
 ## ⚠️ **重要约束**
 
@@ -259,7 +369,7 @@ messages.message        →   content
 - ✅ 使用单一 `cargo run` 命令启动
 - ✅ 保持纯Rust + 静态文件架构
 - ✅ 维护与旧版前端的兼容性
-- ✅ 所有功能在单个main.rs文件实现
+- ✅ 仅 `main.rs` 作为入口；业务与路由等实现应分布在 `src/` 模块中
 
 ## 🧪 测试验证
 

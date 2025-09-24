@@ -4,7 +4,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::{AppState, ApiResponse, Shop};
+use crate::bootstrap::app_state::AppState;
+use crate::types::{ApiResponse, Shop};
+use crate::types::dto::shops::{UpdateShopRequest};
 
 // GET /api/shops/search?q=...&limit=20
 pub async fn search_shops(
@@ -144,11 +146,17 @@ pub async fn get_shops(
 
 pub async fn create_shop(
     State(state): State<Arc<AppState>>,
-    Json(payload): Json<crate::types::CreateShopRequest>,
+    Json(payload): Json<UpdateShopRequest>,
 ) -> Result<Json<ApiResponse<Shop>>, axum::http::StatusCode> {
     let id = Uuid::new_v4().to_string();
     let api_key = Uuid::new_v4().to_string();
-    let owner_id = payload.owner_id.unwrap_or_else(|| "default_owner".to_string()); // Or handle it as an error if owner_id is required
+    // owner_id not part of UpdateShopRequest; retrieve existing owner or use default
+    let owner_id_row = sqlx::query("SELECT owner_id FROM shops WHERE id = ?")
+        .bind(&id)
+        .fetch_one(&state.db)
+        .await
+        .map_err(|_| axum::http::StatusCode::NOT_FOUND)?;
+    let owner_id: String = owner_id_row.try_get("owner_id").unwrap_or_else(|_| "default_owner".to_string());
 
     let result = sqlx::query("INSERT INTO shops (id, name, domain, api_key, owner_id, status) VALUES (?, ?, ?, ?, ?, ?)
 ")
@@ -165,8 +173,8 @@ pub async fn create_shop(
         Ok(_) => {
             let new_shop = Shop {
                 id,
-                name: payload.name,
-                domain: payload.domain,
+                name: payload.name.clone().unwrap_or_else(|| "Unnamed Shop".to_string()),
+                domain: payload.domain.clone().unwrap_or_else(|| "no-domain".to_string()),
                 api_key,
                 owner_id,
                 status: "pending".to_string(),
@@ -222,18 +230,18 @@ pub async fn get_shop_details(
 pub async fn update_shop(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
-    Json(payload): Json<crate::types::UpdateShopRequest>,
+    Json(payload): Json<UpdateShopRequest>,
 ) -> Result<Json<ApiResponse<Shop>>, axum::http::StatusCode> {
     let mut tx = state.db.begin().await.map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
 
     let mut update_query = "UPDATE shops SET ".to_string();
     let mut params: Vec<String> = Vec::new();
 
-    if let Some(name) = &payload.name {
+    if let Some(name) = payload.name.as_ref() {
         update_query.push_str("name = ?, ");
         params.push(name.clone());
     }
-    if let Some(domain) = &payload.domain {
+    if let Some(domain) = payload.domain.as_ref() {
         update_query.push_str("domain = ?, ");
         params.push(domain.clone());
     }

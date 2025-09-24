@@ -3,7 +3,6 @@ use axum::{
     http::StatusCode,
     response::Json,
 };
-use serde::Deserialize;
 use sqlx::Row;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -11,26 +10,12 @@ use tracing::{info, warn};
 use uuid::Uuid;
 use chrono::Utc;
 
-use crate::types::*;
-use crate::AppState;
+use crate::types::ApiResponse;
+use crate::types::dto::common::{EmployeeInvitation, User};
+use crate::types::dto::employees::{AddEmployeeRequest, UpdateEmployeeRequest, InviteEmployeeRequest};
+use crate::types::Employee;
+use crate::bootstrap::app_state::AppState;
 
-#[derive(Deserialize)]
-pub struct AddEmployeeRequest {
-    pub email: String,
-    pub role: String,
-}
-
-#[derive(Deserialize)]
-pub struct UpdateEmployeeRequest {
-    pub role: String,
-}
-
-#[derive(Deserialize)]
-pub struct InviteEmployeeRequest {
-    pub email: String,
-    pub role: String,
-    pub message: String,
-}
 
 // 员工管理
 pub async fn get_employees(

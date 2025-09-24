@@ -9,7 +9,9 @@ use std::sync::Arc;
 use tracing::info;
 use sqlx::Row;
 
-use crate::{AppState, ApiResponse, types::GenerateCodeResponse};
+use crate::bootstrap::app_state::AppState;
+use crate::types::ApiResponse;
+use crate::types::dto::embed::GenerateCodeResponse;
 
 #[derive(Deserialize)]
 pub struct GenerateCodeRequest {

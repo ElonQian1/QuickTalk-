@@ -22,6 +22,8 @@ chrono = { version = "0.4", features = ["serde"] }
 dotenv = "0.15"
 tracing = "0.1"
 tracing-subscriber = "0.3"
+thiserror = "1"
+async-trait = "0.1"
 futures-util = "0.3"
 # 保留HTTP客户端用于潜在的外部集成
 reqwest = { version = "0.11", features = ["json"] }

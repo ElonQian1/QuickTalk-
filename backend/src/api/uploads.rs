@@ -4,7 +4,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::{ApiResponse, AppState};
+use crate::bootstrap::app_state::AppState;
+use crate::types::ApiResponse;
 
 pub async fn upload_file(
     axum::extract::State(_state): axum::extract::State<Arc<AppState>>,

@@ -6,7 +6,9 @@ use std::sync::Arc;
 use tracing::{error, info};
 use uuid::Uuid;
 
-use crate::types::{AppState, ApiResponse, LoginRequest, RegisterRequest};
+use crate::bootstrap::app_state::AppState;
+use crate::types::ApiResponse;
+use crate::types::dto::auth::{LoginRequest, RegisterRequest};
 
 pub async fn admin_login(
     State(state): State<Arc<AppState>>,
