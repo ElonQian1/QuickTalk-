@@ -372,3 +372,53 @@ cargo test --test integration
 ---
 
 **QuickTalk** - 为纯Rust环境打造的现代化客服解决方案 🦀
+
+## 🧩 DDD 分层与当前迁移状态 (2025-09-24 新增)
+
+> 本节说明当前领域驱动设计(DDD) 结构的迁移阶段。旧版领域代码已被移动到 `backend/src/domain_legacy/`，新结构逐步替换中。
+
+### 分层说明
+| 层 | 目录 | 角色 | 当前状态 |
+|----|------|------|----------|
+| 接口层 (Interface) | `src/api`, `src/ws`, `src/web.rs` | 解析HTTP/WS请求、DTO、路由装配 | 已存在（待逐步瘦身） |
+| 应用层 (Application) | `src/application` | 用例编排、事务/授权、事件派发 | 初步成型（send_message等） |
+| 领域层 (Domain) | `src/domain` | 聚合/实体/值对象/不变式/领域事件 | 新结构构建中 (conversation 首批) |
+| 基础设施 (Infrastructure) | `src/db` | SQLx 查询、Repo实现 | 已存在（需适配新接口） |
+| 兼容层 (Legacy / ACL) | `src/domain_legacy` | 旧模型与过渡层 | 临时保留，后续删除 |
+
+### 新 `conversation` 聚合结构
+```
+backend/src/domain/
+  shared/
+    ids.rs        # 强类型ID: ConversationId / MessageId / ...
+    errors.rs     # DomainError 定义
+    events.rs     # DomainEvent & DomainEventKind
+  conversation/
+    model/
+      aggregate.rs  # Conversation 聚合 + 不变式 + 事件收集
+      message.rs    # Message 实体
+    repository.rs   # ConversationRepository trait
+    mod.rs          # 兼容旧路径的过渡接口 (后续精简)
+```
+
+### 事件策略
+- 聚合内部行为(append_message) 直接收集事件 -> `pending_events`
+- 用例从 `take_events()` 取出后统一派发（后续将接入轻量 EventBus）
+
+### 不变式示例
+- 仅 Active 会话允许追加消息
+- 消息内容不能为空
+- 会话关闭后不能追加新消息
+
+### 当前 TODO 跟踪
+- [x] Conversation 聚合重建
+- [x] 事件收集机制雏形
+- [ ] 将 repository SQL 实现适配新 trait
+- [ ] 迁移 message 更新/删除逻辑到应用层 + 事件
+- [ ] 移除 `domain_legacy` 中未再引用的模块
+- [ ] 编写 InMemory Repo 更多测试 (状态迁移 + 异常路径)
+
+### 过渡期注意事项
+1. `domain_legacy` 仍被部分 API handler 间接引用，合并前避免直接删除
+2. 新旧 ID 类型不兼容时，可在应用层增加 `From<String> for ConversationId` 等适配（已实现）
+3. 接口返回 JSON 时，强类型 newtype 会通过 `#[serde(transparent)]` 保持原字符串输出
