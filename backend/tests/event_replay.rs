@@ -3,6 +3,7 @@ use chrono::Utc;
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 use quicktalk_pure_rust::bootstrap::app_state::AppState;
+use quicktalk_pure_rust::db::{conversation_repository_sqlx::SqlxConversationRepository, message_repository_sqlx::MessageRepositorySqlx, message_read_repository_sqlx::MessageReadRepositorySqlx};
 use quicktalk_pure_rust::application::event_bus_rich::EventBusWithDb;
 use quicktalk_pure_rust::domain::conversation::{DomainEvent, ConversationId, MessageId};
 use quicktalk_pure_rust::api::events::replay_events;
@@ -19,7 +20,15 @@ async fn replay_endpoint_returns_persisted_events() {
     // prepare app state
     let (sender,_) = broadcast::channel(10);
     let ws_connections = Arc::new(Mutex::new(HashMap::new()));
-    let state = Arc::new(AppState { db: pool.clone(), ws_connections, message_sender: sender.clone() });
+    let state = Arc::new(AppState {
+        db: pool.clone(),
+        ws_connections,
+        message_sender: sender.clone(),
+        conversation_repo: Arc::new(SqlxConversationRepository { pool: pool.clone() }),
+        message_repo: Arc::new(MessageRepositorySqlx { pool: pool.clone() }),
+        message_read_repo: Arc::new(MessageReadRepositorySqlx { pool: pool.clone() }),
+        event_publisher: Arc::new(EventBusWithDb::new(sender.clone(), pool.clone())),
+    });
 
     // insert message row for enrichment
     sqlx::query("INSERT INTO messages(id,conversation_id,sender_id,sender_type,content,message_type,timestamp,deleted_at,shop_id) VALUES(?,?,?,?,?,?,?,?,?)")

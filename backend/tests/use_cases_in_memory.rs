@@ -1,6 +1,8 @@
 use chrono::Utc;
 use quicktalk_pure_rust::domain::conversation::*;
 use quicktalk_pure_rust::application::usecases::send_message::{SendMessageUseCase, SendMessageInput};
+use quicktalk_pure_rust::application::events::publisher::EventPublisher;
+struct NoopPublisher; #[async_trait::async_trait] impl EventPublisher for NoopPublisher { async fn publish(&self, _events: Vec<quicktalk_pure_rust::domain::conversation::DomainEvent>) {} }
 use quicktalk_pure_rust::application::usecases::update_message::{UpdateMessageUseCase, UpdateMessageInput};
 use quicktalk_pure_rust::application::usecases::delete_message::{DeleteMessageUseCase, DeleteMessageInput};
 use quicktalk_pure_rust::application::events::serialization::serialize_event;
@@ -19,7 +21,7 @@ async fn send_update_delete_flow_generates_events_with_metadata() {
     // 1. 会话 + 发送消息 (触发 MessageAppended 领域事件)
     let conv_repo = InMemoryConversationRepo::new();
     let cid = seed_conversation(&conv_repo);
-    let send_uc = SendMessageUseCase::new(conv_repo);
+    let send_uc = SendMessageUseCase::new(conv_repo, NoopPublisher);
     let out = send_uc.exec(SendMessageInput { conversation_id: cid.0.clone(), sender_id: "u1".into(), sender_type: "customer".into(), content: "hello".into(), message_type: "text".into() }).await.expect("send message");
     assert_eq!(out.events.len(), 1, "append should emit single event");
     let msg_id = out.message_id.clone();

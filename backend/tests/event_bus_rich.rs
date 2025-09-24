@@ -1,4 +1,6 @@
 use quicktalk_pure_rust::application::usecases::send_message::{SendMessageUseCase, SendMessageInput};
+use quicktalk_pure_rust::application::events::publisher::EventPublisher;
+struct NoopPublisher; #[async_trait::async_trait] impl EventPublisher for NoopPublisher { async fn publish(&self, _events: Vec<quicktalk_pure_rust::domain::conversation::DomainEvent>) {} }
 use quicktalk_pure_rust::db::conversation_repository_sqlx::SqlxConversationRepository;
 use quicktalk_pure_rust::application::event_bus_rich::EventBusWithDb;
 use chrono::Utc;
@@ -31,7 +33,7 @@ async fn event_bus_rich_appended_includes_message_payload() {
 
     // use case
     let repo = SqlxConversationRepository { pool: pool.clone() };
-    let uc = SendMessageUseCase::new(repo);
+    let uc = SendMessageUseCase::new(repo, NoopPublisher);
     let out = uc.exec(SendMessageInput { conversation_id: "c100".into(), sender_id: "custZ".into(), sender_type: "customer".into(), content: "hello-rich".into(), message_type: "text".into() }).await.unwrap();
 
     // publish events (simulate API layer behavior)

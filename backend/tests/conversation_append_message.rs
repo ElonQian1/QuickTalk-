@@ -1,4 +1,4 @@
-use backend::domain::conversation::{Conversation, ConversationId, Message, MessageId, SenderType};
+use quicktalk_pure_rust::domain::conversation::{Conversation, ConversationId, Message, MessageId, SenderType};
 use chrono::Utc;
 
 #[test]
