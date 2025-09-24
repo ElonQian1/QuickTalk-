@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
-use axum::{extract::{State, Query}, response::Json};
+use axum::extract::{State, Query};
 use serde::Serialize;
 use crate::bootstrap::app_state::AppState;
 use crate::db::event_log_repository_sqlx::EventLogRepositorySqlx;

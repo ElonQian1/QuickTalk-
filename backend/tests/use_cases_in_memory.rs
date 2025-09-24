@@ -6,7 +6,31 @@ struct NoopPublisher; #[async_trait::async_trait] impl EventPublisher for NoopPu
 use quicktalk_pure_rust::application::usecases::update_message::{UpdateMessageUseCase, UpdateMessageInput};
 use quicktalk_pure_rust::application::usecases::delete_message::{DeleteMessageUseCase, DeleteMessageInput};
 use quicktalk_pure_rust::application::events::serialization::serialize_event;
-use quicktalk_pure_rust::db::in_memory::InMemoryMessageRepository;
+// Local lightweight in-memory message repo (replicates minimal behavior needed for update/delete flow)
+use quicktalk_pure_rust::domain::conversation::{MessageRepository, MessageReadRepository, RepoError};
+use std::collections::HashMap;
+use std::sync::RwLock;
+
+struct LocalMsgStore { inner: RwLock<HashMap<String, quicktalk_pure_rust::domain::conversation::Message>> }
+impl LocalMsgStore { fn new() -> Self { Self { inner: RwLock::new(HashMap::new()) } } }
+
+struct InMemoryMessageRepository { store: LocalMsgStore }
+impl InMemoryMessageRepository { fn new() -> Self { Self { store: LocalMsgStore::new() } } fn insert(&self, m: quicktalk_pure_rust::domain::conversation::Message) { self.store.inner.write().unwrap().insert(m.id.0.clone(), m); } }
+
+#[async_trait::async_trait]
+impl MessageRepository for InMemoryMessageRepository {
+    async fn find(&self, id: &MessageId) -> Result<Option<Message>, RepoError> { Ok(self.store.inner.read().unwrap().get(&id.0).cloned()) }
+    async fn update_content(&self, id: &MessageId, new_content: &str) -> Result<(), RepoError> { if let Some(m) = self.store.inner.write().unwrap().get_mut(&id.0) { m.content = new_content.to_string(); Ok(()) } else { Err(RepoError::NotFound) } }
+    async fn soft_delete(&self, id: &MessageId) -> Result<(), RepoError> { if let Some(m) = self.store.inner.write().unwrap().get_mut(&id.0) { m.content = "__deleted__".into(); Ok(()) } else { Err(RepoError::NotFound) } }
+    async fn hard_delete(&self, id: &MessageId) -> Result<(), RepoError> { if self.store.inner.write().unwrap().remove(&id.0).is_some() { Ok(()) } else { Err(RepoError::NotFound) } }
+}
+
+#[async_trait::async_trait]
+impl MessageReadRepository for InMemoryMessageRepository {
+    async fn list_by_conversation(&self, conversation_id: &ConversationId, _limit: i64, _offset: i64) -> Result<Vec<Message>, RepoError> {
+        Ok(self.store.inner.read().unwrap().values().filter(|m| m.conversation_id.0 == conversation_id.0).cloned().collect())
+    }
+}
 use quicktalk_pure_rust::domain::conversation::InMemoryConversationRepo;
 
 fn seed_conversation(repo: &InMemoryConversationRepo) -> ConversationId {
@@ -37,8 +61,8 @@ async fn send_update_delete_flow_generates_events_with_metadata() {
         "text".into(),
         Utc::now()
     ).unwrap();
-    msg_repo_for_update.store().insert_domain(&domain_msg);
-    let update_uc = UpdateMessageUseCase::new(msg_repo_for_update);
+    msg_repo_for_update.insert(domain_msg.clone());
+    let update_uc = UpdateMessageUseCase::new(msg_repo_for_update, NoopPublisher);
     let upd = update_uc.exec(UpdateMessageInput { message_id: msg_id.clone(), new_content: "edited".into() }).await.expect("update");
     let update_event = upd.events[0].clone();
     matches!(&update_event, DomainEvent::MessageUpdated { .. });
@@ -54,8 +78,8 @@ async fn send_update_delete_flow_generates_events_with_metadata() {
         "text".into(),
         Utc::now()
     ).unwrap();
-    msg_repo_for_delete.store().insert_domain(&updated_msg);
-    let delete_uc = DeleteMessageUseCase::new(msg_repo_for_delete);
+    msg_repo_for_delete.insert(updated_msg.clone());
+    let delete_uc = DeleteMessageUseCase::new(msg_repo_for_delete, NoopPublisher);
     let del = delete_uc.exec(DeleteMessageInput { message_id: msg_id.clone(), hard: false }).await.expect("delete");
     let delete_event = del.events[0].clone();
     match &delete_event { DomainEvent::MessageDeleted { soft, .. } => assert!(*soft, "should be soft delete"), _ => panic!("unexpected event kind") }

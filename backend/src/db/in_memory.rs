@@ -1,3 +1,4 @@
+#![cfg(test)]
 //! In-memory repositories for message tests (no SQLx dependency)
 //! 提供 MessageRepository 与 MessageReadRepository 的内存实现，用于快速单元测试
 use std::collections::HashMap;
@@ -57,7 +58,11 @@ impl InMemoryMessageStore {
 
 pub struct InMemoryMessageRepository { store: InMemoryMessageStore }
 
-impl InMemoryMessageRepository { pub fn new() -> Self { Self { store: InMemoryMessageStore::new() } } pub fn store(&self) -> &InMemoryMessageStore { &self.store } }
+impl InMemoryMessageRepository {
+    pub fn new() -> Self { Self { store: InMemoryMessageStore::new() } }
+    #[allow(dead_code)] // test helper accessor
+    pub fn store(&self) -> &InMemoryMessageStore { &self.store }
+}
 
 #[async_trait::async_trait]
 impl MessageRepository for InMemoryMessageRepository {

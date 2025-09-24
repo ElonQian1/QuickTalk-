@@ -1,6 +1,7 @@
 use quicktalk_pure_rust::domain::conversation::{MessageId, Message};
 use quicktalk_pure_rust::application::usecases::update_message::{UpdateMessageUseCase, UpdateMessageInput, UpdateMessageError};
 use quicktalk_pure_rust::application::usecases::delete_message::{DeleteMessageUseCase, DeleteMessageInput, DeleteMessageError};
+use quicktalk_pure_rust::application::events::publisher::EventPublisher;
 
 // 由于 update/delete 用例依赖 MessageRepository trait 的 SQLx 实现而非 InMemoryConversationRepo（未实现 MessageRepository），
 // 这里进行纯领域层构造不足以执行（需要实际数据库）。为保持轻量，当前测试聚焦错误分支/空内容校验逻辑：
@@ -11,6 +12,11 @@ use quicktalk_pure_rust::domain::conversation::{MessageRepository, RepoError};
 use async_trait::async_trait;
 
 struct StubMessageRepo;
+// Noop publisher for tests
+#[derive(Clone)]
+struct NoopPublisher;
+#[async_trait::async_trait]
+impl EventPublisher for NoopPublisher { async fn publish(&self, _events: Vec<quicktalk_pure_rust::domain::conversation::DomainEvent>) {} }
 #[async_trait]
 impl MessageRepository for StubMessageRepo {
     async fn find(&self, _id: &MessageId) -> Result<Option<Message>, RepoError> { Ok(None) }
@@ -21,21 +27,21 @@ impl MessageRepository for StubMessageRepo {
 
 #[tokio::test]
 async fn update_message_empty_content_rejected() {
-    let uc = UpdateMessageUseCase::new(StubMessageRepo);
+    let uc = UpdateMessageUseCase::new(StubMessageRepo, NoopPublisher);
     let res = uc.exec(UpdateMessageInput { message_id: "m1".into(), new_content: "   ".into() }).await;
     assert!(matches!(res, Err(UpdateMessageError::Empty)));
 }
 
 #[tokio::test]
 async fn update_message_not_found() {
-    let uc = UpdateMessageUseCase::new(StubMessageRepo);
+    let uc = UpdateMessageUseCase::new(StubMessageRepo, NoopPublisher);
     let res = uc.exec(UpdateMessageInput { message_id: "m2".into(), new_content: "ok".into() }).await;
     assert!(matches!(res, Err(UpdateMessageError::NotFound)));
 }
 
 #[tokio::test]
 async fn delete_message_not_found() {
-    let uc = DeleteMessageUseCase::new(StubMessageRepo);
+    let uc = DeleteMessageUseCase::new(StubMessageRepo, NoopPublisher);
     let res = uc.exec(DeleteMessageInput { message_id: "m3".into(), hard: false }).await;
     assert!(matches!(res, Err(DeleteMessageError::NotFound)));
 }

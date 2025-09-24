@@ -28,7 +28,7 @@ use crate::types::dto::messages::{CreateMessageRequest, UpdateMessageRequest};
 use crate::application::usecases::send_message::{SendMessageUseCase, SendMessageInput};
 use crate::application::usecases::update_message::{UpdateMessageUseCase, UpdateMessageInput, UpdateMessageError};
 use crate::application::usecases::delete_message::{DeleteMessageUseCase, DeleteMessageInput, DeleteMessageError};
-use crate::application::event_bus_rich::EventBusWithDb;
+// Removed EventBusWithDb import for update/delete (send_message path still constructs rich bus inline if needed)
 use crate::application::usecases::create_conversation::{CreateConversationUseCase, CreateConversationInput, CreateConversationError};
 use crate::application::usecases::update_conversation_status::{UpdateConversationStatusUseCase, UpdateConversationStatusInput, UpdateConversationStatusError};
 // DomainError 映射已通过 ApiError From 实现，不直接使用
@@ -183,7 +183,8 @@ pub async fn update_message(
     Json(request): Json<UpdateMessageRequest>,
 ) -> ApiResult<Message> {
     let repo = MessageRepositorySqlx { pool: state.db.clone() };
-    let uc = UpdateMessageUseCase::new(repo);
+    let publisher = (*state.event_publisher).clone();
+    let uc = UpdateMessageUseCase::new(repo, publisher);
     let input = UpdateMessageInput { message_id: message_id.clone(), new_content: request.content.clone() };
     match uc.exec(input).await {
         Ok(out) => {
@@ -194,8 +195,7 @@ pub async fn update_message(
                 .await {
                     Ok(msg) => {
                         // 富事件发布（包含完整消息）
-                        let rich_bus = EventBusWithDb::new(state.message_sender.clone(), state.db.clone());
-                        rich_bus.publish(out.events).await;
+                        // 事件已由 use case 内部发布 (publisher)
                         success(msg, "Message updated successfully")
                     }
                     Err(e) => { tracing::error!(?e, "fetch updated message failed"); Err(ApiError::internal("Failed to load updated message")) }
@@ -217,13 +217,13 @@ pub async fn delete_message(
     Path((_conversation_id, message_id)): Path<(String, String)>,
 ) -> Result<StatusCode, ApiError> {
     let repo = MessageRepositorySqlx { pool: state.db.clone() };
-    let uc = DeleteMessageUseCase::new(repo);
+    let publisher = (*state.event_publisher).clone();
+    let uc = DeleteMessageUseCase::new(repo, publisher);
     // 默认软删除；未来可通过查询参数 hard=true 控制
     let input = DeleteMessageInput { message_id: message_id.clone(), hard: false };
     match uc.exec(input).await {
         Ok(out) => {
-            let rich_bus = EventBusWithDb::new(state.message_sender.clone(), state.db.clone());
-            rich_bus.publish(out.events).await;
+            // 事件已由 use case 内部发布 (publisher)
             Ok(StatusCode::NO_CONTENT)
         }
         Err(e) => {
@@ -244,7 +244,7 @@ pub async fn update_conversation_status(
     let uc = UpdateConversationStatusUseCase::new(repo);
     let input = UpdateConversationStatusInput { conversation_id: conversation_id.clone(), target_status: request.status.clone() };
     match uc.exec(input).await {
-        Ok(_out) => success_empty("Conversation status updated"),
+        Ok(_ignored) => success_empty("Conversation status updated"),
         Err(e) => {
             let api_err = match e {
                 UpdateConversationStatusError::NotFound => ApiError::not_found("Conversation not found"),
