@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图片上传和显示修复测试</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            background: #f5f5f5;
+        }
+        .test-container { 
+            background: white; 
+            padding: 20px; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .button { 
+            background: #007cba; 
+            color: white; 
+            border: none; 
+            padding: 10px 20px; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            margin: 5px;
+        }
+        .button:hover { background: #005a87; }
+        .log { 
+            background: #f0f0f0; 
+            padding: 10px; 
+            border-radius: 4px; 
+            margin-top: 10px; 
+            font-family: monospace; 
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .status { padding: 10px; margin: 10px 0; border-radius: 4px; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        #customer-service-widget { margin-top: 20px; }
+        .test-section { 
+            border: 1px solid #ddd; 
+            margin: 10px 0; 
+            padding: 15px; 
+            border-radius: 5px;
+        }
+        .test-section h4 { margin-top: 0; color: #333; }
+    </style>
+</head>
+<body>
+    <h1>🛠️ 图片上传和显示修复验证</h1>
+    
+    <div class="test-container">
+        <h3>🐛 已修复的问题</h3>
+        <ul>
+            <li>✅ <strong>multimedia_message_sent 未知消息类型</strong> - 现在会正确显示用户发送的图片</li>
+            <li>✅ <strong>Mixed Content HTTPS错误</strong> - 自动转换HTTP图片URL为HTTPS</li>
+            <li>✅ <strong>上传后不显示问题</strong> - 发送确认后立即显示图片</li>
+        </ul>
+    </div>
+
+    <div class="test-container">
+        <div class="test-section">
+            <h4>🚀 1. 初始化测试</h4>
+            <button class="button" onclick="initCustomerService()">启动客服组件</button>
+            <button class="button" onclick="checkProtocol()">检查协议兼容性</button>
+        </div>
+
+        <div class="test-section">
+            <h4>🖼️ 2. 图片消息测试</h4>
+            <button class="button" onclick="testImageUpload()">测试图片上传流程</button>
+            <button class="button" onclick="simulateMultimediaSent()">模拟发送确认消息</button>
+            <button class="button" onclick="testHttpsConversion()">测试HTTPS转换</button>
+        </div>
+
+        <div class="test-section">
+            <h4>🔍 3. 调试工具</h4>
+            <button class="button" onclick="inspectWebSocket()">检查WebSocket状态</button>
+            <button class="button" onclick="clearLog()">清除日志</button>
+        </div>
+        
+        <div id="status" class="status info">准备开始测试...</div>
+        <div id="log" class="log"></div>
+    </div>
+
+    <!-- 客服组件容器 -->
+    <div id="customer-service-widget"></div>
+
+    <script>
+        let csInstance = null;
+        
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const color = type === 'error' ? '#dc3545' : type === 'success' ? '#28a745' : 
+                         type === 'warning' ? '#fd7e14' : '#007bff';
+            logDiv.innerHTML += `<div style="color: ${color}; margin: 2px 0;">[${timestamp}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(`[${timestamp}] ${message}`);
+        }
+        
+        function updateStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = `status ${type}`;
+            statusDiv.textContent = message;
+            log(message, type);
+        }
+        
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+            log('日志已清除');
+        }
+        
+        function checkProtocol() {
+            const protocol = window.location.protocol;
+            const hostname = window.location.hostname;
+            log(`🔍 当前页面协议: ${protocol}`);
+            log(`🔍 当前主机名: ${hostname}`);
+            
+            if (protocol === 'https:') {
+                updateStatus('当前页面使用HTTPS - 将测试混合内容修复', 'warning');
+            } else {
+                updateStatus('当前页面使用HTTP - 无混合内容问题', 'info');
+            }
+        }
+        
+        // 初始化客服组件
+        function initCustomerService() {
+            try {
+                updateStatus('正在初始化客服组件...', 'info');
+                
+                // 动态加载客服组件
+                const script = document.createElement('script');
+                script.src = '/api/embed/js?t=' + Date.now();
+                script.onload = function() {
+                    setTimeout(() => {
+                        if (window.CustomerServiceWidget) {
+                            csInstance = new window.CustomerServiceWidget({
+                                shopKey: 'test-shop-001',
+                                shopId: 'shop-001',
+                                position: 'bottom-right'
+                            });
+                            updateStatus('✅ 客服组件初始化成功！', 'success');
+                            log('CustomerServiceWidget 实例创建成功');
+                            
+                            // 监听WebSocket消息
+                            if (csInstance.ws) {
+                                const originalOnMessage = csInstance.ws.onmessage;
+                                csInstance.ws.onmessage = function(event) {
+                                    const data = JSON.parse(event.data);
+                                    log(`📨 WebSocket收到: ${data.type}`, 'info');
+                                    if (originalOnMessage) {
+                                        originalOnMessage.call(this, event);
+                                    }
+                                };
+                            }
+                        } else {
+                            updateStatus('❌ 客服组件加载失败', 'error');
+                        }
+                    }, 500);
+                };
+                script.onerror = function() {
+                    updateStatus('❌ 客服组件脚本加载失败', 'error');
+                };
+                document.head.appendChild(script);
+                
+            } catch (error) {
+                updateStatus('❌ 初始化失败: ' + error.message, 'error');
+            }
+        }
+        
+        // 测试图片上传流程
+        function testImageUpload() {
+            if (!csInstance) {
+                updateStatus('❌ 请先启动客服组件', 'error');
+                return;
+            }
+            
+            log('📤 开始测试图片上传流程...');
+            updateStatus('请手动选择图片进行上传测试', 'info');
+            
+            // 如果有文件上传按钮，自动点击
+            setTimeout(() => {
+                const fileButton = document.querySelector('#cs-file-btn');
+                if (fileButton) {
+                    log('🎯 找到文件上传按钮，请选择图片');
+                    fileButton.click();
+                } else {
+                    log('⚠️ 未找到文件上传按钮，请手动打开聊天窗口并上传图片');
+                }
+            }, 1000);
+        }
+        
+        // 模拟多媒体发送确认消息
+        function simulateMultimediaSent() {
+            if (!csInstance || !csInstance.handleWebSocketMessage) {
+                updateStatus('❌ 客服组件未正确初始化', 'error');
+                return;
+            }
+            
+            log('🧪 模拟 multimedia_message_sent 消息...');
+            
+            const testMessage = {
+                type: 'multimedia_message_sent',
+                message: '多媒体消息发送成功',
+                fileInfo: {
+                    url: '/uploads/test-image.jpg',
+                    originalName: '测试图片.jpg',
+                    type: 'image/jpeg'
+                },
+                timestamp: Date.now()
+            };
+            
+            csInstance.handleWebSocketMessage(testMessage);
+            updateStatus('✅ 已发送测试消息，检查是否显示图片', 'success');
+        }
+        
+        // 测试HTTPS转换
+        function testHttpsConversion() {
+            if (!csInstance || !csInstance.ensureFullImageUrl) {
+                updateStatus('❌ 客服组件未正确初始化', 'error');
+                return;
+            }
+            
+            log('🔒 测试HTTPS URL转换...');
+            
+            const testUrls = [
+                'http://localhost:3030/uploads/test.jpg',
+                'https://localhost:3030/uploads/test.jpg',
+                '/uploads/test.jpg',
+                'uploads/test.jpg'
+            ];
+            
+            testUrls.forEach(url => {
+                const converted = csInstance.ensureFullImageUrl(url);
+                log(`转换: ${url} -> ${converted}`);
+            });
+            
+            updateStatus('✅ HTTPS转换测试完成，查看日志', 'success');
+        }
+        
+        // 检查WebSocket状态
+        function inspectWebSocket() {
+            if (!csInstance) {
+                updateStatus('❌ 客服组件未初始化', 'error');
+                return;
+            }
+            
+            log('🔍 WebSocket状态检查:');
+            log(`- 连接状态: ${csInstance.ws ? csInstance.ws.readyState : '未连接'}`);
+            log(`- 用户ID: ${csInstance.config ? csInstance.config.userId : '未设置'}`);
+            log(`- 店铺ID: ${csInstance.config ? csInstance.config.shopId : '未设置'}`);
+            
+            if (csInstance.ws && csInstance.ws.readyState === WebSocket.OPEN) {
+                updateStatus('✅ WebSocket连接正常', 'success');
+            } else {
+                updateStatus('⚠️ WebSocket连接异常', 'warning');
+            }
+        }
+        
+        // 监听控制台中的关键消息
+        const originalConsoleLog = console.log;
+        console.log = function(...args) {
+            originalConsoleLog.apply(console, args);
+            const message = args.join(' ');
+            
+            // 捕获关键的客服系统消息
+            if (message.includes('📷') || message.includes('🖼️') || 
+                message.includes('multimedia_message') || message.includes('未知消息类型')) {
+                log(`Console: ${message}`, message.includes('未知消息类型') ? 'error' : 'info');
+            }
+        };
+        
+        // 页面加载完成
+        document.addEventListener('DOMContentLoaded', function() {
+            log('🔧 图片上传修复测试页面已加载');
+            checkProtocol();
+            updateStatus('请点击"启动客服组件"开始测试', 'info');
+        });
+    </script>
+</body>
+</html>

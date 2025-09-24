@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI意图识别测试 - QuickTalk</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .test-container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            max-width: 600px;
+            width: 90%;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: 500;
+        }
+
+        input, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+        }
+
+        textarea {
+            height: 100px;
+            resize: vertical;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            width: 100%;
+            margin-bottom: 10px;
+            transition: transform 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+        }
+
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 6px;
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+        }
+
+        .back-link {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .back-link a {
+            color: #667eea;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🎯 AI意图识别测试</h1>
+        
+        <div class="form-group">
+            <label for="testMessage">测试消息:</label>
+            <textarea id="testMessage" placeholder="请输入要测试的消息...">你好，我想了解一下营业时间</textarea>
+        </div>
+        
+        <button onclick="testIntent()">🔍 识别意图</button>
+        <button onclick="loadExample()">📝 加载示例</button>
+        
+        <div id="result" class="result" style="display: none;"></div>
+        
+        <div class="back-link">
+            <a href="/ai-chat-demo">← 返回AI演示</a>
+        </div>
+    </div>
+
+    <script>
+        async function testIntent() {
+            const message = document.getElementById('testMessage').value.trim();
+            const resultDiv = document.getElementById('result');
+            
+            if (!message) {
+                alert('请输入测试消息');
+                return;
+            }
+            
+            try {
+                resultDiv.style.display = 'block';
+                resultDiv.innerHTML = '🔄 正在分析...';
+                
+                const response = await fetch('/api/ai/test-intent', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    const intent = result.intent;
+                    resultDiv.innerHTML = `
+                        <h3>✅ 识别结果</h3>
+                        <p><strong>消息:</strong> ${result.message}</p>
+                        <p><strong>意图:</strong> ${intent.name}</p>
+                        <p><strong>描述:</strong> ${intent.description}</p>
+                        <p><strong>置信度:</strong> ${(intent.confidence * 100).toFixed(1)}%</p>
+                        <p><strong>匹配模式:</strong> ${intent.patterns?.join(', ') || '无'}</p>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <h3>❌ 识别失败</h3>
+                        <p>${result.message}</p>
+                    `;
+                }
+                
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <h3>🚨 错误</h3>
+                    <p>请求失败: ${error.message}</p>
+                `;
+            }
+        }
+        
+        function loadExample() {
+            const examples = [
+                '你好，请问有什么可以帮助您的吗？',
+                '我想咨询一下产品信息',
+                '我对你们的服务非常不满意',
+                '谢谢，你们的服务真的很棒',
+                '再见，谢谢你的帮助',
+                '我要投诉',
+                '营业时间是几点到几点？',
+                '可以退货吗？',
+                '支付方式有哪些？',
+                '转人工客服'
+            ];
+            
+            const randomExample = examples[Math.floor(Math.random() * examples.length)];
+            document.getElementById('testMessage').value = randomExample;
+        }
+        
+        // 页面加载时加载一个示例
+        window.onload = function() {
+            loadExample();
+        };
+    </script>
+</body>
+</html>

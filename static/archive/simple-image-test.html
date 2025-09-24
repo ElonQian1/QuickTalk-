@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图片上传简单测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .upload-area {
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            margin: 20px 0;
+            cursor: pointer;
+        }
+        .upload-area:hover {
+            border-color: #007bff;
+            background: #f8f9fa;
+        }
+        .debug-log {
+            max-height: 300px;
+            overflow-y: auto;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        .image-preview {
+            max-width: 300px;
+            max-height: 300px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        .success {
+            color: #28a745;
+        }
+        .error {
+            color: #dc3545;
+        }
+        .warning {
+            color: #ffc107;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .clear-btn {
+            background: #6c757d;
+        }
+        .clear-btn:hover {
+            background: #545b62;
+        }
+    </style>
+</head>
+<body>
+    <h1>🖼️ 图片上传功能测试</h1>
+    
+    <div class="test-section">
+        <h3>第一步：测试文件上传API</h3>
+        <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+            <p>📁 点击选择图片文件</p>
+            <p style="font-size: 14px; color: #666;">支持 JPG, PNG, GIF 格式，最大 10MB</p>
+        </div>
+        <input type="file" id="fileInput" style="display: none;" accept="image/*" onchange="uploadFile(event)">
+        
+        <div>
+            <button onclick="testAPI()">🔧 测试API连通性</button>
+            <button class="clear-btn" onclick="clearLog()">🧹 清空日志</button>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h3>第二步：测试图片显示</h3>
+        <div id="imagePreview"></div>
+        <button onclick="testImageDisplay()" disabled id="testDisplayBtn">🖼️ 测试图片显示</button>
+    </div>
+    
+    <div class="test-section">
+        <h3>第三步：测试消息发送</h3>
+        <div>
+            <input type="text" id="conversationInput" placeholder="会话ID (可选)" style="width: 300px; padding: 8px;">
+            <button onclick="testMessageSend()" disabled id="testMessageBtn">📤 发送图片消息</button>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h3>调试日志</h3>
+        <div id="debugLog" class="debug-log">测试页面已加载，请开始测试...<br></div>
+    </div>
+
+    <script>
+        let currentFileId = null;
+        let currentFileInfo = null;
+        
+        function log(message, type = 'info') {
+            const debugLog = document.getElementById('debugLog');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : type === 'warning' ? 'warning' : '';
+            debugLog.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span><br>`;
+            debugLog.scrollTop = debugLog.scrollHeight;
+            console.log(message);
+        }
+        
+        function clearLog() {
+            document.getElementById('debugLog').innerHTML = '日志已清空<br>';
+        }
+        
+        async function testAPI() {
+            log('🔍 测试API连通性...');
+            
+            try {
+                // 测试基本连接
+                const response = await fetch('/');
+                if (response.ok) {
+                    log('✅ 服务器连接正常', 'success');
+                } else {
+                    log(`⚠️ 服务器响应异常: ${response.status}`, 'warning');
+                }
+                
+                // 测试文件API端点
+                const fileApiResponse = await fetch('/api/files/file/test', {
+                    method: 'GET'
+                });
+                
+                if (fileApiResponse.status === 404) {
+                    log('✅ 文件API端点存在 (404是正常的，因为文件不存在)', 'success');
+                } else {
+                    log(`ℹ️ 文件API响应: ${fileApiResponse.status}`);
+                }
+                
+            } catch (error) {
+                log(`❌ API测试失败: ${error.message}`, 'error');
+            }
+        }
+        
+        async function uploadFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            log(`📁 选择文件: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
+            
+            // 检查文件类型
+            if (!file.type.startsWith('image/')) {
+                log('❌ 错误：只允许上传图片文件', 'error');
+                return;
+            }
+            
+            // 检查文件大小
+            if (file.size > 10 * 1024 * 1024) {
+                log('❌ 错误：文件大小超过10MB限制', 'error');
+                return;
+            }
+            
+            try {
+                log('📤 开始上传文件...');
+                
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                const response = await fetch('/api/files/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                log(`📥 上传响应: ${JSON.stringify(result, null, 2)}`);
+                
+                if (result.success && result.file) {
+                    currentFileId = result.file.id;
+                    currentFileInfo = result.file;
+                    log(`✅ 文件上传成功！文件ID: ${currentFileId}`, 'success');
+                    
+                    // 启用后续测试按钮
+                    document.getElementById('testDisplayBtn').disabled = false;
+                    document.getElementById('testMessageBtn').disabled = false;
+                    
+                    // 直接使用上传响应中的URL显示图片
+                    const imageUrl = result.file.url;
+                    log(`🔗 图片URL: ${imageUrl}`, 'success');
+                    
+                    // 创建图片预览
+                    const previewDiv = document.getElementById('imagePreview');
+                    previewDiv.innerHTML = `
+                        <p>图片预览:</p>
+                        <img src="${imageUrl}" class="image-preview" onclick="window.open('${imageUrl}', '_blank')" alt="图片预览">
+                        <p style="font-size: 12px; color: #666;">点击图片可在新窗口查看大图</p>
+                    `;
+                    
+                    log('✅ 图片显示测试成功！(使用上传响应中的URL)', 'success');
+                    
+                } else {
+                    log(`❌ 文件上传失败: ${result.error}`, 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ 上传过程出错: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testImageDisplay() {
+            if (!currentFileId) {
+                log('❌ 没有可用的文件ID，请先上传文件', 'error');
+                return;
+            }
+            
+            log(`🖼️ 测试图片显示，文件ID: ${currentFileId}`);
+            
+            try {
+                // 测试获取文件信息 - 修正URL路径
+                const infoResponse = await fetch(`/api/files/file/${currentFileId}?info=true`);
+                const infoResult = await infoResponse.json();
+                
+                log(`📋 文件信息响应: ${JSON.stringify(infoResult, null, 2)}`);
+                
+                if (infoResult.success && infoResult.file) {
+                    const imageUrl = infoResult.file.url;
+                    log(`🔗 图片URL: ${imageUrl}`, 'success');
+                    
+                    // 创建图片预览
+                    const previewDiv = document.getElementById('imagePreview');
+                    previewDiv.innerHTML = `
+                        <p>图片预览:</p>
+                        <img src="${imageUrl}" class="image-preview" onclick="window.open('${imageUrl}', '_blank')" alt="图片预览">
+                        <p style="font-size: 12px; color: #666;">点击图片可在新窗口查看大图</p>
+                    `;
+                    
+                    log('✅ 图片显示测试成功！', 'success');
+                    
+                } else {
+                    log(`❌ 获取文件信息失败: ${infoResult.error}`, 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ 图片显示测试失败: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testMessageSend() {
+            if (!currentFileId) {
+                log('❌ 没有可用的文件ID，请先上传文件', 'error');
+                return;
+            }
+            
+            const conversationInput = document.getElementById('conversationInput');
+            let conversationId = conversationInput.value.trim();
+            
+            if (!conversationId) {
+                // 生成一个测试用的会话ID
+                const timestamp = Date.now();
+                const userRandom = Math.random().toString(36).substr(2, 9);
+                conversationId = `shop_1757591780450_1_user_${userRandom}_${timestamp}`;
+                conversationInput.value = conversationId;
+            }
+            
+            log(`📤 测试发送图片消息，会话ID: ${conversationId}`);
+            
+            try {
+                const messageData = {
+                    fileId: currentFileId,
+                    messageType: 'image',
+                    content: '[测试图片]'
+                };
+                
+                log(`📋 消息数据: ${JSON.stringify(messageData, null, 2)}`);
+                
+                const response = await fetch(`/api/conversations/${conversationId}/messages/media`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(messageData)
+                });
+                
+                const result = await response.json();
+                log(`📥 消息发送响应: ${JSON.stringify(result, null, 2)}`);
+                
+                if (result.success) {
+                    log('✅ 图片消息发送成功！', 'success');
+                    log(`📨 WebSocket推送状态: ${result.webSocketPushed ? '成功' : '失败'}`, 
+                        result.webSocketPushed ? 'success' : 'warning');
+                } else {
+                    log(`❌ 图片消息发送失败: ${result.error}`, 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ 消息发送过程出错: ${error.message}`, 'error');
+            }
+        }
+        
+        // 页面加载完成时自动测试API
+        window.onload = function() {
+            log('🚀 页面加载完成，开始初始化测试');
+            testAPI();
+        };
+    </script>
+</body>
+</html>
