@@ -12,7 +12,7 @@ services:
       - "3030:3030"
     environment:
       - RUST_LOG=info
-      - DATABASE_URL=sqlite:/app/data/database.sqlite
+      - DATABASE_URL=sqlite:/app/data/quicktalk.sqlite  # 统一命名 (旧 database.sqlite 已废弃)
       - NODE_SERVER_URL=http://quicktalk-nodejs:3031
     volumes:
       - quicktalk-data:/app/data

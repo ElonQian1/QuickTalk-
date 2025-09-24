@@ -64,7 +64,8 @@ EXPOSE 3030
 
 # 设置环境变量
 ENV RUST_LOG=info
-ENV DATABASE_URL=sqlite:/app/data/database.sqlite
+# 统一命名 (旧 database.sqlite 已废弃)
+ENV DATABASE_URL=sqlite:/app/data/quicktalk.sqlite
 
 # 启动应用
 CMD ["./quicktalk-rust"]

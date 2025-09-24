@@ -2,6 +2,7 @@
 
 # QuickTalk 纯Rust架构部署脚本
 # 专为仅支持Rust的服务器环境设计
+# 2025-09-24: 已废弃旧路径 data/database.sqlite，统一使用 backend/quicktalk.sqlite (源码内) 或 /opt/quicktalk/data/quicktalk.sqlite (部署时)
 
 set -e
 
@@ -19,6 +20,7 @@ echo "  架构: 纯Rust (无Node.js/Nginx依赖)"
 echo "  域名: $DOMAIN"
 echo "  端口: $PORT"
 echo "  安装目录: $INSTALL_DIR"
+echo "  主数据库: $INSTALL_DIR/data/quicktalk.sqlite"
 echo ""
 
 # 检查Rust环境
@@ -50,6 +52,11 @@ setup_system() {
     
     # 创建应用目录结构
     sudo mkdir -p $INSTALL_DIR/{bin,data,uploads,logs,static,backups}
+    # 兼容旧目录结构: 如果发现 data/database.sqlite 则迁移重命名为 quicktalk.sqlite
+    if [ -f "$INSTALL_DIR/data/database.sqlite" ] && [ ! -f "$INSTALL_DIR/data/quicktalk.sqlite" ]; then
+        echo "🔁 迁移旧数据库文件 database.sqlite -> quicktalk.sqlite"
+        sudo mv "$INSTALL_DIR/data/database.sqlite" "$INSTALL_DIR/data/quicktalk.sqlite"
+    fi
     sudo chown -R $SERVICE_USER:$SERVICE_USER $INSTALL_DIR
     
     # 创建配置目录
@@ -113,7 +120,8 @@ create_config() {
     sudo tee /etc/quicktalk/config.env > /dev/null <<EOF
 # QuickTalk 纯Rust配置
 RUST_LOG=info
-DATABASE_URL=sqlite:$INSTALL_DIR/data/database.sqlite
+    # 统一数据库路径 (旧: database.sqlite 已废弃)
+    DATABASE_URL=sqlite:$INSTALL_DIR/data/quicktalk.sqlite
 PORT=$PORT
 DOMAIN=$DOMAIN
 STATIC_DIR=$INSTALL_DIR/static
@@ -133,7 +141,12 @@ KEEPALIVE_TIMEOUT=60
 EOF
     
     # 初始化数据库
-    sudo -u $SERVICE_USER touch $INSTALL_DIR/data/database.sqlite
+    # 如果仍有遗留 database.sqlite 文件则执行一次迁移
+    if [ -f "$INSTALL_DIR/data/database.sqlite" ] && [ ! -f "$INSTALL_DIR/data/quicktalk.sqlite" ]; then
+        echo "🔁 检测到遗留 database.sqlite，重命名为 quicktalk.sqlite"
+        sudo mv "$INSTALL_DIR/data/database.sqlite" "$INSTALL_DIR/data/quicktalk.sqlite"
+    fi
+    sudo -u $SERVICE_USER touch $INSTALL_DIR/data/quicktalk.sqlite
     
     echo "✅ 配置创建完成"
 }
@@ -205,7 +218,8 @@ port = $PORT
 workers = 4
 
 [database]
-url = "sqlite:$INSTALL_DIR/data/database.sqlite"
+# 统一数据库文件 quicktalk.sqlite (旧 database.sqlite 已废弃)
+url = "sqlite:$INSTALL_DIR/data/quicktalk.sqlite"
 max_connections = 100
 timeout = 30
 

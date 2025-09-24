@@ -69,8 +69,9 @@ WORKDIR /opt/quicktalk
 EXPOSE 3030
 
 # 设置环境变量
+# 统一命名 (旧 database.sqlite 已废弃)
 ENV RUST_LOG=info \
-    DATABASE_URL=sqlite:/opt/quicktalk/data/database.sqlite \
+    DATABASE_URL=sqlite:/opt/quicktalk/data/quicktalk.sqlite \
     STATIC_DIR=/opt/quicktalk/static \
     UPLOAD_DIR=/opt/quicktalk/uploads \
     LOG_DIR=/opt/quicktalk/logs \

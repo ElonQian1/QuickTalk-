@@ -2,6 +2,7 @@
 
 # QuickTalk 一键部署脚本 (Linux)
 # 支持纯Rust架构和混合架构
+# 2025-09-24: 统一数据库文件名为 quicktalk.sqlite；旧 data/database.sqlite 已废弃，部署过程将自动迁移。
 
 set -e
 
@@ -17,6 +18,7 @@ echo "📋 部署配置："
 echo "  模式: $DEPLOY_MODE"
 echo "  域名: $DOMAIN"
 echo "  端口: $PORT"
+echo "  主数据库文件: /opt/quicktalk/data/quicktalk.sqlite"
 echo ""
 
 # 检查系统依赖
@@ -121,14 +123,19 @@ create_config() {
     sudo tee /etc/quicktalk/env > /dev/null <<EOF
 # QuickTalk 环境配置
 NODE_ENV=production
-DATABASE_URL=sqlite:/opt/quicktalk/data/database.sqlite
+    # 统一数据库路径 (旧 database.sqlite 已废弃)
+    DATABASE_URL=sqlite:/opt/quicktalk/data/quicktalk.sqlite
 PORT=$PORT
 DOMAIN=$DOMAIN
 RUST_LOG=info
 EOF
     
-    # 创建数据库
-    sudo -u quicktalk sqlite3 /opt/quicktalk/data/database.sqlite "CREATE TABLE IF NOT EXISTS _placeholder (id INTEGER);"
+        # 数据库初始化与旧文件兼容迁移
+        if [ -f /opt/quicktalk/data/database.sqlite ] && [ ! -f /opt/quicktalk/data/quicktalk.sqlite ]; then
+            echo "🔁 迁移旧数据库文件 database.sqlite -> quicktalk.sqlite"
+            sudo mv /opt/quicktalk/data/database.sqlite /opt/quicktalk/data/quicktalk.sqlite
+        fi
+        sudo -u quicktalk sqlite3 /opt/quicktalk/data/quicktalk.sqlite "CREATE TABLE IF NOT EXISTS _placeholder (id INTEGER);"
 }
 
 # 创建systemd服务
@@ -287,7 +294,7 @@ show_result() {
     fi
     echo "📁 重要目录："
     echo "  应用: /opt/quicktalk/app"
-    echo "  数据: /opt/quicktalk/data"
+    echo "  数据: /opt/quicktalk/data (主库: quicktalk.sqlite)"
     echo "  日志: /opt/quicktalk/logs"
     echo "  配置: /etc/quicktalk"
 }

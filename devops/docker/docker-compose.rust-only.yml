@@ -13,9 +13,8 @@ services:
       - "3030:3030"
     environment:
       - RUST_LOG=info
-      - DATABASE_URL=sqlite:/app/data/database.sqlite
-      # 不依赖Node.js微服务
-      - STANDALONE_MODE=true
+      - DATABASE_URL=sqlite:/app/data/quicktalk.sqlite  # 统一命名 (旧 database.sqlite 已废弃)
+      - STANDALONE_MODE=true  # 不依赖Node.js微服务
     volumes:
       - quicktalk-data:/app/data
       - quicktalk-uploads:/app/uploads
