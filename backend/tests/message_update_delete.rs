@@ -1,6 +1,6 @@
 use quicktalk_pure_rust::domain::conversation::{MessageId, Message};
-use quicktalk_pure_rust::application::update_message::{UpdateMessageUseCase, UpdateMessageInput, UpdateMessageError};
-use quicktalk_pure_rust::application::delete_message::{DeleteMessageUseCase, DeleteMessageInput, DeleteMessageError};
+use quicktalk_pure_rust::application::usecases::update_message::{UpdateMessageUseCase, UpdateMessageInput, UpdateMessageError};
+use quicktalk_pure_rust::application::usecases::delete_message::{DeleteMessageUseCase, DeleteMessageInput, DeleteMessageError};
 
 // 由于 update/delete 用例依赖 MessageRepository trait 的 SQLx 实现而非 InMemoryConversationRepo（未实现 MessageRepository），
 // 这里进行纯领域层构造不足以执行（需要实际数据库）。为保持轻量，当前测试聚焦错误分支/空内容校验逻辑：

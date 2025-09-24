@@ -1,5 +1,5 @@
 // domain types not directly needed in this integration test
-use quicktalk_pure_rust::application::send_message::{SendMessageUseCase, SendMessageInput};
+use quicktalk_pure_rust::application::usecases::send_message::{SendMessageUseCase, SendMessageInput};
 use quicktalk_pure_rust::db::conversation_repository_sqlx::SqlxConversationRepository;
 use chrono::Utc;
 use sqlx::{SqlitePool, Executor, Row};

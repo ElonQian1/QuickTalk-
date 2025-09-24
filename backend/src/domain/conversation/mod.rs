@@ -1,10 +1,22 @@
 use chrono::{DateTime, Utc};
 
 // Strongly typed IDs
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[serde(transparent)]
 pub struct ConversationId(pub String);
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[serde(transparent)]
 pub struct MessageId(pub String);
+
+impl From<String> for ConversationId { fn from(s: String) -> Self { Self(s) } }
+impl From<&str> for ConversationId { fn from(s: &str) -> Self { Self(s.to_string()) } }
+impl From<ConversationId> for String { fn from(v: ConversationId) -> Self { v.0 } }
+impl AsRef<str> for ConversationId { fn as_ref(&self) -> &str { &self.0 } }
+
+impl From<String> for MessageId { fn from(s: String) -> Self { Self(s) } }
+impl From<&str> for MessageId { fn from(s: &str) -> Self { Self(s.to_string()) } }
+impl From<MessageId> for String { fn from(v: MessageId) -> Self { v.0 } }
+impl AsRef<str> for MessageId { fn as_ref(&self) -> &str { &self.0 } }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SenderType { Customer, Agent }

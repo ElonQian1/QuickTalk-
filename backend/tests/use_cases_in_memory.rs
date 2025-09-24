@@ -1,8 +1,8 @@
 use chrono::Utc;
 use quicktalk_pure_rust::domain::conversation::*;
-use quicktalk_pure_rust::application::send_message::{SendMessageUseCase, SendMessageInput};
-use quicktalk_pure_rust::application::update_message::{UpdateMessageUseCase, UpdateMessageInput};
-use quicktalk_pure_rust::application::delete_message::{DeleteMessageUseCase, DeleteMessageInput};
+use quicktalk_pure_rust::application::usecases::send_message::{SendMessageUseCase, SendMessageInput};
+use quicktalk_pure_rust::application::usecases::update_message::{UpdateMessageUseCase, UpdateMessageInput};
+use quicktalk_pure_rust::application::usecases::delete_message::{DeleteMessageUseCase, DeleteMessageInput};
 use quicktalk_pure_rust::application::events::serialization::serialize_event;
 use quicktalk_pure_rust::db::in_memory::InMemoryMessageRepository;
 use quicktalk_pure_rust::domain::conversation::InMemoryConversationRepo;

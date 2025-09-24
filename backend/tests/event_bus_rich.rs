@@ -1,4 +1,4 @@
-use quicktalk_pure_rust::application::send_message::{SendMessageUseCase, SendMessageInput};
+use quicktalk_pure_rust::application::usecases::send_message::{SendMessageUseCase, SendMessageInput};
 use quicktalk_pure_rust::db::conversation_repository_sqlx::SqlxConversationRepository;
 use quicktalk_pure_rust::application::event_bus_rich::EventBusWithDb;
 use chrono::Utc;

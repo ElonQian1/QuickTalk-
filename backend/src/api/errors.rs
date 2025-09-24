@@ -2,7 +2,7 @@ use axum::{response::{IntoResponse, Response}, http::StatusCode, Json};
 use serde::Serialize;
 use crate::types::ApiResponse;
 use crate::domain::conversation::{DomainError, RepoError};
-use crate::application::send_message::UseCaseError;
+use crate::application::usecases::send_message::UseCaseError;
 
 #[derive(Debug, Serialize)]
 #[allow(dead_code)] // 未来用于字段级错误返回

@@ -1,5 +1,5 @@
 use quicktalk_pure_rust::domain::conversation::{Conversation, ConversationId, InMemoryConversationRepo};
-use quicktalk_pure_rust::application::send_message::{SendMessageUseCase, SendMessageInput, UseCaseError};
+use quicktalk_pure_rust::application::usecases::send_message::{SendMessageUseCase, SendMessageInput, UseCaseError};
 use chrono::Utc;
 
 #[tokio::test]

@@ -26,12 +26,12 @@ use crate::bootstrap::app_state::AppState;
 use crate::types::{ApiResponse, Conversation, Message, ConversationSummary};
 use crate::types::dto::conversations::{CreateConversationRequest, UpdateConversationStatusRequest};
 use crate::types::dto::messages::{CreateMessageRequest, UpdateMessageRequest};
-use crate::application::send_message::{SendMessageUseCase, SendMessageInput};
-use crate::application::update_message::{UpdateMessageUseCase, UpdateMessageInput, UpdateMessageError};
-use crate::application::delete_message::{DeleteMessageUseCase, DeleteMessageInput, DeleteMessageError};
+use crate::application::usecases::send_message::{SendMessageUseCase, SendMessageInput};
+use crate::application::usecases::update_message::{UpdateMessageUseCase, UpdateMessageInput, UpdateMessageError};
+use crate::application::usecases::delete_message::{DeleteMessageUseCase, DeleteMessageInput, DeleteMessageError};
 use crate::application::event_bus_rich::EventBusWithDb;
-use crate::application::create_conversation::{CreateConversationUseCase, CreateConversationInput, CreateConversationError};
-use crate::application::update_conversation_status::{UpdateConversationStatusUseCase, UpdateConversationStatusInput, UpdateConversationStatusError};
+use crate::application::usecases::create_conversation::{CreateConversationUseCase, CreateConversationInput, CreateConversationError};
+use crate::application::usecases::update_conversation_status::{UpdateConversationStatusUseCase, UpdateConversationStatusInput, UpdateConversationStatusError};
 // DomainError 映射已通过 ApiError From 实现，不直接使用
 use crate::db::conversation_repository_sqlx::SqlxConversationRepository;
 use crate::db::message_read_repository_sqlx::MessageReadRepositorySqlx;

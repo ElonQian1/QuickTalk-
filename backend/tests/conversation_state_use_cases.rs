@@ -1,5 +1,5 @@
 use quicktalk_pure_rust::domain::conversation::{InMemoryConversationRepo, ConversationId, Conversation};
-use quicktalk_pure_rust::application::update_conversation_status::{UpdateConversationStatusUseCase, UpdateConversationStatusInput, UpdateConversationStatusError};
+use quicktalk_pure_rust::application::usecases::update_conversation_status::{UpdateConversationStatusUseCase, UpdateConversationStatusInput, UpdateConversationStatusError};
 use chrono::Utc;
 
 #[tokio::test]
