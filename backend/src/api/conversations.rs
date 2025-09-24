@@ -18,7 +18,6 @@
 // - 重大结构变更：提升 version -> v2 并在文档中列出差异
 // 注意: 旧的 "new_message" 广播已移除
 use axum::{extract::{Path, Query, State}, http::StatusCode, response::Json};
-use sqlx::Row;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -34,7 +33,6 @@ use crate::application::usecases::create_conversation::{CreateConversationUseCas
 use crate::application::usecases::update_conversation_status::{UpdateConversationStatusUseCase, UpdateConversationStatusInput, UpdateConversationStatusError};
 // DomainError 映射已通过 ApiError From 实现，不直接使用
 use crate::db::conversation_repository_sqlx::SqlxConversationRepository;
-use crate::db::message_read_repository_sqlx::MessageReadRepositorySqlx;
 use crate::db::message_repository_sqlx::MessageRepositorySqlx;
 use crate::domain::conversation::{ConversationId, ConversationRepository, MessageReadRepository}; // for repository trait methods
 use crate::api::errors::{ApiError, ApiResult, success, success_empty};
@@ -142,7 +140,8 @@ pub async fn send_message(
         return Err(ApiError::bad_request("conversation_id mismatch"));
     }
     let repo = (*state.conversation_repo).clone();
-    let use_case = SendMessageUseCase::new(repo);
+    let publisher = (*state.event_publisher).clone();
+    let use_case = SendMessageUseCase::new(repo, publisher);
     let input = SendMessageInput {
         conversation_id: request.conversation_id.clone(),
         sender_id: request.sender_id.clone(),

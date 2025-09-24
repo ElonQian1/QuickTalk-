@@ -380,47 +380,71 @@ cargo test --test integration
 ### 分层说明
 | 层 | 目录 | 角色 | 当前状态 |
 |----|------|------|----------|
-| 接口层 (Interface) | `src/api`, `src/ws`, `src/web.rs` | 解析HTTP/WS请求、DTO、路由装配 | 已存在（待逐步瘦身） |
-| 应用层 (Application) | `src/application` | 用例编排、事务/授权、事件派发 | 初步成型（send_message等） |
-| 领域层 (Domain) | `src/domain` | 聚合/实体/值对象/不变式/领域事件 | 新结构构建中 (conversation 首批) |
-| 基础设施 (Infrastructure) | `src/db` | SQLx 查询、Repo实现 | 已存在（需适配新接口） |
-| 兼容层 (Legacy / ACL) | `src/domain_legacy` | 旧模型与过渡层 | 临时保留，后续删除 |
+| 接口层 (Interface) | `src/api`, `src/ws`, `src/web.rs` | 解析HTTP/WS请求、DTO、路由装配 | 进行中：主要路径已去除直接 SQL |
+| 应用层 (Application) | `src/application` | 用例编排、事务/授权、事件派发 | Send / Update / Delete / Status 用例完成 |
+| 领域层 (Domain) | `src/domain` | 聚合/实体/值对象/不变式/领域事件 | Conversation 聚合 + 事件模型已建立 |
+| 基础设施 (Infrastructure) | `src/db` | SQLx 查询、Repo实现 | 读/写/读模型分离实现完成 |
+| 兼容层 (Legacy / ACL) | `src/domain_legacy` | 旧模型与过渡层 | 待清理（计划分阶段移除） |
 
-### 新 `conversation` 聚合结构
+### 聚合结构（当前简化形式）
 ```
-backend/src/domain/
-  shared/
-    ids.rs        # 强类型ID: ConversationId / MessageId / ...
-    errors.rs     # DomainError 定义
-    events.rs     # DomainEvent & DomainEventKind
+domain/
   conversation/
-    model/
-      aggregate.rs  # Conversation 聚合 + 不变式 + 事件收集
-      message.rs    # Message 实体
-    repository.rs   # ConversationRepository trait
-    mod.rs          # 兼容旧路径的过渡接口 (后续精简)
+    mod.rs  # Conversation / Message / DomainEvent / Repos Trait + 内存实现
 ```
 
-### 事件策略
-- 聚合内部行为(append_message) 直接收集事件 -> `pending_events`
-- 用例从 `take_events()` 取出后统一派发（后续将接入轻量 EventBus）
+后续将拆分：`aggregate.rs`, `message.rs`, `events.rs`, `repository.rs` 以提升可读性与测试粒度。
 
-### 不变式示例
-- 仅 Active 会话允许追加消息
-- 消息内容不能为空
-- 会话关闭后不能追加新消息
+### 事件驱动现状
+| 项目 | 状态 | 说明 |
+|------|------|------|
+| 聚合事件收集 | ✅ | `append_message` 推入 pending_events |
+| UseCase 派发 | ✅ | `SendMessageUseCase` 注入发布器，持久化成功后发布 |
+| InMemoryEventBus | ✅ | 简单 JSON 广播（测试/回退） |
+| EventBusWithDb | ✅ | 附带消息内容富化 + 可选事件日志持久化 |
+| WebSocket Envelope v1 | ✅ | 统一 `{version,type,event_id,emitted_at,data}` |
+| 事件日志持久化 | ✅ | 失败时不影响主流程 |
+| 更新/删除消息事件 | 部分 | handler 内直接使用 bus（后续用例化） |
+| Conversation 状态变更事件 | ✅ | close/reopen 事件类型已定义，待完整用例接入 |
 
-### 当前 TODO 跟踪
-- [x] Conversation 聚合重建
-- [x] 事件收集机制雏形
-- [x] SQLx ConversationRepository 适配
-- [ ] MessageRepository 适配与软删除实现
-- [ ] SendMessage 用例完全去除 legacy 类型引用
-- [ ] 事件派发总线 (内存)
-- [ ] 删除 domain_legacy 冗余模块（分阶段）
-- [ ] 更多领域测试：关闭/重开/非法消息附加
+### 已完成里程碑
+1. 强类型 ID & 不变式：防止跨会话追加错误消息
+2. 聚合事件缓存 + 用例统一发布顺序（先持久化后广播）
+3. SQLx 仓储：读写分离 + ReadModel（搜索/摘要）
+4. 消息发送、更新、删除、会话状态更新均用 UseCase 封装（发送已事件化）
+5. 富事件总线对消息类事件自动附带最新消息 JSON
+6. 测试：事件生成 + 发布器调用覆盖
 
-### 过渡期注意事项
-1. `domain_legacy` 仍被部分 API handler 间接引用，合并前避免直接删除
-2. 新旧 ID 类型不兼容时，可在应用层增加 `From<String> for ConversationId` 等适配（已实现）
-3. 接口返回 JSON 时，强类型 newtype 会通过 `#[serde(transparent)]` 保持原字符串输出
+### Roadmap（下一阶段）
+| 优先级 | 任务 | 目标 | 说明 |
+|--------|------|------|------|
+| P0 | 拆分 conversation 模块文件 | 提升清晰度 | 减少单文件体积 |
+| P0 | 清理 `domain_legacy` | 移除冗余 | 降低概念噪音 |
+| P1 | 统一事件发布路径 | 更新/删除消息改为用例内发布 | 减少 handler 逻辑 |
+| P1 | 聚合级单元测试补齐 | 覆盖状态迁移/错误分支 | 提高回归信心 |
+| P1 | 读模型查询用例化 | API 更薄 | 确保分层一致 |
+| P2 | Event Replay 工具 | 调试/补偿 | 基于 event_log |
+| P2 | 事件过滤/订阅分组 | 按 shop / conversation | 优化客户端负载 |
+| P2 | 简单缓存层 | 降低数据库压力 | LRU / ArcSwap 方案 |
+
+### 当前测试覆盖
+| 测试 | 目标 | 状态 |
+|------|------|------|
+| `send_message_usecase_events` | UseCase 事件生成 | ✅ |
+| `send_message_event_publisher_called` | 发布器被调用 | ✅ |
+| 聚合状态迁移测试 | close / reopen / 校验不变式 | ⏳ |
+| 更新/删除消息事件测试 | 生成与发布 | ⏳ |
+| 读模型查询测试 | 搜索/摘要正确性 | ⏳ |
+
+### 兼容性与失败语义
+1. 事件发布失败（广播/持久化）不会回滚消息写入（保证主路径可用）
+2. 客户端可使用 `event_id` 做去重；未实现重放时不保证客户端一定收到全部事件（后续由 replay 补全）
+3. 旧客户端忽略 Envelope 新元数据字段不受影响
+
+### 后续可选增强
+- 为事件添加持久化幂等 key（`event_id` + 类型）防止重复存储
+- 引入内存订阅路由（HashMap<ConversationId, Sender>）精准推送
+- 构建 `events.md` 示例文档（列出全部事件结构）
+
+---
+> 查看事件示例：`cargo test -- --nocapture` （未来将补充到 `docs/events.md`）
