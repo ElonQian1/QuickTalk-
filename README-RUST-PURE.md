@@ -413,10 +413,12 @@ backend/src/domain/
 ### 当前 TODO 跟踪
 - [x] Conversation 聚合重建
 - [x] 事件收集机制雏形
-- [ ] 将 repository SQL 实现适配新 trait
-- [ ] 迁移 message 更新/删除逻辑到应用层 + 事件
-- [ ] 移除 `domain_legacy` 中未再引用的模块
-- [ ] 编写 InMemory Repo 更多测试 (状态迁移 + 异常路径)
+- [x] SQLx ConversationRepository 适配
+- [ ] MessageRepository 适配与软删除实现
+- [ ] SendMessage 用例完全去除 legacy 类型引用
+- [ ] 事件派发总线 (内存)
+- [ ] 删除 domain_legacy 冗余模块（分阶段）
+- [ ] 更多领域测试：关闭/重开/非法消息附加
 
 ### 过渡期注意事项
 1. `domain_legacy` 仍被部分 API handler 间接引用，合并前避免直接删除
