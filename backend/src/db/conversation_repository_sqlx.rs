@@ -53,13 +53,14 @@ impl ConversationRepository for SqlxConversationRepository {
     }
 
     async fn save(&self, convo: &Conversation) -> Result<(), RepoError> {
-        // Upsert basic conversation fields
+        // Upsert conversation status/updated_at
         sqlx::query("UPDATE conversations SET status = ?, updated_at = ? WHERE id = ?")
             .bind(&convo.status)
             .bind(&convo.updated_at)
             .bind(&convo.id.0)
             .execute(&self.pool).await.map_err(|e| RepoError::Database(e.to_string()))?;
-        // Persist new messages (simple strategy: check existence by id)
+
+        // 按消息ID防重插入 (忽略已存在消息) —— 聚合 messages 作为真实来源
         for m in &convo.messages {
             sqlx::query("INSERT OR IGNORE INTO messages (id, conversation_id, sender_id, sender_type, content, message_type, timestamp, shop_id) VALUES (?, ?, ?, ?, ?, ?, ?, (SELECT shop_id FROM conversations WHERE id = ?))")
                 .bind(&m.id.0)
