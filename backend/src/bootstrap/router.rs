@@ -1,7 +1,6 @@
 use axum::{Router};
 use sqlx::SqlitePool;
-use std::sync::{Arc, Mutex};
-use std::collections::HashMap;
+use std::sync::Arc;
 use tokio::sync::broadcast;
 use tower_http::{cors::CorsLayer, services::ServeDir, trace::TraceLayer};
 
@@ -29,8 +28,7 @@ use axum::routing::{get, post, delete, put};
 
 pub async fn build_app(db: SqlitePool) -> Router {
     let (message_sender, _) = broadcast::channel(100);
-    let ws_connections = Arc::new(Mutex::new(HashMap::new()));
-    let state = Arc::new(AppState { db, ws_connections, message_sender });
+    let state = Arc::new(AppState::new(db, message_sender));
 
     Router::new()
         .route("/", get(web::serve_index))

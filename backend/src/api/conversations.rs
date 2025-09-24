@@ -46,7 +46,7 @@ pub async fn get_conversations(
     Query(params): Query<HashMap<String, String>>,
 ) -> ApiResult<Vec<Conversation>> {
     let shop_id = params.get("shop_id").map(|s| s.as_str());
-    let repo = SqlxConversationRepository { pool: state.db.clone() };
+    let repo = &state.conversation_repo; // reuse injected
     match repo.list(shop_id).await {
         Ok(convos) => {
             // strip domain-specific fields already aligned with API entity; domain aggregate currently identical shape (messages empty here)
@@ -71,7 +71,7 @@ pub async fn get_conversation_details(
     State(state): State<Arc<AppState>>,
     Path(conversation_id): Path<String>,
 ) -> ApiResult<Conversation> {
-    let repo = SqlxConversationRepository { pool: state.db.clone() };
+    let repo = &state.conversation_repo;
     match repo.find(&ConversationId(conversation_id.clone())).await {
         Ok(Some(c)) => success(Conversation {
             id: c.id.0,
@@ -90,7 +90,7 @@ pub async fn create_conversation(
     State(state): State<Arc<AppState>>,
     Json(request): Json<CreateConversationRequest>,
 ) -> ApiResult<Conversation> {
-    let repo = SqlxConversationRepository { pool: state.db.clone() };
+    let repo = (*state.conversation_repo).clone();
     let uc = CreateConversationUseCase::new(repo);
     let input = CreateConversationInput { shop_id: request.shop_id.clone(), customer_id: request.customer_id.clone() };
     match uc.exec(input).await {
@@ -113,7 +113,7 @@ pub async fn get_messages(
 ) -> ApiResult<Vec<Message>> {
     let limit: i64 = params.get("limit").and_then(|l| l.parse().ok()).unwrap_or(50);
     let offset: i64 = params.get("offset").and_then(|o| o.parse().ok()).unwrap_or(0);
-    let repo = MessageReadRepositorySqlx { pool: state.db.clone() };
+    let repo = &state.message_read_repo;
     let conv_id = ConversationId(conversation_id.clone());
     match repo.list_by_conversation(&conv_id, limit, offset).await {
         Ok(domain_messages) => {
@@ -141,7 +141,7 @@ pub async fn send_message(
     if conversation_id != request.conversation_id {
         return Err(ApiError::bad_request("conversation_id mismatch"));
     }
-    let repo = SqlxConversationRepository { pool: state.db.clone() };
+    let repo = (*state.conversation_repo).clone();
     let use_case = SendMessageUseCase::new(repo);
     let input = SendMessageInput {
         conversation_id: request.conversation_id.clone(),
@@ -152,28 +152,27 @@ pub async fn send_message(
     };
     match use_case.exec(input).await {
         Ok(out) => {
-            // 直接通过富事件总线发布（附带完整消息），再 SELECT 一次用于 HTTP 返回
-            let rich_bus = EventBusWithDb::new(state.message_sender.clone(), state.db.clone());
-            rich_bus.publish(out.events.clone()).await; // await 发布
-            // 为响应加载消息
-            match sqlx::query("SELECT * FROM messages WHERE id = ?")
-                .bind(&out.message_id)
-                .fetch_one(&state.db).await {
-                    Ok(row) => {
-                        let message = Message {
-                            id: row.get("id"),
-                            conversation_id: row.get("conversation_id"),
-                            sender_id: row.get("sender_id"),
-                            sender_type: row.get("sender_type"),
-                            content: row.get("content"),
-                            message_type: row.get("message_type"),
-                            timestamp: row.get("timestamp"),
-                            shop_id: row.try_get("shop_id").ok(),
-                        };
-                        return success(message, "Message sent successfully");
-                    }
-                    Err(e) => { tracing::error!(?e, "load persisted message failed"); return Err(ApiError::internal("Failed to load persisted message")); }
-                }
+            state.event_publisher.publish(out.events.clone()).await;
+            // 使用读取仓储获取刚刚写入的消息（代替直接 SQL）
+            let read_repo = &state.message_read_repo;
+            let conv_id = ConversationId(conversation_id.clone());
+            // 简单按最新一条过滤（可实现 find_by_id 但用现有接口需遍历）
+            let msgs = read_repo.list_by_conversation(&conv_id, 1, 0).await
+                .map_err(|_| ApiError::internal("Failed to load persisted message"))?;
+            if let Some(m) = msgs.last() {
+                let message = Message {
+                    id: m.id.0.clone(),
+                    conversation_id: m.conversation_id.0.clone(),
+                    sender_id: m.sender_id.clone(),
+                    sender_type: m.sender_type.as_str().to_string(),
+                    content: m.content.clone(),
+                    message_type: m.message_type.clone(),
+                    timestamp: m.timestamp,
+                    shop_id: None,
+                };
+                return success(message, "Message sent successfully");
+            }
+            Err(ApiError::internal("Message persisted but not retrievable"))
         }
         Err(e) => Err(ApiError::from(e))
     }
