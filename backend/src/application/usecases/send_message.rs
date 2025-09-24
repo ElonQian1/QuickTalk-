@@ -33,9 +33,10 @@ impl<R: ConversationRepository> SendMessageUseCase<R> {
             .ok_or(UseCaseError::NotFound)?;
         let sender_type = SenderType::from_str(&input.sender_type).ok_or(UseCaseError::InvalidSenderType)?;
         let msg_id = MessageId(uuid::Uuid::new_v4().to_string());
-        let ts = Utc::now(); // still generate timestamp for message
+        let ts = Utc::now();
         let msg = Message::new(msg_id.clone(), conv_id.clone(), input.sender_id.clone(), sender_type, input.content.clone(), input.message_type.clone(), ts)?;
         convo.append_message(msg).map_err(UseCaseError::Domain)?;
+        // NOTE: repo.save 需要访问聚合中的新增消息；事件派发顺序：持久化成功后再对外返回
         let events = convo.take_events();
         self.repo.save(&convo).await.map_err(|e| UseCaseError::Repo(e.to_string()))?;
         Ok(SendMessageOutput { message_id: msg_id.0, events })
