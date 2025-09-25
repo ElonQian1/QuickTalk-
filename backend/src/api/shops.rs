@@ -5,12 +5,28 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::bootstrap::app_state::AppState;
+use crate::auth::SessionExtractor; // 解析会话
+use tracing::info;
 use crate::types::{ApiResponse, Shop};
-use crate::types::dto::shops::{UpdateShopRequest};
+use crate::types::dto::shops::UpdateShopRequest;
+use crate::application::shops::usecases as shop_uc;
+
+// 内部工具：确保调用者是 super_admin
+async fn enforce_super_admin(state: &Arc<AppState>, admin_id: &str) -> Result<(), axum::http::StatusCode> {
+    let row = sqlx::query("SELECT role FROM admins WHERE id = ?")
+        .bind(admin_id)
+        .fetch_one(&state.db)
+        .await
+        .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
+    let role: String = row.get("role");
+    if role != "super_admin" { return Err(axum::http::StatusCode::FORBIDDEN); }
+    Ok(())
+}
 
 // GET /api/shops/search?q=...&limit=20
 pub async fn search_shops(
     State(state): State<Arc<AppState>>,
+    SessionExtractor(session): SessionExtractor,
     Query(params): Query<HashMap<String, String>>,
 ) -> Result<Json<ApiResponse<Vec<Shop>>>, axum::http::StatusCode> {
     let q = params.get("q").map(|s| s.trim().to_string()).unwrap_or_default();
@@ -25,11 +41,27 @@ pub async fn search_shops(
     }
 
     let like = format!("%{}%", q);
-    let rows = sqlx::query("SELECT id, name, domain, api_key, owner_id, status, created_at FROM shops WHERE name LIKE ? OR domain LIKE ? ORDER BY created_at DESC LIMIT ?")
-        .bind(&like)
-        .bind(&like)
-        .bind(limit)
-        .fetch_all(&state.db)
+    // 角色判断
+    let admin_role_row = sqlx::query("SELECT role FROM admins WHERE id = ?")
+        .bind(&session.admin_id)
+        .fetch_one(&state.db)
+        .await
+        .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
+    let role: String = admin_role_row.get("role");
+
+    let (sql, bind_owner) = if role == "super_admin" { (
+        "SELECT id, name, domain, api_key, owner_id, status, created_at FROM shops WHERE (name LIKE ? OR domain LIKE ?) ORDER BY created_at DESC LIMIT ?",
+        None
+    ) } else { (
+        "SELECT id, name, domain, api_key, owner_id, status, created_at FROM shops WHERE owner_id = ? AND (name LIKE ? OR domain LIKE ?) ORDER BY created_at DESC LIMIT ?",
+        Some(session.admin_id.as_str())
+    ) };
+
+    let mut q = sqlx::query(sql);
+    if let Some(o) = bind_owner { q = q.bind(o); }
+    q = q.bind(&like).bind(&like).bind(limit);
+
+    let rows = q.fetch_all(&state.db)
         .await
         .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -81,8 +113,26 @@ pub async fn check_domain(
 // DELETE /api/shops/:id
 pub async fn delete_shop(
     State(state): State<Arc<AppState>>,
+    SessionExtractor(session): SessionExtractor,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<()>>, axum::http::StatusCode> {
+    // 获取店铺 owner 与存在性
+    let shop_row = sqlx::query("SELECT owner_id FROM shops WHERE id = ?")
+        .bind(&id)
+        .fetch_one(&state.db)
+        .await
+        .map_err(|e| match e { sqlx::Error::RowNotFound => axum::http::StatusCode::NOT_FOUND, _ => axum::http::StatusCode::INTERNAL_SERVER_ERROR })?;
+    let owner_id: String = shop_row.try_get("owner_id").unwrap_or_default();
+    // 检查角色
+    let role_row = sqlx::query("SELECT role FROM admins WHERE id = ?")
+        .bind(&session.admin_id)
+        .fetch_one(&state.db)
+        .await
+        .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
+    let role: String = role_row.get("role");
+    if !(role == "super_admin" || owner_id == session.admin_id) {
+        return Err(axum::http::StatusCode::FORBIDDEN);
+    }
     let result = sqlx::query("DELETE FROM shops WHERE id = ?")
         .bind(&id)
         .execute(&state.db)
@@ -98,8 +148,24 @@ pub async fn delete_shop(
 // POST /api/shops/:id/rotate-api-key
 pub async fn rotate_api_key(
     State(state): State<Arc<AppState>>,
+    SessionExtractor(session): SessionExtractor,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, axum::http::StatusCode> {
+    // 权限：owner 或 super_admin
+    let shop_row = sqlx::query("SELECT owner_id FROM shops WHERE id = ?")
+        .bind(&id)
+        .fetch_one(&state.db)
+        .await
+        .map_err(|e| match e { sqlx::Error::RowNotFound => axum::http::StatusCode::NOT_FOUND, _ => axum::http::StatusCode::INTERNAL_SERVER_ERROR })?;
+    let owner_id: String = shop_row.try_get("owner_id").unwrap_or_default();
+    let role_row = sqlx::query("SELECT role FROM admins WHERE id = ?")
+        .bind(&session.admin_id)
+        .fetch_one(&state.db)
+        .await
+        .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
+    let role: String = role_row.get("role");
+    if !(role == "super_admin" || owner_id == session.admin_id) { return Err(axum::http::StatusCode::FORBIDDEN); }
+
     let new_key = Uuid::new_v4().to_string();
     let res = sqlx::query("UPDATE shops SET api_key = ? WHERE id = ?")
         .bind(&new_key)
@@ -107,94 +173,104 @@ pub async fn rotate_api_key(
         .execute(&state.db)
         .await
         .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
-    if res.rows_affected() == 0 {
-        return Err(axum::http::StatusCode::NOT_FOUND);
-    }
+    if res.rows_affected() == 0 { return Err(axum::http::StatusCode::NOT_FOUND); }
     Ok(Json(ApiResponse { success: true, data: Some(serde_json::json!({"api_key": new_key})), message: "API key rotated".into() }))
 }
 
 pub async fn get_shops(
     State(state): State<Arc<AppState>>,
+    SessionExtractor(session): SessionExtractor,
+    Query(params): Query<HashMap<String, String>>,
 ) -> Result<Json<ApiResponse<Vec<Shop>>>, axum::http::StatusCode> {
-    let rows = sqlx::query("SELECT id, name, domain, api_key, owner_id, status, created_at FROM shops ORDER BY created_at DESC")
-        .fetch_all(&state.db)
+    // 超级管理员默认仅查看待审核/非active (pending/rejected/inactive)，?all=1 查看全部
+    let role_row = sqlx::query("SELECT role FROM admins WHERE id = ?")
+        .bind(&session.admin_id)
+        .fetch_one(&state.db)
+        .await
+        .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
+    let role: String = role_row.get("role");
+    let all_flag = params.get("all").map(|v| v == "1" || v.eq_ignore_ascii_case("true" )).unwrap_or(false);
+
+    let (sql, bind_owner, bind_extra): (&str, Option<&str>, Option<Vec<String>>) = if role == "super_admin" {
+        if all_flag { (
+            "SELECT id, name, domain, api_key, owner_id, status, created_at FROM shops ORDER BY created_at DESC",
+            None,
+            None
+        ) } else { (
+            "SELECT id, name, domain, api_key, owner_id, status, created_at FROM shops WHERE status IN ('pending','rejected','inactive') ORDER BY created_at DESC",
+            None,
+            None
+        ) }
+    } else { (
+        "SELECT id, name, domain, api_key, owner_id, status, created_at FROM shops WHERE owner_id = ? ORDER BY created_at DESC",
+        Some(session.admin_id.as_str()),
+        None
+    ) };
+
+    let mut q = sqlx::query(sql);
+    if let Some(owner) = bind_owner { q = q.bind(owner); }
+    if let Some(extra) = bind_extra { for v in extra { q = q.bind(v); } }
+
+    let rows = q.fetch_all(&state.db)
         .await
         .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    let shops: Vec<Shop> = rows
-        .iter()
-        .map(|row| Shop {
-            id: row.get("id"),
-            name: row.get("name"),
-            domain: row.get("domain"),
-            api_key: row.get("api_key"),
-            owner_id: row.try_get("owner_id").unwrap_or_else(|_| "legacy_data".to_string()),
-            status: row.get("status"),
-            created_at: row.get("created_at"),
-            payment_status: None,
-            subscription_type: None,
-            subscription_status: None,
-            subscription_expires_at: None,
-            contact_email: None,
-            contact_phone: None,
-            contact_info: None,
-        })
-        .collect();
+    info!(
+        admin_id=%session.admin_id,
+        role=%role,
+        all_flag=%all_flag,
+        returned=%rows.len(),
+        "get_shops filtered result"
+    );
+
+    let shops: Vec<Shop> = rows.iter().map(|row| Shop {
+        id: row.get("id"),
+        name: row.get("name"),
+        domain: row.get("domain"),
+        api_key: row.get("api_key"),
+        owner_id: row.try_get("owner_id").unwrap_or_else(|_| "legacy_data".to_string()),
+        status: row.get("status"),
+        created_at: row.get("created_at"),
+        payment_status: None,
+        subscription_type: None,
+        subscription_status: None,
+        subscription_expires_at: None,
+        contact_email: None,
+        contact_phone: None,
+        contact_info: None,
+    }).collect();
 
     Ok(Json(ApiResponse { success: true, data: Some(shops), message: "Shops retrieved successfully".into() }))
 }
 
 pub async fn create_shop(
     State(state): State<Arc<AppState>>,
+    SessionExtractor(session): SessionExtractor,
     Json(payload): Json<UpdateShopRequest>,
 ) -> Result<Json<ApiResponse<Shop>>, axum::http::StatusCode> {
-    let id = Uuid::new_v4().to_string();
-    let api_key = Uuid::new_v4().to_string();
-    // owner_id not part of UpdateShopRequest; retrieve existing owner or use default
-    let owner_id_row = sqlx::query("SELECT owner_id FROM shops WHERE id = ?")
-        .bind(&id)
-        .fetch_one(&state.db)
-        .await
-        .map_err(|_| axum::http::StatusCode::NOT_FOUND)?;
-    let owner_id: String = owner_id_row.try_get("owner_id").unwrap_or_else(|_| "default_owner".to_string());
-
-    let result = sqlx::query("INSERT INTO shops (id, name, domain, api_key, owner_id, status) VALUES (?, ?, ?, ?, ?, ?)
-")
-        .bind(&id)
-        .bind(&payload.name)
-        .bind(&payload.domain)
-        .bind(&api_key)
-        .bind(&owner_id)
-        .bind("pending")
-        .execute(&state.db)
-        .await;
-
-    match result {
-        Ok(_) => {
-            let new_shop = Shop {
-                id,
-                name: payload.name.clone().unwrap_or_else(|| "Unnamed Shop".to_string()),
-                domain: payload.domain.clone().unwrap_or_else(|| "no-domain".to_string()),
-                api_key,
-                owner_id,
-                status: "pending".to_string(),
-                created_at: chrono::Utc::now().to_string(),
-                payment_status: None,
-                subscription_type: None,
-                subscription_status: None,
-                subscription_expires_at: None,
-                contact_email: None,
-                contact_phone: None,
-                contact_info: None,
-            };
-            Ok(Json(ApiResponse { success: true, data: Some(new_shop), message: "Shop created successfully".into() }))
+    let name = payload.name.clone().unwrap_or_else(|| "Unnamed Shop".to_string());
+    let domain = payload.domain.clone().unwrap_or_else(|| "no-domain".to_string());
+    let input = shop_uc::CreateShopInput { owner_id: session.admin_id.clone(), name, domain };
+    match shop_uc::create_shop(&state.db, input).await {
+        Ok(out) => {
+            let shop = Shop { id: out.id, name: payload.name.unwrap_or("Unnamed Shop".into()), domain: payload.domain.unwrap_or("no-domain".into()), api_key: out.api_key, owner_id: session.admin_id, status: "pending".into(), created_at: out.created_at, payment_status: None, subscription_type: None, subscription_status: None, subscription_expires_at: None, contact_email: None, contact_phone: None, contact_info: None };
+            Ok(Json(ApiResponse { success: true, data: Some(shop), message: "Shop created".into() }))
         }
-        Err(_) => Err(axum::http::StatusCode::INTERNAL_SERVER_ERROR),
+        Err(e) => match e {
+            shop_uc::ShopUseCaseError::DomainExists => Err(axum::http::StatusCode::CONFLICT),
+            shop_uc::ShopUseCaseError::Domain(d) => {
+                let msg = d.to_string();
+                let body = ApiResponse::<Shop> { success: false, data: None, message: msg };
+                return Ok(Json(body));
+            }
+            _ => Err(axum::http::StatusCode::INTERNAL_SERVER_ERROR)
+        }
     }
 }
 
 pub async fn get_shop_details(
     State(state): State<Arc<AppState>>,
+    SessionExtractor(session): SessionExtractor,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<Shop>>, axum::http::StatusCode> {
     let row = sqlx::query("SELECT id, name, domain, api_key, owner_id, status, created_at FROM shops WHERE id = ?")
@@ -204,12 +280,26 @@ pub async fn get_shop_details(
 
     match row {
         Ok(row) => {
+            let owner_id: String = row.try_get("owner_id").unwrap_or_else(|_| "legacy_data".to_string());
+            if owner_id != session.admin_id {
+                // 再次确认是否 super_admin
+                let role_row = sqlx::query("SELECT role FROM admins WHERE id = ?")
+                    .bind(&session.admin_id)
+                    .fetch_one(&state.db)
+                    .await
+                    .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
+                let role: String = role_row.get("role");
+                if role != "super_admin" {
+                    return Err(axum::http::StatusCode::NOT_FOUND); // 避免泄漏存在性
+                }
+            }
+
             let shop = Shop {
                 id: row.get("id"),
                 name: row.get("name"),
                 domain: row.get("domain"),
                 api_key: row.get("api_key"),
-                owner_id: row.try_get("owner_id").unwrap_or_else(|_| "legacy_data".to_string()),
+                owner_id,
                 status: row.get("status"),
                 created_at: row.get("created_at"),
                 payment_status: None,
@@ -229,89 +319,68 @@ pub async fn get_shop_details(
 
 pub async fn update_shop(
     State(state): State<Arc<AppState>>,
+    SessionExtractor(session): SessionExtractor,
     Path(id): Path<String>,
     Json(payload): Json<UpdateShopRequest>,
 ) -> Result<Json<ApiResponse<Shop>>, axum::http::StatusCode> {
-    let mut tx = state.db.begin().await.map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    let mut update_query = "UPDATE shops SET ".to_string();
-    let mut params: Vec<String> = Vec::new();
-
-    if let Some(name) = payload.name.as_ref() {
-        update_query.push_str("name = ?, ");
-        params.push(name.clone());
+    let input = shop_uc::UpdateShopInput { shop_id: id.clone(), actor_id: session.admin_id.clone(), name: payload.name.clone(), domain: payload.domain.clone() };
+    match shop_uc::update_shop(&state.db, input).await {
+        Ok(()) => {
+            let row = sqlx::query("SELECT id, name, domain, api_key, owner_id, status, created_at FROM shops WHERE id = ?")
+                .bind(&id)
+                .fetch_one(&state.db)
+                .await
+                .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
+            let shop = Shop { id: row.get("id"), name: row.get("name"), domain: row.get("domain"), api_key: row.get("api_key"), owner_id: row.try_get("owner_id").unwrap_or_else(|_| "legacy_data".to_string()), status: row.get("status"), created_at: row.get("created_at"), payment_status: None, subscription_type: None, subscription_status: None, subscription_expires_at: None, contact_email: None, contact_phone: None, contact_info: None };
+            Ok(Json(ApiResponse { success: true, data: Some(shop), message: "Shop updated".into() }))
+        }
+        Err(e) => match e {
+            shop_uc::ShopUseCaseError::NotFound => Err(axum::http::StatusCode::NOT_FOUND),
+            shop_uc::ShopUseCaseError::Forbidden => Err(axum::http::StatusCode::FORBIDDEN),
+            shop_uc::ShopUseCaseError::DomainExists => Err(axum::http::StatusCode::CONFLICT),
+            shop_uc::ShopUseCaseError::NothingToUpdate => Err(axum::http::StatusCode::BAD_REQUEST),
+            shop_uc::ShopUseCaseError::Domain(d) => {
+                let body = ApiResponse::<Shop> { success: false, data: None, message: d.to_string() };
+                return Ok(Json(body));
+            }
+            _ => Err(axum::http::StatusCode::INTERNAL_SERVER_ERROR)
+        }
     }
-    if let Some(domain) = payload.domain.as_ref() {
-        update_query.push_str("domain = ?, ");
-        params.push(domain.clone());
-    }
-    // Remove trailing comma and space
-    update_query.pop();
-    update_query.pop();
-
-    update_query.push_str(" WHERE id = ?");
-    params.push(id.clone());
-
-    let mut query = sqlx::query(&update_query);
-    for param in params {
-        query = query.bind(param);
-    }
-    
-    query.execute(&mut *tx).await.map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    let updated_shop_row = sqlx::query("SELECT id, name, domain, api_key, owner_id, status, created_at FROM shops WHERE id = ?")
-        .bind(&id)
-        .fetch_one(&mut *tx)
-        .await
-        .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    tx.commit().await.map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    let shop = Shop {
-        id: updated_shop_row.get("id"),
-        name: updated_shop_row.get("name"),
-        domain: updated_shop_row.get("domain"),
-        api_key: updated_shop_row.get("api_key"),
-        owner_id: updated_shop_row.try_get("owner_id").unwrap_or_else(|_| "legacy_data".to_string()),
-        status: updated_shop_row.get("status"),
-        created_at: updated_shop_row.get("created_at"),
-        payment_status: None,
-        subscription_type: None,
-        subscription_status: None,
-        subscription_expires_at: None,
-        contact_email: None,
-        contact_phone: None,
-        contact_info: None,
-    };
-
-    Ok(Json(ApiResponse { success: true, data: Some(shop), message: "Shop updated successfully".into() }))
 }
 
 pub async fn approve_shop(
     State(state): State<Arc<AppState>>,
+    SessionExtractor(session): SessionExtractor,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<()>>, axum::http::StatusCode> {
+    enforce_super_admin(&state, &session.admin_id).await?;
     update_shop_status(state, id, "approved").await
 }
 
 pub async fn reject_shop(
     State(state): State<Arc<AppState>>,
+    SessionExtractor(session): SessionExtractor,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<()>>, axum::http::StatusCode> {
+    enforce_super_admin(&state, &session.admin_id).await?;
     update_shop_status(state, id, "rejected").await
 }
 
 pub async fn activate_shop(
     State(state): State<Arc<AppState>>,
+    SessionExtractor(session): SessionExtractor,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<()>>, axum::http::StatusCode> {
+    enforce_super_admin(&state, &session.admin_id).await?;
     update_shop_status(state, id, "active").await
 }
 
 pub async fn deactivate_shop(
     State(state): State<Arc<AppState>>,
+    SessionExtractor(session): SessionExtractor,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<()>>, axum::http::StatusCode> {
+    enforce_super_admin(&state, &session.admin_id).await?;
     update_shop_status(state, id, "inactive").await
 }
 
