@@ -138,6 +138,7 @@ pub trait ConversationRepository: Send + Sync {
 #[async_trait::async_trait]
 pub trait MessageReadRepository: Send + Sync {
     async fn list_by_conversation(&self, conversation_id: &ConversationId, limit: i64, offset: i64) -> Result<Vec<Message>, RepoError>;
+    async fn find_by_id(&self, id: &MessageId) -> Result<Option<Message>, RepoError>;
 }
 
 // 写模型：消息仓库（更新 / 软删除 / 硬删除）

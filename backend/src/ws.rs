@@ -8,6 +8,7 @@ use std::sync::Arc;
 
 use crate::bootstrap::app_state::AppState;
 use crate::types::{WsClientMessage, WsServerMessage};
+use serde_json::json;
 
 pub async fn websocket_handler(
     ws: WebSocketUpgrade,
@@ -23,11 +24,16 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
     
     info!("新的 WebSocket 连接已建立: {}", connection_id);
     
-    let welcome_msg = serde_json::json!({
-        "type": "welcome",
-        "message": "已连接到 QuickTalk 纯 Rust 服务器",
-        "connection_id": connection_id,
-        "timestamp": Utc::now()
+    let welcome_msg = json!({
+        "version": "v1",
+        "type": "system.welcome",
+        "event_id": Uuid::new_v4().to_string(),
+        "emitted_at": Utc::now().to_rfc3339(),
+        "data": {
+            "message": "已连接到 QuickTalk 纯 Rust 服务器",
+            "connection_id": connection_id,
+            "time": Utc::now()
+        }
     });
     
     if sender.send(WsMessage::Text(welcome_msg.to_string())).await.is_err() {
@@ -123,17 +129,24 @@ async fn handle_websocket_message(
                 .execute(&state.db)
                 .await;
                 if let Err(e) = result { warn!("Failed to save message: {}", e); }
-                let server_msg = WsServerMessage::MessageSent { conversation_id: conversation_id.clone(), message: crate::types::Message {
-                    id: message_id,
-                    conversation_id: conversation_id.clone(),
-                    sender_id: connection_id.to_string(),
-                    sender_type: "customer".into(),
-                    content,
-                    message_type,
-                    timestamp: Utc::now(),
-                    shop_id: None,
-                }};
-                let _ = state.message_sender.send(serde_json::to_string(&server_msg)?);
+                let enriched = json!({
+                    "id": message_id,
+                    "conversation_id": conversation_id,
+                    "sender_id": connection_id,
+                    "sender_type": "customer",
+                    "content": content,
+                    "message_type": message_type,
+                    "timestamp": Utc::now(),
+                    "shop_id": null
+                });
+                let envelope = json!({
+                    "version": "v1",
+                    "type": "domain.event.message_appended",
+                    "event_id": Uuid::new_v4().to_string(),
+                    "emitted_at": Utc::now().to_rfc3339(),
+                    "data": { "message": enriched }
+                });
+                let _ = state.message_sender.send(envelope.to_string());
             }
             WsClientMessage::Typing { conversation_id, user_id } => {
                 let server_msg = WsServerMessage::Typing { conversation_id, user_id };

@@ -40,7 +40,19 @@ impl Conversation {
     }
 
     pub fn close(&mut self) { self.status = ConversationStatus::Closed; self.closed_at = Some(Utc::now()); self.updated_at = Utc::now(); }
+    pub fn close_with_event(&mut self) {
+        if !matches!(self.status, ConversationStatus::Closed) {
+            self.close();
+            self.pending_events.push(DomainEvent::conversation_closed(self.id.clone()));
+        }
+    }
     pub fn reopen(&mut self) { self.status = ConversationStatus::Active; self.closed_at=None; self.updated_at = Utc::now(); }
+    pub fn reopen_with_event(&mut self) {
+        if !matches!(self.status, ConversationStatus::Active) {
+            self.reopen();
+            self.pending_events.push(DomainEvent::conversation_reopened(self.id.clone()));
+        }
+    }
 
     pub fn take_events(&mut self) -> Vec<DomainEvent> { std::mem::take(&mut self.pending_events) }
 }

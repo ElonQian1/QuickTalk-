@@ -1,9 +1,10 @@
 // moved from application/update_conversation_status.rs
 use chrono::Utc;
 use crate::domain::conversation::{ConversationRepository, ConversationId, DomainError};
+use crate::domain::conversation::DomainEvent; // for returning emitted events
 
 pub struct UpdateConversationStatusInput { pub conversation_id: String, pub target_status: String }
-pub struct UpdateConversationStatusOutput { pub conversation_id: String, pub new_status: String }
+pub struct UpdateConversationStatusOutput { pub conversation_id: String, pub new_status: String, pub events: Vec<DomainEvent> }
 
 #[derive(Debug, thiserror::Error)]
 pub enum UpdateConversationStatusError {
@@ -26,7 +27,8 @@ impl<R: ConversationRepository> UpdateConversationStatusUseCase<R> {
             "active" => convo.reopen(now)?,
             _ => return Err(UpdateConversationStatusError::UnsupportedStatus)
         }
+        let events = convo.take_events();
         self.repo.save(&convo).await.map_err(|e| UpdateConversationStatusError::Repo(e.to_string()))?;
-        Ok(UpdateConversationStatusOutput { conversation_id: convo.id.0, new_status: convo.status })
+        Ok(UpdateConversationStatusOutput { conversation_id: convo.id.0, new_status: convo.status, events })
     }
 }
