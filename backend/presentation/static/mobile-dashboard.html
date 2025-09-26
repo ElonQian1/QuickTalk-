@@ -3840,7 +3840,21 @@
 
         // 检查登录状态
         async function checkLoginStatus() {
-            const savedUser = localStorage.getItem('quicktalk_user');
+            let savedUser = localStorage.getItem('quicktalk_user');
+
+            if (!savedUser) {
+                // 兼容旧键：若仅存在 qt_admin_user，则复用并回填
+                const legacyUser = localStorage.getItem('qt_admin_user');
+                if (legacyUser) {
+                    try {
+                        localStorage.setItem('quicktalk_user', legacyUser);
+                        savedUser = legacyUser;
+                    } catch (error) {
+                        console.warn('无法回填 legacy 用户信息:', error);
+                    }
+                }
+            }
+
             if (savedUser) {
                 try {
                     userData = JSON.parse(savedUser);
@@ -3849,11 +3863,15 @@
                 } catch (error) {
                     console.error('解析保存的用户信息失败:', error);
                     localStorage.removeItem('quicktalk_user');
+                    localStorage.removeItem('qt_admin_user');
                 }
             }
             
-            // 如果没有登录信息，跳转到登录页面
+            // 如果没有登录信息，跳转到登录页面（同时清理所有凭证，避免重定向循环）
             console.log('未找到登录信息，跳转到登录页面');
+            localStorage.removeItem('qt_admin_token');
+            localStorage.removeItem('admin_token');
+            localStorage.removeItem('qt_admin_user');
             window.location.href = '/mobile/login';
             return false;
         }
@@ -4180,7 +4198,13 @@
         async function fetchDashboardStats() {
             try {
                 // 调用不需要认证的店铺API（与成功的店铺列表API保持一致）
-                const shopsResponse = await fetch('/api/shops');
+                const authToken = getAuthToken();
+                const shopsResponse = await fetch('/api/shops', {
+                    headers: authToken ? {
+                        'Authorization': `Bearer ${authToken}`,
+                        'X-Session-Id': authToken
+                    } : {}
+                });
 
                 if (shopsResponse.ok) {
                     const shopsData = await shopsResponse.json();
@@ -4288,7 +4312,13 @@
             // 显示店铺列表
             async showShops() {
                 try {
-                    const response = await fetch('/api/shops');
+                    const authToken = getAuthToken();
+                    const response = await fetch('/api/shops', {
+                        headers: authToken ? {
+                            'Authorization': `Bearer ${authToken}`,
+                            'X-Session-Id': authToken
+                        } : {}
+                    });
                     const data = await response.json();
                     
                     if (data.success && data.data) {
@@ -8168,29 +8198,34 @@
             showToast('列表已刷新', 'success');
         }
 
-        function logout() {
+        async function logout() {
             console.log('🚪 退出登录功能被调用');
-            
-            // 添加调试信息
             const currentUser = localStorage.getItem('quicktalk_user');
             console.log('当前存储的用户信息:', currentUser);
-            
-            if (confirm('确定要退出登录吗？')) {
-                // 清理所有相关的本地存储
-                localStorage.removeItem('quicktalk_user');
-                localStorage.removeItem('admin_token');
-                localStorage.removeItem('user_data');
-                
-                console.log('✅ 本地存储已清理');
-                
-                showToast('已退出登录，即将跳转...', 'success');
-                
-                // 延迟跳转到登录页面
-                setTimeout(() => {
-                    console.log('🔄 正在跳转到登录页面');
-                    window.location.href = '/mobile/login';
-                }, 1500);
+            if (!confirm('确定要退出登录吗？')) return;
+
+            const token = getAuthToken();
+            if (token) {
+                try {
+                    const res = await fetch('/api/auth/logout', {
+                        method: 'POST',
+                        headers: { 'Authorization': 'Bearer ' + token }
+                    });
+                    if (res.ok) {
+                        console.log('🗑️ 服务器会话已删除');
+                    } else {
+                        console.warn('⚠️ 服务器会话删除失败(可能已失效)');
+                    }
+                } catch (e) {
+                    console.warn('⚠️ 调用后端注销失败(忽略继续本地清理):', e);
+                }
             }
+
+            // 本地清理
+            ['quicktalk_user','admin_token','user_data','qt_admin_token','qt_admin_user','qt_admin_last_user'].forEach(k => localStorage.removeItem(k));
+            console.log('✅ 本地存储已清理');
+            showToast('已退出登录，即将跳转...', 'success');
+            setTimeout(() => { window.location.href = '/mobile/login'; }, 800);
         }
 
         // 消息页面相关全局函数
