@@ -5,12 +5,14 @@ use axum::{
 };
 use serde_json::json;
 use sqlx::Row;
+use tracing::warn;
 use std::sync::Arc;
 use tracing::{error, info};
 use uuid::Uuid;
 
 use crate::bootstrap::app_state::AppState;
 use crate::types::ApiResponse;
+use crate::auth::SessionExtractor;
 
 pub async fn fix_shop_owners(
     State(state): State<Arc<AppState>>,
@@ -203,6 +205,66 @@ pub async fn validate_shop_data_integrity(
     }))
 }
 
+// DEBUG: 返回当前会话 admin_id 与角色
+pub async fn whoami(
+    State(state): State<Arc<AppState>>,
+    SessionExtractor(session): SessionExtractor,
+) -> Result<AxumJson<ApiResponse<serde_json::Value>>, StatusCode> {
+    let row = sqlx::query("SELECT username, role, created_at FROM admins WHERE id = ?")
+        .bind(&session.admin_id)
+        .fetch_one(&state.db)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let username: String = row.get("username");
+    let role: String = row.get("role");
+    let created_at: String = row.get("created_at");
+    Ok(AxumJson(ApiResponse { success: true, data: Some(json!({
+        "admin_id": session.admin_id,
+        "username": username,
+        "role": role,
+        "created_at": created_at
+    })), message: "whoami".into() }))
+}
+
+// 诊断：检测可疑 owner 关联（店铺创建时间早于管理员创建时间）
+pub async fn diagnose_owner_mismatch(
+    State(state): State<Arc<AppState>>,
+    SessionExtractor(session): SessionExtractor,
+) -> Result<AxumJson<ApiResponse<serde_json::Value>>, StatusCode> {
+    // 仅超级管理员可运行
+    let role_row = sqlx::query("SELECT role FROM admins WHERE id = ?")
+        .bind(&session.admin_id)
+        .fetch_one(&state.db)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let role: String = role_row.get("role");
+    if role != "super_admin" { return Err(StatusCode::FORBIDDEN); }
+
+    // 查询可疑店铺：owner 的创建时间比店铺创建时间晚
+    let rows = sqlx::query(r#"
+        SELECT s.id as shop_id, s.name as shop_name, s.created_at as shop_created_at,
+               a.id as owner_id, a.username as owner_username, a.created_at as owner_created_at
+        FROM shops s
+        JOIN admins a ON s.owner_id = a.id
+        WHERE datetime(a.created_at) > datetime(s.created_at)
+        ORDER BY s.created_at
+    "#).fetch_all(&state.db).await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let suspicious: Vec<serde_json::Value> = rows.iter().map(|r| json!({
+        "shop_id": r.get::<String,_>("shop_id"),
+        "shop_name": r.get::<String,_>("shop_name"),
+        "shop_created_at": r.get::<String,_>("shop_created_at"),
+        "owner_id": r.get::<String,_>("owner_id"),
+        "owner_username": r.get::<String,_>("owner_username"),
+        "owner_created_at": r.get::<String,_>("owner_created_at")
+    })).collect();
+
+    Ok(AxumJson(ApiResponse { success: true, data: Some(json!({
+        "suspicious_count": suspicious.len(),
+        "suspicious": suspicious
+    })), message: "diagnose completed".into() }))
+}
+
 pub async fn clean_test_data(
     State(state): State<Arc<AppState>>,
     Json(request): Json<serde_json::Value>,
@@ -350,7 +412,16 @@ pub async fn clean_test_data(
 
 pub async fn force_clean_shops(
     State(state): State<Arc<AppState>>,
+    SessionExtractor(session): SessionExtractor,
 ) -> Result<AxumJson<ApiResponse<serde_json::Value>>, StatusCode> {
+    // 仅超级管理员可以执行
+    let role_row = sqlx::query("SELECT role FROM admins WHERE id = ?")
+        .bind(&session.admin_id)
+        .fetch_one(&state.db)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let role: String = role_row.get("role");
+    if role != "super_admin" { return Err(StatusCode::FORBIDDEN); }
     info!("🧹 强制清理所有店铺数据");
     
     let mut cleanup_results = Vec::new();
@@ -537,4 +608,101 @@ pub async fn create_test_user(
             Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
     }
+}
+
+// 系统状态摘要：用于首页空态判断 / 首次真实旅程校验
+// 提供各核心表计数与 first_run / has_super_admin 等标识
+pub async fn state_summary(
+    State(state): State<Arc<AppState>>,
+) -> Result<AxumJson<ApiResponse<serde_json::Value>>, StatusCode> {
+    use sqlx::Row;
+    // 采用单条聚合查询，减少往返；若未来表增加，可扩展
+    let query = r#"
+        SELECT
+            (SELECT COUNT(*) FROM shops)            AS shops,
+            (SELECT COUNT(*) FROM conversations)    AS conversations,
+            (SELECT COUNT(*) FROM messages)         AS messages,
+            (SELECT COUNT(*) FROM customers)        AS customers,
+            (SELECT COUNT(*) FROM employees)        AS employees,
+            (SELECT COUNT(*) FROM admins)           AS admins,
+            (SELECT COUNT(*) FROM activation_orders) AS activation_orders,
+            (SELECT COUNT(*) FROM sessions)         AS sessions
+    "#; // sessions/activation_orders 可辅助判断是否已有真实交互
+    // 若 activation_orders / sessions 等表尚未创建，完整查询会报错，这里加一次回退：
+    // 回退时直接省略缺表列并以 0 代替，避免 500 影响首次体验。
+    let (shops, conversations, messages, customers, employees, admins, activation_orders, sessions): (i64,i64,i64,i64,i64,i64,i64,i64) = match sqlx::query(query).fetch_one(&state.db).await {
+        Ok(row) => (
+            row.get::<i64,_>("shops"),
+            row.get::<i64,_>("conversations"),
+            row.get::<i64,_>("messages"),
+            row.get::<i64,_>("customers"),
+            row.get::<i64,_>("employees"),
+            row.get::<i64,_>("admins"),
+            row.get::<i64,_>("activation_orders"),
+            row.get::<i64,_>("sessions")
+        ),
+        Err(e) => {
+            warn!("state_summary 完整查询失败，采用回退查询: {e}");
+            let fallback = r#"
+                SELECT
+                    (SELECT COUNT(*) FROM shops)         AS shops,
+                    (SELECT COUNT(*) FROM conversations) AS conversations,
+                    (SELECT COUNT(*) FROM messages)      AS messages,
+                    (SELECT COUNT(*) FROM customers)     AS customers,
+                    (SELECT COUNT(*) FROM employees)     AS employees,
+                    (SELECT COUNT(*) FROM admins)        AS admins
+            "#;
+            match sqlx::query(fallback).fetch_one(&state.db).await {
+                Ok(r2) => (
+                    r2.get("shops"),
+                    r2.get("conversations"),
+                    r2.get("messages"),
+                    r2.get("customers"),
+                    r2.get("employees"),
+                    r2.get("admins"),
+                    0_i64, // activation_orders 缺表
+                    0_i64  // sessions 缺表
+                ),
+                Err(e2) => {
+                    error!("state_summary 回退查询仍失败，将返回空统计: {e2}");
+                    (0,0,0,0,0,0,0,0)
+                }
+            }
+        }
+    };
+
+    // 逻辑判定
+    let first_run = shops == 0 && conversations == 0 && messages == 0 && customers == 0 && employees == 0;
+    let has_super_admin = admins > 0; // 系统应至少保留一个超级管理员
+
+    let mut recommended_actions = Vec::new();
+    if !has_super_admin { recommended_actions.push("recover-super-admin"); }
+    if shops == 0 { recommended_actions.push("create-first-shop"); }
+    if shops > 0 && employees == 0 { recommended_actions.push("invite-employees"); }
+    if shops > 0 && activation_orders == 0 { recommended_actions.push("create-activation-order"); }
+    if conversations == 0 { recommended_actions.push("initiate-first-conversation"); }
+
+    let summary = json!({
+        "counts": {
+            "shops": shops,
+            "conversations": conversations,
+            "messages": messages,
+            "customers": customers,
+            "employees": employees,
+            "admins": admins,
+            "activation_orders": activation_orders,
+            "sessions": sessions
+        },
+        "flags": {
+            "first_run": first_run,
+            "has_super_admin": has_super_admin,
+        },
+        "recommended_actions": recommended_actions
+    });
+
+    Ok(AxumJson(ApiResponse {
+        success: true,
+        data: Some(summary),
+        message: "系统状态摘要获取成功".to_string(),
+    }))
 }

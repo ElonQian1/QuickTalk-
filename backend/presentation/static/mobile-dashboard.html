@@ -579,6 +579,20 @@
             font-weight: 600;
         }
 
+        /* 身份徽标：员工 */
+        .shop-role-badge {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            background: #0d6efd;
+            color: #fff;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-weight: 600;
+            box-shadow: 0 1px 4px rgba(13,110,253,.35);
+        }
+
         /* 非活跃店铺样式 */
         .shop-card-inactive {
             opacity: 0.6;
@@ -3432,7 +3446,7 @@
                                     ➕ 新增店铺
                                 </button>
                                 <button class="action-btn tap-feedback" onclick="viewAnalytics()">
-                                    📊 数据分析
+                                    📊 工作台/报表
                                 </button>
                             </div>
                         </div>
@@ -3567,6 +3581,22 @@
                 </div>
             </div>
 
+            <!-- 工作台/报表 页面 -->
+            <div class="page" id="workbenchPage" style="display: none;">
+                <div class="page-header">
+                    <h2 class="page-title">工作台 / 报表</h2>
+                    <p class="page-subtitle">近期概览与待处理事项</p>
+                </div>
+                <div class="page-content">
+                    <div id="workbenchContent">
+                        <div class="loading-state">
+                            <div class="loading-spinner"></div>
+                            <div class="loading-text">正在加载工作台数据...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- 我的页面 -->
             <div class="page" id="profilePage">
                 <div class="page-header">
@@ -3575,11 +3605,7 @@
                 </div>
                 <div class="page-content">
                     <div class="settings-list">
-                        <div class="settings-item tap-feedback" onclick="editProfile()">
-                            <div class="settings-icon">👤</div>
-                            <div class="settings-text">编辑个人信息</div>
-                            <div class="settings-arrow">›</div>
-                        </div>
+                        
                         <div class="settings-item tap-feedback" onclick="changePassword()">
                             <div class="settings-icon">🔐</div>
                             <div class="settings-text">修改密码</div>
@@ -4115,6 +4141,9 @@
                     break;
                 case 'shops':
                     await loadShops();
+                    break;
+                case 'workbench':
+                    await loadWorkbenchSummary();
                     break;
                 case 'profile':
                     // 个人资料页面 - 初始化用户信息和权限
@@ -5175,6 +5204,7 @@
                         const statusClass = getShopStatusClass(shop.approvalStatus || shop.status);
                         const statusText = getShopStatusText(shop.approvalStatus || shop.status);
                         const actions = getShopActions(shop);
+                        const isEmployee = shop.membership === 'employee';
                         
                         return `
                         <div class="shop-card ${(shop.approvalStatus === 'inactive' || shop.status === 'inactive') ? 'shop-card-inactive' : ''}" onclick="handleShopClick('${shop.id}', event)">
@@ -5212,6 +5242,7 @@
                                 </div>
                             </div>
                             
+                            ${isEmployee ? `<div class="shop-role-badge">员工</div>` : ''}
                             ${shop.unreadCount > 0 ? `<div class="shop-unread-badge">${shop.unreadCount}</div>` : ''}
                         </div>
                         `;
@@ -5264,21 +5295,21 @@
 
         function closeModal(modalId) {
             const modal = document.getElementById(modalId);
+            const overlay = document.getElementById('modal-overlay');
             
-            // 检查是否是临时模态框
-            if (modalId.startsWith('temp-modal-')) {
-                if (modal) {
-                    modal.remove();
-                }
+            // 统一先隐藏遮罩与恢复滚动，避免“背景模糊”残留
+            if (overlay) overlay.style.display = 'none';
+            document.body.style.overflow = 'auto';
+
+            // 临时模态框：移除元素
+            if (modalId && modalId.startsWith('temp-modal-')) {
+                if (modal) modal.remove();
                 return;
             }
-            
-            // 普通模态框处理
-            const overlay = document.getElementById('modal-overlay');
-            if (modal && overlay) {
-                overlay.style.display = 'none';
+
+            // 普通模态框：移除 show
+            if (modal) {
                 modal.classList.remove('show');
-                document.body.style.overflow = 'auto';
             }
         }
 
@@ -5337,8 +5368,11 @@
                         break;
                     case 'approved':
                         optionsHtml += `
-                            <button class="option-btn primary" onclick="handleShopAction('activate')">
-                                🚀 激活店铺
+                            <button class="option-btn" onclick="handleShopAction('employees')">
+                                👥 员工管理
+                            </button>
+                            <button class="option-btn" onclick="handleShopAction('integration')">
+                                🔗 集成代码
                             </button>
                             <button class="option-btn warning" onclick="handleShopAction('reject')">
                                 ❌ 撤销批准
@@ -5375,9 +5409,11 @@
                         <button class="option-btn" onclick="handleShopAction('employees')">
                             👥 员工管理
                         </button>
+                        ${shop.status !== 'pending' ? `
                         <button class="option-btn" onclick="handleShopAction('edit')">
                             ✏️ 编辑信息
                         </button>
+                        ` : ''}
                         <button class="option-btn" onclick="handleShopAction('integration')">
                             🔗 集成代码
                         </button>
@@ -5401,18 +5437,15 @@
                             <div class="info-message">
                                 <p>您的店铺正在审核中，请耐心等待管理员审核。</p>
                             </div>
-                            <button class="option-btn" onclick="handleShopAction('edit')">
-                                ✏️ 编辑信息
-                            </button>
                         `;
                         break;
                     case 'approved':
                         optionsHtml += `
-                            <div class="info-message success">
-                                <p>恭喜！您的店铺已通过审核，请付费激活。</p>
-                            </div>
-                            <button class="option-btn primary" onclick="payToActivate('${shop.id}', event)">
-                                💳 付费激活
+                            <button class="option-btn" onclick="handleShopAction('employees')">
+                                👥 员工管理
+                            </button>
+                            <button class="option-btn" onclick="handleShopAction('integration')">
+                                🔗 集成代码
                             </button>
                         `;
                         break;
@@ -5427,15 +5460,18 @@
                             <button class="option-btn" onclick="handleShopAction('integration')">
                                 🔗 集成代码
                             </button>
+                            <button class="option-btn" onclick="payToActivate('${shop.id}', event)">
+                                💳 续费
+                            </button>
                         `;
                         break;
                     case 'inactive':
                         optionsHtml += `
                             <div class="info-message warning">
-                                <p>您的店铺已停用，请续费重新激活。</p>
+                                <p>您的店铺未审核，请先完成付费以通过审核并启用功能。</p>
                             </div>
                             <button class="option-btn primary" onclick="payToActivate('${shop.id}', event)">
-                                💳 续费激活
+                                💳 付费激活
                             </button>
                         `;
                         break;
@@ -5463,7 +5499,7 @@
             modalBody.innerHTML = optionsHtml;
         }
 
-        function handleShopAction(action, shopId = currentShopId) {
+    function handleShopAction(action, shopId = currentShopId) {
             // 获取店铺信息
             const shop = shopsData.find(s => s.id === shopId);
             if (!shop) {
@@ -5480,29 +5516,45 @@
             switch(action) {
                 case 'approve':
                     approveShop(shopId);
+                    closeModal('shop-management-modal');
                     break;
                 case 'reject':
                     rejectShop(shopId);
+                    closeModal('shop-management-modal');
                     break;
                 case 'activate':
                     activateShop(shopId);
+                    closeModal('shop-management-modal');
                     break;
                 case 'deactivate':
                     deactivateShop(shopId);
+                    closeModal('shop-management-modal');
                     break;
                 case 'edit':
+                    closeModal('shop-management-modal');
                     openEditShop(shopId);
                     break;
                 case 'employees':
-                    openEmployeeManagement(shopId);
+                    // 统一使用 店铺详情 -> 员工管理 标签页（已通过即可使用）
+                    closeModal('shop-management-modal');
+                    showShopDetails(shop);
+                    const empTabExists = !!document.getElementById('employeesTab');
+                    if (empTabExists) {
+                        showShopTab('employees');
+                    } else {
+                        showToast('暂时无法打开员工管理，请稍后重试', 'warning');
+                    }
                     break;
                 case 'integration':
+                    // 业务规则：已通过 = 已付费
+                    const paid = (shop.status === 'approved' || shop.status === 'active');
+                    closeModal('shop-management-modal');
                     openIntegrationCode(shopId);
                     break;
                 default:
                     console.warn('未知操作:', action);
             }
-            closeModal('shop-management-modal');
+            // 其他 case 已按需显式关闭或切换
         }
 
         // 检查用户是否有权限执行特定操作
@@ -5751,7 +5803,7 @@
             }
         }
 
-        async function activateShop(shopId) {
+    async function activateShop(shopId) {
             try {
                 showLoading('正在激活店铺...');
                 const response = await fetch(`/api/shops/${shopId}/activate`, {
@@ -5853,212 +5905,16 @@
             }
         }
 
-        // 员工管理功能
-        function openEmployeeManagement(shopId) {
-            const userData = getUserData();
-            if (!userData) {
-                showToast('用户信息错误，请重新登录', 'error');
-                return;
-            }
-            
-            // 查找对应的店铺信息
-            const shop = shopsData.find(s => s.id === shopId);
-            if (!shop) {
-                showToast('店铺信息不存在', 'error');
-                return;
-            }
-            
-            // 检查权限：只有超级管理员或店铺所有者可以管理员工
-            const isSuperAdmin = userData.role === 'super_admin';
-            const isShopOwner = shop.owner_id === userData.id || shop.user_id === userData.id;
-            
-            if (!isSuperAdmin && !isShopOwner) {
-                console.log(`❌ 权限拒绝: 用户${userData.id}不是店铺${shopId}的所有者`);
-                showToast('您没有管理该店铺员工的权限', 'error');
-                return;
-            }
-            
-            console.log(`✅ 权限验证通过: ${isSuperAdmin ? '超级管理员' : '店铺所有者'}，开始加载员工列表`);
-            
-            currentShopId = shopId;
-            loadEmployees(shopId);
-            openModal('employee-management-modal');
-        }
-
-        async function loadEmployees(shopId) {
-            try {
-                const response = await fetch(`/api/shops/${shopId}/employees`, {
-                    headers: {
-                        'Authorization': `Bearer ${getAuthToken()}`
-                    }
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    displayEmployees(data.employees || []);
-                } else {
-                    console.error('加载员工列表失败');
-                    displayEmployees([]);
-                }
-            } catch (error) {
-                console.error('加载员工列表错误:', error);
-                displayEmployees([]);
-            }
-        }
-
-        function displayEmployees(employees) {
-            const container = document.getElementById('employees-list');
-            if (!container) return;
-
-            if (employees.length === 0) {
-                container.innerHTML = '<div style="text-align: center; color: #6c757d; padding: 20px;">暂无员工</div>';
-                return;
-            }
-
-            container.innerHTML = employees.map(employee => `
-                <div class="employee-item">
-                    <div class="employee-info">
-                        <div class="employee-name">${employee.name}</div>
-                        <div class="employee-role">${getRoleName(employee.role)}</div>
-                    </div>
-                    <div class="employee-actions">
-                        <button class="btn btn-small btn-secondary" onclick="changeEmployeeRole('${employee.id}', '${employee.role}')">
-                            变更角色
-                        </button>
-                        <button class="btn btn-small btn-secondary" onclick="removeEmployee('${employee.id}')">
-                            移除
-                        </button>
-                    </div>
-                </div>
-            `).join('');
-        }
-
+        // 员工角色名称映射（全局唯一）
         function getRoleName(role) {
-            const roleNames = {
+            const map = {
                 'admin': '管理员',
                 'agent': '客服专员',
-                'viewer': '观察员'
+                'viewer': '观察员',
+                'employee': '员工',
+                'manager': '经理'
             };
-            return roleNames[role] || role;
-        }
-
-        async function addEmployee() {
-            const email = document.getElementById('employee-email').value.trim();
-
-            if (!email) {
-                showToast('请输入员工邮箱', 'error');
-                return;
-            }
-            
-            // 简单的邮箱格式验证
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (!emailRegex.test(email)) {
-                showToast('请输入正确的邮箱格式', 'error');
-                return;
-            }
-
-            try {
-                console.log('💼 添加员工:', email, '角色: 客服专员(默认)');
-                showLoading('正在添加员工...');
-                
-                const response = await fetch(`/api/shops/${currentShopId}/employees`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${getAuthToken()}`
-                    },
-                    body: JSON.stringify({
-                        email: email,
-                        role: 'agent' // 默认角色为客服专员
-                    })
-                });
-
-                if (response.ok) {
-                    showToast('✅ 员工添加成功！邀请邮件已发送', 'success');
-                    document.getElementById('employee-email').value = '';
-                    await loadEmployees(currentShopId);
-                } else {
-                    const error = await response.json();
-                    showToast('员工添加失败: ' + (error.message || '未知错误'), 'error');
-                }
-            } catch (error) {
-                console.error('📧 添加员工网络错误:', error);
-                showToast('网络错误，请重试', 'error');
-            } finally {
-                hideLoading();
-            }
-        }
-
-        async function removeEmployee(employeeId) {
-            if (!confirm('确定要移除此员工吗？')) {
-                return;
-            }
-
-            try {
-                showLoading('正在移除员工...');
-                const response = await fetch(`/api/shops/${currentShopId}/employees/${employeeId}`, {
-                    method: 'DELETE',
-                    headers: {
-                        'Authorization': `Bearer ${getAuthToken()}`
-                    }
-                });
-
-                if (response.ok) {
-                    showSuccess('员工已移除');
-                    await loadEmployees(currentShopId);
-                } else {
-                    showError('移除员工失败');
-                }
-            } catch (error) {
-                console.error('移除员工失败:', error);
-                showError('网络错误，请重试');
-            } finally {
-                hideLoading();
-            }
-        }
-
-        async function changeEmployeeRole(employeeId, currentRole) {
-            const roles = [
-                { value: 'admin', label: '管理员' },
-                { value: 'agent', label: '客服专员' },
-                { value: 'viewer', label: '观察员' }
-            ];
-            
-            const otherRoles = roles.filter(r => r.value !== currentRole);
-            const newRole = prompt(
-                `当前角色: ${getRoleName(currentRole)}\n\n请选择新角色:\n${otherRoles.map((r, i) => `${i + 1}. ${r.label}`).join('\n')}`,
-                '1'
-            );
-
-            if (newRole && newRole >= '1' && newRole <= otherRoles.length) {
-                const selectedRole = otherRoles[parseInt(newRole) - 1].value;
-                
-                try {
-                    showLoading('正在更新员工角色...');
-                    const response = await fetch(`/api/shops/${currentShopId}/employees/${employeeId}`, {
-                        method: 'PUT',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${getAuthToken()}`
-                        },
-                        body: JSON.stringify({
-                            role: selectedRole
-                        })
-                    });
-
-                    if (response.ok) {
-                        showSuccess('员工角色已更新');
-                        await loadEmployees(currentShopId);
-                    } else {
-                        showError('更新员工角色失败');
-                    }
-                } catch (error) {
-                    console.error('更新员工角色失败:', error);
-                    showError('网络错误，请重试');
-                } finally {
-                    hideLoading();
-                }
-            }
+            return map[role] || role || '未知';
         }
 
         // 集成代码功能
@@ -6197,6 +6053,11 @@
             console.log('Loading ended');
         }
 
+        // 安全解析 JSON 响应
+        async function safeJson(resp) {
+            try { return await resp.json(); } catch (_) { return null; }
+        }
+
         function showSuccess(message) {
             console.log('Success:', message);
             // 可以显示成功提示
@@ -6274,38 +6135,32 @@
                         actions.push(`<div class="shop-action-btn danger" onclick="rejectShop('${shop.id}', event)">拒绝</div>`);
                     }
                     if (isShopOwner) {
-                        // 店主可以付费开通、编辑
+                        // 店主可以付费开通（待审核阶段不允许编辑）
                         actions.push(`<div class="shop-action-btn primary" onclick="payToActivate('${shop.id}', event)">付费开通</div>`);
-                        actions.push(`<div class="shop-action-btn warning" onclick="editShop('${shop.id}', event)">编辑</div>`);
                     }
                     // 所有人都可以查看
                     actions.push(`<div class="shop-action-btn" onclick="viewShop('${shop.id}', event)">查看</div>`);
                     break;
                     
                 case 'approved':
-                    // 已批准状态
+                    // 已审核=已付费，完整功能
                     if (isSuperAdmin) {
-                        // 超级管理员可以激活或拒绝店铺
-                        actions.push(`<div class="shop-action-btn primary" onclick="activateShop('${shop.id}', event)">激活</div>`);
-                        actions.push(`<div class="shop-action-btn danger" onclick="rejectShop('${shop.id}', event)">拒绝</div>`);
+                        actions.push(`<div class=\"shop-action-btn primary\" onclick=\"manageShop('${shop.id}', event)\">管理</div>`);
+                        actions.push(`<div class=\"shop-action-btn danger\" onclick=\"rejectShop('${shop.id}', event)\">撤销批准</div>`);
                     }
                     if (isShopOwner) {
-                        // 店主可以编辑店铺信息
-                        actions.push(`<div class="shop-action-btn warning" onclick="editShop('${shop.id}', event)">编辑</div>`);
+                        actions.push(`<div class=\"shop-action-btn primary\" onclick=\"manageShop('${shop.id}', event)\">管理</div>`);
                     }
-                    // 所有人都可以查看
                     actions.push(`<div class="shop-action-btn" onclick="viewShop('${shop.id}', event)">查看</div>`);
                     break;
                     
                 case 'active':
-                    // 活跃状态
+                    // 运行中=已付费
                     if (isShopOwner || isSuperAdmin) {
-                        // 店主和超级管理员可以查看消息和管理店铺
                         actions.push(`<div class="shop-action-btn" onclick="viewShopMessages('${shop.id}', event)">消息</div>`);
                         actions.push(`<div class="shop-action-btn primary" onclick="manageShop('${shop.id}', event)">管理</div>`);
                     }
                     if (isSuperAdmin) {
-                        // 只有超级管理员可以停用店铺
                         actions.push(`<div class="shop-action-btn warning" onclick="deactivateShop('${shop.id}', event)">停用</div>`);
                     }
                     break;
@@ -6326,16 +6181,13 @@
                     break;
                     
                 case 'inactive':
-                    // 非活跃状态
+                    // 未审核=未付费（你的规则），这里视为需要付费激活
                     if (isSuperAdmin) {
-                        // 超级管理员可以管理店铺
                         actions.push(`<div class="shop-action-btn primary" onclick="manageShop('${shop.id}', event)">管理</div>`);
                     }
                     if (isShopOwner) {
-                        // 店主可以续费重新激活
-                        actions.push(`<div class="shop-action-btn primary" onclick="payToActivate('${shop.id}', event)">续费激活</div>`);
+                        actions.push(`<div class="shop-action-btn primary" onclick="payToActivate('${shop.id}', event)">付费激活</div>`);
                     }
-                    // 所有人都可以查看
                     actions.push(`<div class="shop-action-btn" onclick="viewShop('${shop.id}', event)">查看</div>`);
                     break;
                     
@@ -6429,13 +6281,21 @@
 
         // 显示店铺详细信息模态框
         function showShopDetails(shop) {
+            // 确保当前店铺ID已设置，供员工与设置等API使用
+            if (shop && shop.id) { currentShopId = shop.id; }
             const statusText = getStatusText(shop.status);
             let modal = document.getElementById('shop-details-modal');
             
-            // 检查是否已付费或审核通过
-            const isPaid = shop.payment_status === 'paid';
+            // 规则：未付款=未审核；客户付款成功后才通过审核
+            // 因此：已通过(approved) 即视为已付费；active 同样视为已付费
             const isApproved = shop.status === 'approved' || shop.status === 'active';
-            const shouldShowAdvancedFeatures = isPaid && isApproved;
+            const isPaid = isApproved; // 已通过即已付费
+            // 展示策略拆分：
+            // - 员工管理：已通过即可使用（不强制付费）
+            // - 高级功能（API Key/集成代码按钮等）：已通过且已付费
+            const showEmployeesTab = isApproved;
+            const showSettingsTab = true;
+            const showAdvancedFeatures = isApproved; // 已通过=已付费
             
             if (!modal) {
                 // 创建店铺详情模态框，支持多标签页结构
@@ -6450,10 +6310,8 @@
                                 <!-- 标签页导航 -->
                                 <div class="tab-nav">
                                     <button class="tab-btn active" onclick="showShopTab('info')">📋 基本信息</button>
-                                    ${shouldShowAdvancedFeatures ? `
-                                        <button class="tab-btn" onclick="showShopTab('employees')">👥 员工管理</button>
-                                        <button class="tab-btn" onclick="showShopTab('settings')">⚙️ 店铺设置</button>
-                                    ` : ''}
+                                    ${showEmployeesTab ? `<button class="tab-btn" onclick="showShopTab('employees')">👥 员工管理</button>` : ''}
+                                    ${showSettingsTab ? `<button class="tab-btn" onclick="showShopTab('settings')">⚙️ 店铺设置</button>` : ''}
                                 </div>
 
                                 <!-- 基本信息标签页 -->
@@ -6471,7 +6329,7 @@
                                             <label>状态：</label>
                                             <span id="detail-shop-status" class="status-badge"></span>
                                         </div>
-                                        ${shouldShowAdvancedFeatures ? `
+                                        ${showAdvancedFeatures ? `
                                             <div class="detail-item">
                                                 <label>API密钥：</label>
                                                 <span id="detail-shop-api-key" class="api-key-display"></span>
@@ -6505,7 +6363,7 @@
                                             </div>
                                         ` : ''}
                                     </div>
-                                    ${shouldShowAdvancedFeatures ? `
+                                    ${showAdvancedFeatures ? `
                                         <div class="shop-detail-actions">
                                             <button class="btn primary" onclick="generateIntegrationCode()">生成集成代码</button>
                                             <button class="btn secondary" onclick="refreshApiKey()">重新生成API密钥</button>
@@ -6514,7 +6372,7 @@
                                 </div>
 
                                 <!-- 员工管理标签页 -->
-                                ${shouldShowAdvancedFeatures ? `
+                                ${showEmployeesTab ? `
                                     <div id="employeesTab" class="tab-content">
                                         <div class="section-header">
                                             <h4>员工列表</h4>
@@ -6532,7 +6390,7 @@
                                                 </ul>
                                                 <p>✅ 添加的员工将能够登录系统并处理本店铺的客服工作</p>
                                             </div>
-                                            <form id="addEmployeeFormData" onsubmit="addEmployee(event)">
+                                            <form id="addEmployeeFormData" onsubmit="return addEmployee(event)">
                                                 <div class="form-row">
                                                     <div class="form-group">
                                                         <label for="employeeUsername">用户名</label>
@@ -6554,13 +6412,11 @@
                                         </div>
 
                                         <!-- 员工列表 -->
-                                        <div id="employeesList" class="employees-list">
-                                            <div class="loading">正在加载员工信息...</div>
-                                        </div>
+                                        <div id="employeesList" class="employees-list"></div>
                                     </div>
 
                                     <!-- 店铺设置标签页 -->
-                                    <div id="settingsTab" class="tab-content">
+                                    ${showSettingsTab ? `<div id="settingsTab" class="tab-content">` : `<div id="settingsTab" class="tab-content" style="display:none;">`}
                                         <form id="shopSettingsForm" onsubmit="updateShopSettings(event)">
                                             <div class="form-group">
                                                 <label for="editShopName">店铺名称</label>
@@ -6595,6 +6451,8 @@
                 `;
                 document.body.insertAdjacentHTML('beforeend', modalHtml);
                 modal = document.getElementById('shop-details-modal');
+                // 初次创建后立即显示模态框
+                openModal('shop-details-modal');
             }
             
             // 填充店铺信息
@@ -6604,7 +6462,7 @@
             document.getElementById('detail-shop-status').className = `status-badge status-${shop.status}`;
             
             // 只有付费用户才显示API密钥
-            if (shouldShowAdvancedFeatures) {
+            if (showAdvancedFeatures) {
                 const apiKeyElement = document.getElementById('detail-shop-api-key');
                 if (apiKeyElement) {
                     apiKeyElement.textContent = shop.api_key || '未生成';
@@ -6612,119 +6470,13 @@
             }
             
             document.getElementById('detail-shop-created').textContent = shop.created_at ? new Date(shop.created_at).toLocaleDateString() : '未知';
-            
-            // 存储当前店铺ID
-            currentShopId = shop.id;
-            
-            // 使用统一的模态框显示方式
-            const overlay = document.getElementById('modal-overlay');
-            if (overlay && modal) {
-                overlay.style.display = 'flex';
-                modal.classList.add('show');
-                document.body.style.overflow = 'hidden';
+            // 若已存在模态框但未显示，则显示
+            if (modal && !modal.classList.contains('show')) {
+                openModal('shop-details-modal');
             }
+            
         }
 
-        // 生成集成代码
-        function generateIntegrationCode() {
-            if (!currentShopId) {
-                showToast('请先选择一个店铺', 'error');
-                return;
-            }
-            
-            // 显示平台选择模态框
-            const modalHtml = `
-                <div id="integration-code-modal" class="modal">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h3>生成集成代码</h3>
-                            <button class="modal-close" onclick="closeModal('integration-code-modal')">×</button>
-                        </div>
-                        <div class="modal-body">
-                            <div class="platform-selection">
-                                <h4>选择平台：</h4>
-                                <div class="platform-options">
-                                    <button class="platform-btn" onclick="generateCode('html')">HTML/JavaScript</button>
-                                    <button class="platform-btn" onclick="generateCode('react')">React</button>
-                                    <button class="platform-btn" onclick="generateCode('php')">PHP</button>
-                                    <button class="platform-btn" onclick="generateCode('python')">Python</button>
-                                </div>
-                            </div>
-                            <div id="generated-code-container" style="display: none;">
-                                <h4>生成的代码：</h4>
-                                <textarea id="generated-code" readonly rows="20" style="width: 100%; font-family: monospace;"></textarea>
-                                <div style="margin-top: 10px;">
-                                    <button class="btn primary" onclick="copyCode()">复制代码</button>
-                                    <button class="btn secondary" onclick="downloadCode()">下载文件</button>
-                                </div>
-                                <div id="integration-instructions" style="margin-top: 15px; padding: 10px; background: #f5f5f5; border-radius: 5px;">
-                                    <h5>集成说明：</h5>
-                                    <div id="instructions-content"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-            
-            // 移除已存在的模态框
-            const existingModal = document.getElementById('integration-code-modal');
-            if (existingModal) {
-                existingModal.remove();
-            }
-            
-            document.body.insertAdjacentHTML('beforeend', modalHtml);
-            
-            // 使用统一的模态框显示方式
-            const modal = document.getElementById('integration-code-modal');
-            const overlay = document.getElementById('modal-overlay');
-            if (overlay && modal) {
-                overlay.style.display = 'flex';
-                modal.classList.add('show');
-                document.body.style.overflow = 'hidden';
-            }
-        }
-
-        // 生成指定平台的集成代码
-        async function generateCode(platform) {
-            try {
-                const response = await fetch(`/api/shops/${currentShopId}/generate-code`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        platform: platform,
-                        customization: {
-                            color: '#007bff',
-                            position: 'bottom-right'
-                        }
-                    })
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    document.getElementById('generated-code').value = result.data.code;
-                    document.getElementById('instructions-content').innerHTML = result.data.instructions.replace(/\n/g, '<br>');
-                    document.getElementById('generated-code-container').style.display = 'block';
-                    
-                    // 存储当前代码和平台信息
-                    window.currentGeneratedCode = {
-                        platform: platform,
-                        code: result.data.code,
-                        instructions: result.data.instructions
-                    };
-                    
-                    showToast(`${platform}集成代码生成成功`, 'success');
-                } else {
-                    showToast('代码生成失败：' + result.message, 'error');
-                }
-            } catch (error) {
-                console.error('生成集成代码失败:', error);
-                showToast('网络错误，代码生成失败', 'error');
-            }
-        }
 
         // 复制代码到剪贴板
         function copyCode() {
@@ -6779,7 +6531,7 @@
             // TODO: 实现员工管理功能
         }
 
-        // 跳转到付费页面
+    // 跳转到付费页面
         function goToPayment(shopId) {
             if (!shopId) {
                 showToast('店铺ID无效', 'error');
@@ -7145,21 +6897,20 @@
 
         // 显示店铺标签页
         function showShopTab(tabName) {
-            // 更新标签按钮状态
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            document.querySelector(`[onclick="showShopTab('${tabName}')"]`).classList.add('active');
+            // 更新标签按钮状态（防御空指针）
+            const allBtns = document.querySelectorAll('.tab-btn');
+            allBtns.forEach(btn => btn.classList.remove('active'));
+            const targetBtn = Array.from(allBtns).find(btn => btn.getAttribute('onclick') === `showShopTab('${tabName}')`);
+            if (targetBtn) targetBtn.classList.add('active');
 
-            // 隐藏所有标签页内容
-            document.querySelectorAll('.tab-content').forEach(content => {
-                content.classList.remove('active');
-            });
-
-            // 显示目标标签页
+            // 切换标签页内容（防御空指针）
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
             const targetTab = document.getElementById(tabName + 'Tab');
             if (targetTab) {
                 targetTab.classList.add('active');
+            } else {
+                // 当目标页不存在（例如未付费/未审核时隐藏员工页）
+                showToast('该功能暂不可用，请确认店铺已审核并完成付费', 'warning');
             }
 
             // 根据标签页加载相应数据
@@ -7177,106 +6928,96 @@
             }
         }
 
-        // 显示添加员工表单
+        // 员工管理（全局唯一实现，供 tab 使用）
         function showAddEmployeeForm() {
             const form = document.getElementById('addEmployeeForm');
             if (form) {
                 form.style.display = 'block';
-                document.getElementById('employeeUsername').focus();
+                const input = document.getElementById('employeeUsername');
+                if (input) input.focus();
             }
         }
 
-        // 取消添加员工
         function cancelAddEmployee() {
             const form = document.getElementById('addEmployeeForm');
             if (form) {
                 form.style.display = 'none';
-                document.getElementById('addEmployeeFormData').reset();
+                const f = document.getElementById('addEmployeeFormData');
+                if (f) f.reset();
             }
         }
 
-        // 添加员工
+    // 使用全局已定义的 safeJson(resp)
+
         async function addEmployee(event) {
-            event.preventDefault();
-            
-            if (!currentShopId) {
-                showToast('请先选择一个店铺', 'error');
-                return;
-            }
-
-            const username = document.getElementById('employeeUsername').value.trim();
-            const role = document.getElementById('employeeRole').value;
-
-            if (!username) {
-                showToast('请输入用户名', 'error');
-                return;
-            }
-
+            if (event) event.preventDefault();
+            if (!currentShopId) { showToast('请先选择一个店铺', 'error'); return false; }
+            const username = (document.getElementById('employeeUsername')?.value || '').trim();
+            const role = document.getElementById('employeeRole')?.value || 'employee';
+            if (!username) { showToast('请输入用户名', 'error'); return false; }
             try {
-                // 这里应该调用后端API添加员工
                 showToast('正在添加员工...', 'info');
-                
-                // 模拟API调用
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                
+                const email = username.includes('@') ? username : `${username}@example.com`;
+                const resp = await fetch(`/api/shops/${currentShopId}/employees`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, role })
+                });
+                if (!resp.ok) { const err = await safeJson(resp); throw new Error(err?.message || `添加失败 (${resp.status})`); }
                 showToast(`成功添加员工 ${username}`, 'success');
                 cancelAddEmployee();
-                loadEmployeesList();
-            } catch (error) {
-                console.error('添加员工失败:', error);
-                showToast('添加员工失败，请重试', 'error');
+                await loadEmployeesList();
+                return false;
+            } catch (e) {
+                console.error('添加员工失败:', e);
+                showToast(e.message || '添加员工失败，请重试', 'error');
+                return false;
             }
         }
 
-        // 加载员工列表
         async function loadEmployeesList() {
             if (!currentShopId) return;
-
             const container = document.getElementById('employeesList');
             if (!container) return;
-
+            container.innerHTML = '<div class="loading">正在加载员工信息...</div>';
             try {
-                container.innerHTML = '<div class="loading">正在加载员工信息...</div>';
-                
-                // 这里应该调用后端API获取员工列表
-                // 暂时使用模拟数据
-                const employees = [
-                    { id: 1, username: 'employee1', role: 'employee', status: 'active', created_at: '2024-01-01' },
-                    { id: 2, username: 'manager1', role: 'manager', status: 'active', created_at: '2024-01-02' }
-                ];
-
-                if (employees.length === 0) {
+                const resp = await fetch(`/api/shops/${currentShopId}/employees`);
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                const data = await resp.json();
+                const employees = data?.data ?? data?.employees ?? [];
+                if (!Array.isArray(employees) || employees.length === 0) {
                     container.innerHTML = `
                         <div class="empty-state">
                             <div class="empty-icon">👥</div>
                             <h3>暂无员工</h3>
                             <p>点击上方"添加员工"按钮来添加第一个员工</p>
-                        </div>
-                    `;
-                    return;
+                        </div>`; return;
                 }
-
-                const employeesHtml = employees.map(employee => `
+                container.innerHTML = `${employees.map(e => `
                     <div class="employee-item">
                         <div class="employee-info">
-                            <div class="employee-name">${employee.username}</div>
-                            <div class="employee-role">${employee.role === 'manager' ? '经理' : '员工'}</div>
-                            <div class="employee-status status-${employee.status}">
-                                ${employee.status === 'active' ? '活跃' : '离线'}
+                            <div class="employee-avatar">${(e.name||e.email||'E').charAt(0).toUpperCase()}</div>
+                            <div class="employee-details">
+                                <div class="employee-name">${e.name || e.email || e.username || '未命名'}</div>
+                                <div class="employee-meta">角色：${getRoleName(e.role)} ｜ 状态：${e.status === 'active' ? '启用' : (e.status||'未知')} ｜ 加入时间：${localFormatDate(e.created_at)}</div>
                             </div>
                         </div>
                         <div class="employee-actions">
-                            <button class="btn btn-small secondary" onclick="editEmployee(${employee.id})">编辑</button>
-                            <button class="btn btn-small danger" onclick="removeEmployee(${employee.id}, '${employee.username}')">移除</button>
+                            <button class="btn btn-small" onclick="editEmployee('${e.id}')">编辑</button>
+                            <button class="btn btn-small btn-danger" onclick="removeEmployee('${e.id}', '${e.name||e.email||''}')">移除</button>
                         </div>
-                    </div>
-                `).join('');
-
-                container.innerHTML = employeesHtml;
+                    </div>`).join('')}`;
             } catch (error) {
                 console.error('加载员工列表失败:', error);
-                container.innerHTML = '<div class="error-message">加载员工列表失败，请重试</div>';
+                container.innerHTML = '<div class="error">加载失败，请稍后重试</div>';
             }
+        }
+
+        function localFormatDate(d) {
+            try {
+                if (!d) return '';
+                const dt = typeof d === 'string' ? new Date(d) : new Date(d?.seconds ? d.seconds*1000 : d);
+                if (Number.isNaN(dt.getTime())) return '';
+                return dt.toISOString().slice(0, 19).replace('T', ' ');
+            } catch { return ''; }
         }
 
         // 编辑员工
@@ -7287,21 +7028,20 @@
 
         // 移除员工
         async function removeEmployee(employeeId, username) {
-            if (!confirm(`确定要移除员工 ${username} 吗？`)) {
-                return;
-            }
-
+            if (!confirm(`确定要移除员工 ${username || ''} 吗？`)) return;
+            if (!currentShopId) { showToast('请先选择一个店铺', 'error'); return; }
             try {
                 showToast('正在移除员工...', 'info');
-                
-                // 这里应该调用后端API移除员工
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                
-                showToast(`成功移除员工 ${username}`, 'success');
-                loadEmployeesList();
+                const resp = await fetch(`/api/shops/${currentShopId}/employees/${employeeId}`, { method: 'DELETE' });
+                if (!resp.ok) {
+                    const err = await safeJson(resp);
+                    throw new Error(err?.message || `移除失败 (${resp.status})`);
+                }
+                showToast(`成功移除员工 ${username || ''}`.trim(), 'success');
+                await loadEmployeesList();
             } catch (error) {
                 console.error('移除员工失败:', error);
-                showToast('移除员工失败，请重试', 'error');
+                showToast(error.message || '移除员工失败，请重试', 'error');
             }
         }
 
@@ -7671,37 +7411,307 @@
         }
 
         function viewAnalytics() {
-            console.log('查看数据分析');
-            showToast('数据分析功能开发中...', 'info');
+            console.log('打开工作台/报表');
+            switchPage('workbench');
         }
 
-        function editProfile() {
-            console.log('编辑个人信息');
-            const newName = prompt('请输入新的显示名称:', userData ? userData.username : 'admin');
-            if (newName && newName.trim()) {
-                // 这里可以调用API更新用户信息
-                document.getElementById('profileName').textContent = newName;
-                showToast('个人信息已更新', 'success');
+        // ================== 工作台/报表 ==================
+        async function loadWorkbenchSummary() {
+            const container = document.getElementById('workbenchContent');
+            container.innerHTML = `
+                <div class="loading-state">
+                    <div class="loading-spinner"></div>
+                    <div class="loading-text">正在加载工作台数据...</div>
+                </div>
+            `;
+
+            try {
+                const params = new URLSearchParams();
+                // 若已选店铺则过滤；否则汇总全部
+                if (currentShopId) params.set('shop_id', currentShopId);
+                params.set('days', '7');
+                const res = await fetch(`/api/workbench/summary?${params.toString()}`);
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error || '加载失败');
+                renderWorkbench(data.data);
+            } catch (err) {
+                console.error('加载工作台失败:', err);
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">❌</div>
+                        <div class="empty-title">加载失败</div>
+                        <div class="empty-desc">无法加载工作台数据，请稍后重试</div>
+                    </div>
+                `;
             }
         }
 
-        function changePassword() {
-            console.log('修改密码');
-            const oldPassword = prompt('请输入当前密码:');
-            if (oldPassword) {
-                const newPassword = prompt('请输入新密码:');
-                if (newPassword && newPassword.length >= 6) {
-                    const confirmPassword = prompt('请确认新密码:');
-                    if (newPassword === confirmPassword) {
-                        showToast('密码修改成功，请重新登录', 'success');
-                        // 这里可以调用API修改密码
-                    } else {
-                        showToast('两次输入的密码不一致', 'error');
-                    }
-                } else {
-                    showToast('密码长度至少6位', 'warning');
+        function renderWorkbench(summary) {
+            const container = document.getElementById('workbenchContent');
+            const t = summary.totals || {};
+
+            // 简单的条形图渲染（纯CSS宽度）
+            const byDay = Array.isArray(summary.by_day) ? summary.by_day : [];
+            const maxVal = Math.max(1, ...byDay.map(d => Math.max(d.messages || 0, d.conversations_started || 0)));
+
+            const trendHtml = byDay.map(d => {
+                const msgPct = Math.round((d.messages || 0) * 100 / maxVal);
+                const convPct = Math.round((d.conversations_started || 0) * 100 / maxVal);
+                return `
+                    <div class="trend-row">
+                        <div class="trend-date">${d.date}</div>
+                        <div class="trend-bars">
+                            <div class="bar bar-msg" style="width:${msgPct}%" title="消息: ${d.messages}"></div>
+                            <div class="bar bar-conv" style="width:${convPct}%" title="新会话: ${d.conversations_started}"></div>
+                        </div>
+                        <div class="trend-nums">📨 ${d.messages}｜🗣️ ${d.conversations_started}</div>
+                    </div>
+                `;
+            }).join('');
+
+            container.innerHTML = `
+                <div class="stats-grid">
+                    <div class="stat-card"><div class="stat-value">${t.conversations || 0}</div><div class="stat-label">总会话</div></div>
+                    <div class="stat-card"><div class="stat-value">${t.active_conversations || 0}</div><div class="stat-label">活跃会话</div></div>
+                    <div class="stat-card"><div class="stat-value">${t.waiting_customers || 0}</div><div class="stat-label">待回复</div></div>
+                    <div class="stat-card"><div class="stat-value">${t.overdue_conversations || 0}</div><div class="stat-label">超时未回</div></div>
+                    <div class="stat-card"><div class="stat-value">${t.messages_today || 0}</div><div class="stat-label">今日消息</div></div>
+                    <div class="stat-card"><div class="stat-value">${t.messages_7d || 0}</div><div class="stat-label">7日消息</div></div>
+                </div>
+
+                <div class="section" style="margin-top: 16px;">
+                    <h3 class="actions-title">近7天趋势</h3>
+                    <div class="trend-list">
+                        ${trendHtml || '<div class="empty-state"><div class="empty-icon">📭</div><div class="empty-title">暂无数据</div><div class="empty-desc">最近7天没有消息或会话</div></div>'}
+                    </div>
+                    <div class="hint" style="margin-top:8px;color:#6c757d;font-size:12px;">蓝条=消息，紫条=新会话</div>
+                </div>
+
+                <style>
+                    .trend-list { display:flex; flex-direction:column; gap:8px; }
+                    .trend-row { display:flex; align-items:center; gap:8px; }
+                    .trend-date { width: 90px; color:#6c757d; font-size:12px; }
+                    .trend-bars { flex:1; display:flex; gap:4px; align-items:center; }
+                    .bar { height:10px; border-radius:4px; background:#e9ecef; }
+                    .bar-msg { background:#4dabf7; }
+                    .bar-conv { background:#845ef7; }
+                    .trend-nums { width: 120px; text-align:right; color:#495057; font-size:12px; }
+                </style>
+            `;
+        }
+
+        async function showUserInfo() {
+            const u = getUserData() || {};
+            let email = '-';
+            try {
+                const token = getAuthToken();
+                // 优先使用后端提供的管理员信息端点，避免依赖可能不存在的 users 表
+                let res = await fetch('/api/admin/me', { headers: token ? { 'Authorization': `Bearer ${token}`, 'X-Session-Id': token } : {} });
+                if (res.status === 404) {
+                    // 兼容别名
+                    res = await fetch('/api/auth/me', { headers: token ? { 'Authorization': `Bearer ${token}`, 'X-Session-Id': token } : {} });
                 }
+                if (res.ok) {
+                    try {
+                        const data = await res.json();
+                        if (data && data.success && data.data) {
+                            email = data.data.email || '-';
+                        }
+                    } catch (_) { /* 非 JSON 响应，忽略 */ }
+                } else if (u.id) {
+                    // 回退到 users 端点（如存在）
+                    const res2 = await fetch(`/api/users/${u.id}`, { headers: token ? { 'Authorization': `Bearer ${token}`, 'X-Session-Id': token } : {} });
+                    if (res2.ok) {
+                        try {
+                            const data2 = await res2.json();
+                            if (data2 && data2.success && data2.data) {
+                                email = data2.data.email || '-';
+                            }
+                        } catch (_) {}
+                    }
+                }
+            } catch (e) { /* 忽略网络错误，使用默认 '-' */ }
+
+            const content = `
+                <style>
+                    /* 专用于模态内的用户信息布局，避免受全局 .user-info 影响 */
+                    .user-info-modal { display: flex; flex-direction: column; gap: 12px; }
+                    .user-info-modal .detail-item { margin: 0; }
+                    .user-info-modal .detail-item label { display: block; color: #6c757d; font-size: 12px; margin-bottom: 4px; }
+                    .user-info-modal .detail-item .value { display: block; color: #212529; font-size: 14px; word-break: break-all; }
+                    .user-info-modal .email-actions { display:flex; gap:8px; align-items:center; }
+                    .user-info-modal input[type="email"] { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid #dee2e6; border-radius: 8px; }
+                    .user-info-modal .btn { padding: 8px 12px; border-radius: 8px; border: none; background: #0d6efd; color: #fff; }
+                    .user-info-modal .btn.secondary { background: #6c757d; }
+                </style>
+                <div class="user-info-modal">
+                    <div class="detail-item">
+                        <label>用户名</label>
+                        <div class="value">${u.username || '-'}</div>
+                    </div>
+                    <div class="detail-item">
+                        <label>邮箱</label>
+                        <div class="value" id="user-email-value">${email}</div>
+                        ${(!email || email === '-') ? `
+                        <div class="email-actions">
+                            <input type="email" id="email-input" placeholder="填写邮箱用于找回/通知" />
+                            <button class="btn" id="save-email-btn">保存</button>
+                        </div>
+                        ` : ''}
+                    </div>
+                    <div class="detail-item">
+                        <label>用户ID</label>
+                        <div class="value">${u.id || '-'}</div>
+                    </div>
+                </div>
+            `;
+            showModal('用户信息', content);
+
+            // 如无邮箱，绑定保存事件
+            const saveBtn = document.getElementById('save-email-btn');
+            if (saveBtn) {
+                saveBtn.onclick = async function() {
+                    const input = document.getElementById('email-input');
+                    const v = (input?.value || '').trim();
+                    if (!v) { showToast('请输入邮箱', 'error'); return; }
+                    if (!v.includes('@')) { showToast('邮箱格式不正确', 'error'); return; }
+                    try {
+                        const token = getAuthToken();
+                        const res = await fetch('/api/admin/profile', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}`, 'X-Session-Id': token } : {}) },
+                            body: JSON.stringify({ email: v })
+                        });
+                        let data = { success: false };
+                        try { data = await res.json(); } catch(_) {}
+                        if (data.success) {
+                            const holder = document.getElementById('user-email-value');
+                            if (holder) holder.textContent = v;
+                            showToast('邮箱已保存', 'success');
+                            // 隐藏输入区
+                            if (input && input.parentElement) input.parentElement.style.display = 'none';
+                        } else {
+                            showToast(data.message || '保存失败', 'error');
+                        }
+                    } catch (e) {
+                        console.error('保存邮箱失败:', e);
+                        showToast('网络错误，请稍后重试', 'error');
+                    }
+                };
             }
+        }
+
+        async function changePassword() {
+            // 使用简易模态表单而不是 prompt
+            const modalId = 'temp-modal-' + Date.now();
+            const html = `
+                <div id="${modalId}" class="modal" style="display:flex;">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3>修改密码</h3>
+                            <button class="modal-close" onclick="closeModal('${modalId}')">×</button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="form-group">
+                                <label style="display:flex;justify-content:space-between;align-items:center;">
+                                    当前密码
+                                    <a href="#" style="font-size:12px;color:#6c757d;"
+                                       onclick="(function(el){var i=document.getElementById('cp-old'); if(i){i.type=i.type==='password'?'text':'password'; el.textContent=i.type==='password'?'显示':'隐藏';} return false;})(this)">显示</a>
+                                </label>
+                                <input type="password" id="cp-old" placeholder="输入当前密码" autocomplete="off">
+                            </div>
+                            <div class="form-group">
+                                <label style="display:flex;justify-content:space-between;align-items:center;">
+                                    新密码
+                                    <a href="#" style="font-size:12px;color:#6c757d;"
+                                       onclick="(function(el){var i=document.getElementById('cp-new'); if(i){i.type=i.type==='password'?'text':'password'; el.textContent=i.type==='password'?'显示':'隐藏';} return false;})(this)">显示</a>
+                                </label>
+                                <input type="password" id="cp-new" placeholder="至少6位" autocomplete="new-password">
+                            </div>
+                            <div class="form-group">
+                                <label style="display:flex;justify-content:space-between;align-items:center;">
+                                    确认新密码
+                                    <a href="#" style="font-size:12px;color:#6c757d;"
+                                       onclick="(function(el){var i=document.getElementById('cp-confirm'); if(i){i.type=i.type==='password'?'text':'password'; el.textContent=i.type==='password'?'显示':'隐藏';} return false;})(this)">显示</a>
+                                </label>
+                                <input type="password" id="cp-confirm" placeholder="再次输入新密码" autocomplete="new-password">
+                            </div>
+                            <div class="form-buttons" style="margin-top:12px; display:flex; gap:8px; justify-content:flex-end;">
+                                <button onclick="closeModal('${modalId}')">取消</button>
+                                <button id="cp-submit" class="btn primary">确定</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+            document.body.insertAdjacentHTML('beforeend', html);
+            const overlay = document.getElementById('modal-overlay');
+            const modal = document.getElementById(modalId);
+            if (overlay && modal) { overlay.style.display = 'flex'; modal.classList.add('show'); document.body.style.overflow = 'hidden'; }
+
+            // 打开弹窗后，强制清空所有密码输入框，并重置为隐藏态
+            ['cp-old','cp-new','cp-confirm'].forEach(function(id){
+                var el = document.getElementById(id);
+                if (el) { el.value = ''; el.type = 'password'; }
+            });
+            // 聚焦到当前密码输入
+            var first = document.getElementById('cp-old');
+            if (first) first.focus();
+
+            document.getElementById('cp-submit').onclick = async () => {
+                // 旧密码不做 trim，避免历史上密码包含首尾空格导致校验失败
+                const oldP = (document.getElementById('cp-old').value || '');
+                const np = (document.getElementById('cp-new').value || '').trim();
+                const cp = (document.getElementById('cp-confirm').value || '').trim();
+                if (!oldP || !np || !cp) { showToast('请完整填写', 'error'); return; }
+                if (np.length < 6) { showToast('新密码至少6位', 'error'); return; }
+                if (np !== cp) { showToast('两次输入的新密码不一致', 'error'); return; }
+                try {
+                    const token = getAuthToken();
+                    // 提前校验会话身份，避免使用了失效或错误账户的 token
+                    if (token) {
+                        try {
+                            const who = await fetch('/api/system/whoami', { headers: { 'Authorization': `Bearer ${token}`, 'X-Session-Id': token } });
+                            if (who.status === 401) {
+                                showToast('登录已过期，请重新登录', 'error');
+                                closeModal(modalId);
+                                ['quicktalk_user','admin_token','qt_admin_user','qt_admin_token'].forEach(k => localStorage.removeItem(k));
+                                setTimeout(() => { window.location.href = '/mobile/login'; }, 600);
+                                return;
+                            }
+                        } catch (_) { /* 网络问题时继续尝试 */ }
+                    }
+                    let res = await fetch('/api/admin/change-password', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}`, 'X-Session-Id': token } : {}) },
+                        body: JSON.stringify({ old_password: oldP, new_password: np })
+                    });
+                    // 如果接口不存在，尝试备用路径
+                    if (res.status === 404) {
+                        res = await fetch('/api/auth/change-password', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}`, 'X-Session-Id': token } : {}) },
+                            body: JSON.stringify({ old_password: oldP, new_password: np })
+                        });
+                    }
+                    let data = { success: false };
+                    try { data = await res.json(); } catch (_) { /* 可能为空响应，保持默认 */ }
+                    if (data.success) {
+                        showToast('密码已更新，请重新登录', 'success');
+                        closeModal(modalId);
+                        // 清理本地登录态并跳转登录
+                        localStorage.removeItem('quicktalk_user');
+                        localStorage.removeItem('qt_admin_user');
+                        localStorage.removeItem('admin_token');
+                        setTimeout(() => { window.location.href = '/mobile/login'; }, 800);
+                    } else {
+                        const msg = data.message || data.error || (res.ok ? '修改失败' : `修改失败 (${res.status})`);
+                        showToast(msg, 'error');
+                    }
+                } catch (e) {
+                    console.error('修改密码失败:', e);
+                    showToast('网络错误，请稍后重试', 'error');
+                }
+            };
         }
 
         function notificationSettings() {
@@ -8502,7 +8512,7 @@
             try {
                 // 创建付费开通订单
                 const authToken = getAuthToken();
-                const response = await fetch(`/api/shops/${shopId}/create-activation-order`, {
+                const response = await fetch(`/api/shops/${shopId}/activation-order`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -8512,15 +8522,15 @@
                 });
 
                 console.log('📡 API响应状态:', response.status);
-                if (response.ok) {
-                    const data = await response.json();
-                    console.log('✅ 订单创建成功:', data);
-                    // 后端返回的数据在data字段中，不是data.order
+                let data = null;
+                try { data = await response.json(); } catch (_) { data = null; }
+                if (response.ok && data && data.success) {
+                    // 后端数据在 data 字段
                     showActivationPaymentModal(data.data);
                 } else {
-                    const error = await response.json();
-                    console.error('❌ API错误:', error);
-                    showToast('创建付费开通订单失败: ' + (error.message || error.error || '未知错误'), 'error');
+                    const msg = (data && (data.message || data.error)) || `创建激活订单失败 (${response.status})`;
+                    console.error('❌ API错误:', data);
+                    showToast(msg, 'error');
                 }
             } catch (error) {
                 console.error('❌ 网络错误:', error);
@@ -8881,40 +8891,7 @@
         </div>
     </div>
 
-    <!-- 员工管理模态框 -->
-    <div id="employee-management-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>👥 员工管理</h3>
-                <button class="modal-close" onclick="closeModal('employee-management-modal')">×</button>
-            </div>
-            <div class="modal-body">
-                <!-- 添加员工区域 -->
-                <div class="add-employee-section">
-                    <h4>💼 添加员工</h4>
-                    <div class="add-employee-form">
-                        <div class="form-row">
-                            <div class="form-group flex-1">
-                                <input type="email" id="employee-email" placeholder="请输入员工邮箱地址">
-                            </div>
-                            <button class="btn btn-primary btn-small" onclick="addEmployee()">➕ 添加员工</button>
-                        </div>
-                    </div>
-                    <div class="employee-help">
-                        <small class="form-help">📮 输入员工邮箱地址，系统将发送邀请邮件（默认角色：客服专员）</small>
-                    </div>
-                </div>
-                
-                <!-- 员工列表 -->
-                <div class="employee-list-section">
-                    <h4>员工列表</h4>
-                    <div id="employees-list" class="employees-list">
-                        <!-- 员工列表将在这里动态生成 -->
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+    
 
     <!-- 集成代码模态框 -->
     <div id="integration-code-modal" class="modal">

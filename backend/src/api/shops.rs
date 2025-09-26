@@ -82,6 +82,7 @@ pub async fn search_shops(
             contact_email: None,
             contact_phone: None,
             contact_info: None,
+            membership: None,
         })
         .collect();
 
@@ -191,54 +192,121 @@ pub async fn get_shops(
     let role: String = role_row.get("role");
     let all_flag = params.get("all").map(|v| v == "1" || v.eq_ignore_ascii_case("true" )).unwrap_or(false);
 
-    let (sql, bind_owner, bind_extra): (&str, Option<&str>, Option<Vec<String>>) = if role == "super_admin" {
-        if all_flag { (
-            "SELECT id, name, domain, api_key, owner_id, status, created_at FROM shops ORDER BY created_at DESC",
-            None,
-            None
-        ) } else { (
-            "SELECT id, name, domain, api_key, owner_id, status, created_at FROM shops WHERE status IN ('pending','rejected','inactive') ORDER BY created_at DESC",
-            None,
-            None
-        ) }
-    } else { (
-        "SELECT id, name, domain, api_key, owner_id, status, created_at FROM shops WHERE owner_id = ? ORDER BY created_at DESC",
-        Some(session.admin_id.as_str()),
-        None
-    ) };
+    // 先查当前管理员邮箱（用于匹配员工表 email）
+    let admin_row = sqlx::query("SELECT username, email FROM admins WHERE id = ?")
+        .bind(&session.admin_id)
+        .fetch_one(&state.db)
+        .await
+        .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
+    let admin_email: String = admin_row.try_get("email").unwrap_or_else(|_| String::new());
+    let admin_username: String = admin_row.try_get("username").unwrap_or_else(|_| String::new());
 
-    let mut q = sqlx::query(sql);
-    if let Some(owner) = bind_owner { q = q.bind(owner); }
-    if let Some(extra) = bind_extra { for v in extra { q = q.bind(v); } }
+    // 1) 我拥有的店铺
+    let owner_sql = if role == "super_admin" {
+        if all_flag {
+            "SELECT id, name, domain, api_key, owner_id, status, created_at FROM shops ORDER BY created_at DESC"
+        } else {
+            "SELECT id, name, domain, api_key, owner_id, status, created_at FROM shops WHERE status IN ('pending','rejected','inactive') ORDER BY created_at DESC"
+        }
+    } else {
+        "SELECT id, name, domain, api_key, owner_id, status, created_at FROM shops WHERE owner_id = ? ORDER BY created_at DESC"
+    };
 
-    let rows = q.fetch_all(&state.db)
+    let mut owner_q = sqlx::query(owner_sql);
+    if role != "super_admin" {
+        owner_q = owner_q.bind(&session.admin_id);
+    }
+    let owner_rows = owner_q
+        .fetch_all(&state.db)
         .await
         .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    info!(
-        admin_id=%session.admin_id,
-        role=%role,
-        all_flag=%all_flag,
-        returned=%rows.len(),
-        "get_shops filtered result"
-    );
+    let mut shops: Vec<Shop> = owner_rows
+        .iter()
+        .map(|row| Shop {
+            id: row.get("id"),
+            name: row.get("name"),
+            domain: row.get("domain"),
+            api_key: row.get("api_key"),
+            owner_id: row.try_get("owner_id").unwrap_or_else(|_| "legacy_data".to_string()),
+            status: row.get("status"),
+            created_at: row.get("created_at"),
+            payment_status: None,
+            subscription_type: None,
+            subscription_status: None,
+            subscription_expires_at: None,
+            contact_email: None,
+            contact_phone: None,
+            contact_info: None,
+            membership: Some("owner".into()),
+        })
+        .collect();
 
-    let shops: Vec<Shop> = rows.iter().map(|row| Shop {
-        id: row.get("id"),
-        name: row.get("name"),
-        domain: row.get("domain"),
-        api_key: row.get("api_key"),
-        owner_id: row.try_get("owner_id").unwrap_or_else(|_| "legacy_data".to_string()),
-        status: row.get("status"),
-        created_at: row.get("created_at"),
-        payment_status: None,
-        subscription_type: None,
-        subscription_status: None,
-        subscription_expires_at: None,
-        contact_email: None,
-        contact_phone: None,
-        contact_info: None,
-    }).collect();
+    // 2) 我作为员工的店铺（基于 employees.email 匹配当前管理员邮箱）
+    {
+        let lower_email = admin_email.to_lowercase();
+        let lower_username = admin_username.to_lowercase();
+        // 用用户名的本地部分匹配邮箱前缀（username@*），当管理员没有配置 email 时也能匹配
+        let email_like_from_username = if lower_username.is_empty() { "#no_match#%".to_string() } else { format!("{}@%", lower_username) };
+        let employee_rows = sqlx::query(
+            "SELECT s.id, s.name, s.domain, s.api_key, s.owner_id, s.status, s.created_at \
+             FROM shops s \
+             JOIN employees e ON e.shop_id = s.id \
+             LEFT JOIN users u ON u.id = e.user_id \
+             WHERE e.status = 'active' AND ( \
+                (e.email IS NOT NULL AND LOWER(e.email) = ?) OR \
+                (e.email IS NOT NULL AND LOWER(e.email) LIKE ?) OR \
+                (e.name IS NOT NULL AND LOWER(e.name) = ?) OR \
+                (u.email IS NOT NULL AND LOWER(u.email) = ?) OR \
+                (u.username IS NOT NULL AND LOWER(u.username) = ?) OR \
+                (u.email IS NOT NULL AND LOWER(u.email) LIKE ?) \
+             ) \
+             ORDER BY s.created_at DESC"
+        )
+        // e.email = admin_email
+        .bind(&lower_email)
+        // e.email LIKE 'username@%'
+        .bind(&email_like_from_username)
+        // e.name = admin_username
+        .bind(&lower_username)
+        // u.email = admin_email
+        .bind(&lower_email)
+        // u.username = admin_username
+        .bind(&lower_username)
+        // u.email LIKE 'username@%'
+        .bind(&email_like_from_username)
+        .fetch_all(&state.db)
+        .await
+        .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
+
+        // 去重：避免同时是 owner 和 employee 导致重复
+        use std::collections::HashSet;
+        let existing: HashSet<String> = shops.iter().map(|s| s.id.clone()).collect();
+
+        for row in employee_rows.iter() {
+            let id: String = row.get("id");
+            if existing.contains(&id) { continue; }
+            shops.push(Shop {
+                id,
+                name: row.get("name"),
+                domain: row.get("domain"),
+                api_key: row.get("api_key"),
+                owner_id: row.try_get("owner_id").unwrap_or_else(|_| "legacy_data".to_string()),
+                status: row.get("status"),
+                created_at: row.get("created_at"),
+                payment_status: None,
+                subscription_type: None,
+                subscription_status: None,
+                subscription_expires_at: None,
+                contact_email: None,
+                contact_phone: None,
+                contact_info: None,
+                membership: Some("employee".into()),
+            });
+        }
+    }
+
+    info!(admin_id=%session.admin_id, role=%role, admin_email=%admin_email, admin_username=%admin_username, all_flag=%all_flag, returned=%shops.len(), "get_shops include membership");
 
     Ok(Json(ApiResponse { success: true, data: Some(shops), message: "Shops retrieved successfully".into() }))
 }
@@ -253,7 +321,7 @@ pub async fn create_shop(
     let input = shop_uc::CreateShopInput { owner_id: session.admin_id.clone(), name, domain };
     match shop_uc::create_shop(&state.db, input).await {
         Ok(out) => {
-            let shop = Shop { id: out.id, name: payload.name.unwrap_or("Unnamed Shop".into()), domain: payload.domain.unwrap_or("no-domain".into()), api_key: out.api_key, owner_id: session.admin_id, status: "pending".into(), created_at: out.created_at, payment_status: None, subscription_type: None, subscription_status: None, subscription_expires_at: None, contact_email: None, contact_phone: None, contact_info: None };
+            let shop = Shop { id: out.id, name: payload.name.unwrap_or("Unnamed Shop".into()), domain: payload.domain.unwrap_or("no-domain".into()), api_key: out.api_key, owner_id: session.admin_id, status: "pending".into(), created_at: out.created_at, payment_status: None, subscription_type: None, subscription_status: None, subscription_expires_at: None, contact_email: None, contact_phone: None, contact_info: None, membership: None };
             Ok(Json(ApiResponse { success: true, data: Some(shop), message: "Shop created".into() }))
         }
         Err(e) => match e {
@@ -309,6 +377,7 @@ pub async fn get_shop_details(
                 contact_email: None,
                 contact_phone: None,
                 contact_info: None,
+                membership: None,
             };
             Ok(Json(ApiResponse { success: true, data: Some(shop), message: "Shop details retrieved".into() }))
         }
@@ -331,7 +400,7 @@ pub async fn update_shop(
                 .fetch_one(&state.db)
                 .await
                 .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
-            let shop = Shop { id: row.get("id"), name: row.get("name"), domain: row.get("domain"), api_key: row.get("api_key"), owner_id: row.try_get("owner_id").unwrap_or_else(|_| "legacy_data".to_string()), status: row.get("status"), created_at: row.get("created_at"), payment_status: None, subscription_type: None, subscription_status: None, subscription_expires_at: None, contact_email: None, contact_phone: None, contact_info: None };
+            let shop = Shop { id: row.get("id"), name: row.get("name"), domain: row.get("domain"), api_key: row.get("api_key"), owner_id: row.try_get("owner_id").unwrap_or_else(|_| "legacy_data".to_string()), status: row.get("status"), created_at: row.get("created_at"), payment_status: None, subscription_type: None, subscription_status: None, subscription_expires_at: None, contact_email: None, contact_phone: None, contact_info: None, membership: None };
             Ok(Json(ApiResponse { success: true, data: Some(shop), message: "Shop updated".into() }))
         }
         Err(e) => match e {

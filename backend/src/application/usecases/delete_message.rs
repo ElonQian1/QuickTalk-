@@ -2,7 +2,9 @@
 use crate::domain::conversation::{MessageRepository, MessageId, RepoError, DomainEvent};
 use crate::application::events::publisher::EventPublisher; // async publisher trait
 
+#[allow(dead_code)]
 pub struct DeleteMessageInput { pub message_id: String, pub hard: bool }
+#[allow(dead_code)]
 pub struct DeleteMessageOutput { pub message_id: String, pub events: Vec<DomainEvent> }
 
 #[derive(Debug, thiserror::Error)]

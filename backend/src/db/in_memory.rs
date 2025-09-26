@@ -98,6 +98,11 @@ impl MessageReadRepository for InMemoryMessageRepository {
         let slice = if start >= v.len() { &[][..] } else { &v[start..end] };
         Ok(slice.iter().filter_map(InMemoryMessageStore::to_domain).collect())
     }
+
+    async fn find_by_id(&self, id: &MessageId) -> Result<Option<Message>, RepoError> {
+        let guard = self.store.inner.read().unwrap();
+        Ok(guard.get(&id.0).and_then(|sm| InMemoryMessageStore::to_domain(sm)))
+    }
 }
 
 #[cfg(test)]

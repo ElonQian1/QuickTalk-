@@ -61,10 +61,18 @@ pub async fn add_employee(
     Json(payload): Json<AddEmployeeRequest>,
 ) -> Result<Json<ApiResponse<()>>, StatusCode> {
     let employee_id = Uuid::new_v4().to_string();
+    // 统一从 email 提取本地部分作为显示名，便于与管理员用户名匹配（/api/shops 中有 e.name = admin_username 的匹配规则）
+    let display_name = payload
+        .email
+        .split('@')
+        .next()
+        .unwrap_or(payload.email.as_str())
+        .to_string();
+
     match sqlx::query("INSERT INTO employees (id, shop_id, name, email, role, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
         .bind(&employee_id)
         .bind(&shop_id)
-        .bind(&payload.email) // 暂用邮箱作为显示名
+        .bind(&display_name)
         .bind(&payload.email)
         .bind(&payload.role)
         .bind("active")

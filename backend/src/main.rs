@@ -8,6 +8,14 @@ mod db;     // expose db (conversation repo)
 mod application; // new application layer (use cases)
 mod auth;
 use bootstrap::settings::Settings;
+// 复用 web.rs 中的探测逻辑（重新实现轻量版，避免循环依赖）
+async fn probe_static(pages: &[(&str,&[&str])]) {
+    for (label, candidates) in pages {
+        for p in *candidates {
+            if tokio::fs::metadata(p).await.is_ok() { info!(target="startup", page=%label, path=%p, "static page located"); break; }
+        }
+    }
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -26,12 +34,37 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 连接数据库
     info!("正在连接数据库: {}", settings.database_url);
     let db = SqlitePool::connect(&settings.database_url).await?;
+
+    // CLI 维护命令：--purge-shops 仅用于本地一次性清空历史店铺
+    let args: Vec<String> = std::env::args().collect();
+    if args.iter().any(|a| a == "--purge-shops") {
+        info!("⚠️ 执行维护操作: 级联清空与 shops 相关业务数据 (messages -> conversations -> payment_orders -> activation_orders -> shops)");
+        let mut tx = db.begin().await?;
+        // 按外键依赖顺序删除，避免 FOREIGN KEY constraint failed
+        let deleted_messages = sqlx::query("DELETE FROM messages").execute(&mut *tx).await?.rows_affected();
+        let deleted_conversations = sqlx::query("DELETE FROM conversations").execute(&mut *tx).await?.rows_affected();
+        let deleted_payment_orders = sqlx::query("DELETE FROM payment_orders").execute(&mut *tx).await?.rows_affected();
+        let deleted_activation_orders = sqlx::query("DELETE FROM activation_orders").execute(&mut *tx).await?.rows_affected();
+        let deleted_shops = sqlx::query("DELETE FROM shops").execute(&mut *tx).await?.rows_affected();
+        tx.commit().await?;
+        info!(deleted_messages, deleted_conversations, deleted_payment_orders, deleted_activation_orders, deleted_shops, "完成关联数据与 shops 清空");
+        info!("✅ 清理完成：可安全重新创建店铺，历史污染数据已移除");
+        return Ok(()); // 不继续启动服务器
+    }
     
     // 初始化数据库 schema
     bootstrap::migrations::run_migrations(&db).await?;
     
     // 构建应用（通过 bootstrap 模块）
     let app = bootstrap::router::build_app(db).await;
+
+    // 启动前调试：记录关键静态页面解析路径
+    #[cfg(debug_assertions)]
+    probe_static(&[
+        ("mobile-login", &["presentation/static/mobile-login.html", "../presentation/static/mobile-login.html", "./static/mobile-login.html"][..]),
+        ("mobile-dashboard", &["presentation/static/mobile-dashboard.html", "../presentation/static/mobile-dashboard.html", "./static/mobile-dashboard.html"][..]),
+        ("mobile-admin", &["presentation/static/mobile-admin.html", "../presentation/static/mobile-admin.html", "./static/mobile-admin.html"][..]),
+    ]).await;
     
     // 启动服务器
     let addr = format!("{}:{}", settings.host, settings.port);

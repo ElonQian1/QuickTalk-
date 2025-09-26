@@ -5345,9 +5345,11 @@
                         <button class="option-btn" onclick="handleShopAction('employees')">
                             👥 员工管理
                         </button>
+                        ${shop.status !== 'pending' ? `
                         <button class="option-btn" onclick="handleShopAction('edit')">
                             ✏️ 编辑信息
                         </button>
+                        ` : ''}
                         <button class="option-btn" onclick="handleShopAction('integration')">
                             🔗 集成代码
                         </button>
@@ -5371,18 +5373,18 @@
                             <div class="info-message">
                                 <p>您的店铺正在审核中，请耐心等待管理员审核。</p>
                             </div>
-                            <button class="option-btn" onclick="handleShopAction('edit')">
-                                ✏️ 编辑信息
-                            </button>
                         `;
                         break;
                     case 'approved':
                         optionsHtml += `
-                            <div class="info-message success">
-                                <p>恭喜！您的店铺已通过审核，请付费激活。</p>
-                            </div>
                             <button class="option-btn primary" onclick="payToActivate('${shop.id}', event)">
-                                💳 付费激活
+                                💳 续费
+                            </button>
+                            <button class="option-btn" onclick="handleShopAction('employees')">
+                                👥 员工管理
+                            </button>
+                            <button class="option-btn" onclick="handleShopAction('integration')">
+                                🔗 集成代码
                             </button>
                         `;
                         break;
@@ -5396,6 +5398,9 @@
                             </button>
                             <button class="option-btn" onclick="handleShopAction('integration')">
                                 🔗 集成代码
+                            </button>
+                            <button class="option-btn" onclick="payToActivate('${shop.id}', event)">
+                                💳 续费
                             </button>
                         `;
                         break;
@@ -6244,9 +6249,8 @@
                         actions.push(`<div class="shop-action-btn danger" onclick="rejectShop('${shop.id}', event)">拒绝</div>`);
                     }
                     if (isShopOwner) {
-                        // 店主可以付费开通、编辑
+                        // 店主可以付费开通（待审核阶段不允许编辑）
                         actions.push(`<div class="shop-action-btn primary" onclick="payToActivate('${shop.id}', event)">付费开通</div>`);
-                        actions.push(`<div class="shop-action-btn warning" onclick="editShop('${shop.id}', event)">编辑</div>`);
                     }
                     // 所有人都可以查看
                     actions.push(`<div class="shop-action-btn" onclick="viewShop('${shop.id}', event)">查看</div>`);
@@ -6258,10 +6262,14 @@
                         // 超级管理员可以激活或拒绝店铺
                         actions.push(`<div class="shop-action-btn primary" onclick="activateShop('${shop.id}', event)">激活</div>`);
                         actions.push(`<div class="shop-action-btn danger" onclick="rejectShop('${shop.id}', event)">拒绝</div>`);
+                        // 超级管理员也可以打开店铺管理
+                        actions.push(`<div class=\"shop-action-btn primary\" onclick=\"manageShop('${shop.id}', event)\">管理</div>`);
                     }
                     if (isShopOwner) {
                         // 店主可以编辑店铺信息
                         actions.push(`<div class="shop-action-btn warning" onclick="editShop('${shop.id}', event)">编辑</div>`);
+                        // 店主可以进行店铺管理
+                        actions.push(`<div class=\"shop-action-btn primary\" onclick=\"manageShop('${shop.id}', event)\">管理</div>`);
                     }
                     // 所有人都可以查看
                     actions.push(`<div class="shop-action-btn" onclick="viewShop('${shop.id}', event)">查看</div>`);
@@ -6273,6 +6281,10 @@
                         // 店主和超级管理员可以查看消息和管理店铺
                         actions.push(`<div class="shop-action-btn" onclick="viewShopMessages('${shop.id}', event)">消息</div>`);
                         actions.push(`<div class="shop-action-btn primary" onclick="manageShop('${shop.id}', event)">管理</div>`);
+                        if (isShopOwner) {
+                            // 已激活=已付费，提供续费入口
+                            actions.push(`<div class=\"shop-action-btn\" onclick=\"payToActivate('${shop.id}', event)\">续费</div>`);
+                        }
                     }
                     if (isSuperAdmin) {
                         // 只有超级管理员可以停用店铺

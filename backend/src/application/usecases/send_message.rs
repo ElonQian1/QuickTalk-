@@ -12,6 +12,8 @@ pub struct SendMessageInput {
     pub message_type: String,
 }
 
+#[allow(dead_code)]
+#[derive(Debug)]
 pub struct SendMessageOutput {
     pub message_id: String,
     pub events: Vec<DomainEvent>, // 仍返回便于上层测试或回显

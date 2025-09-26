@@ -9,3 +9,4 @@ pub mod integrations;
 pub mod system;
 pub mod errors;
 pub mod events;
+pub mod workbench;

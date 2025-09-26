@@ -10,6 +10,7 @@ use sqlx::Row;
 #[allow(dead_code)]
 pub struct Session {
     pub admin_id: String,
+    pub session_id: String,
 }
 
 #[derive(Debug)]
@@ -39,7 +40,7 @@ where
             }
         };
 
-        let row = sqlx::query("SELECT admin_id FROM sessions WHERE session_id = ? AND expires_at > CURRENT_TIMESTAMP")
+        let row = sqlx::query("SELECT admin_id, session_id FROM sessions WHERE session_id = ? AND expires_at > CURRENT_TIMESTAMP")
             .bind(token)
             .fetch_optional(&state.db)
             .await
@@ -49,7 +50,7 @@ where
                 (StatusCode::INTERNAL_SERVER_ERROR, axum::Json(body))
             })?;
 
-        if let Some(r) = row { return Ok(SessionExtractor(Session { admin_id: r.get::<String, _>("admin_id") })); }
+        if let Some(r) = row { return Ok(SessionExtractor(Session { admin_id: r.get::<String, _>("admin_id"), session_id: r.get::<String, _>("session_id") })); }
 
         let body = ApiResponse::<serde_json::Value> { success: false, data: None, message: "会话无效或已过期，请重新登录".into() };
         Err((StatusCode::UNAUTHORIZED, axum::Json(body)))

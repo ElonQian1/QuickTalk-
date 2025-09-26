@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>QuickTalk 访客模拟器</title>
+<style>
+:root { --bg:#0f172a; --panel:#1e293b; --accent:#4f82f7; --radius:14px; }
+* { box-sizing:border-box; }
+body { margin:0; font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif; background:linear-gradient(135deg,#0f172a,#1e2d45); color:#e2e8f0; min-height:100vh; display:flex; flex-direction:column; }
+header { padding:18px 20px 10px; }
+header h1 { margin:0; font-size:20px; font-weight:600; letter-spacing:.5px; display:flex; align-items:center; gap:8px; }
+main { flex:1; display:grid; gap:18px; padding:0 20px 30px; align-content:start; }
+.panel { background:var(--panel); padding:16px 18px 18px; border-radius:var(--radius); box-shadow:0 8px 28px -10px rgba(0,0,0,.55),0 2px 8px -2px rgba(0,0,0,.35); position:relative; }
+.panel h2 { margin:0 0 12px; font-size:15px; font-weight:600; letter-spacing:.4px; }
+small.note { display:block; margin-top:4px; opacity:.6; font-size:11px; }
+.inline { display:flex; gap:10px; flex-wrap:wrap; }
+.inline input, .inline select { background:#0f1c2d; border:1px solid #324258; color:#e2e8f0; padding:9px 10px; border-radius:10px; font-size:13px; min-width:140px; }
+.inline button { background:var(--accent); color:#fff; border:none; padding:10px 18px; font-size:13px; border-radius:10px; cursor:pointer; font-weight:600; letter-spacing:.5px; box-shadow:0 4px 14px -4px rgba(79,130,247,.55); display:flex; align-items:center; gap:6px; }
+.inline button.secondary { background:#25364a; box-shadow:none; font-weight:500; }
+.inline button.danger { background:#d94848; }
+.inline button:disabled { opacity:.55; cursor:not-allowed; }
+#log { font:12px/1.55 ui-monospace,monospace; background:#0d1522; border:1px solid #273445; padding:12px 14px; border-radius:12px; max-height:260px; overflow:auto; white-space:pre-wrap; word-break:break-word; }
+.badge { background:#24364a; padding:3px 7px; border-radius:8px; font-size:11px; letter-spacing:.5px; color:#9cc1ff; }
+.status-dot { width:10px; height:10px; border-radius:50%; background:#f87171; box-shadow:0 0 0 0 rgba(248,113,113,.5); transition:.3s; }
+.status-dot.on { background:#34d399; box-shadow:0 0 0 6px rgba(52,211,153,.18); }
+.messages { background:#0d1522; border:1px solid #273445; border-radius:12px; padding:10px 12px; max-height:300px; overflow:auto; display:flex; flex-direction:column; gap:8px; }
+.msg { background:#1e293b; padding:8px 10px; border-radius:10px; font-size:12px; position:relative; }
+.msg.admin { background:#334155; }
+.msg .meta { font-size:10px; opacity:.55; margin-bottom:2px; }
+footer { text-align:center; font-size:11px; padding:18px 10px 26px; opacity:.55; }
+.copy { position:absolute; top:8px; right:8px; background:#25364a; color:#cbd5e1; border:1px solid #34465c; padding:4px 8px; border-radius:8px; font-size:11px; cursor:pointer; }
+.copy:hover { background:#2f4964; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🧪 访客模拟器 <span class="badge" id="badgeState">INIT</span></h1>
+</header>
+<main>
+  <div class="panel" id="pConnection">
+    <h2>1. 连接 / 会话</h2>
+    <div class="inline">
+      <input id="inpShopId" placeholder="店铺ID (可留空自动)" />
+      <button id="btnConnect">建立/获取会话</button>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <div class="status-dot" id="dot"></div>
+        <span id="connState" style="font-size:12px;opacity:.7;">未连接</span>
+      </div>
+    </div>
+    <small class="note">若留空：将请求后端创建匿名访客 + 对话；若填入已有店铺，将复用并创建新对话。</small>
+    <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
+      <input id="inpConversationId" placeholder="会话ID" readonly />
+      <input id="inpCustomerId" placeholder="访客ID" readonly />
+      <button id="btnReset" class="secondary" style="display:none;">重置</button>
+    </div>
+  </div>
+
+  <div class="panel" id="pMessaging" style="display:none;">
+    <h2>2. 发送消息</h2>
+    <div class="messages" id="messages"></div>
+    <div class="inline" style="margin-top:10px;">
+      <input id="inpMessage" placeholder="输入消息并回车或点击发送" style="flex:1;" />
+      <button id="btnSend">发送</button>
+    </div>
+    <small class="note">消息将以访客身份发送；管理员端应实时看到。</small>
+  </div>
+
+  <div class="panel" id="pTools" style="display:none;">
+    <h2>3. 工具</h2>
+    <div class="inline">
+      <button id="btnPing" class="secondary">Ping</button>
+      <button id="btnListMessages" class="secondary">刷新消息</button>
+      <button id="btnCopyIds" class="secondary">复制IDs</button>
+      <button id="btnCloseWs" class="danger" title="模拟断开">断开WS</button>
+    </div>
+  </div>
+
+  <div class="panel" id="pLog">
+    <h2>运行日志 <button class="copy" id="btnCopyLog">复制</button></h2>
+    <div id="log"></div>
+  </div>
+</main>
+<footer>QuickTalk Visitor Simulator · 临时工具页面 · 可移除不影响生产</footer>
+<script>
+(function(){
+  const logEl = document.getElementById('log');
+  const badge = document.getElementById('badgeState');
+  const dot = document.getElementById('dot');
+  const connState = document.getElementById('connState');
+  const inpShopId = document.getElementById('inpShopId');
+  const inpConvId = document.getElementById('inpConversationId');
+  const inpCustId = document.getElementById('inpCustomerId');
+  const btnConnect = document.getElementById('btnConnect');
+  const btnSend = document.getElementById('btnSend');
+  const btnPing = document.getElementById('btnPing');
+  const btnList = document.getElementById('btnListMessages');
+  const btnCopyIds = document.getElementById('btnCopyIds');
+  const btnCloseWs = document.getElementById('btnCloseWs');
+  const btnReset = document.getElementById('btnReset');
+  const btnCopyLog = document.getElementById('btnCopyLog');
+  const inpMessage = document.getElementById('inpMessage');
+  const messagesBox = document.getElementById('messages');
+  let websocket = null;
+  let conversationId = null;
+  let customerId = null;
+  let reconnectAttempts = 0;
+  let shopIdManual = null;
+
+  function log(msg, level='info'){
+    const t = new Date().toISOString().split('T')[1].replace('Z','');
+    logEl.textContent += `[${t}] ${msg}\n`;
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+  function setBadge(text, color){ badge.textContent = text; badge.style.background = '#24364a'; }
+  function wsStatus(on){ dot.classList.toggle('on', !!on); connState.textContent = on? '已连接' : '未连接'; }
+
+  function http(method, url, body){
+    return fetch(url, { method, headers:{'Content-Type':'application/json'}, body: body? JSON.stringify(body):undefined });
+  }
+
+  async function createConversationFlow(){
+    setBadge('CREATING'); log('开始创建访客会话流程');
+    const payload = { customer_name: '访客'+Math.floor(Math.random()*1000), shop_id: shopIdManual||undefined };
+    const r = await http('POST','/api/conversations', payload);
+    if(!r.ok){ log('创建对话失败 status='+r.status,'error'); setBadge('FAILED'); return; }
+    const data = await r.json();
+    if(!data.success){ log('创建对话接口返回失败: '+data.message,'error'); setBadge('FAILED'); return; }
+    conversationId = data.data?.id || data.data?.conversation_id || data.data?.conversation?.id;
+    customerId = data.data?.customer_id || data.data?.customer?.id;
+    if(!conversationId){ log('未获取到 conversationId','error'); setBadge('FAILED'); return; }
+    inpConvId.value = conversationId || '';
+    inpCustId.value = customerId || '';
+    log('对话创建成功 conv='+conversationId+' customer='+customerId);
+    badge.textContent='READY';
+    document.getElementById('pMessaging').style.display='block';
+    document.getElementById('pTools').style.display='block';
+    initWebSocket();
+  }
+
+  function initWebSocket(){
+    if(!conversationId) return;
+    const wsUrl = (location.protocol==='https:'? 'wss://':'ws://') + location.host + '/ws?conversation_id='+encodeURIComponent(conversationId)+'&role=customer&customer_id='+(customerId||'');
+    log('连接 WebSocket: '+wsUrl);
+    websocket = new WebSocket(wsUrl);
+    websocket.onopen = ()=>{ log('WebSocket 已连接'); wsStatus(true); reconnectAttempts=0; };
+    websocket.onclose = ()=>{ log('WebSocket 已关闭'); wsStatus(false); tryReconnect(); };
+    websocket.onerror = (e)=>{ log('WebSocket 错误'); };
+    websocket.onmessage = (ev)=>{
+      try { const msg = JSON.parse(ev.data); handleWsMessage(msg); } catch { log('收到非JSON消息: '+ev.data); }
+    };
+  }
+
+  function tryReconnect(){
+    if(!conversationId) return;
+    if(reconnectAttempts>=5){ log('放弃重连'); return; }
+    const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 15000);
+    reconnectAttempts++;
+    log('将在 '+delay+'ms 后尝试重连 (#'+reconnectAttempts+')');
+    setTimeout(()=>{ initWebSocket(); }, delay);
+  }
+
+  function handleWsMessage(msg){
+    if(msg.type === 'new_message' || msg.event === 'new_message'){
+      renderMessage(msg.data || msg.message || msg);
+    } else {
+      log('WS事件: '+(msg.type||msg.event));
+    }
+  }
+  function renderMessage(m){
+    if(!m) return;
+    const el = document.createElement('div');
+    el.className = 'msg '+(m.sender_type==='admin' ? 'admin':'');
+    el.innerHTML = `<div class="meta">${m.sender_type||m.sender} • ${m.created_at||''}</div>${(m.content||'').replace(/</g,'&lt;')}`;
+    messagesBox.appendChild(el); messagesBox.scrollTop = messagesBox.scrollHeight;
+  }
+
+  async function sendVisitorMessage(){
+    if(!conversationId) return;
+    const text = inpMessage.value.trim(); if(!text) return;
+    inpMessage.value='';
+    const r = await http('POST', `/api/conversations/${conversationId}/messages`, { content: text, sender_type:'customer'});
+    if(!r.ok){ log('发送失败 status='+r.status,'error'); return; }
+    const j = await r.json();
+    if(!j.success){ log('发送返回失败: '+j.message,'error'); return; }
+    renderMessage(j.data||j.message||{content:text,sender_type:'customer'});
+  }
+
+  async function listMessages(){
+    if(!conversationId) return;
+    const r = await fetch(`/api/conversations/${conversationId}/messages`);
+    if(!r.ok){ log('拉取消息失败 status='+r.status); return; }
+    const j = await r.json();
+    if(j.data && Array.isArray(j.data)){
+      messagesBox.innerHTML='';
+      j.data.forEach(renderMessage);
+      log('刷新消息，共 '+j.data.length+' 条');
+    }
+  }
+
+  btnConnect.addEventListener('click', ()=>{
+    shopIdManual = inpShopId.value.trim()||null;
+    createConversationFlow();
+  });
+  btnSend.addEventListener('click', sendVisitorMessage);
+  inpMessage.addEventListener('keydown', e=>{ if(e.key==='Enter'){ sendVisitorMessage(); }});
+  btnList.addEventListener('click', listMessages);
+  btnPing.addEventListener('click', ()=>{ if(websocket && websocket.readyState===1) websocket.send(JSON.stringify({type:'ping'})); });
+  btnCopyIds.addEventListener('click', ()=>{
+    const text = `conversation_id=${conversationId}\ncustomer_id=${customerId}`; navigator.clipboard.writeText(text).then(()=>log('已复制 IDs')); });
+  btnCloseWs.addEventListener('click', ()=>{ if(websocket) websocket.close(); });
+  btnReset.addEventListener('click', ()=>{ location.reload(); });
+  btnCopyLog.addEventListener('click', ()=>{ navigator.clipboard.writeText(logEl.textContent).then(()=>log('日志已复制')); });
+})();
+</script>
+</body>
+</html>

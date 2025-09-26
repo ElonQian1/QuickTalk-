@@ -1,9 +1,27 @@
-use axum::{
-    extract::Query,
-    http::StatusCode,
-    response::{Html, Response},
-};
+use axum::{ extract::Query, http::StatusCode, response::{Html, Response} };
 use std::collections::HashMap;
+
+// 通用静态文件读取：尝试多候选路径，首个成功即返回
+async fn read_static_candidate(candidates: &[&str]) -> Option<(String,String)> { // (path, content)
+    for p in candidates {
+        if let Ok(content) = tokio::fs::read_to_string(p).await { return Some((p.to_string(), content)); }
+    }
+    None
+}
+
+// 抽象：统一静态页面服务（候选按优先级）
+async fn serve_static(candidates: &[&str], fallback_html: &str, label: &str) -> Html<String> {
+    match read_static_candidate(candidates).await {
+        Some((path, content)) => {
+            tracing::debug!(target="web_static", page=%label, path=%path, "serving static page");
+            Html(content)
+        }
+        None => {
+            tracing::warn!(target="web_static", page=%label, "static file not found, using fallback page");
+            Html(fallback_html.to_string())
+        }
+    }
+}
 
 pub async fn serve_index() -> Html<String> {
     if let Ok(content) = tokio::fs::read_to_string("../presentation/static/index.html").await {
@@ -82,70 +100,68 @@ pub async fn serve_admin() -> Html<String> {
 }
 
 pub async fn serve_mobile_admin() -> Html<String> {
-    if let Ok(content) = tokio::fs::read_to_string("../presentation/static/admin-mobile.html").await {
-        Html(content)
-    } else {
-        Html(r#"
-<!DOCTYPE html>
-<html>
-<head>
-    <title>QuickTalk Mobile Admin</title>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-</head>
-<body>
-    <h1>📱 QuickTalk Mobile Admin</h1>
-    <p>移动端聊天管理系统加载失败，请检查文件路径</p>
-    <p><a href="/mobile/dashboard">返回移动端仪表板</a></p>
-    <p><a href="/admin">返回管理后台</a></p>
-</body>
-</html>
-        "#.to_string())
-    }
+    // 统一首选 backend/presentation/static 下文件；其余为兼容旧路径
+    let candidates = [
+        "presentation/static/mobile-admin.html",          // backend 目录内统一副本
+        "../presentation/static/mobile-admin.html",       // 进程在 backend/ 运行时
+        "./static/mobile-admin.html",                     // 根级 static (若迁移)
+        "../static/mobile-admin.html",                    // 兼容
+    ];
+    let fallback = r#"<!DOCTYPE html><html><head><meta charset='utf-8'><title>Mobile Admin Missing</title><meta name='viewport' content='width=device-width,initial-scale=1'><style>body{font-family:system-ui,sans-serif;padding:32px;background:#fafafa;color:#333}</style></head><body><h1>⚠️ Mobile Admin 未找到</h1><p>请添加 <code>presentation/static/mobile-admin.html</code>.</p></body></html>"#;
+    serve_static(&candidates, fallback, "mobile-admin").await
 }
 
+// === 强制固定完整版仪表盘 (最终体验阶段) ===
+// 使用编译期内嵌，保证 /mobile/dashboard 始终返回旧完整界面，不再受运行目录/文件移动影响。
+// 源文件：仓库根目录 static/mobile-dashboard.html (标注 DEPRECATED COPY)。若需修改 UI，请直接编辑该文件并重新编译。
+// 内嵌旧副本（只做兜底）。实际优先读取 authoritative: presentation/static/mobile-dashboard.html
+pub const EMBED_DASHBOARD_FALLBACK: &str = include_str!("../../static/mobile-dashboard.html");
 pub async fn serve_mobile_dashboard() -> Html<String> {
-    if let Ok(content) = tokio::fs::read_to_string("../presentation/static/mobile-dashboard.html").await {
-        Html(content)
-    } else {
-        Html(r#"
-<!DOCTYPE html>
-<html>
-<head>
-    <title>QuickTalk Mobile Dashboard</title>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-</head>
-<body>
-    <h1>📱 QuickTalk Mobile Dashboard</h1>
-    <p>移动端仪表板加载失败，请检查文件路径</p>
-    <p><a href="/admin">返回管理后台</a></p>
-</body>
-</html>
-        "#.to_string())
+    // 优先顺序：presentation authoritative -> 根 static -> embed fallback
+    // 增加完整性校验：必须包含 <!DOCTYPE 与 </html>，且不含“仪表盘占位文件”占位提示
+    let candidates = [
+        ("presentation/static/mobile-dashboard.html", "authoritative"),
+        ("../presentation/static/mobile-dashboard.html", "authoritative-rel"),
+        ("./static/mobile-dashboard.html", "root-static"),
+        ("../static/mobile-dashboard.html", "root-static-rel"),
+    ];
+
+    for (path,label) in candidates.iter() {
+        if let Ok(content) = tokio::fs::read_to_string(path).await {
+            let low = content.to_lowercase();
+            let structural_ok = low.contains("<!doctype") && low.contains("</html>");
+            let not_placeholder = !low.contains("仪表盘占位文件") && !low.contains("repair mode");
+            if structural_ok && not_placeholder { // 选用该文件
+                let mut out = String::with_capacity(content.len()+180);
+                out.push_str(&format!("<!-- build-tag:full-dashboard-dynamic v3 source=file path={} label={} -->\n", path, label));
+                out.push_str(&content);
+                out.push_str("\n<!-- /build-tag -->");
+                return Html(out);
+            } else {
+                tracing::warn!(target="web_static", %path, %label, structural_ok, not_placeholder, "skip candidate due to integrity test");
+            }
+        }
     }
+
+    // 所有文件不合格，使用 embed fallback
+    let mut out = String::with_capacity(EMBED_DASHBOARD_FALLBACK.len() + 200);
+    out.push_str("<!-- build-tag:full-dashboard-fallback v3 source=embed reason=no-valid-file -->\n");
+    out.push_str(EMBED_DASHBOARD_FALLBACK);
+    out.push_str("\n<!-- /build-tag -->");
+    Html(out)
 }
+
+// (mini 版本已废弃并移除，对应 /mobile/dashboard/mini 路由不再提供)
 
 pub async fn serve_mobile_login() -> Html<String> {
-    if let Ok(content) = tokio::fs::read_to_string("../presentation/static/mobile-login.html").await {
-        Html(content)
-    } else {
-        Html(r#"
-<!DOCTYPE html>
-<html>
-<head>
-    <title>QuickTalk Mobile Login</title>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-</head>
-<body>
-    <h1>📱 QuickTalk Mobile Login</h1>
-    <p>移动端登录页面加载失败，请检查文件路径</p>
-    <p><a href="/admin">返回管理后台</a></p>
-</body>
-</html>
-        "#.to_string())
-    }
+    let candidates = [
+        "presentation/static/mobile-login.html",
+        "../presentation/static/mobile-login.html",
+        "./static/mobile-login.html",
+        "../static/mobile-login.html",
+    ];
+    let fallback = r#"<!DOCTYPE html><html><head><meta charset='utf-8'><title>Mobile Login Missing</title><meta name='viewport' content='width=device-width,initial-scale=1'></head><body><h1>⚠️ Mobile Login 文件缺失</h1></body></html>"#;
+    serve_static(&candidates, fallback, "mobile-login").await
 }
 
 pub async fn serve_embed_service(

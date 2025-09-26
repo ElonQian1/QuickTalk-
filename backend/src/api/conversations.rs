@@ -18,6 +18,8 @@
 // - 重大结构变更：提升 version -> v2 并在文档中列出差异
 // 注意: 旧的 "new_message" 广播已移除
 use axum::{extract::{Path, Query, State}, http::StatusCode, response::Json};
+use sqlx::Row; // bring Row trait into scope for .get
+use crate::auth::SessionExtractor;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -38,14 +40,52 @@ use crate::domain::conversation::{ConversationId, ConversationRepository, Messag
 use crate::api::errors::{ApiError, ApiResult, success, success_empty};
 use crate::application::queries::conversation_queries::{ConversationQueries, QueryError};
 use crate::db::conversation_read_model_sqlx::ConversationReadModelSqlx;
+use crate::db::message_read_repository_sqlx::MessageReadRepositorySqlx;
 
 pub async fn get_conversations(
     State(state): State<Arc<AppState>>,
+    SessionExtractor(session): SessionExtractor,
     Query(params): Query<HashMap<String, String>>,
 ) -> ApiResult<Vec<Conversation>> {
     let shop_id = params.get("shop_id").map(|s| s.as_str());
     let repo = &state.conversation_repo; // reuse injected
-    match repo.list(shop_id).await {
+    // 基于 shop_id 过滤 + 非 super_admin 时限制为其拥有的 shops
+    let mut effective_shop_id = shop_id.map(|s| s.to_string());
+    // 若未提供 shop_id，可以后续扩展：列出该管理员全部 shops 的会话；当前简化为必须带 shop_id
+    if effective_shop_id.is_none() {
+        // 查询当前用户拥有的第一个 shop（避免返回全部）
+        if let Ok(row_opt) = sqlx::query("SELECT id FROM shops WHERE owner_id = ? ORDER BY created_at LIMIT 1")
+            .bind(&session.admin_id)
+            .fetch_optional(&state.db).await {
+            if let Some(r) = row_opt { effective_shop_id = Some(r.get::<String,_>("id")); }
+        }
+    }
+    if let Some(ref sid) = effective_shop_id {
+        // 校验权限（非 super_admin）：店主 或 该店铺的在职员工（通过邮箱匹配）
+        if let Ok(row) = sqlx::query("SELECT role, email FROM admins WHERE id = ?")
+            .bind(&session.admin_id)
+            .fetch_one(&state.db).await {
+            let role: String = row.get::<String,_>("role");
+            if role != "super_admin" {
+                let admin_email: String = row.try_get::<String,_>("email").unwrap_or_default();
+                let owner_check = sqlx::query("SELECT 1 FROM shops WHERE id = ? AND owner_id = ?")
+                    .bind(sid)
+                    .bind(&session.admin_id)
+                    .fetch_optional(&state.db).await;
+                let employee_check = if !admin_email.is_empty() {
+                    sqlx::query("SELECT 1 FROM employees WHERE shop_id = ? AND status = 'active' AND email = ?")
+                        .bind(sid)
+                        .bind(&admin_email)
+                        .fetch_optional(&state.db).await
+                } else { Ok(None) };
+                if matches!(owner_check, Ok(None)) && matches!(employee_check, Ok(None)) {
+                    return Err(ApiError::not_found("Conversations not found"));
+                }
+            }
+        }
+    }
+    let list_scope = effective_shop_id.as_ref().map(|s| s.as_str());
+    match repo.list(list_scope).await {
         Ok(convos) => {
             // strip domain-specific fields already aligned with API entity; domain aggregate currently identical shape (messages empty here)
             let result: Vec<Conversation> = convos.into_iter().map(|c| Conversation {
@@ -67,6 +107,7 @@ pub async fn get_conversations(
 
 pub async fn get_conversation_details(
     State(state): State<Arc<AppState>>,
+    SessionExtractor(_session): SessionExtractor,
     Path(conversation_id): Path<String>,
 ) -> ApiResult<Conversation> {
     let repo = &state.conversation_repo;
@@ -106,6 +147,7 @@ pub async fn create_conversation(
 
 pub async fn get_messages(
     State(state): State<Arc<AppState>>,
+    SessionExtractor(session): SessionExtractor,
     Path(conversation_id): Path<String>,
     Query(params): Query<HashMap<String, String>>,
 ) -> ApiResult<Vec<Message>> {
@@ -113,6 +155,32 @@ pub async fn get_messages(
     let offset: i64 = params.get("offset").and_then(|o| o.parse().ok()).unwrap_or(0);
     let repo = &state.message_read_repo;
     let conv_id = ConversationId(conversation_id.clone());
+    // 权限校验（非 super_admin）：店主 或 该会话对应店铺的在职员工
+    if let Ok(row) = sqlx::query("SELECT role, email FROM admins WHERE id = ?")
+        .bind(&session.admin_id)
+        .fetch_one(&state.db).await {
+        let role: String = row.get::<String,_>("role");
+        if role != "super_admin" {
+            // 获取会话归属 shop_id
+            let shop_row = sqlx::query("SELECT s.id AS shop_id, s.owner_id FROM conversations c JOIN shops s ON c.shop_id = s.id WHERE c.id = ?")
+                .bind(&conversation_id)
+                .fetch_optional(&state.db).await;
+            if let Ok(Some(srow)) = shop_row {
+                let shop_id: String = srow.get::<String,_>("shop_id");
+                let owner_id: String = srow.get::<String,_>("owner_id");
+                if owner_id != session.admin_id {
+                    let admin_email: String = row.try_get::<String,_>("email").unwrap_or_default();
+                    let emp_ok = if !admin_email.is_empty() {
+                        sqlx::query("SELECT 1 FROM employees WHERE shop_id = ? AND status = 'active' AND email = ?")
+                            .bind(&shop_id)
+                            .bind(&admin_email)
+                            .fetch_optional(&state.db).await
+                    } else { Ok(None) };
+                    if matches!(emp_ok, Ok(None)) { return Err(ApiError::not_found("Messages not found")); }
+                }
+            } else { return Err(ApiError::not_found("Messages not found")); }
+        }
+    }
     match repo.list_by_conversation(&conv_id, limit, offset).await {
         Ok(domain_messages) => {
             let messages: Vec<Message> = domain_messages.into_iter().map(|m| Message {
@@ -131,8 +199,25 @@ pub async fn get_messages(
     }
 }
 
+// GET /api/messages/:id  (独立按ID查询，不强制带 conversation_id，兼容旧前端可扩展)
+pub async fn get_message_by_id(
+    State(state): State<Arc<AppState>>,
+    Path(message_id): Path<String>,
+) -> ApiResult<Message> {
+    let read_repo = MessageReadRepositorySqlx { pool: state.db.clone() };
+    match read_repo.find_by_id(&crate::domain::conversation::MessageId(message_id.clone())).await {
+        Ok(Some(m)) => {
+            let api_msg = Message { id: m.id.0, conversation_id: m.conversation_id.0, sender_id: m.sender_id, sender_type: m.sender_type.as_str().to_string(), content: m.content, message_type: m.message_type, timestamp: m.timestamp, shop_id: None };
+            success(api_msg, "Message retrieved successfully")
+        }
+        Ok(None) => Err(ApiError::not_found("Message not found")),
+        Err(e) => { tracing::error!(?e, "get message by id failed"); Err(ApiError::internal("Failed to get message")) }
+    }
+}
+
 pub async fn send_message(
     State(state): State<Arc<AppState>>,
+    SessionExtractor(session): SessionExtractor,
     Path(conversation_id): Path<String>,
     Json(request): Json<CreateMessageRequest>,
 ) -> Result<Json<ApiResponse<Message>>, ApiError> {
@@ -149,29 +234,46 @@ pub async fn send_message(
         content: request.content.clone(),
         message_type: request.message_type.clone(),
     };
+    // 权限校验（非 super_admin）：店主 或 该会话对应店铺的在职员工
+    if let Ok(row) = sqlx::query("SELECT role, email FROM admins WHERE id = ?")
+        .bind(&session.admin_id)
+        .fetch_one(&state.db).await {
+        let role: String = row.get::<String,_>("role");
+        if role != "super_admin" {
+            // 获取会话归属 shop_id
+            let shop_row = sqlx::query("SELECT s.id AS shop_id, s.owner_id FROM conversations c JOIN shops s ON c.shop_id = s.id WHERE c.id = ?")
+                .bind(&conversation_id)
+                .fetch_optional(&state.db).await;
+            if let Ok(Some(srow)) = shop_row {
+                let shop_id: String = srow.get::<String,_>("shop_id");
+                let owner_id: String = srow.get::<String,_>("owner_id");
+                if owner_id != session.admin_id {
+                    let admin_email: String = row.try_get::<String,_>("email").unwrap_or_default();
+                    let emp_ok = if !admin_email.is_empty() {
+                        sqlx::query("SELECT 1 FROM employees WHERE shop_id = ? AND status = 'active' AND email = ?")
+                            .bind(&shop_id)
+                            .bind(&admin_email)
+                            .fetch_optional(&state.db).await
+                    } else { Ok(None) };
+                    if matches!(emp_ok, Ok(None)) { return Err(ApiError::not_found("Conversation not found")); }
+                }
+            } else { return Err(ApiError::not_found("Conversation not found")); }
+        }
+    }
     match use_case.exec(input).await {
         Ok(out) => {
-            state.event_publisher.publish(out.events.clone()).await;
-            // 使用读取仓储获取刚刚写入的消息（代替直接 SQL）
-            let read_repo = &state.message_read_repo;
-            let conv_id = ConversationId(conversation_id.clone());
-            // 简单按最新一条过滤（可实现 find_by_id 但用现有接口需遍历）
-            let msgs = read_repo.list_by_conversation(&conv_id, 1, 0).await
+            // 事件已在 use case 中发布（publisher），此处不重复发布
+            // 使用读取仓库直接按 ID 查询（效率优于再拉列表）
+            let read_repo = MessageReadRepositorySqlx { pool: state.db.clone() };
+            let fetched = read_repo.find_by_id(&crate::domain::conversation::MessageId(out.message_id.clone()))
+                .await
                 .map_err(|_| ApiError::internal("Failed to load persisted message"))?;
-            if let Some(m) = msgs.last() {
-                let message = Message {
-                    id: m.id.0.clone(),
-                    conversation_id: m.conversation_id.0.clone(),
-                    sender_id: m.sender_id.clone(),
-                    sender_type: m.sender_type.as_str().to_string(),
-                    content: m.content.clone(),
-                    message_type: m.message_type.clone(),
-                    timestamp: m.timestamp,
-                    shop_id: None,
-                };
-                return success(message, "Message sent successfully");
+            if let Some(m) = fetched {
+                let api_msg = Message { id: m.id.0, conversation_id: m.conversation_id.0, sender_id: m.sender_id, sender_type: m.sender_type.as_str().to_string(), content: m.content, message_type: m.message_type, timestamp: m.timestamp, shop_id: None };
+                success(api_msg, "Message sent successfully")
+            } else {
+                Err(ApiError::internal("Message persisted but not found"))
             }
-            Err(ApiError::internal("Message persisted but not retrievable"))
         }
         Err(e) => Err(ApiError::from(e))
     }
@@ -222,7 +324,7 @@ pub async fn delete_message(
     // 默认软删除；未来可通过查询参数 hard=true 控制
     let input = DeleteMessageInput { message_id: message_id.clone(), hard: false };
     match uc.exec(input).await {
-        Ok(out) => {
+        Ok(_) => {
             // 事件已由 use case 内部发布 (publisher)
             Ok(StatusCode::NO_CONTENT)
         }
@@ -283,8 +385,19 @@ pub async fn get_conversation_summary(
     let rm = ConversationReadModelSqlx { pool: state.db.clone() };
     match rm.summary(&conversation_id).await {
         Ok(view) => {
-            // 适配旧结构 (customer_name / last_message) 暂用占位，后续可改为 join / 聚合统计
-            let summary = ConversationSummary { id: view.id, shop_id: view.shop_id, customer_name: view.customer_id, last_message: format!("messages: {}", view.message_count), updated_at: view.updated_at, status: view.status };
+            // 扩展: 加入 created_at 与 last_message_time (向后兼容: 旧前端忽略新增字段)
+            let last_message_display = if let Some(ts) = view.last_message_time { format!("last at {}", ts.to_rfc3339()) } else { format!("messages: {}", view.message_count) };
+            let summary = ConversationSummary {
+                id: view.id,
+                shop_id: view.shop_id,
+                customer_name: view.customer_id,
+                last_message: last_message_display,
+                updated_at: view.updated_at,
+                status: view.status,
+                // 以下两个字段假设在 `ConversationSummary` struct 中已存在；若尚未添加，需要在 types 定义里扩展
+                created_at: Some(view.created_at),
+                last_message_time: view.last_message_time,
+            };
             success(summary, "Conversation summary retrieved successfully")
         }
         Err(QueryError::NotFound) => Err(ApiError::not_found("Conversation not found")),

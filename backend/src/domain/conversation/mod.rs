@@ -58,7 +58,6 @@ impl Message {
 }
 
 #[derive(Debug, Clone)]
-#[allow(dead_code)] // 部分字段暂未被读取（后续列表/详情 API 通过仓库访问后会使用）
 pub struct Conversation {
     pub id: ConversationId,
     pub shop_id: String,
@@ -71,12 +70,10 @@ pub struct Conversation {
 }
 
 impl Conversation {
-    #[allow(dead_code)] // 新建会话在当前用例路径未直接调用
     pub fn new(id: ConversationId, shop_id: String, customer_id: String, status: String, created_at: DateTime<Utc>) -> Self {
         Self { id, shop_id, customer_id, status, created_at, updated_at: created_at, messages: Vec::new(), pending_events: Vec::new() }
     }
 
-    #[allow(dead_code)]
     pub fn open(id: ConversationId, shop_id: String, customer_id: String, now: DateTime<Utc>) -> Self {
         let mut c = Self::new(id, shop_id, customer_id, "active".into(), now);
         c.pending_events.push(DomainEvent::ConversationOpened { conversation_id: c.id.clone() });
@@ -108,7 +105,6 @@ impl Conversation {
         Ok(())
     }
 
-    #[allow(dead_code)]
     pub fn take_events(&mut self) -> Vec<DomainEvent> { std::mem::take(&mut self.pending_events) }
 }
 
@@ -155,21 +151,19 @@ pub trait MessageRepository: Send + Sync {
 }
 
 #[derive(Debug, thiserror::Error)]
-#[allow(dead_code)] // 预留 NotFound 分支供后续扩展（当前实现路径未触发）
 pub enum RepoError {
     #[error("not found")] NotFound,
     #[error("database error: {0}")] Database(String),
 }
 
 // In-memory repository (for tests / initial use case wiring)
-#[allow(dead_code)]
 pub struct InMemoryConversationRepo {
     store: std::sync::RwLock<std::collections::HashMap<ConversationId, Conversation>>,
 }
 
 impl InMemoryConversationRepo {
-    #[allow(dead_code)] pub fn new() -> Self { Self { store: std::sync::RwLock::new(std::collections::HashMap::new()) } }
-    #[allow(dead_code)] pub fn insert(&self, c: Conversation) { self.store.write().unwrap().insert(c.id.clone(), c); }
+    pub fn new() -> Self { Self { store: std::sync::RwLock::new(std::collections::HashMap::new()) } }
+    pub fn insert(&self, c: Conversation) { self.store.write().unwrap().insert(c.id.clone(), c); }
 }
 
 #[async_trait::async_trait]

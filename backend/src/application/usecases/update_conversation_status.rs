@@ -3,7 +3,9 @@ use chrono::Utc;
 use crate::domain::conversation::{ConversationRepository, ConversationId, DomainError};
 use crate::domain::conversation::DomainEvent; // for returning emitted events
 
+#[allow(dead_code)]
 pub struct UpdateConversationStatusInput { pub conversation_id: String, pub target_status: String }
+#[allow(dead_code)]
 pub struct UpdateConversationStatusOutput { pub conversation_id: String, pub new_status: String, pub events: Vec<DomainEvent> }
 
 #[derive(Debug, thiserror::Error)]

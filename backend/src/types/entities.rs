@@ -32,6 +32,8 @@ pub struct ConversationSummary {
     pub last_message: String,
     pub updated_at: DateTime<Utc>,
     pub status: String,
+    #[serde(skip_serializing_if = "Option::is_none")] pub created_at: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")] pub last_message_time: Option<DateTime<Utc>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -50,6 +52,8 @@ pub struct Shop {
     pub contact_email: Option<String>,
     pub contact_phone: Option<String>,
     pub contact_info: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub membership: Option<String>, // owner | employee（可选，店铺列表用于展示身份）
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

@@ -30,6 +30,10 @@ impl MessageReadRepository for InMemoryMessageRepository {
     async fn list_by_conversation(&self, conversation_id: &ConversationId, _limit: i64, _offset: i64) -> Result<Vec<Message>, RepoError> {
         Ok(self.store.inner.read().unwrap().values().filter(|m| m.conversation_id.0 == conversation_id.0).cloned().collect())
     }
+
+    async fn find_by_id(&self, id: &MessageId) -> Result<Option<Message>, RepoError> {
+        Ok(self.store.inner.read().unwrap().get(&id.0).cloned())
+    }
 }
 use quicktalk_pure_rust::domain::conversation::InMemoryConversationRepo;
 
