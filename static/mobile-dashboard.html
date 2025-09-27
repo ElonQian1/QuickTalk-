@@ -3914,7 +3914,8 @@
 
         // 初始化WebSocket连接
         function initializeWebSocket() {
-            const wsUrl = `ws://${location.host}/ws`;
+            const wsProto = location.protocol === 'https:' ? 'wss' : 'ws';
+            const wsUrl = `${wsProto}://${location.host}/ws`;
             websocket = new WebSocket(wsUrl);
             
             websocket.onopen = function() {
@@ -3958,11 +3959,29 @@
             }
         }
 
-        // 处理WebSocket消息
+        // 处理WebSocket消息（顶层：用于徽章/列表刷新等全局反馈）
         function handleWebSocketMessage(data) {
             console.log('📨 收到WebSocket消息:', data);
-            
-            switch (data.type) {
+            const t = data.type;
+
+            // 兼容新事件总线格式
+            if (t === 'domain.event.message_appended') {
+                const payload = (data.data && (data.data.message || data.data)) || data.message || {};
+                try {
+                    // 顶部消息徽章 + 列表刷新
+                    handleNewMessage({
+                        userName: payload.sender_type === 'customer' ? (payload.customer_name || '客户') : '客服',
+                        conversation_id: payload.conversation_id,
+                        content: payload.content,
+                        timestamp: payload.timestamp
+                    });
+                } catch (e) {
+                    console.warn('处理 domain.event.message_appended 失败:', e);
+                }
+                return;
+            }
+
+            switch (t) {
                 case 'new_message':
                     handleNewMessage(data);
                     break;
@@ -3970,7 +3989,8 @@
                     handleShopUpdate(data);
                     break;
                 default:
-                    console.log('未知的WebSocket消息类型:', data.type);
+                    // 其它类型忽略（例如 system.welcome / Pong 等）
+                    // console.debug('忽略的WebSocket消息类型:', t);
             }
         }
 
@@ -4257,9 +4277,66 @@
                 };
             }
 
-            // 处理WebSocket消息
+            // 处理WebSocket消息（消息模块：用于当前会话内即时渲染）
             handleWebSocketMessage(data) {
-                switch (data.type || data.msg_type) {
+                const t = data.type || data.msg_type;
+                // 1) 新事件总线：domain.event.*
+                if (t === 'domain.event.message_appended') {
+                    const payload = (data.data && (data.data.message || data.data)) || data.message || {};
+                    const msg = {
+                        id: payload.id,
+                        conversation_id: payload.conversation_id,
+                        sender_id: payload.sender_id,
+                        sender_type: payload.sender_type,
+                        content: payload.content,
+                        message_type: payload.message_type || 'text',
+                        timestamp: payload.timestamp,
+                    };
+                    // 若当前正打开该会话，则直接渲染；否则刷新列表
+                    if (this.currentConversationId && msg.conversation_id === this.currentConversationId) {
+                        this.messages.push(msg);
+                        this.renderMessage(msg);
+                        this.scrollToBottom();
+                    } else if (this.currentShopId) {
+                        this.updateConversationPreview(msg);
+                    }
+                    return;
+                }
+
+                if (t === 'domain.event.message_updated') {
+                    const payload = (data.data && (data.data.message || data.data)) || data.message || {};
+                    const id = payload.id || payload.message_id;
+                    if (id) {
+                        const idx = this.messages.findIndex(m => m.id === id);
+                        if (idx >= 0) {
+                            this.messages[idx] = { ...this.messages[idx], content: payload.content ?? this.messages[idx].content };
+                            // 简化处理：重新渲染整个消息区
+                            this.renderMessages();
+                            this.scrollToBottom();
+                        } else if (this.currentShopId) {
+                            this.updateConversationPreview(payload);
+                        }
+                    }
+                    return;
+                }
+
+                if (t === 'domain.event.message_deleted') {
+                    const payload = (data.data && (data.data.message || data.data)) || data.message || {};
+                    const id = payload.id || payload.message_id;
+                    if (id) {
+                        const idx = this.messages.findIndex(m => m.id === id);
+                        if (idx >= 0) {
+                            // 简单标记删除：替换内容
+                            this.messages[idx] = { ...this.messages[idx], content: '[已删除]', deleted: true };
+                            this.renderMessages();
+                            this.scrollToBottom();
+                        }
+                    }
+                    return;
+                }
+
+                // 2) 兼容旧管理端自定义类型
+                switch (t) {
                     case 'message':
                         this.handleNewMessage(data);
                         break;
@@ -4268,6 +4345,9 @@
                         break;
                     case 'conversation_update':
                         this.loadConversationsForShop(this.currentShopId);
+                        break;
+                    default:
+                        // 忽略其它类型（如 system.welcome / Pong 等）
                         break;
                 }
             }

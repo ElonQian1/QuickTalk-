@@ -4,7 +4,20 @@ use serde::{Serialize, Deserialize};
 pub struct GenerateCodeResponse { pub platform: String, pub code: String, pub instructions: String }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct EmbedConfig { pub version: String, pub shop_id: String, pub shop_name: String, pub websocket_url: String, pub features: Vec<String>, pub theme: EmbedTheme, pub limits: EmbedLimits, pub security: EmbedSecurity }
+pub struct EmbedConfig {
+	pub version: String,
+	pub shop_id: String,
+	pub shop_name: String,
+	pub websocket_url: String,
+	// 新增：服务端建议的公共访问起点（若存在，前端优先采用）
+	pub server_origin: Option<String>,
+	// 新增：WebSocket 路径建议（默认 /ws）
+	pub websocket_path: Option<String>,
+	pub features: Vec<String>,
+	pub theme: EmbedTheme,
+	pub limits: EmbedLimits,
+	pub security: EmbedSecurity,
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct EmbedTheme { pub color: Option<String> }

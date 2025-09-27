@@ -188,6 +188,8 @@ class QuickTalkService {{
     
     async init() {{
         try {{
+            // 先规范化端点，自动推导 serverUrl 与 websocket_url
+            this.computeEffectiveEndpoints();
             await this.validateConfig();
             await this.createUI();
             await this.connectWebSocket();
@@ -199,18 +201,80 @@ class QuickTalkService {{
         }}
     }}
     
+    computeEffectiveEndpoints() {{
+        try {{
+            const pageProto = window.location.protocol; // 'http:' | 'https:'
+            const pageOrigin = window.location.origin;  // e.g. https://example.com
+            // 1) 规范化 serverUrl
+            let base = this.config.serverUrl;
+            if (!base || !/^https?:\/\//i.test(base)) {{
+                base = pageOrigin;
+            }} else {{
+                base = base.replace(/\/+$/,'');
+            }}
+            const baseUrl = new URL(base, pageOrigin);
+            // 2) 选择 ws / wss
+            const isLocalHost = /^(localhost|127\.0\.0\.1)$/i.test(baseUrl.hostname);
+            // 若目标是本地开发主机，优先使用 ws 以兼容本地无 TLS 的情况
+            const needSecure = isLocalHost ? false : (baseUrl.protocol === 'https:' || pageProto === 'https:');
+            const wsProto = needSecure ? 'wss:' : 'ws:';
+            // 3) 规范化/推导 websocket_url
+            const defaultPath = this.config.websocket_path || '/ws';
+            let wsUrl = this.config.websocket_url;
+            if (!wsUrl) {{
+                wsUrl = `${{wsProto}}//${{baseUrl.host}}${{defaultPath}}`;
+            }} else {{
+                if (wsUrl.startsWith('/')) {{
+                    wsUrl = `${{wsProto}}//${{baseUrl.host}}${{wsUrl}}`;
+                }} else if (wsUrl.startsWith('//')) {{
+                    wsUrl = `${{wsProto}}${{wsUrl}}`;
+                }} else if (/^wss?:\/\//i.test(wsUrl)) {{
+                    if (needSecure && wsUrl.toLowerCase().startsWith('ws://')) {{
+                        wsUrl = 'wss://' + wsUrl.slice(5);
+                    }}
+                }} else {{
+                    // 其他相对表达形式，按路径处理
+                    wsUrl = `${{wsProto}}//${{baseUrl.host}}/${{wsUrl.replace(/^\/+/, '')}}`;
+                }}
+            }}
+            this.config.serverUrl = baseUrl.origin;
+            this.config.websocket_url = wsUrl;
+        }} catch (e) {{
+            console.warn('⚠️ computeEffectiveEndpoints 异常，使用页面来源作为回退', e);
+            try {{
+                const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                this.config.serverUrl = window.location.origin;
+                this.config.websocket_url = `${{proto}}//${{window.location.host}}/ws`;
+            }} catch (_) {{}}
+        }}
+    }}
+    
     async validateConfig() {{
         if (!this.config.shopId) {{
             throw new Error('shopId is required');
         }}
         
         const currentDomain = window.location.hostname;
+        // 开发模式豁免：当后端 serverUrl 指向 localhost/127.0.0.1 时，允许任意页面域名加载（便于远程页面联调本地服务）
+        try {{
+            const base = new URL(this.config.serverUrl || window.location.origin);
+            const isLocalDev = /^(localhost|127\.0\.0\.1)$/i.test(base.hostname);
+            if (isLocalDev) return; // 放行
+        }} catch(_) {{}}
         if (this.config.security?.domain_whitelist) {{
-            const allowed = this.config.security.domain_whitelist.some(domain => 
-                currentDomain === domain || 
-                currentDomain.endsWith('.' + domain) ||
-                currentDomain === 'localhost'
-            );
+            const allowed = this.config.security.domain_whitelist.some(raw => {{
+                const domain = (raw || '').toString().trim();
+                if (!domain) return false;
+                if (domain === '*') return true; // 全通配
+                const normalized = domain.replace(/^\*\./, ''); // 支持 *.example.com
+                return (
+                    currentDomain === domain ||
+                    currentDomain === normalized ||
+                    currentDomain.endsWith('.' + normalized) ||
+                    currentDomain === 'localhost' ||
+                    currentDomain === '127.0.0.1'
+                );
+            }});
             if (!allowed) {{
                 throw new Error(`Domain not authorized: ${{currentDomain}}`);
             }}
@@ -311,6 +375,25 @@ class QuickTalkService {{
                 this.ws.close();
             }}
         }});
+    }}
+
+    // 对外暴露的快捷操作，供内置按钮 onclick 调用
+    toggleChat() {{
+        if (this.ui && typeof this.ui.toggleChat === 'function') {{
+            this.ui.toggleChat();
+        }}
+    }}
+
+    closeChat() {{
+        if (this.ui && typeof this.ui.closeChat === 'function') {{
+            this.ui.closeChat();
+        }}
+    }}
+
+    minimizeChat() {{
+        if (this.ui && typeof this.ui.minimizeChat === 'function') {{
+            this.ui.minimizeChat();
+        }}
     }}
 }}
 
@@ -475,11 +558,18 @@ class QuickTalkUI {{
 
 window.QuickTalkCustomerService = {{
     init: function(config) {{
-        fetch(`${{config.serverUrl}}/embed/config/${{config.shopId}}`)
+        // 规范化 serverUrl，缺省为当前页面来源
+        const base = (config && typeof config.serverUrl === 'string' && /^https?:\/\//i.test(config.serverUrl))
+            ? config.serverUrl.replace(/\/+$/, '')
+            : window.location.origin;
+        const normalizedConfig = {{ ...config, serverUrl: base }};
+        fetch(`${{base}}/embed/config/${{config.shopId}}`)
             .then(response => response.json())
             .then(result => {{
                 if (result.success && result.data) {{
-                    const mergedConfig = {{ ...config, ...result.data }};
+                    const srvOrigin = result.data.server_origin || normalizedConfig.serverUrl;
+                    const wsPath = result.data.websocket_path || normalizedConfig.websocket_path || '/ws';
+                    const mergedConfig = {{ ...normalizedConfig, ...result.data, serverUrl: srvOrigin, websocket_path: wsPath }};
                     window.QuickTalkInstance = new QuickTalkService(mergedConfig);
                 }} else {{
                     throw new Error(result.message || '配置加载失败');
@@ -487,7 +577,7 @@ window.QuickTalkCustomerService = {{
             }})
             .catch(error => {{
                 console.error('❌ 配置加载失败，使用基础配置:', error);
-                window.QuickTalkInstance = new QuickTalkService(config);
+                window.QuickTalkInstance = new QuickTalkService(normalizedConfig);
             }});
     }}
 }};

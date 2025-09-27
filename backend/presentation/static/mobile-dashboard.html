@@ -4009,9 +4009,10 @@
             return isAdmin();
         }
 
-        // 初始化WebSocket连接
+        // 初始化WebSocket连接（支持 http/https 自动切换 ws/wss，兼容后端事件信封）
         function initializeWebSocket() {
-            const wsUrl = `ws://${location.host}/ws`;
+            const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${wsProto}//${location.host}/ws`;
             websocket = new WebSocket(wsUrl);
             
             websocket.onopen = function() {
@@ -4055,20 +4056,63 @@
             }
         }
 
-        // 处理WebSocket消息
+        // 提取后端事件信封中的 message 对象
+        function extractMessageFromEnvelope(evt) {
+            if (!evt) return null;
+            if (evt.data) {
+                if (evt.data.message) return evt.data.message;
+                return evt.data;
+            }
+            return evt;
+        }
+
+        // 处理WebSocket消息（兼容 legacy 与 domain.event.*）
         function handleWebSocketMessage(data) {
             console.log('📨 收到WebSocket消息:', data);
-            
-            switch (data.type) {
-                case 'new_message':
+
+            const t = data && data.type;
+            switch (t) {
+                case 'system.welcome':
+                case 'Pong':
+                    // 心跳/欢迎帧，忽略
+                    return;
+                case 'new_message': // 旧版兼容
                     handleNewMessage(data);
-                    break;
-                case 'shop_update':
+                    return;
+                case 'shop_update': // 旧版兼容
                     handleShopUpdate(data);
-                    break;
-                default:
-                    console.log('未知的WebSocket消息类型:', data.type);
+                    return;
             }
+
+            // 新版事件总线
+            if (typeof t === 'string' && t.startsWith('domain.event.')) {
+                if (t === 'domain.event.message_appended') {
+                    const message = extractMessageFromEnvelope(data);
+                    if (message) {
+                        // 徽章+刷新列表（全局层面）
+                        handleNewMessage({ userName: message.customer_name || '客户', message });
+                        // 若 MessageModule 已初始化，委托它做细粒度渲染
+                        if (window.messageModule && typeof window.messageModule.handleDomainMessageAppended === 'function') {
+                            window.messageModule.handleDomainMessageAppended(message);
+                        }
+                    }
+                } else if (t === 'domain.event.message_updated') {
+                    const message = extractMessageFromEnvelope(data);
+                    if (window.messageModule && typeof window.messageModule.handleDomainMessageUpdated === 'function') {
+                        window.messageModule.handleDomainMessageUpdated(message);
+                    }
+                } else if (t === 'domain.event.message_deleted') {
+                    const payload = extractMessageFromEnvelope(data);
+                    if (window.messageModule && typeof window.messageModule.handleDomainMessageDeleted === 'function') {
+                        window.messageModule.handleDomainMessageDeleted(payload);
+                    }
+                } else {
+                    console.debug('忽略未处理的领域事件:', t);
+                }
+                return;
+            }
+
+            console.log('未知的WebSocket消息类型:', t);
         }
 
         // 处理新消息
@@ -4363,18 +4407,91 @@
                 };
             }
 
-            // 处理WebSocket消息
+            // 处理WebSocket消息（兼容新版领域事件与旧版格式）
             handleWebSocketMessage(data) {
-                switch (data.type || data.msg_type) {
-                    case 'message':
-                        this.handleNewMessage(data);
-                        break;
-                    case 'typing':
-                        this.handleTypingIndicator(data);
-                        break;
-                    case 'conversation_update':
-                        this.loadConversationsForShop(this.currentShopId);
-                        break;
+                const t = data && data.type;
+                if (!t) return;
+
+                if (t === 'system.welcome' || t === 'Pong') return; // 心跳/欢迎
+
+                // 旧版
+                if (t === 'message' || (data.msg_type === 'message')) {
+                    this.handleNewMessage(data);
+                    return;
+                }
+                if (t === 'typing') {
+                    this.handleTypingIndicator(data);
+                    return;
+                }
+                if (t === 'conversation_update') {
+                    if (this.currentShopId) this.loadConversationsForShop(this.currentShopId);
+                    return;
+                }
+
+                // 新版领域事件
+                if (t.startsWith('domain.event.')) {
+                    const unwrap = (evt) => {
+                        if (!evt) return null;
+                        if (evt.data) {
+                            if (evt.data.message) return evt.data.message;
+                            return evt.data;
+                        }
+                        return evt;
+                    };
+                    if (t === 'domain.event.message_appended') {
+                        const msg = unwrap(data);
+                        this.handleDomainMessageAppended(msg);
+                        return;
+                    }
+                    if (t === 'domain.event.message_updated') {
+                        const msg = unwrap(data);
+                        this.handleDomainMessageUpdated(msg);
+                        return;
+                    }
+                    if (t === 'domain.event.message_deleted') {
+                        const payload = unwrap(data);
+                        this.handleDomainMessageDeleted(payload);
+                        return;
+                    }
+                }
+            }
+
+            // 新版事件：追加
+            handleDomainMessageAppended(message) {
+                if (!message) return;
+                // 如果在当前会话，直接渲染
+                if (this.currentConversationId && message.conversation_id === this.currentConversationId) {
+                    this.messages.push(message);
+                    this.renderMessage(message);
+                    this.scrollToBottom();
+                }
+                // 刷新会话列表预览
+                this.updateConversationPreview({
+                    conversation_id: message.conversation_id,
+                    content: message.content,
+                    sent_at: message.sent_at || message.created_at || new Date().toISOString(),
+                });
+            }
+
+            // 新版事件：更新
+            handleDomainMessageUpdated(message) {
+                if (!message) return;
+                // 更新内存中的消息
+                const idx = this.messages.findIndex(m => m.id === message.id);
+                if (idx >= 0) {
+                    this.messages[idx] = { ...this.messages[idx], ...message };
+                    this.renderMessages();
+                }
+            }
+
+            // 新版事件：删除
+            handleDomainMessageDeleted(payload) {
+                if (!payload) return;
+                const { id, conversation_id } = payload;
+                const before = this.messages.length;
+                this.messages = this.messages.filter(m => m.id !== id);
+                if (this.messages.length !== before && this.currentConversationId === conversation_id) {
+                    this.renderMessages();
                 }
             }
 
@@ -5171,6 +5288,7 @@
             // 初始化消息模块（如果还没有创建）
             if (!messageModule) {
                 messageModule = new MessageModule();
+                try { window.messageModule = messageModule; } catch (_) {}
             }
             
             // 重置页面状态 
@@ -5948,73 +6066,142 @@
             return map[role] || role || '未知';
         }
 
-        // 集成代码功能
+        // 集成代码功能（新版：基于纯 Rust /embed/service.js）
+    const __integrationState = { shop: null, embed: null, serverUrl: window.location.origin };
+    // 暴露到 window，供动态注入的输入组件访问
+    window.__integrationState = __integrationState;
+
         function openIntegrationCode(shopId) {
             currentShopId = shopId;
-            loadIntegrationData(shopId);
             openModal('integration-code-modal');
+            loadIntegrationData(shopId);
         }
 
         async function loadIntegrationData(shopId) {
             try {
-                const response = await fetch(`/api/shops/${shopId}/integration`, {
-                    headers: {
-                        'Authorization': `Bearer ${getAuthToken()}`
-                    }
+                // 1) 获取店铺详情（含 api_key, name, domain, status）
+                const shopResp = await fetch(`/api/shops/${shopId}`, {
+                    headers: { 'Authorization': `Bearer ${getAuthToken()}` }
                 });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    displayIntegrationData(data);
+
+                if (shopResp.ok) {
+                    const shopJson = await shopResp.json();
+                    const shopData = shopJson?.data || shopJson;
+                    __integrationState.shop = shopData;
+
+                    const s = shopData;
+                    const name = s?.name || '';
+                    const domain = s?.domain || '';
+                    const status = s?.status || '';
+                    const apiKey = s?.api_key || '';
+                    const endpoint = `${window.location.origin}`;
+
+                    const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+                    setText('shop-info-name', name);
+                    setText('shop-info-domain', domain);
+                    setText('shop-info-plan', '-');
+                    setText('shop-info-status', getStatusText(status));
+                    setText('api-info-key', apiKey);
+                    setText('api-info-secret', '—');
+                    setText('api-info-endpoint', endpoint);
+
+                    // 兼容旧信息区
+                    setText('integrationShopName', name);
+                    setText('integrationShopId', s?.id || shopId);
+                    setText('integrationApiKey', apiKey);
+                    setText('integrationGeneratedTime', new Date().toLocaleString());
                 } else {
-                    console.error('加载集成信息失败');
+                    console.error('加载店铺详情失败');
                 }
+
+                // 2) 获取 embed 配置（无认证）
+                const cfgResp = await fetch(`/embed/config/${shopId}`);
+                if (cfgResp.ok) {
+                    const cfgJson = await cfgResp.json();
+                    __integrationState.embed = cfgJson?.data || cfgJson;
+                }
+
+                // 3) 生成嵌入代码（动态加载CSS/JS + QuickTalkCustomerService.init）
+                generateIntegrationCode();
             } catch (error) {
                 console.error('加载集成信息错误:', error);
             }
         }
 
-        function displayIntegrationData(data) {
-            // 填充店铺信息
-            document.getElementById('shop-info-name').textContent = data.shop?.name || '';
-            document.getElementById('shop-info-domain').textContent = data.shop?.domain || '';
-            document.getElementById('shop-info-plan').textContent = data.shop?.plan || '';
-            document.getElementById('shop-info-status').textContent = getStatusText(data.shop?.status || '');
-            
-            // 填充API信息
-            document.getElementById('api-info-key').textContent = data.apiKey || '';
-            document.getElementById('api-info-secret').textContent = data.apiSecret || '';
-            document.getElementById('api-info-endpoint').textContent = data.apiEndpoint || '';
-            
-            // 生成集成代码
-            generateIntegrationCode(data);
-        }
+        // 提供给动态注入 UI 的更新函数
+        window.updateIntegrationServerUrl = function () {
+            const input = document.getElementById('integrationServerUrl');
+            const hint = document.getElementById('integrationServerHint');
+            if (!input) return;
+            let val = (input.value || '').trim();
+            if (!val) { val = window.location.origin; }
+            try {
+                const u = new URL(val, window.location.origin);
+                __integrationState.serverUrl = u.origin;
+                if (hint) {
+                    if (/localhost|127\.0\.0\.1/i.test(u.hostname)) {
+                        hint.textContent = '当前为本地地址（localhost）。将此代码放入生产网站会指向本地服务，请改为生产环境的 QuickTalk 地址。';
+                        hint.style.color = '#d9534f';
+                    } else {
+                        hint.textContent = '已更新服务器地址：' + u.origin;
+                        hint.style.color = '#6c757d';
+                    }
+                }
+            } catch (e) {
+                __integrationState.serverUrl = window.location.origin;
+                if (hint) {
+                    hint.textContent = '地址无效，已回退到：' + window.location.origin;
+                    hint.style.color = '#d9534f';
+                }
+            }
+            generateIntegrationCode();
+        };
 
-        function generateIntegrationCode(data) {
-            const code = `<!-- QuickTalk 客服系统集成代码 -->
-<div id="quicktalk-widget"></div>
-<script>
-(function() {
-    var config = {
-        apiKey: '${data.apiKey}',
-        shopId: '${currentShopId}',
-        endpoint: '${data.apiEndpoint}',
-        position: 'bottom-right',
-        theme: 'default'
-    };
-    
-    var script = document.createElement('script');
-    script.src = '${data.apiEndpoint}/widget/quicktalk.js';
-    script.onload = function() {
-        if (window.QuickTalk) {
-            window.QuickTalk.init(config);
-        }
-    };
-    document.head.appendChild(script);
-})();
-<\/script>`;
+        function generateIntegrationCode() {
+            const s = __integrationState.shop?.data || __integrationState.shop || {};
+            const shopId = s?.id || currentShopId || '';
+            const domain = s?.domain || '';
+            const serverUrl = __integrationState.serverUrl;
+            const cache = Date.now();
 
-            document.getElementById('integration-code').value = code;
+            const code = `<!-- QuickTalk 客服系统 - 轻量动态集成（纯Rust版） -->\n` +
+`<script>(function(){\n` +
+`  var CONFIG = {\n` +
+`    shopId: '${shopId}',\n` +
+`    serverUrl: '${serverUrl}',\n` +
+`    authorizedDomain: '${domain}',\n` +
+`    cache: ${cache}\n` +
+`  };\n` +
+`  var host = window.location.hostname;\n` +
+`  if (CONFIG.authorizedDomain && host !== CONFIG.authorizedDomain && !host.endsWith('.' + CONFIG.authorizedDomain) && host !== 'localhost') {\n` +
+`    console.error('❌ QuickTalk 域名未授权:', host, '期望:', CONFIG.authorizedDomain);\n` +
+`    return;\n` +
+`  }\n` +
+`  // 动态加载样式\n` +
+`  var link = document.createElement('link');\n` +
+`  link.rel = 'stylesheet';\n` +
+`  link.href = CONFIG.serverUrl + '/embed/styles.css?v=' + CONFIG.cache;\n` +
+`  link.onerror = function(){ console.error('❌ QuickTalk 样式加载失败'); };\n` +
+`  document.head.appendChild(link);\n` +
+`  // 动态加载脚本并初始化\n` +
+`  var s = document.createElement('script');\n` +
+`  s.src = CONFIG.serverUrl + '/embed/service.js?v=' + CONFIG.cache;\n` +
+`  s.onload = function(){\n` +
+`    if (window.QuickTalkCustomerService) {\n` +
+`      window.QuickTalkCustomerService.init({ shopId: CONFIG.shopId, serverUrl: CONFIG.serverUrl });\n` +
+`      console.log('✅ QuickTalk 已初始化');\n` +
+`    } else {\n` +
+`      console.error('❌ QuickTalk 服务未就绪');\n` +
+`    }\n` +
+`  };\n` +
+`  s.onerror = function(){ console.error('❌ QuickTalk 脚本加载失败'); };\n` +
+`  document.head.appendChild(s);\n` +
+`})();<\/script>`;
+
+            const primary = document.getElementById('integration-code');
+            if (primary) primary.value = code;
+            const alt = document.getElementById('integrationCodeText');
+            if (alt) alt.value = code;
         }
 
         function copyIntegrationCode() {
@@ -6038,7 +6225,7 @@
 
             try {
                 showLoading('正在生成新的API密钥...');
-                const response = await fetch(`/api/shops/${currentShopId}/regenerate-key`, {
+                const response = await fetch(`/api/shops/${currentShopId}/rotate-api-key`, {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${getAuthToken()}`
@@ -6414,8 +6601,8 @@
                                     </div>
                                     ${showAdvancedFeatures ? `
                                         <div class="shop-detail-actions">
-                                            <button class="btn primary" onclick="generateIntegrationCode()">生成集成代码</button>
-                                            <button class="btn secondary" onclick="refreshApiKey()">重新生成API密钥</button>
+                                            <button class="btn primary" onclick="openIntegrationCode('${shop.id}')">生成集成代码</button>
+                                            <button class="btn secondary" onclick="regenerateApiKey()">重新生成API密钥</button>
                                         </div>
                                     ` : ''}
                                 </div>
@@ -9014,56 +9201,48 @@
             </div>
         </div>
     </div>
-                    <div class="info-section">
-                        <h4>📊 店铺信息</h4>
-                        <div class="info-grid">
-                            <div class="info-item">
-                                <label>店铺名称:</label>
-                                <span id="integrationShopName">-</span>
-                            </div>
-                            <div class="info-item">
-                                <label>店铺ID:</label>
-                                <span id="integrationShopId" class="code-text">-</span>
-                            </div>
-                            <div class="info-item">
-                                <label>API密钥:</label>
-                                <span id="integrationApiKey" class="code-text">-</span>
-                            </div>
-                            <div class="info-item">
-                                <label>生成时间:</label>
-                                <span id="integrationGeneratedTime">-</span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="code-section">
-                        <div class="code-header">
-                            <h4>🔧 嵌入代码</h4>
-                            <button class="btn btn-primary btn-small" onclick="copyIntegrationCode()">
-                                📋 复制代码
-                            </button>
-                        </div>
-                        <textarea id="integrationCodeText" class="code-textarea" readonly placeholder="正在生成代码..."></textarea>
-                    </div>
-                    
-                    <div class="usage-guide">
-                        <h4>📖 使用说明</h4>
-                        <ul>
-                            <li>将代码复制到您的网站HTML页面中</li>
-                            <li>建议放在 <code>&lt;/body&gt;</code> 标签之前</li>
-                            <li>代码将在页面右下角显示客服按钮</li>
-                            <li>访客点击即可开始客服对话</li>
-                        </ul>
-                    </div>
-                    
-                    <div class="code-actions">
-                        <button class="btn btn-secondary" onclick="regenerateApiKey()">
-                            🔑 重新生成密钥
-                        </button>
-                        <button class="btn btn-success" onclick="testIntegration()">
-                            🧪 测试集成
-                        </button>
-                    </div>
+                    <!-- 在模态框内追加：服务器地址输入，用于生成集成代码的 serverUrl -->
+                    <script>
+                    (function(){
+                        const injectServerUrlUI = () => {
+                            const modal = document.getElementById('integration-code-modal');
+                            if (!modal) return;
+                            const apiBlock = modal.querySelector('.info-section:nth-of-type(2)'); // API信息块
+                            if (!apiBlock) return;
+                            // 避免重复插入
+                            if (modal.querySelector('#integrationServerUrl')) return;
+                            const wrapper = document.createElement('div');
+                            wrapper.className = 'info-section';
+                            wrapper.innerHTML = `
+                                <h4>服务器地址</h4>
+                                <div class="info-grid">
+                                    <div class="info-item" style="grid-column: 1 / -1; display: grid; gap: 8px;">
+                                        <label for="integrationServerUrl">Server URL</label>
+                                        <input id="integrationServerUrl" type="text" style="width: 100%; padding: 10px 12px; border: 1px solid #e1e5ea; border-radius: 8px; font-size: 14px;" placeholder="例如：https://quicktalk.your-domain.com">
+                                        <small id="integrationServerHint" style="color:#6c757d;">请填写可从客户网站访问的 QuickTalk 服务地址。当前默认值为本页面的来源地址。</small>
+                                    </div>
+                                </div>`;
+                            apiBlock.insertAdjacentElement('afterend', wrapper);
+                            // 初始化与监听
+                            const input = document.getElementById('integrationServerUrl');
+                            if (input) {
+                                input.value = (window.__integrationState?.serverUrl || window.location.origin);
+                                input.addEventListener('change', window.updateIntegrationServerUrl);
+                                input.addEventListener('blur', window.updateIntegrationServerUrl);
+                            }
+                        };
+                        // 尝试注入（初次载入与模态打开后）
+                        if (document.readyState === 'loading') {
+                            document.addEventListener('DOMContentLoaded', injectServerUrlUI);
+                        } else { injectServerUrlUI(); }
+                        const origOpenIntegrationCode = window.openIntegrationCode;
+                        window.openIntegrationCode = function(shopId){
+                            try { injectServerUrlUI(); } catch(_){}
+                            return origOpenIntegrationCode ? origOpenIntegrationCode(shopId) : undefined;
+                        };
+                    })();
+                    </script>
+                    <!-- 删除：重复的“嵌入代码展示块”被错放在模态框外部，导致页面底部出现内容外泄。该区块已移除，保留模态框内的唯一版本。 -->
                 </div>
             </div>
         </div>
