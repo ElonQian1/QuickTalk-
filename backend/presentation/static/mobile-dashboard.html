@@ -626,21 +626,7 @@
                         repeating-linear-gradient(-45deg, rgba(102,126,234,0.05) 0, rgba(102,126,234,0.05) 6px, transparent 6px, transparent 12px);
         }
 
-        /* 左上角“等待中”丝带 */
-        .shop-card.shop-card-inactive::before {
-            content: '等待中';
-            position: absolute;
-            top: 12px;
-            left: -8px;
-            background: #6c757d;
-            color: #fff;
-            font-size: 10px;
-            padding: 2px 8px;
-            border-radius: 8px;
-            box-shadow: 0 2px 6px rgba(0,0,0,.12);
-            transform: rotate(-6deg);
-            letter-spacing: .5px;
-        }
+        /* 角落提示丝带已移除，避免与内置 .shop-status 重复 */
 
         /* 图标轻微去饱和 */
         .shop-card.shop-card-inactive .shop-icon { filter: grayscale(25%) saturate(0.85); opacity: 0.92; }
