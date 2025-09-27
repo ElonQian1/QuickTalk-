@@ -170,41 +170,62 @@
             display: block; /* 显示活跃页面 */
         }
 
+        /* 统一美化四个页面的头部区域 */
         .page-header {
-            background: white;
-            padding: 20px;
+            background: linear-gradient(180deg, #ffffff 0%, #fafbff 100%);
+            padding: 16px 20px;
             border-bottom: 1px solid #e9ecef;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            border-bottom-left-radius: 16px;
+            border-bottom-right-radius: 16px;
+            box-shadow: 0 6px 16px rgba(0,0,0,0.06);
+        }
+
+        .chat-header {
+            background: white;
+            padding: 12px 16px;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: -20px -20px 20px -20px;
             position: sticky;
             top: 0;
             z-index: 10;
         }
 
         .page-title {
-            font-size: 24px;
-            font-weight: 700;
+            font-size: 22px;
+            font-weight: 800;
+            letter-spacing: 0.2px;
             color: #2c3e50;
-            margin-bottom: 5px;
+            margin-bottom: 4px;
         }
 
-        .page-subtitle {
-            font-size: 14px;
-            color: #6c757d;
-        }
+        .page-subtitle { font-size: 13px; color: #6c757d; opacity: 0.95; }
 
-        .page-actions {
-            margin-top: 15px;
-        }
+        .page-actions { margin-top: 12px; }
 
-        .back-btn {
-            background: #6c757d;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-        }
+        .back-btn { background: rgba(255,255,255,0.20); color: #fff; border: 1px solid rgba(255,255,255,0.35); padding: 8px 16px; border-radius: 20px; font-size: 14px; font-weight: 500; cursor: pointer; backdrop-filter: blur(8px); }
+        .page-header .search-input { background: rgba(255,255,255,0.92); border-color: rgba(255,255,255,0.8); }
+        .page-header .search-btn { background: rgba(255,255,255,0.20); color: #fff; border: 1px solid rgba(255,255,255,0.35); backdrop-filter: blur(8px); }
+        .page-header .search-btn:hover { background: rgba(255,255,255,0.28); }
+
+        /* 各页面主题配色（标题/副标题自动白色以增强可读性） */
+        #homePage .page-header { background: linear-gradient(135deg, #43cea2 0%, #185a9d 100%); }
+        #messagesPage .page-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        #shopsPage .page-header { background: linear-gradient(135deg, #ff9966 0%, #ff5e62 100%); }
+        #profilePage .page-header { background: linear-gradient(135deg, #396afc 0%, #2948ff 100%); }
+        #homePage .page-header .page-title,
+        #homePage .page-header .page-subtitle,
+        #messagesPage .page-header .page-title,
+        #messagesPage .page-header .page-subtitle,
+        #shopsPage .page-header .page-title,
+        #shopsPage .page-header .page-subtitle,
+        #profilePage .page-header .page-title,
+        #profilePage .page-header .page-subtitle { color: #fff; }
 
         .page-content {
             padding: 20px;
@@ -355,6 +376,18 @@
             border-radius: 12px;
             font-weight: 600;
         }
+
+        /* 兼容新对话 DOM 结构的样式映射与增强 */
+        .conversation-content { flex: 1; min-width: 0; }
+        .conversation-header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 4px; }
+        .customer-name, .conversation-name { font-size: 16px; font-weight: 600; color: #2c3e50; }
+        .message-time, .conversation-time { font-size: 12px; color: #adb5bd; margin-left: 8px; white-space: nowrap; }
+        .last-message, .conversation-message { font-size: 14px; color: #6c757d; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+
+        /* 店铺列表网格（消息入口） */
+        .shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+        .shop-empty-hint { margin-top: 10px; font-size: 12px; color: #6c757d; }
+    .shop-card.shop-card-inactive { filter: grayscale(10%) saturate(0.9); }
 
         /* 店铺页面样式 - 移动端列表形式 */
         .shop-list {
@@ -576,16 +609,45 @@
         }
 
         /* 非活跃店铺样式 */
-        .shop-card-inactive {
-            opacity: 0.6;
-            border: 1px dashed #dee2e6;
-            background: #fafafa;
+        .shop-card.shop-card-inactive {
+            opacity: 1; /* 保持文本可读性 */
+            background: linear-gradient(135deg, #fafafa 0%, #f7f7fb 100%),
+                        repeating-linear-gradient(-45deg, rgba(102,126,234,0.06) 0, rgba(102,126,234,0.06) 6px, transparent 6px, transparent 12px);
+            border: 1px dashed #dfe3ea;
+            position: relative;
+            transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease, background .2s ease;
         }
 
-        .shop-card-inactive:hover {
-            opacity: 0.8;
-            transform: translateY(-1px);
+        .shop-card.shop-card-inactive:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 14px rgba(0,0,0,0.08);
+            border-color: #bfc6d2;
+            background: linear-gradient(135deg, #ffffff 0%, #f7f7fb 100%),
+                        repeating-linear-gradient(-45deg, rgba(102,126,234,0.05) 0, rgba(102,126,234,0.05) 6px, transparent 6px, transparent 12px);
         }
+
+        /* 左上角“等待中”丝带 */
+        .shop-card.shop-card-inactive::before {
+            content: '等待中';
+            position: absolute;
+            top: 12px;
+            left: -8px;
+            background: #6c757d;
+            color: #fff;
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,.12);
+            transform: rotate(-6deg);
+            letter-spacing: .5px;
+        }
+
+        /* 图标轻微去饱和 */
+        .shop-card.shop-card-inactive .shop-icon { filter: grayscale(25%) saturate(0.85); opacity: 0.92; }
+
+        /* 空提示 pill 更友好 */
+        .shop-empty-hint { margin-top: 12px; padding: 6px 10px; border: 1px dashed #cfd4da; border-radius: 999px; font-size: 12px; color: #6c757d; display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.6); backdrop-filter: blur(2px); }
+        .shop-empty-hint::before { content: '👆'; }
 
         .status-inactive {
             background: #f8f9fa;
@@ -685,9 +747,6 @@
         .modal-close {
             background: none;
             border: none;
-            font-size: 24px;
-            color: #6c757d;
-            cursor: pointer;
             padding: 0;
             width: 32px;
             height: 32px;
@@ -1131,12 +1190,7 @@
             margin: 0;
         }
 
-        .chat-messages {
-            flex: 1;
-            padding: 20px;
-            overflow-y: auto;
-            background: #f8f9fa;
-        }
+        .chat-messages { flex: 1; padding: 16px; overflow-y: auto; background: #f8f9fa; }
 
         .chat-message {
             display: flex;
@@ -1201,15 +1255,7 @@
             background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
         }
 
-        .chat-input-container {
-            padding: 15px 20px;
-            background: white;
-            border-top: 1px solid #e9ecef;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
+        .chat-input-container { padding: 12px 16px; background: white; border-top: 1px solid #e9ecef; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; box-shadow: 0 -2px 8px rgba(0,0,0,.03); }
 
         /* 多媒体按钮样式 */
         .media-btn, .voice-btn {
@@ -2323,15 +2369,15 @@
 
         .conversations-header {
             background: #f8f9fa;
-            padding: 15px 20px;
+            padding: 12px 16px;
             border-bottom: 1px solid #e9ecef;
-            margin: -20px -20px 20px -20px;
+            margin: -20px -20px 12px -20px;
         }
 
         .conversations-stats {
-            font-size: 14px;
+            font-size: 13px;
             color: #666;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
         }
 
         .separator {
@@ -2359,6 +2405,8 @@
             color: white;
             border-color: #007bff;
         }
+
+        .filter-btn:hover { border-color: #007bff; color: #007bff; background: rgba(0,123,255,.06); }
 
         .chat-header {
             background: white;
@@ -4488,6 +4536,9 @@
                     return;
                 }
 
+                const list = document.createElement('div');
+                list.className = 'conversation-list';
+
                 this.conversations.forEach(conversation => {
                     const conversationItem = document.createElement('div');
                     conversationItem.className = 'conversation-item';
@@ -4511,8 +4562,10 @@
                         this.selectConversation(conversation);
                     });
                     
-                    container.appendChild(conversationItem);
+                    list.appendChild(conversationItem);
                 });
+
+                container.appendChild(list);
             }
 
             // 选择对话，进入聊天界面
