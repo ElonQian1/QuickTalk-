@@ -8275,15 +8275,7 @@
             
             // 退出登录按钮额外事件绑定
             console.log('🔍 正在绑定退出登录按钮事件...');
-            const logoutButtons = document.querySelectorAll('[onclick="logout()"]');
-            logoutButtons.forEach(button => {
-                console.log('📋 找到退出登录按钮:', button);
-                button.addEventListener('click', function(e) {
-                    console.log('🚪 退出登录按钮被点击 (addEventListener)');
-                    e.preventDefault();
-                    logout();
-                });
-            });
+            // 修复弹窗两次：不再为含 onclick="logout()" 的按钮重复绑定事件
             
             if (createShopForm) {
                 console.log('🔗 绑定表单提交事件监听器');
