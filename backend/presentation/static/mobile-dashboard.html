@@ -6150,6 +6150,7 @@
             const actions = [];
             const userData = getUserData();
             const status = getEffectiveStatus(shop);
+            const isEmployeeMember = shop && shop.membership === 'employee';
             
             // 权限检查
             const isSuperAdmin = userData && userData.role === 'super_admin';
@@ -6169,62 +6170,73 @@
                         // 店主可以付费开通（待审核阶段不允许编辑）
                         actions.push(`<div class="shop-action-btn primary" onclick="payToActivate('${shop.id}', event)">付费开通</div>`);
                     }
-                    // 所有人都可以查看
-                    actions.push(`<div class="shop-action-btn" onclick="viewShop('${shop.id}', event)">查看</div>`);
+                    // 员工不显示“查看”
+                    if (!isEmployeeMember) {
+                        actions.push(`<div class="shop-action-btn" onclick="viewShop('${shop.id}', event)">查看</div>`);
+                    }
                     break;
                     
                 case 'approved':
                     // 已审核=已付费，完整功能
-                    if (isSuperAdmin) {
+                    if (isSuperAdmin && !isEmployeeMember) {
                         actions.push(`<div class=\"shop-action-btn primary\" onclick=\"manageShop('${shop.id}', event)\">管理</div>`);
                         actions.push(`<div class=\"shop-action-btn danger\" onclick=\"rejectShop('${shop.id}', event)\">撤销批准</div>`);
                     }
-                    if (isShopOwner) {
+                    if (isShopOwner && !isEmployeeMember) {
                         actions.push(`<div class=\"shop-action-btn primary\" onclick=\"manageShop('${shop.id}', event)\">管理</div>`);
                     }
-                    actions.push(`<div class="shop-action-btn" onclick="viewShop('${shop.id}', event)">查看</div>`);
+                    // 员工不显示“查看”
+                    if (!isEmployeeMember) {
+                        actions.push(`<div class="shop-action-btn" onclick="viewShop('${shop.id}', event)">查看</div>`);
+                    }
                     break;
                     
                 case 'active':
                     // 运行中=已付费
-                    if (isShopOwner || isSuperAdmin) {
+                    if (!isEmployeeMember && (isShopOwner || isSuperAdmin)) {
                         actions.push(`<div class="shop-action-btn" onclick="viewShopMessages('${shop.id}', event)">消息</div>`);
                         actions.push(`<div class="shop-action-btn primary" onclick="manageShop('${shop.id}', event)">管理</div>`);
                     }
-                    if (isSuperAdmin) {
+                    if (isSuperAdmin && !isEmployeeMember) {
                         actions.push(`<div class="shop-action-btn warning" onclick="deactivateShop('${shop.id}', event)">停用</div>`);
                     }
                     break;
                     
                 case 'rejected':
                     // 被拒绝状态
-                    if (isShopOwner) {
+                    if (isShopOwner && !isEmployeeMember) {
                         // 店主可以修改并重新申请
                         actions.push(`<div class="shop-action-btn warning" onclick="editShop('${shop.id}', event)">修改</div>`);
                         actions.push(`<div class="shop-action-btn" onclick="resubmitShop('${shop.id}', event)">重新申请</div>`);
                     }
-                    if (isSuperAdmin) {
+                    if (isSuperAdmin && !isEmployeeMember) {
                         // 超级管理员可以重新审核
                         actions.push(`<div class="shop-action-btn warning" onclick="manageShop('${shop.id}', event)">重新审核</div>`);
                     }
-                    // 所有人都可以查看
-                    actions.push(`<div class="shop-action-btn" onclick="viewShop('${shop.id}', event)">查看</div>`);
+                    // 员工不显示“查看”
+                    if (!isEmployeeMember) {
+                        actions.push(`<div class="shop-action-btn" onclick="viewShop('${shop.id}', event)">查看</div>`);
+                    }
                     break;
                     
                 case 'inactive':
                     // 未审核=未付费（你的规则），这里视为需要付费激活
-                    if (isSuperAdmin) {
+                    if (isSuperAdmin && !isEmployeeMember) {
                         actions.push(`<div class="shop-action-btn primary" onclick="manageShop('${shop.id}', event)">管理</div>`);
                     }
-                    if (isShopOwner) {
+                    if (isShopOwner && !isEmployeeMember) {
                         actions.push(`<div class="shop-action-btn primary" onclick="payToActivate('${shop.id}', event)">付费激活</div>`);
                     }
-                    actions.push(`<div class="shop-action-btn" onclick="viewShop('${shop.id}', event)">查看</div>`);
+                    if (!isEmployeeMember) {
+                        actions.push(`<div class="shop-action-btn" onclick="viewShop('${shop.id}', event)">查看</div>`);
+                    }
                     break;
                     
                 default:
-                    // 默认只能查看
-                    actions.push(`<div class="shop-action-btn" onclick="viewShop('${shop.id}', event)">查看</div>`);
+                    // 默认：员工不显示任何按钮，其余显示“查看”
+                    if (!isEmployeeMember) {
+                        actions.push(`<div class="shop-action-btn" onclick="viewShop('${shop.id}', event)">查看</div>`);
+                    }
             }
             
             return actions.join('');
