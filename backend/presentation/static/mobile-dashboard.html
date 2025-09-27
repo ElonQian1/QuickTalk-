@@ -6446,11 +6446,9 @@
                                                         <input type="text" id="employeeUsername" placeholder="输入要添加的用户名" required>
                                                     </div>
                                                     <div class="form-group">
-                                                        <label for="employeeRole">角色权限</label>
-                                                        <select id="employeeRole" required>
-                                                            <option value="employee">员工 (客服权限)</option>
-                                                            <option value="manager">经理 (管理权限)</option>
-                                                        </select>
+                                                        <label>角色权限</label>
+                                                        <div class="readonly-field">员工（默认，客服权限）</div>
+                                                        <input type="hidden" id="employeeRole" value="employee" />
                                                     </div>
                                                 </div>
                                                 <div class="form-buttons">
@@ -7002,7 +7000,8 @@
             if (event) event.preventDefault();
             if (!currentShopId) { showToast('请先选择一个店铺', 'error'); return false; }
             const username = (document.getElementById('employeeUsername')?.value || '').trim();
-            const role = document.getElementById('employeeRole')?.value || 'employee';
+            // 固定为员工角色，移除其他可选项
+            const role = 'employee';
             if (!username) { showToast('请输入用户名', 'error'); return false; }
             try {
                 showToast('正在添加员工...', 'info');
