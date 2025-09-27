@@ -279,25 +279,7 @@
             gap: 10px;
         }
 
-        .action-btn {
-            flex: 1;
-            min-width: 120px;
-            padding: 12px 16px;
-            border: none;
-            border-radius: 12px;
-            background: #f8f9fa;
-            color: #495057;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .action-btn:hover {
-            background: #e9ecef;
-            transform: translateY(-2px);
-        }
-
+        /* .add-shop-btn 样式已移除（按钮不再展示） */
         /* 消息页面样式 */
         .conversation-list {
             background: white;
@@ -5252,10 +5234,6 @@
                         <div class="shop-list">
                             ${shopsHTML}
                         </div>
-                        <button class="add-shop-btn" onclick="showCreateShopModal()">
-                            <span>➕</span>
-                            创建新店铺
-                        </button>
                     `;
                 }
             } catch (error) {
