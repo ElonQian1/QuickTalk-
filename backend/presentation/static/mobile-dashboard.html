@@ -5183,13 +5183,14 @@
                     `;
                 } else {
                     const shopsHTML = shopsData.map(shop => {
-                        const statusClass = getShopStatusClass(shop.approvalStatus || shop.status);
-                        const statusText = getShopStatusText(shop.approvalStatus || shop.status);
+                        const effStatus = getEffectiveStatus(shop);
+                        const statusClass = getShopStatusClass(effStatus);
+                        const statusText = getShopStatusText(effStatus);
                         const actions = getShopActions(shop);
                         const isEmployee = shop.membership === 'employee';
                         
                         return `
-                        <div class="shop-card ${(shop.approvalStatus === 'inactive' || shop.status === 'inactive') ? 'shop-card-inactive' : ''}" onclick="handleShopClick('${shop.id}', event)">
+                        <div class="shop-card ${(getEffectiveStatus(shop) === 'inactive') ? 'shop-card-inactive' : ''}" onclick="handleShopClick('${shop.id}', event)">
                             <div class="shop-header">
                                 <div class="shop-left">
                                     <div class="shop-icon">${shop.name.charAt(0).toUpperCase()}</div>
@@ -6073,7 +6074,7 @@
         function getShopActions(shop) {
             const actions = [];
             const userData = getUserData();
-            const status = shop.approvalStatus || shop.status;
+            const status = getEffectiveStatus(shop);
             
             // 权限检查
             const isSuperAdmin = userData && userData.role === 'super_admin';
@@ -6163,7 +6164,7 @@
             
             // 默认行为：查看店铺详情或进入对话
             const shop = shopsData.find(s => s.id === shopId);
-            if (shop && (shop.status === 'approved' || shop.status === 'active')) {
+            if (shop && ((getEffectiveStatus(shop) === 'approved') || (getEffectiveStatus(shop) === 'active'))) {
                 // 如果是已激活的店铺，进入对话列表
                 selectShop(shopId);
             } else {
@@ -6178,7 +6179,7 @@
             if (!shop) return;
             
             console.log('查看店铺详情:', shop);
-            showToast(`店铺: ${shop.name} - ${getShopStatusText(shop.status)}`, 'info');
+            showToast(`店铺: ${shop.name} - ${getShopStatusText(getEffectiveStatus(shop))}`, 'info');
         }
 
         // 编辑店铺
@@ -6241,6 +6242,11 @@
             const status = getEffectiveStatus(shop);
             const statusText = getStatusText(status);
             let modal = document.getElementById('shop-details-modal');
+            // 关键修复：不同店铺/不同状态切换时，始终以当前状态重建模态内容，避免首次状态锁死
+            if (modal) {
+                try { modal.parentNode.removeChild(modal); } catch (_) {}
+                modal = null;
+            }
             
             // 规则：未付款=未审核；客户付款成功后才通过审核
             // 因此：已通过(approved) 即视为已付费；active 同样视为已付费
