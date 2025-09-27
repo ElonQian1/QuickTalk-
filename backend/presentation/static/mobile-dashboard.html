@@ -4357,23 +4357,22 @@
             // 显示店铺列表
             async showShops() {
                 try {
-                    const authToken = getAuthToken();
-                    const response = await fetch('/api/shops', {
-                        headers: authToken ? {
-                            'Authorization': `Bearer ${authToken}`,
-                            'X-Session-Id': authToken
-                        } : {}
+                    // 复用统一的获取逻辑，避免两处实现不一致（确保未审核店铺也能显示在消息页网格）
+                    const shops = await fetchShops();
+                    // 仅消息页：只展示已通过/活跃店铺（未审核店铺不能使用消息功能）
+                    const list = Array.isArray(shops) ? shops : [];
+                    this.shops = list.filter(s => {
+                        const st = (s && (s.approvalStatus || s.status)) || 'pending';
+                        return st === 'approved' || st === 'active';
                     });
-                    const data = await response.json();
-                    
-                    if (data.success && data.data) {
-                        this.shops = data.data;
-                        this.renderShopsList();
-                    } else {
-                        console.error('获取店铺列表失败:', data.error);
+                    if (!Array.isArray(shops)) {
+                        console.warn('fetchShops 返回的非数组结果，已回退为空数组:', shops);
                     }
+                    this.renderShopsList();
                 } catch (error) {
-                    console.error('网络错误:', error);
+                    console.error('网络错误: 获取店铺列表失败', error);
+                    this.shops = [];
+                    this.renderShopsList();
                 }
             }
 
@@ -4386,8 +4385,8 @@
                     container.innerHTML = `
                         <div class="empty-state">
                             <div class="empty-icon">🏪</div>
-                            <h3>暂无店铺</h3>
-                            <p>请先添加店铺以开始接收客服消息</p>
+                            <h3>暂无可用店铺</h3>
+                            <p>只有审核通过的店铺才会在此显示；请在店铺通过审核后再来处理客服消息</p>
                         </div>
                     `;
                     return;
