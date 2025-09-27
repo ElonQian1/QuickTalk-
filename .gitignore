@@ -51,6 +51,11 @@ build/
 *.db
 *.sqlite
 *.sqlite3
+*.sqlite-shm
+*.sqlite-wal
+*.db-shm
+*.db-wal
+*.sqlite-journal
 data/*.db
 data/*.sqlite
 customer_service.db
