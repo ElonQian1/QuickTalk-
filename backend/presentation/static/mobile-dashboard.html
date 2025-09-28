@@ -4059,10 +4059,25 @@
         // 提取后端事件信封中的 message 对象
         function extractMessageFromEnvelope(evt) {
             if (!evt) return null;
+            console.log('🔍 提取消息数据，原始事件:', evt);
+            
+            // 处理新的事件格式：{data: {message: {...}}, type: "domain.event.message_appended", ...}
             if (evt.data) {
-                if (evt.data.message) return evt.data.message;
+                console.log('📦 找到 data 字段:', evt.data);
+                
+                // 如果 data 中有 message 字段，优先使用
+                if (evt.data.message) {
+                    console.log('✅ 使用 data.message:', evt.data.message);
+                    return evt.data.message;
+                }
+                
+                // 否则直接使用 data 作为消息内容
+                console.log('✅ 直接使用 data:', evt.data);
                 return evt.data;
             }
+            
+            // 兜底：直接返回整个事件对象
+            console.log('⚠️ 兜底：使用整个事件对象');
             return evt;
         }
 
@@ -4087,14 +4102,34 @@
             // 新版事件总线
             if (typeof t === 'string' && t.startsWith('domain.event.')) {
                 if (t === 'domain.event.message_appended') {
+                    console.log('🎬 开始处理 domain.event.message_appended');
                     const message = extractMessageFromEnvelope(data);
+                    console.log('📦 解析到的消息数据:', message);
+                    console.log('🔍 原始事件数据:', data);
+                    
                     if (message) {
+                        console.log('✅ 消息数据有效，开始处理');
+                        console.log('📝 消息内容预览:', {
+                            id: message.id,
+                            content: message.content,
+                            sender_type: message.sender_type,
+                            conversation_id: message.conversation_id
+                        });
+                        
                         // 徽章+刷新列表（全局层面）
-                        handleNewMessage({ userName: message.customer_name || '客户', message });
+                        const displayName = message.sender_type === 'agent' ? '管理员' : (message.customer_name || '客户');
+                        handleNewMessage({ userName: displayName, message });
+                        
                         // 若 MessageModule 已初始化，委托它做细粒度渲染
                         if (window.messageModule && typeof window.messageModule.handleDomainMessageAppended === 'function') {
+                            console.log('🎯 委托给 messageModule 处理消息');
                             window.messageModule.handleDomainMessageAppended(message);
+                        } else {
+                            console.log('⚠️ messageModule 未初始化或缺少方法');
+                            console.log('🔍 window.messageModule 状态:', window.messageModule);
                         }
+                    } else {
+                        console.error('❌ 无法提取消息数据');
                     }
                 } else if (t === 'domain.event.message_updated') {
                     const message = extractMessageFromEnvelope(data);
@@ -4458,19 +4493,48 @@
 
             // 新版事件：追加
             handleDomainMessageAppended(message) {
-                if (!message) return;
-                // 如果在当前会话，直接渲染
-                if (this.currentConversationId && message.conversation_id === this.currentConversationId) {
-                    this.messages.push(message);
-                    this.renderMessage(message);
-                    this.scrollToBottom();
+                if (!message) {
+                    console.error('❌ handleDomainMessageAppended: 消息为空');
+                    return;
                 }
-                // 刷新会话列表预览
+                
+                console.log('🔔 MessageModule收到新消息事件:', message);
+                console.log('📍 当前会话ID:', this.currentConversationId);
+                console.log('📨 消息会话ID:', message.conversation_id);
+                console.log('👤 消息发送者类型:', message.sender_type);
+                console.log('📝 消息内容:', message.content);
+                console.log('🏪 消息店铺ID:', message.shop_id);
+                
+                // 如果在当前会话，直接渲染
+                if (this.currentConversationId && String(message.conversation_id) === String(this.currentConversationId)) {
+                    // 检查是否重复消息
+                    const existingMessage = this.messages.find(m => m.id === message.id);
+                    if (!existingMessage) {
+                        console.log('✅ 添加新消息到当前会话');
+                        this.messages.push(message);
+                        this.renderMessage(message);
+                        this.scrollToBottom();
+                    } else {
+                        console.log('⚠️ 消息已存在，跳过重复添加');
+                    }
+                } else {
+                    console.log('📝 消息不属于当前会话，仅更新预览');
+                }
+                
+                // 刷新会话列表预览（无论是否在当前会话）
                 this.updateConversationPreview({
                     conversation_id: message.conversation_id,
                     content: message.content,
                     sent_at: message.sent_at || message.created_at || new Date().toISOString(),
                 });
+                
+                // 刷新会话列表以显示新消息
+                if (!this.currentConversationId) {
+                    console.log('🔄 当前未在特定会话中，刷新会话列表');
+                    if (this.currentShopId) {
+                        this.loadConversationsForShop(this.currentShopId);
+                    }
+                }
             }
 
             // 新版事件：更新
@@ -4604,7 +4668,11 @@
             // 获取店铺对话数量
             async getShopConversationCount(shopId) {
                 try {
-                    const response = await fetch(`/api/conversations?shop_id=${shopId}`);
+                    const response = await fetch(`/api/conversations?shop_id=${shopId}`, {
+                        headers: {
+                            'Authorization': `Bearer ${getAuthToken()}`
+                        }
+                    });
                     const data = await response.json();
                     
                     if (data.success && data.data) {
@@ -4645,7 +4713,11 @@
             // 加载店铺的对话列表
             async loadConversationsForShop(shopId) {
                 try {
-                    const response = await fetch(`/api/conversations?shop_id=${shopId}`);
+                    const response = await fetch(`/api/conversations?shop_id=${shopId}`, {
+                        headers: {
+                            'Authorization': `Bearer ${getAuthToken()}`
+                        }
+                    });
                     const data = await response.json();
                     
                     if (data.success && data.data) {
@@ -4735,7 +4807,11 @@
             // 加载聊天消息
             async loadMessages(conversationId) {
                 try {
-                    const response = await fetch(`/api/conversations/${conversationId}/messages`);
+                    const response = await fetch(`/api/conversations/${conversationId}/messages`, {
+                        headers: {
+                            'Authorization': `Bearer ${getAuthToken()}`
+                        }
+                    });
                     const data = await response.json();
                     
                     if (data.success && data.data) {
@@ -4929,19 +5005,18 @@
                     timestamp: Date.now()
                 };
 
-                // 发送WebSocket消息
-                if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
-                    this.websocket.send(JSON.stringify(messageData));
+                console.log('📤 准备发送消息:', messageData);
+                
+                // 发送WebSocket消息 - 使用全局 websocket 变量
+                if (websocket && websocket.readyState === WebSocket.OPEN) {
+                    console.log('✅ WebSocket连接正常，发送消息');
+                    websocket.send(JSON.stringify(messageData));
+                } else {
+                    console.error('❌ WebSocket连接不可用:', websocket ? websocket.readyState : 'websocket is null');
                 }
 
-                // 本地添加消息
-                this.messages.push({
-                    ...messageData,
-                    id: Date.now() // 临时ID
-                });
-                
-                this.renderMessage(messageData);
-                this.scrollToBottom();
+                // 不再在本地立即添加消息，等待WebSocket广播回来
+                // 这样可以避免重复显示消息
                 
                 // 清空输入
                 input.value = '';
@@ -7214,7 +7289,11 @@
             if (!container) return;
             container.innerHTML = '<div class="loading">正在加载员工信息...</div>';
             try {
-                const resp = await fetch(`/api/shops/${currentShopId}/employees`);
+                const resp = await fetch(`/api/shops/${currentShopId}/employees`, {
+                    headers: {
+                        'Authorization': `Bearer ${getAuthToken()}`
+                    }
+                });
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
                 const data = await resp.json();
                 const employees = data?.data ?? data?.employees ?? [];
@@ -7665,7 +7744,11 @@
                 // 若已选店铺则过滤；否则汇总全部
                 if (currentShopId) params.set('shop_id', currentShopId);
                 params.set('days', '7');
-                const res = await fetch(`/api/workbench/summary?${params.toString()}`);
+                const res = await fetch(`/api/workbench/summary?${params.toString()}`, {
+                    headers: {
+                        'Authorization': `Bearer ${getAuthToken()}`
+                    }
+                });
                 const data = await res.json();
                 if (!data.success) throw new Error(data.error || '加载失败');
                 renderWorkbench(data.data);

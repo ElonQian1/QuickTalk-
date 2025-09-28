@@ -364,7 +364,18 @@ class QuickTalkService {{
     
     handleMessage(message) {{
         console.log('📨 收到消息:', message);
-        if (this.ui) {{
+        
+        // 处理新的领域事件格式
+        if (message.type === 'domain.event.message_appended') {{
+            const messageData = message.data?.message || message.data;
+            if (messageData) {{
+                console.log('🎯 处理领域事件消息:', messageData);
+                if (this.ui) {{
+                    this.ui.displayDomainMessage(messageData);
+                }}
+            }}
+        }} else if (this.ui) {{
+            // 兼容旧格式
             this.ui.displayMessage(message);
         }}
     }}
@@ -503,6 +514,25 @@ class QuickTalkUI {{
             this.displayAgentMessage(message.content);
         }} else if (message.type === 'system_message') {{
             this.displaySystemMessage(message.content);
+        }}
+    }}
+    
+    displayDomainMessage(messageData) {{
+        console.log('🎨 显示领域消息:', messageData);
+        if (!messageData || !messageData.content) {{
+            console.warn('⚠️ 消息数据无效');
+            return;
+        }}
+        
+        // 根据发送者类型显示消息
+        if (messageData.sender_type === 'agent') {{
+            this.displayAgentMessage(messageData.content);
+        }} else if (messageData.sender_type === 'customer') {{
+            // 客户端通常不显示自己发的消息，因为本地已经显示了
+            console.log('📝 忽略客户自己的消息:', messageData.content);
+        }} else {{
+            // 系统消息或其他类型
+            this.displaySystemMessage(messageData.content);
         }}
     }}
     

@@ -72,6 +72,112 @@
         </div>
     </div>
 
-    <script src="chat.js"></script>
+    <!-- QuickTalk SDK 模块 -->
+    <script src="js/core/models.js"></script>
+    <script src="js/protocol/inbound-adapter.js"></script>
+    <script src="js/transport/websocket-client.js"></script>
+    <script src="js/core/message-router.js"></script>
+    <script src="js/app/mobile-app.js"></script>
+    <script src="js/compat/mobile-message-manager-compat.js"></script>
+    <script src="js/core/state/state-store.js"></script>
+    <script src="js/ui/templates/message-item.js"></script>
+    
+    <script>
+    // 初始化客服系统
+    let chatApp, messageManager;
+    let isConnected = false;
+    
+    function toggleChat() {
+        const chatWindow = document.getElementById('chat-window');
+        chatWindow.style.display = chatWindow.style.display === 'flex' ? 'none' : 'flex';
+        
+        // 初始化连接
+        if (!isConnected) {
+            initializeCustomerService();
+        }
+    }
+    
+    function closeChat() {
+        document.getElementById('chat-window').style.display = 'none';
+    }
+    
+    function minimizeChat() {
+        // 最小化逻辑
+        closeChat();
+    }
+    
+    function initializeCustomerService() {
+        if (typeof QuickTalk === 'undefined') {
+            console.error('QuickTalk SDK not loaded');
+            return;
+        }
+        
+        // 初始化应用
+        chatApp = new QuickTalk.MobileApp();
+        chatApp.init();
+        
+        // 监听消息
+        chatApp.on('message.appended', (message) => {
+            console.log('[客户端] 收到消息:', message);
+            
+            // 只显示管理员发送的消息
+            if (message.senderType === 'agent') {
+                addMessageToUI(message.content, 'received');
+            }
+        });
+        
+        // 更新连接状态
+        updateStatus('已连接', true);
+        isConnected = true;
+    }
+    
+    function sendMessage() {
+        const input = document.getElementById('chat-input');
+        const message = input.value.trim();
+        
+        if (!message) return;
+        
+        // 添加到UI
+        addMessageToUI(message, 'sent');
+        
+        // 发送消息
+        if (chatApp && chatApp.wsClient) {
+            chatApp.wsClient.send({
+                type: 'customer_message',
+                shop_id: '7426828f-cc70-4ed8-b25c-5e6d1802b9ea',
+                content: message,
+                timestamp: new Date().toISOString()
+            });
+        }
+        
+        input.value = '';
+    }
+    
+    function handleKeyPress(event) {
+        if (event.key === 'Enter') {
+            sendMessage();
+        }
+    }
+    
+    function addMessageToUI(content, type) {
+        const messagesContainer = document.getElementById('chat-messages');
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${type === 'sent' ? 'user-message' : 'received-message'}`;
+        
+        messageDiv.innerHTML = `
+            <span class="message-text">${content}</span>
+            <span class="message-time">${new Date().toLocaleTimeString()}</span>
+        `;
+        
+        messagesContainer.appendChild(messageDiv);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+    
+    function updateStatus(text, connected) {
+        document.getElementById('status-text').textContent = text;
+        document.getElementById('status-indicator').className = 
+            connected ? 'status-connected' : 'status-disconnected';
+    }
+    </script>
 </body>
 </html>
