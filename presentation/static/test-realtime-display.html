@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>实时数据显示测试</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .test-section { background: white; padding: 20px; margin: 20px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .shop-card { border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 6px; }
+        .shop-stat { display: inline-block; margin: 5px 10px; padding: 10px; background: #f8f9fa; border-radius: 4px; }
+        .shop-stat-value { font-size: 18px; font-weight: bold; color: #007bff; }
+        .shop-stat-label { font-size: 12px; color: #6c757d; }
+        .conversation-item { border: 1px solid #eee; padding: 10px; margin: 5px 0; border-radius: 4px; }
+        .message-time { font-size: 12px; color: #999; }
+        .last-message { font-size: 14px; color: #333; margin: 5px 0; }
+        .unread-badge { background: #dc3545; color: white; padding: 2px 6px; border-radius: 10px; font-size: 12px; }
+        .test-button { background: #007bff; color: white; border: none; padding: 10px 20px; margin: 5px; border-radius: 4px; cursor: pointer; }
+        .test-button:hover { background: #0056b3; }
+        .debug-info { background: #f8f9fa; padding: 10px; margin: 10px 0; border-left: 4px solid #007bff; font-family: monospace; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <h1>🧪 实时数据显示测试</h1>
+    
+    <div class="test-section">
+        <h2>📊 模块状态检查</h2>
+        <button class="test-button" onclick="checkModuleStatus()">检查模块状态</button>
+        <button class="test-button" onclick="enableDebugMode()">启用调试模式</button>
+        <div id="moduleStatus" class="debug-info"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🏪 模拟店铺统计</h2>
+        <div class="shop-card" data-shop-id="test-shop-1">
+            <h3>测试店铺 #1</h3>
+            <div class="shop-stat" data-stat-type="对话" data-shop-id="test-shop-1">
+                <div class="shop-stat-value">0</div>
+                <div class="shop-stat-label">对话</div>
+            </div>
+            <div class="shop-stat" data-stat-type="未读" data-shop-id="test-shop-1">
+                <div class="shop-stat-value">0</div>
+                <div class="shop-stat-label">未读</div>
+            </div>
+        </div>
+        <button class="test-button" onclick="simulateShopUpdate('test-shop-1')">模拟店铺数据更新</button>
+    </div>
+
+    <div class="test-section">
+        <h2>💬 模拟对话消息</h2>
+        <div class="conversation-item" data-conversation-id="test-conv-1" data-shop-id="test-shop-1">
+            <strong>客户001</strong>
+            <span class="message-time" data-conversation-id="test-conv-1">2025-09-29 16:30:00</span>
+            <div class="last-message" data-conversation-id="test-conv-1">等待客户消息...</div>
+            <div class="unread-badge" data-conversation-id="test-conv-1" style="display: none;">0</div>
+        </div>
+        <button class="test-button" onclick="simulateNewMessage('test-conv-1')">模拟新消息</button>
+        <button class="test-button" onclick="simulateMultipleMessages()">模拟多条消息</button>
+    </div>
+
+    <div class="test-section">
+        <h2>🔄 实时更新测试</h2>
+        <button class="test-button" onclick="startRealtimeTest()">开始实时测试</button>
+        <button class="test-button" onclick="stopRealtimeTest()">停止测试</button>
+        <div id="testStatus" class="debug-info"></div>
+    </div>
+
+    <!-- 引入模块 -->
+    <script src="/js/dom-enhancer.js"></script>
+    <script src="/js/realtime-data-manager.js"></script>
+
+    <script>
+        let testInterval = null;
+        let messageCounter = 0;
+
+        function checkModuleStatus() {
+            const status = document.getElementById('moduleStatus');
+            let info = '<h3>模块加载状态:</h3>';
+            
+            info += `<p>DOMEnhancer: ${typeof window.DOMEnhancer}</p>`;
+            info += `<p>RealtimeDataManager: ${typeof window.RealtimeDataManager}</p>`;
+            
+            if (window.DOMEnhancer) {
+                const enhancerStatus = window.DOMEnhancer.getEnhancementStatus();
+                info += `<p>DOM增强器状态: ${JSON.stringify(enhancerStatus, null, 2)}</p>`;
+            }
+            
+            if (window.RealtimeDataManager) {
+                const realtimeStatus = window.RealtimeDataManager.getDebugInfo();
+                info += `<p>实时管理器状态: ${JSON.stringify(realtimeStatus, null, 2)}</p>`;
+            }
+            
+            status.innerHTML = info;
+        }
+
+        function enableDebugMode() {
+            if (window.DOMEnhancer) {
+                window.DOMEnhancer.enableDebugMode();
+                console.log('🔧 DOM增强器调试模式已启用');
+            }
+            
+            if (window.RealtimeDataManager) {
+                window.RealtimeDataManager.enableDebugMode();
+                console.log('📊 实时数据管理器调试模式已启用');
+            }
+            
+            // 启用DOM自动增强
+            if (window.DOMEnhancer) {
+                window.DOMEnhancer.startAutoEnhancement();
+                window.DOMEnhancer.enhanceAllExistingElements();
+            }
+            
+            alert('调试模式已启用，请查看控制台输出');
+        }
+
+        function simulateShopUpdate(shopId) {
+            const stats = {
+                conversation_count: Math.floor(Math.random() * 10) + 1,
+                unread_count: Math.floor(Math.random() * 5)
+            };
+            
+            console.log(`模拟店铺 ${shopId} 数据更新:`, stats);
+            
+            if (window.RealtimeDataManager) {
+                window.RealtimeDataManager.updateShopStatsDOM(shopId, stats);
+            }
+        }
+
+        function simulateNewMessage(conversationId) {
+            messageCounter++;
+            const messageData = {
+                id: conversationId,
+                last_message: `这是第 ${messageCounter} 条测试消息`,
+                last_message_time: new Date().toISOString(),
+                unread_count: messageCounter
+            };
+            
+            console.log(`模拟对话 ${conversationId} 新消息:`, messageData);
+            
+            if (window.RealtimeDataManager) {
+                window.RealtimeDataManager.updateConversationData(messageData);
+            }
+        }
+
+        function simulateMultipleMessages() {
+            for (let i = 0; i < 3; i++) {
+                setTimeout(() => {
+                    simulateNewMessage('test-conv-1');
+                }, i * 1000);
+            }
+        }
+
+        function startRealtimeTest() {
+            if (testInterval) {
+                clearInterval(testInterval);
+            }
+            
+            const status = document.getElementById('testStatus');
+            status.innerHTML = '<p>🔄 实时测试运行中... 每3秒更新一次数据</p>';
+            
+            testInterval = setInterval(() => {
+                // 随机更新店铺或对话
+                if (Math.random() > 0.5) {
+                    simulateShopUpdate('test-shop-1');
+                } else {
+                    simulateNewMessage('test-conv-1');
+                }
+            }, 3000);
+        }
+
+        function stopRealtimeTest() {
+            if (testInterval) {
+                clearInterval(testInterval);
+                testInterval = null;
+            }
+            
+            const status = document.getElementById('testStatus');
+            status.innerHTML = '<p>⏹️ 实时测试已停止</p>';
+        }
+
+        // 页面加载时自动初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🧪 测试页面加载完成');
+            
+            // 延迟初始化模块
+            setTimeout(() => {
+                if (window.DOMEnhancer) {
+                    window.DOMEnhancer.enableDebugMode();
+                    window.DOMEnhancer.startAutoEnhancement();
+                    window.DOMEnhancer.enhanceAllExistingElements();
+                }
+                
+                if (window.RealtimeDataManager) {
+                    window.RealtimeDataManager.enableDebugMode();
+                    window.RealtimeDataManager.initialize();
+                }
+                
+                console.log('✅ 测试模块初始化完成');
+                checkModuleStatus();
+            }, 500);
+        });
+    </script>
+</body>
+</html>

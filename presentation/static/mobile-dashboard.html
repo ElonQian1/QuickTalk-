@@ -5493,9 +5493,11 @@
                         const statusText = getShopStatusText(effStatus);
                         const actions = getShopActions(shop);
                         const isEmployee = shop.membership === 'employee';
+                        const sid = shop.id;
+                        const unread = Number(shop.unreadCount || 0);
                         
                         return `
-                        <div class="shop-card ${(getEffectiveStatus(shop) === 'inactive') ? 'shop-card-inactive' : ''}" onclick="handleShopClick('${shop.id}', event)">
+                        <div class="shop-card ${(getEffectiveStatus(shop) === 'inactive') ? 'shop-card-inactive' : ''}" data-shop-id="${sid}" onclick="handleShopClick('${sid}', event)">
                             <div class="shop-header">
                                 <div class="shop-left">
                                     <div class="shop-icon">${shop.name.charAt(0).toUpperCase()}</div>
@@ -5504,34 +5506,19 @@
                                         <div class="shop-domain">${shop.domain || 'domain.example.com'}</div>
                                     </div>
                                 </div>
-                                <div class="shop-status ${statusClass}">
-                                    ${statusText}
+                                <div class="shop-status ${statusClass}" data-shop-id="${sid}">
+                                    <span class="shop-status-text">${statusText}</span>
+                                    <span class="shop-unread-badge" data-shop-id="${sid}" style="${unread > 0 ? 'display:inline-block; position: static; margin-left: 8px;' : 'display:none; position: static; margin-left: 8px;'}">${unread > 0 ? unread : ''}</span>
                                 </div>
                             </div>
                             
                             <div class="shop-meta">
-                                <div class="shop-stats">
-                                    <div class="shop-stat">
-                                        <div class="shop-stat-value">${shop.conversations || 0}</div>
-                                        <div class="shop-stat-label">对话</div>
-                                    </div>
-                                    <div class="shop-stat">
-                                        <div class="shop-stat-value">${shop.messages || 0}</div>
-                                        <div class="shop-stat-label">消息</div>
-                                    </div>
-                                    <div class="shop-stat">
-                                        <div class="shop-stat-value">${shop.customers || 0}</div>
-                                        <div class="shop-stat-label">客户</div>
-                                    </div>
-                                </div>
-                                
                                 <div class="shop-actions">
                                     ${actions}
                                 </div>
                             </div>
                             
                             ${isEmployee ? `<div class="shop-role-badge">员工</div>` : ''}
-                            ${shop.unreadCount > 0 ? `<div class="shop-unread-badge">${shop.unreadCount}</div>` : ''}
                         </div>
                         `;
                     }).join('');

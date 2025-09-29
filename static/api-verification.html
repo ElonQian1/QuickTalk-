@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>API数据快速验证</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .api-test { background: white; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .test-result { background: #f8f9fa; padding: 15px; margin: 10px 0; border-left: 4px solid #007bff; font-family: monospace; font-size: 12px; white-space: pre-wrap; max-height: 300px; overflow-y: auto; }
+        .test-button { background: #007bff; color: white; border: none; padding: 10px 20px; margin: 5px; border-radius: 4px; cursor: pointer; }
+        .test-button:hover { background: #0056b3; }
+        .test-button.success { background: #28a745; }
+        .test-button.danger { background: #dc3545; }
+    </style>
+</head>
+<body>
+    <h1>🔍 API数据验证</h1>
+    
+    <div class="api-test">
+        <h2>📊 获取店铺列表</h2>
+        <button class="test-button" onclick="fetchShops()">获取店铺数据</button>
+        <button class="test-button success" onclick="testShopStatsAPI()">测试店铺统计API</button>
+        <div id="shopsResult" class="test-result">点击按钮获取数据...</div>
+    </div>
+
+    <div class="api-test">
+        <h2>💬 获取对话列表</h2>
+        <button class="test-button" onclick="fetchConversations()">获取对话数据</button>
+        <button class="test-button success" onclick="testConversationAPI()">测试对话API</button>
+        <div id="conversationsResult" class="test-result">点击按钮获取数据...</div>
+    </div>
+
+    <div class="api-test">
+        <h2>🔄 模拟shop-stat和last-message修复</h2>
+        <button class="test-button" onclick="simulateShopStatFix()">模拟shop-stat修复</button>
+        <button class="test-button" onclick="simulateLastMessageFix()">模拟last-message修复</button>
+        <button class="test-button danger" onclick="testBothFixes()">测试两种修复</button>
+        <div id="fixResult" class="test-result">点击按钮测试修复...</div>
+    </div>
+
+    <div class="api-test">
+        <h2>🎯 实时DOM测试</h2>
+        <div style="border: 1px solid #ddd; padding: 15px; margin: 10px 0;">
+            <h3>测试shop-stat元素:</h3>
+            <div class="shop-stat" data-stat-type="对话" data-shop-id="1">
+                <div class="shop-stat-value">0</div>
+                <div class="shop-stat-label">对话</div>
+            </div>
+            <div class="shop-stat" data-stat-type="未读" data-shop-id="1">
+                <div class="shop-stat-value">0</div>
+                <div class="shop-stat-label">未读</div>
+            </div>
+        </div>
+        
+        <div style="border: 1px solid #ddd; padding: 15px; margin: 10px 0;">
+            <h3>测试last-message元素:</h3>
+            <div class="last-message" data-conversation-id="1">等待消息...</div>
+            <div class="last-message" data-conversation-id="2">初始消息内容</div>
+        </div>
+        
+        <button class="test-button success" onclick="updateTestElements()">更新测试元素</button>
+    </div>
+
+    <script>
+        // 格式化输出
+        function formatOutput(data, title = '') {
+            return `${title}\n${JSON.stringify(data, null, 2)}`;
+        }
+
+        // 获取店铺数据
+        async function fetchShops() {
+            const result = document.getElementById('shopsResult');
+            try {
+                result.textContent = '正在获取店铺数据...';
+                const response = await fetch('/api/shops');
+                const data = await response.json();
+                result.textContent = formatOutput(data, '✅ 店铺数据获取成功:');
+            } catch (error) {
+                result.textContent = `❌ 获取店铺数据失败: ${error.message}`;
+            }
+        }
+
+        // 获取对话数据
+        async function fetchConversations() {
+            const result = document.getElementById('conversationsResult');
+            try {
+                result.textContent = '正在获取对话数据...';
+                const response = await fetch('/api/conversations');
+                const data = await response.json();
+                result.textContent = formatOutput(data, '✅ 对话数据获取成功:');
+            } catch (error) {
+                result.textContent = `❌ 获取对话数据失败: ${error.message}`;
+            }
+        }
+
+        // 测试店铺统计API
+        async function testShopStatsAPI() {
+            const result = document.getElementById('shopsResult');
+            try {
+                result.textContent = '正在测试店铺统计...';
+                
+                // 获取店铺列表
+                const shopsResponse = await fetch('/api/shops');
+                const shops = await shopsResponse.json();
+                
+                if (shops && shops.length > 0) {
+                    const shopId = shops[0].id;
+                    
+                    // 获取该店铺的对话统计
+                    const conversationsResponse = await fetch(`/api/conversations?shop_id=${shopId}`);
+                    const conversations = await conversationsResponse.json();
+                    
+                    const stats = {
+                        shop_id: shopId,
+                        shop_name: shops[0].name,
+                        conversation_count: conversations ? conversations.length : 0,
+                        unread_count: conversations ? conversations.filter(c => c.unread_count > 0).length : 0
+                    };
+                    
+                    result.textContent = formatOutput(stats, '✅ 店铺统计计算成功:');
+                } else {
+                    result.textContent = '⚠️ 没有找到店铺数据';
+                }
+            } catch (error) {
+                result.textContent = `❌ 店铺统计测试失败: ${error.message}`;
+            }
+        }
+
+        // 测试对话API
+        async function testConversationAPI() {
+            const result = document.getElementById('conversationsResult');
+            try {
+                result.textContent = '正在测试对话API...';
+                
+                // 获取对话列表
+                const conversationsResponse = await fetch('/api/conversations');
+                const conversations = await conversationsResponse.json();
+                
+                if (conversations && conversations.length > 0) {
+                    const conv = conversations[0];
+                    
+                    // 获取该对话的消息
+                    const messagesResponse = await fetch(`/api/conversations/${conv.id}/messages`);
+                    const messages = await messagesResponse.json();
+                    
+                    const conversationDetail = {
+                        conversation_id: conv.id,
+                        customer_name: conv.customer_name || `客户${String(conv.customer_id).padStart(3, '0')}`,
+                        message_count: messages ? messages.length : 0,
+                        last_message: messages && messages.length > 0 ? messages[messages.length - 1].content : '暂无消息',
+                        last_message_time: messages && messages.length > 0 ? messages[messages.length - 1].created_at : null,
+                        unread_count: conv.unread_count || 0
+                    };
+                    
+                    result.textContent = formatOutput(conversationDetail, '✅ 对话详情获取成功:');
+                } else {
+                    result.textContent = '⚠️ 没有找到对话数据';
+                }
+            } catch (error) {
+                result.textContent = `❌ 对话API测试失败: ${error.message}`;
+            }
+        }
+
+        // 模拟shop-stat修复
+        async function simulateShopStatFix() {
+            const result = document.getElementById('fixResult');
+            
+            try {
+                result.textContent = '正在模拟shop-stat修复...\n';
+                
+                // 获取真实数据
+                const shopsResponse = await fetch('/api/shops');
+                const shops = await shopsResponse.json();
+                
+                if (shops && shops.length > 0) {
+                    const shop = shops[0];
+                    const conversationsResponse = await fetch(`/api/conversations?shop_id=${shop.id}`);
+                    const conversations = await conversationsResponse.json();
+                    
+                    const stats = {
+                        conversation_count: conversations ? conversations.length : 0,
+                        unread_count: conversations ? conversations.filter(c => c.unread_count > 0).length : 0
+                    };
+                    
+                    // 查找并更新DOM元素
+                    const shopStatElements = document.querySelectorAll(`[data-shop-id="${shop.id}"].shop-stat`);
+                    let updatedCount = 0;
+                    
+                    shopStatElements.forEach(element => {
+                        const statType = element.getAttribute('data-stat-type');
+                        const valueElement = element.querySelector('.shop-stat-value');
+                        
+                        if (valueElement) {
+                            if (statType === '对话') {
+                                valueElement.textContent = stats.conversation_count;
+                                updatedCount++;
+                            } else if (statType === '未读') {
+                                valueElement.textContent = stats.unread_count;
+                                updatedCount++;
+                            }
+                        }
+                    });
+                    
+                    result.textContent += `✅ shop-stat修复完成\n`;
+                    result.textContent += `店铺: ${shop.name}\n`;
+                    result.textContent += `对话数: ${stats.conversation_count}\n`;
+                    result.textContent += `未读数: ${stats.unread_count}\n`;
+                    result.textContent += `更新元素数: ${updatedCount}\n`;
+                } else {
+                    result.textContent += '⚠️ 没有店铺数据可用于测试\n';
+                }
+            } catch (error) {
+                result.textContent = `❌ shop-stat修复失败: ${error.message}`;
+            }
+        }
+
+        // 模拟last-message修复
+        async function simulateLastMessageFix() {
+            const result = document.getElementById('fixResult');
+            
+            try {
+                result.textContent = '正在模拟last-message修复...\n';
+                
+                // 获取真实对话数据
+                const conversationsResponse = await fetch('/api/conversations');
+                const conversations = await conversationsResponse.json();
+                
+                if (conversations && conversations.length > 0) {
+                    let updatedCount = 0;
+                    
+                    for (const conv of conversations.slice(0, 3)) { // 只处理前3个
+                        // 获取消息
+                        const messagesResponse = await fetch(`/api/conversations/${conv.id}/messages`);
+                        const messages = await messagesResponse.json();
+                        
+                        const lastMessage = messages && messages.length > 0 ? 
+                            messages[messages.length - 1].content : '暂无消息';
+                        
+                        // 更新DOM
+                        const messageElements = document.querySelectorAll(`[data-conversation-id="${conv.id}"].last-message`);
+                        messageElements.forEach(element => {
+                            element.textContent = lastMessage;
+                            updatedCount++;
+                        });
+                        
+                        result.textContent += `对话${conv.id}: "${lastMessage}"\n`;
+                    }
+                    
+                    result.textContent += `✅ last-message修复完成\n`;
+                    result.textContent += `更新元素数: ${updatedCount}\n`;
+                } else {
+                    result.textContent += '⚠️ 没有对话数据可用于测试\n';
+                }
+            } catch (error) {
+                result.textContent = `❌ last-message修复失败: ${error.message}`;
+            }
+        }
+
+        // 测试两种修复
+        async function testBothFixes() {
+            const result = document.getElementById('fixResult');
+            result.textContent = '开始综合修复测试...\n\n';
+            
+            await simulateShopStatFix();
+            result.textContent += '\n';
+            await simulateLastMessageFix();
+            
+            result.textContent += '\n🎉 综合修复测试完成!';
+        }
+
+        // 更新测试元素
+        function updateTestElements() {
+            // 更新shop-stat测试元素
+            const shopStats = document.querySelectorAll('.shop-stat');
+            shopStats.forEach((element, index) => {
+                const valueElement = element.querySelector('.shop-stat-value');
+                if (valueElement) {
+                    valueElement.textContent = Math.floor(Math.random() * 20) + 1;
+                }
+            });
+            
+            // 更新last-message测试元素
+            const lastMessages = document.querySelectorAll('.last-message');
+            lastMessages.forEach((element, index) => {
+                const messages = [
+                    '你好，我想咨询一下产品信息',
+                    '请问这个商品还有货吗？',
+                    '能介绍一下售后服务吗？',
+                    '什么时候能发货？',
+                    '谢谢您的帮助'
+                ];
+                element.textContent = messages[Math.floor(Math.random() * messages.length)];
+            });
+            
+            document.getElementById('fixResult').textContent = '✅ 测试元素已更新';
+        }
+
+        // 页面加载完成后自动执行
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('API验证页面加载完成');
+            
+            // 5秒后自动获取数据
+            setTimeout(() => {
+                fetchShops();
+                setTimeout(() => {
+                    fetchConversations();
+                }, 1000);
+            }, 2000);
+        });
+    </script>
+</body>
+</html>

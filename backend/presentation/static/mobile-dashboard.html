@@ -3757,6 +3757,10 @@
     <script src="/js/customer-numbering.js"></script>
     <script src="/js/session-manager.js"></script>
     <script src="/js/debug-tools.js"></script>
+    <script src="/js/dom-enhancer.js"></script>
+    <script src="/js/realtime-data-manager.js"></script>
+    <script src="/js/data-sync-manager.js"></script>
+    <script src="/js/display-fixer.js"></script>
 
     <script>
         // 全局变量
@@ -3780,11 +3784,17 @@
                 // 检查登录状态
                 await checkLoginStatus();
                 
+                // 初始化新模块
+                initializeEnhancedModules();
+                
                 // 绑定导航事件
                 bindNavigationEvents();
                 
                 // 初始化WebSocket连接
                 initializeWebSocket();
+                
+                // 初始化增强模块
+                initializeEnhancedModules();
                 
                 // 加载初始数据
                 await loadDashboardData();
@@ -3800,6 +3810,58 @@
                 console.error('❌ 应用初始化失败:', error);
                 showToast('系统启动失败，请刷新页面重试', 'error');
             }
+        }
+
+        // 初始化增强模块
+        function initializeEnhancedModules() {
+            console.log('🚀 初始化增强模块...');
+            
+            // 启用调试模式
+            if (window.DOMEnhancer) {
+                window.DOMEnhancer.enableDebugMode();
+                window.DOMEnhancer.startAutoEnhancement();
+                console.log('🔧 DOM增强器已启动');
+            }
+            
+            if (window.RealtimeDataManager) {
+                window.RealtimeDataManager.enableDebugMode();
+                window.RealtimeDataManager.initialize();
+                console.log('📊 实时数据管理器已启动');
+            }
+            
+            // 初始化数据同步管理器
+            if (window.DataSyncManager) {
+                window.DataSyncManager.enableDebugMode();
+                console.log('🔄 数据同步管理器已启动');
+            }
+            
+            // 初始化显示修复器
+            if (window.DisplayFixer) {
+                window.DisplayFixer.enableDebugMode();
+                window.DisplayFixer.initialize();
+                console.log('🔧 显示修复器已启动');
+            }
+            
+            // 延迟增强现有元素
+            setTimeout(() => {
+                if (window.DOMEnhancer) {
+                    window.DOMEnhancer.enhanceAllExistingElements();
+                    window.DOMEnhancer.fixExistingDataAttributes();
+                    console.log('🔧 现有元素增强完成');
+                }
+                
+                // 强制修复显示问题
+                if (window.DisplayFixer) {
+                    window.DisplayFixer.manualFix();
+                    console.log('🔧 显示问题修复完成');
+                }
+                
+                // 刷新所有数据
+                if (window.DataSyncManager) {
+                    window.DataSyncManager.refreshAllVisibleShops();
+                    console.log('🔄 数据刷新完成');
+                }
+            }, 1500);
         }
 
         // 绑定导航事件
@@ -4109,6 +4171,11 @@
         // 处理WebSocket消息（兼容 legacy 与 domain.event.*）
         function handleWebSocketMessage(data) {
             console.log('📨 收到WebSocket消息:', data);
+
+            // 触发实时数据管理器处理
+            if (window.RealtimeDataManager) {
+                window.RealtimeDataManager.handleWebSocketMessage(data);
+            }
 
             const t = data && data.type;
             switch (t) {
@@ -4651,31 +4718,53 @@
             async createShopCard(shop) {
                 // 获取店铺的对话统计
                 const conversationCount = await this.getShopConversationCount(shop.id);
+                const unreadCount = await this.getShopUnreadCount(shop.id);
                 const hasConversations = conversationCount > 0;
                 
                 const shopCard = document.createElement('div');
                 shopCard.className = `shop-card ${!hasConversations ? 'shop-card-inactive' : ''}`;
+                shopCard.setAttribute('data-shop-id', shop.id); // 重要：设置data属性
                 
                 shopCard.innerHTML = `
                     <div class="shop-header">
                         <div class="shop-icon">${shop.name.charAt(0)}</div>
-                        <div class="shop-status ${hasConversations ? 'status-active' : 'status-inactive'}">${hasConversations ? '有对话' : '等待中'}</div>
+                        <div class="shop-status ${hasConversations ? 'status-active' : 'status-inactive'}" data-shop-id="${shop.id}">${hasConversations ? '有对话' : '等待中'}</div>
                     </div>
                     <div class="shop-name">${shop.name}</div>
                     <div class="shop-domain">${shop.domain || '未设置域名'}</div>
                     <div class="shop-stats">
-                        <div class="shop-stat">
+                        <div class="shop-stat" data-stat-type="对话" data-shop-id="${shop.id}">
                             <div class="shop-stat-value">${conversationCount}</div>
                             <div class="shop-stat-label">对话</div>
                         </div>
-                        <div class="shop-stat">
-                            <div class="shop-stat-value">${shop.unread_count || 0}</div>
+                        <div class="shop-stat" data-stat-type="未读" data-shop-id="${shop.id}">
+                            <div class="shop-stat-value">${unreadCount}</div>
                             <div class="shop-stat-label">未读</div>
                         </div>
                     </div>
                     ${!hasConversations ? `<div class="shop-empty-hint">点击查看详情</div>` : ''}
-                    ${shop.unread_count > 0 ? `<div class="shop-unread-badge">${shop.unread_count}</div>` : ''}
+                    ${unreadCount > 0 ? `<div class="shop-unread-badge">${unreadCount}</div>` : ''}
                 `;
+                
+                // 增强DOM结构
+                if (window.DOMEnhancer) {
+                    window.DOMEnhancer.enhanceShopCard(shopCard, {
+                        ...shop,
+                        conversation_count: conversationCount,
+                        unread_count: unreadCount
+                    });
+                }
+                
+                // 强制刷新数据显示
+                setTimeout(() => {
+                    if (window.DataSyncManager) {
+                        window.DataSyncManager.forceRefreshShopStats(shop.id).then(() => {
+                            console.log(`✅ 店铺 ${shop.id} 数据刷新完成`);
+                        }).catch(error => {
+                            console.error(`❌ 店铺 ${shop.id} 数据刷新失败:`, error);
+                        });
+                    }
+                }, 500);
                 
                 shopCard.addEventListener('click', async () => {
                     if (hasConversations) {
@@ -4706,6 +4795,31 @@
                     return 0;
                 } catch (error) {
                     console.error('获取店铺对话数量失败:', error);
+                    return 0;
+                }
+            }
+
+            // 获取店铺未读数量
+            async getShopUnreadCount(shopId) {
+                try {
+                    const response = await fetch(`/api/conversations?shop_id=${shopId}`, {
+                        headers: {
+                            'Authorization': `Bearer ${getAuthToken()}`
+                        }
+                    });
+                    const data = await response.json();
+                    
+                    if (data.success && data.data) {
+                        const conversations = data.data;
+                        const totalUnread = conversations.reduce((sum, conv) => {
+                            return sum + (conv.unread_count || 0);
+                        }, 0);
+                        console.log(`店铺 ${shopId} 未读数量: ${totalUnread}`);
+                        return totalUnread;
+                    }
+                    return 0;
+                } catch (error) {
+                    console.error('获取店铺未读数量失败:', error);
                     return 0;
                 }
             }
@@ -4791,6 +4905,8 @@
                 this.conversations.forEach(conversation => {
                     const conversationItem = document.createElement('div');
                     conversationItem.className = 'conversation-item';
+                    conversationItem.setAttribute('data-conversation-id', conversation.id); // 重要：设置data属性
+                    conversationItem.setAttribute('data-shop-id', conversation.shop_id || this.currentShopId);
                     
                     const lastMessageTime = conversation.last_message_time ? 
                         new Date(conversation.last_message_time).toLocaleString() : '暂无消息';
@@ -4798,17 +4914,40 @@
                     const customerDisplayName = conversation.customer_name || this.generateCustomerNumber(conversation.customer_id);
                     const avatarInitial = customerDisplayName.charAt(customerDisplayName.length - 3) || 'C'; // 使用编号的数字部分作为头像
                     
+                    console.log(`渲染对话 ${conversation.id}:`, {
+                        customer: customerDisplayName,
+                        lastMessage: conversation.last_message,
+                        lastTime: lastMessageTime,
+                        unreadCount: conversation.unread_count
+                    });
+                    
                     conversationItem.innerHTML = `
                         <div class="conversation-avatar">${avatarInitial}</div>
                         <div class="conversation-content">
                             <div class="conversation-header">
                                 <span class="customer-name">${customerDisplayName}</span>
-                                <span class="message-time">${lastMessageTime}</span>
+                                <span class="message-time" data-conversation-id="${conversation.id}">${lastMessageTime}</span>
                             </div>
-                            <div class="last-message">${conversation.last_message || '等待客户消息...'}</div>
+                            <div class="last-message" data-conversation-id="${conversation.id}">${conversation.last_message || '等待客户消息...'}</div>
                         </div>
-                        ${conversation.unread_count > 0 ? `<div class="unread-badge">${conversation.unread_count}</div>` : ''}
+                        ${conversation.unread_count > 0 ? `<div class="unread-badge" data-conversation-id="${conversation.id}">${conversation.unread_count}</div>` : ''}
                     `;
+                    
+                    // 增强DOM结构
+                    if (window.DOMEnhancer) {
+                        window.DOMEnhancer.enhanceConversationItem(conversationItem, conversation);
+                    }
+                    
+                    // 强制刷新对话数据显示
+                    setTimeout(() => {
+                        if (window.DataSyncManager) {
+                            window.DataSyncManager.updateConversationDOM(conversation.id, conversation);
+                        }
+                        if (window.DisplayFixer) {
+                            window.DisplayFixer.fixSingleLastMessage(conversationItem.querySelector('.last-message'), conversation.id);
+                            window.DisplayFixer.fixSingleMessageTime(conversationItem.querySelector('.message-time'), conversation.id);
+                        }
+                    }, 100);
                     
                     conversationItem.addEventListener('click', () => {
                         this.selectConversation(conversation);
@@ -5493,9 +5632,11 @@
                         const statusText = getShopStatusText(effStatus);
                         const actions = getShopActions(shop);
                         const isEmployee = shop.membership === 'employee';
+                        const sid = shop.id;
+                        const unread = Number(shop.unreadCount || 0);
                         
                         return `
-                        <div class="shop-card ${(getEffectiveStatus(shop) === 'inactive') ? 'shop-card-inactive' : ''}" onclick="handleShopClick('${shop.id}', event)">
+                        <div class="shop-card ${(getEffectiveStatus(shop) === 'inactive') ? 'shop-card-inactive' : ''}" data-shop-id="${sid}" onclick="handleShopClick('${sid}', event)">
                             <div class="shop-header">
                                 <div class="shop-left">
                                     <div class="shop-icon">${shop.name.charAt(0).toUpperCase()}</div>
@@ -5504,34 +5645,19 @@
                                         <div class="shop-domain">${shop.domain || 'domain.example.com'}</div>
                                     </div>
                                 </div>
-                                <div class="shop-status ${statusClass}">
-                                    ${statusText}
+                                <div class="shop-status ${statusClass}" data-shop-id="${sid}">
+                                    <span class="shop-status-text">${statusText}</span>
+                                    <span class="shop-unread-badge" data-shop-id="${sid}" style="${unread > 0 ? 'display:inline-block; position: static; margin-left: 8px;' : 'display:none; position: static; margin-left: 8px;'}">${unread > 0 ? unread : ''}</span>
                                 </div>
                             </div>
                             
                             <div class="shop-meta">
-                                <div class="shop-stats">
-                                    <div class="shop-stat">
-                                        <div class="shop-stat-value">${shop.conversations || 0}</div>
-                                        <div class="shop-stat-label">对话</div>
-                                    </div>
-                                    <div class="shop-stat">
-                                        <div class="shop-stat-value">${shop.messages || 0}</div>
-                                        <div class="shop-stat-label">消息</div>
-                                    </div>
-                                    <div class="shop-stat">
-                                        <div class="shop-stat-value">${shop.customers || 0}</div>
-                                        <div class="shop-stat-label">客户</div>
-                                    </div>
-                                </div>
-                                
                                 <div class="shop-actions">
                                     ${actions}
                                 </div>
                             </div>
                             
                             ${isEmployee ? `<div class="shop-role-badge">员工</div>` : ''}
-                            ${shop.unreadCount > 0 ? `<div class="shop-unread-badge">${shop.unreadCount}</div>` : ''}
                         </div>
                         `;
                     }).join('');

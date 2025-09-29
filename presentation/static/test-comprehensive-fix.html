@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>综合显示修复测试</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .test-section { background: white; padding: 20px; margin: 20px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .shop-card { border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 6px; background: #fff; }
+        .shop-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .shop-icon { width: 40px; height: 40px; border-radius: 50%; background: #007bff; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+        .shop-status { padding: 4px 8px; border-radius: 12px; font-size: 12px; color: white; }
+        .status-active { background: #28a745; }
+        .status-inactive { background: #6c757d; }
+        .shop-name { font-size: 18px; font-weight: bold; margin: 10px 0 5px 0; }
+        .shop-domain { color: #6c757d; font-size: 14px; margin-bottom: 15px; }
+        .shop-stats { display: flex; gap: 20px; }
+        .shop-stat { text-align: center; }
+        .shop-stat-value { font-size: 24px; font-weight: bold; color: #007bff; }
+        .shop-stat-label { font-size: 12px; color: #6c757d; }
+        .conversation-item { border: 1px solid #eee; padding: 15px; margin: 10px 0; border-radius: 6px; background: #fff; display: flex; align-items: center; gap: 15px; }
+        .conversation-avatar { width: 40px; height: 40px; border-radius: 50%; background: #6c757d; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+        .conversation-content { flex: 1; }
+        .conversation-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+        .customer-name { font-weight: bold; }
+        .message-time { font-size: 12px; color: #999; }
+        .last-message { font-size: 14px; color: #333; }
+        .unread-badge { background: #dc3545; color: white; padding: 4px 8px; border-radius: 12px; font-size: 12px; min-width: 20px; text-align: center; }
+        .test-button { background: #007bff; color: white; border: none; padding: 10px 20px; margin: 5px; border-radius: 4px; cursor: pointer; }
+        .test-button:hover { background: #0056b3; }
+        .test-button.danger { background: #dc3545; }
+        .test-button.success { background: #28a745; }
+        .debug-info { background: #f8f9fa; padding: 15px; margin: 10px 0; border-left: 4px solid #007bff; font-family: monospace; font-size: 12px; white-space: pre-wrap; }
+        .status-indicator { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; }
+        .status-ok { background: #28a745; }
+        .status-error { background: #dc3545; }
+        .status-warning { background: #ffc107; }
+    </style>
+</head>
+<body>
+    <h1>🔧 综合显示修复测试</h1>
+    
+    <div class="test-section">
+        <h2>📊 模块状态监控</h2>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button class="test-button" onclick="checkAllModules()">检查所有模块</button>
+            <button class="test-button" onclick="enableAllDebug()">启用全部调试</button>
+            <button class="test-button danger" onclick="clearAllCache()">清空缓存</button>
+        </div>
+        <div id="moduleStatus" class="debug-info">点击"检查所有模块"查看状态</div>
+    </div>
+
+    <div class="test-section">
+        <h2>🏪 测试店铺数据</h2>
+        
+        <!-- 测试店铺1 -->
+        <div class="shop-card" data-shop-id="test-shop-001">
+            <div class="shop-header">
+                <div class="shop-icon">T</div>
+                <div class="shop-status status-inactive" data-shop-id="test-shop-001">等待中</div>
+            </div>
+            <div class="shop-name">测试店铺001</div>
+            <div class="shop-domain">test-shop-001.example.com</div>
+            <div class="shop-stats">
+                <div class="shop-stat" data-stat-type="对话" data-shop-id="test-shop-001">
+                    <div class="shop-stat-value">0</div>
+                    <div class="shop-stat-label">对话</div>
+                </div>
+                <div class="shop-stat" data-stat-type="未读" data-shop-id="test-shop-001">
+                    <div class="shop-stat-value">0</div>
+                    <div class="shop-stat-label">未读</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 测试店铺2 -->
+        <div class="shop-card" data-shop-id="test-shop-002">
+            <div class="shop-header">
+                <div class="shop-icon">S</div>
+                <div class="shop-status status-active" data-shop-id="test-shop-002">有对话</div>
+            </div>
+            <div class="shop-name">示例店铺002</div>
+            <div class="shop-domain">sample-shop-002.example.com</div>
+            <div class="shop-stats">
+                <div class="shop-stat" data-stat-type="对话" data-shop-id="test-shop-002">
+                    <div class="shop-stat-value">5</div>
+                    <div class="shop-stat-label">对话</div>
+                </div>
+                <div class="shop-stat" data-stat-type="未读" data-shop-id="test-shop-002">
+                    <div class="shop-stat-value">3</div>
+                    <div class="shop-stat-label">未读</div>
+                </div>
+            </div>
+        </div>
+        
+        <div style="margin-top: 15px;">
+            <button class="test-button" onclick="testShopUpdate('test-shop-001')">更新店铺001数据</button>
+            <button class="test-button" onclick="testShopUpdate('test-shop-002')">更新店铺002数据</button>
+            <button class="test-button success" onclick="refreshAllShops()">刷新所有店铺</button>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>💬 测试对话数据</h2>
+        
+        <!-- 测试对话1 -->
+        <div class="conversation-item" data-conversation-id="conv-001" data-shop-id="test-shop-001">
+            <div class="conversation-avatar">1</div>
+            <div class="conversation-content">
+                <div class="conversation-header">
+                    <span class="customer-name">客户001</span>
+                    <span class="message-time" data-conversation-id="conv-001">2025-09-29 16:30:00</span>
+                </div>
+                <div class="last-message" data-conversation-id="conv-001">等待客户消息...</div>
+            </div>
+            <div class="unread-badge" data-conversation-id="conv-001" style="display: none;">0</div>
+        </div>
+        
+        <!-- 测试对话2 -->
+        <div class="conversation-item" data-conversation-id="conv-002" data-shop-id="test-shop-002">
+            <div class="conversation-avatar">2</div>
+            <div class="conversation-content">
+                <div class="conversation-header">
+                    <span class="customer-name">客户002</span>
+                    <span class="message-time" data-conversation-id="conv-002">2025-09-29 15:45:30</span>
+                </div>
+                <div class="last-message" data-conversation-id="conv-002">你好，我想咨询一下产品信息</div>
+            </div>
+            <div class="unread-badge" data-conversation-id="conv-002">2</div>
+        </div>
+        
+        <div style="margin-top: 15px;">
+            <button class="test-button" onclick="testMessageUpdate('conv-001')">更新对话001消息</button>
+            <button class="test-button" onclick="testMessageUpdate('conv-002')">更新对话002消息</button>
+            <button class="test-button success" onclick="refreshAllConversations()">刷新所有对话</button>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🔄 自动测试控制</h2>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button class="test-button success" onclick="startAutoTest()">开始自动测试</button>
+            <button class="test-button danger" onclick="stopAutoTest()">停止自动测试</button>
+            <button class="test-button" onclick="runSingleTest()">运行单次测试</button>
+            <button class="test-button" onclick="getFixStatus()">获取修复状态</button>
+        </div>
+        <div id="autoTestStatus" class="debug-info">自动测试未运行</div>
+    </div>
+
+    <div class="test-section">
+        <h2>📋 实时日志</h2>
+        <button class="test-button" onclick="clearLogs()">清空日志</button>
+        <div id="testLogs" class="debug-info" style="height: 200px; overflow-y: auto;">日志将显示在这里...</div>
+    </div>
+
+    <!-- 引入所有模块 -->
+    <script src="/js/dom-enhancer.js"></script>
+    <script src="/js/realtime-data-manager.js"></script>
+    <script src="/js/data-sync-manager.js"></script>
+    <script src="/js/display-fixer.js"></script>
+
+    <script>
+        let autoTestInterval = null;
+        let messageCounter = 0;
+        
+        // 日志函数
+        function log(message, type = 'info') {
+            const logs = document.getElementById('testLogs');
+            const timestamp = new Date().toLocaleTimeString();
+            const typeIcon = type === 'error' ? '❌' : type === 'success' ? '✅' : 'ℹ️';
+            logs.innerHTML += `[${timestamp}] ${typeIcon} ${message}\n`;
+            logs.scrollTop = logs.scrollHeight;
+            console.log(`[测试] ${message}`);
+        }
+
+        function clearLogs() {
+            document.getElementById('testLogs').innerHTML = '';
+        }
+
+        // 检查所有模块状态
+        function checkAllModules() {
+            const status = document.getElementById('moduleStatus');
+            let info = '<h3>模块加载状态:</h3>';
+            
+            const modules = [
+                'DOMEnhancer',
+                'RealtimeDataManager', 
+                'DataSyncManager',
+                'DisplayFixer'
+            ];
+            
+            modules.forEach(moduleName => {
+                const module = window[moduleName];
+                const isLoaded = typeof module !== 'undefined';
+                const statusIcon = isLoaded ? '✅' : '❌';
+                info += `<p>${statusIcon} ${moduleName}: ${typeof module}</p>`;
+                
+                if (isLoaded && module.getDebugInfo) {
+                    try {
+                        const debugInfo = module.getDebugInfo ? module.getDebugInfo() : 
+                                        module.getFixStatus ? module.getFixStatus() :
+                                        module.getEnhancementStatus ? module.getEnhancementStatus() : {};
+                        info += `<pre>  ${JSON.stringify(debugInfo, null, 2)}</pre>`;
+                    } catch (e) {
+                        info += `<p>  调试信息获取失败: ${e.message}</p>`;
+                    }
+                }
+            });
+            
+            status.innerHTML = info;
+            log('模块状态检查完成');
+        }
+
+        // 启用所有调试模式
+        function enableAllDebug() {
+            const modules = ['DOMEnhancer', 'RealtimeDataManager', 'DataSyncManager', 'DisplayFixer'];
+            let enabledCount = 0;
+            
+            modules.forEach(moduleName => {
+                const module = window[moduleName];
+                if (module && module.enableDebugMode) {
+                    module.enableDebugMode();
+                    enabledCount++;
+                }
+            });
+            
+            log(`已启用 ${enabledCount} 个模块的调试模式`, 'success');
+        }
+
+        // 清空所有缓存
+        function clearAllCache() {
+            ['DataSyncManager', 'RealtimeDataManager'].forEach(moduleName => {
+                const module = window[moduleName];
+                if (module && module.clearCache) {
+                    module.clearCache();
+                }
+            });
+            
+            localStorage.clear(); // 清空localStorage
+            log('所有缓存已清空', 'success');
+        }
+
+        // 测试店铺更新
+        function testShopUpdate(shopId) {
+            const stats = {
+                conversation_count: Math.floor(Math.random() * 15) + 1,
+                unread_count: Math.floor(Math.random() * 8)
+            };
+            
+            log(`模拟店铺 ${shopId} 更新: 对话${stats.conversation_count}, 未读${stats.unread_count}`);
+            
+            if (window.DataSyncManager) {
+                window.DataSyncManager.updateShopStatsDOM(shopId, stats);
+            }
+        }
+
+        // 测试消息更新
+        function testMessageUpdate(conversationId) {
+            messageCounter++;
+            const messageData = {
+                id: conversationId,
+                last_message: `测试消息 #${messageCounter}: ${new Date().toLocaleTimeString()}`,
+                last_message_time: new Date().toISOString(),
+                unread_count: Math.floor(Math.random() * 5) + 1
+            };
+            
+            log(`模拟对话 ${conversationId} 消息更新: "${messageData.last_message}"`);
+            
+            if (window.DataSyncManager) {
+                window.DataSyncManager.updateConversationDOM(conversationId, messageData);
+            }
+        }
+
+        // 刷新所有店铺
+        function refreshAllShops() {
+            if (window.DataSyncManager) {
+                window.DataSyncManager.refreshAllVisibleShops().then(() => {
+                    log('所有店铺数据刷新完成', 'success');
+                }).catch(error => {
+                    log(`店铺数据刷新失败: ${error.message}`, 'error');
+                });
+            }
+        }
+
+        // 刷新所有对话
+        function refreshAllConversations() {
+            if (window.DataSyncManager) {
+                window.DataSyncManager.refreshAllVisibleConversations().then(() => {
+                    log('所有对话数据刷新完成', 'success');
+                }).catch(error => {
+                    log(`对话数据刷新失败: ${error.message}`, 'error');
+                });
+            }
+        }
+
+        // 开始自动测试
+        function startAutoTest() {
+            if (autoTestInterval) {
+                clearInterval(autoTestInterval);
+            }
+            
+            document.getElementById('autoTestStatus').textContent = '🔄 自动测试运行中... 每3秒执行一次操作';
+            
+            autoTestInterval = setInterval(() => {
+                const testType = Math.random();
+                
+                if (testType < 0.4) {
+                    // 40% 概率测试店铺更新
+                    const shopIds = ['test-shop-001', 'test-shop-002'];
+                    const shopId = shopIds[Math.floor(Math.random() * shopIds.length)];
+                    testShopUpdate(shopId);
+                } else if (testType < 0.8) {
+                    // 40% 概率测试消息更新
+                    const convIds = ['conv-001', 'conv-002'];
+                    const convId = convIds[Math.floor(Math.random() * convIds.length)];
+                    testMessageUpdate(convId);
+                } else {
+                    // 20% 概率运行修复
+                    runSingleTest();
+                }
+            }, 3000);
+            
+            log('自动测试已开始', 'success');
+        }
+
+        // 停止自动测试
+        function stopAutoTest() {
+            if (autoTestInterval) {
+                clearInterval(autoTestInterval);
+                autoTestInterval = null;
+            }
+            
+            document.getElementById('autoTestStatus').textContent = '⏹️ 自动测试已停止';
+            log('自动测试已停止', 'success');
+        }
+
+        // 运行单次测试
+        function runSingleTest() {
+            log('执行单次综合测试...');
+            
+            // 手动触发修复
+            if (window.DisplayFixer) {
+                window.DisplayFixer.manualFix();
+                log('显示修复器已触发');
+            }
+            
+            // 检查DOM增强状态
+            if (window.DOMEnhancer) {
+                window.DOMEnhancer.enhanceAllExistingElements();
+                log('DOM增强器已重新运行');
+            }
+        }
+
+        // 获取修复状态
+        function getFixStatus() {
+            if (window.DisplayFixer) {
+                const status = window.DisplayFixer.getFixStatus();
+                log(`修复状态: ${JSON.stringify(status, null, 2)}`);
+            }
+            
+            checkAllModules(); // 同时更新模块状态显示
+        }
+
+        // 页面初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            log('测试页面加载完成');
+            
+            setTimeout(() => {
+                // 初始化所有模块
+                const modules = ['DOMEnhancer', 'RealtimeDataManager', 'DataSyncManager', 'DisplayFixer'];
+                let initializedCount = 0;
+                
+                modules.forEach(moduleName => {
+                    const module = window[moduleName];
+                    if (module) {
+                        if (module.enableDebugMode) module.enableDebugMode();
+                        if (module.initialize) module.initialize();
+                        if (module.startAutoEnhancement) module.startAutoEnhancement();
+                        initializedCount++;
+                    }
+                });
+                
+                log(`已初始化 ${initializedCount} 个模块`, 'success');
+                
+                // 延迟检查状态
+                setTimeout(() => {
+                    checkAllModules();
+                    log('初始状态检查完成');
+                }, 1000);
+            }, 500);
+        });
+    </script>
+</body>
+</html>

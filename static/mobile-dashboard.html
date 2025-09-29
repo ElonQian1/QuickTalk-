@@ -3679,6 +3679,11 @@
     <script src="/js/customer-numbering.js"></script>
     <script src="/js/session-manager.js"></script>
     <script src="/js/debug-tools.js"></script>
+    <!-- 新增：模块化增强脚本（与 backend/presentation 同步） -->
+    <script src="/js/dom-enhancer.js"></script>
+    <script src="/js/realtime-data-manager.js"></script>
+    <script src="/js/data-sync-manager.js"></script>
+    <script src="/js/display-fixer.js"></script>
 
     <script>
         // 全局变量
@@ -3697,11 +3702,14 @@
         });
 
         // 初始化应用
-        async function initializeApp() {
+    async function initializeApp() {
             try {
                 // 检查登录状态
                 await checkLoginStatus();
                 
+        // 初始化增强模块（与 backend/presentation 保持一致）
+        initializeEnhancedModules();
+
                 // 绑定导航事件
                 bindNavigationEvents();
                 
@@ -3721,6 +3729,34 @@
             } catch (error) {
                 console.error('❌ 应用初始化失败:', error);
                 showToast('系统启动失败，请刷新页面重试', 'error');
+            }
+        }
+
+        // 新增：初始化增强模块（与 backend/presentation 保持一致）
+        function initializeEnhancedModules() {
+            try {
+                console.log('🚀 初始化增强模块...');
+                if (window.DOMEnhancer) {
+                    window.DOMEnhancer.enableDebugMode && window.DOMEnhancer.enableDebugMode();
+                    window.DOMEnhancer.startAutoEnhancement && window.DOMEnhancer.startAutoEnhancement();
+                    console.log('🔧 DOM增强器已启动');
+                }
+                if (window.RealtimeDataManager) {
+                    window.RealtimeDataManager.enableDebugMode && window.RealtimeDataManager.enableDebugMode();
+                    window.RealtimeDataManager.initialize && window.RealtimeDataManager.initialize();
+                    console.log('📊 实时数据管理器已启动');
+                }
+                if (window.DataSyncManager) {
+                    window.DataSyncManager.enableDebugMode && window.DataSyncManager.enableDebugMode();
+                    console.log('🔄 数据同步管理器已启动');
+                }
+                if (window.DisplayFixer) {
+                    window.DisplayFixer.enableDebugMode && window.DisplayFixer.enableDebugMode();
+                    window.DisplayFixer.initialize && window.DisplayFixer.initialize();
+                    console.log('🔧 显示修复器已启动');
+                }
+            } catch (e) {
+                console.error('增强模块初始化失败:', e);
             }
         }
 
@@ -5269,9 +5305,13 @@
                         const statusClass = getShopStatusClass(shop.approvalStatus || shop.status);
                         const statusText = getShopStatusText(shop.approvalStatus || shop.status);
                         const actions = getShopActions(shop);
+                        const sid = shop.id;
+                        const unread = Number(shop.unreadCount || 0);
                         
                         return `
-                        <div class="shop-card ${(shop.approvalStatus === 'inactive' || shop.status === 'inactive') ? 'shop-card-inactive' : ''}" onclick="handleShopClick('${shop.id}', event)">
+                        <div class="shop-card ${(shop.approvalStatus === 'inactive' || shop.status === 'inactive') ? 'shop-card-inactive' : ''}"
+                             data-shop-id="${sid}"
+                             onclick="handleShopClick('${sid}', event)">
                             <div class="shop-header">
                                 <div class="shop-left">
                                     <div class="shop-icon">${shop.name.charAt(0).toUpperCase()}</div>
@@ -5280,33 +5320,18 @@
                                         <div class="shop-domain">${shop.domain || 'domain.example.com'}</div>
                                     </div>
                                 </div>
-                                <div class="shop-status ${statusClass}">
-                                    ${statusText}
+                                <div class="shop-status ${statusClass}" data-shop-id="${sid}">
+                                    <span class="shop-status-text">${statusText}</span>
+                                    <span class="shop-unread-badge" data-shop-id="${sid}" style="${unread > 0 ? 'display:inline-block; position: static; margin-left: 8px;' : 'display:none; position: static; margin-left: 8px;'}">${unread > 0 ? unread : ''}</span>
                                 </div>
                             </div>
                             
                             <div class="shop-meta">
-                                <div class="shop-stats">
-                                    <div class="shop-stat">
-                                        <div class="shop-stat-value">${shop.conversations || 0}</div>
-                                        <div class="shop-stat-label">对话</div>
-                                    </div>
-                                    <div class="shop-stat">
-                                        <div class="shop-stat-value">${shop.messages || 0}</div>
-                                        <div class="shop-stat-label">消息</div>
-                                    </div>
-                                    <div class="shop-stat">
-                                        <div class="shop-stat-value">${shop.customers || 0}</div>
-                                        <div class="shop-stat-label">客户</div>
-                                    </div>
-                                </div>
                                 
                                 <div class="shop-actions">
                                     ${actions}
                                 </div>
                             </div>
-                            
-                            ${shop.unreadCount > 0 ? `<div class="shop-unread-badge">${shop.unreadCount}</div>` : ''}
                         </div>
                         `;
                     }).join('');
