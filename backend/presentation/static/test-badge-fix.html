@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>红点修复验证页面</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .test-section { background: white; margin: 20px 0; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .shop-card { border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 6px; position: relative; background: white; }
+        .conversation-item { border: 1px solid #eee; padding: 15px; margin: 10px 0; border-radius: 6px; background: #f9f9f9; cursor: pointer; }
+        .conversation-item:hover { background: #e9ecef; }
+        .nav-item { display: inline-block; padding: 10px 15px; margin: 5px; background: #007bff; color: white; border-radius: 5px; cursor: pointer; position: relative; }
+        .nav-item:hover { background: #0056b3; }
+        .nav-item.active { background: #28a745; }
+        .nav-badge { position: absolute; top: -8px; right: -8px; background: red; color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; display: flex; align-items: center; justify-content: center; }
+        .nav-badge.hidden { display: none !important; }
+        .test-button { padding: 8px 15px; margin: 5px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .test-button:hover { background: #545b62; }
+        .log-output { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; padding: 10px; font-family: monospace; font-size: 12px; height: 200px; overflow-y: auto; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <h1>🔴 红点修复验证页面</h1>
+    
+    <div class="test-section">
+        <h2>1. 店铺状态红点测试</h2>
+        <div class="shop-card" data-shop-id="test-shop-001">
+            <h3>测试店铺 001</h3>
+            <div class="shop-status status-active">有对话</div>
+            <p>这个shop-status应该被转换为红点组件</p>
+        </div>
+        
+        <div class="shop-card" data-shop-id="test-shop-002">
+            <h3>测试店铺 002</h3>
+            <div class="shop-status status-active">等待中</div>
+            <p>这个shop-status也应该被转换为红点组件</p>
+        </div>
+        
+        <button class="test-button" onclick="testShopBadges()">模拟店铺未读消息</button>
+        <button class="test-button" onclick="clearShopBadges()">清除店铺红点</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>2. 导航红点测试</h2>
+        <div class="nav-item tap-feedback" data-page="home">
+            <span>首页</span>
+        </div>
+        <div class="nav-item tap-feedback active" data-page="messages">
+            <span>消息</span>
+            <div class="nav-badge" id="messagesBadge">3</div>
+        </div>
+        <div class="nav-item tap-feedback" data-page="shops">
+            <span>店铺</span>
+        </div>
+        
+        <p><strong>测试说明：</strong>点击"消息"导航项时，红点应该保持显示，只有点击下面的对话项时红点才消失。</p>
+        
+        <button class="test-button" onclick="showNavBadge()">显示导航红点</button>
+        <button class="test-button" onclick="clearNavBadge()">清除导航红点</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>3. 对话项测试</h2>
+        <div class="conversation-item" data-conversation-id="conv-001" data-shop-id="test-shop-001">
+            <strong>客户 001</strong> - 最后消息：你好，有什么问题吗？
+            <small style="display: block; color: #666; margin-top: 5px;">点击这里应该清除相关红点</small>
+        </div>
+        
+        <div class="conversation-item" data-conversation-id="conv-002" data-shop-id="test-shop-002">
+            <strong>客户 002</strong> - 最后消息：请问产品价格多少？
+            <small style="display: block; color: #666; margin-top: 5px;">点击这里也应该清除相关红点</small>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h2>4. 控制台日志</h2>
+        <div class="log-output" id="logOutput">等待组件初始化...</div>
+        <button class="test-button" onclick="clearLog()">清除日志</button>
+        <button class="test-button" onclick="checkComponents()">检查组件状态</button>
+    </div>
+
+    <!-- 引入我们的组件 -->
+    <script src="/static/js/ui/unread-badge-component.js"></script>
+    <script src="/static/js/ui/shop-card-manager.js"></script>
+    <script src="/static/js/ui/nav-badge-manager.js"></script>
+    <script src="/static/js/data-sync-manager.js"></script>
+    <script src="/static/js/ui/badge-integration.js"></script>
+
+    <script>
+        // 日志输出到页面
+        const logOutput = document.getElementById('logOutput');
+        const originalConsoleLog = console.log;
+        const originalConsoleWarn = console.warn;
+        const originalConsoleError = console.error;
+        
+        function addToLog(message, type = 'log') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.style.color = type === 'error' ? 'red' : (type === 'warn' ? 'orange' : 'black');
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            logOutput.appendChild(logEntry);
+            logOutput.scrollTop = logOutput.scrollHeight;
+        }
+        
+        console.log = function(...args) {
+            originalConsoleLog.apply(console, args);
+            addToLog(args.join(' '));
+        };
+        
+        console.warn = function(...args) {
+            originalConsoleWarn.apply(console, args);
+            addToLog(args.join(' '), 'warn');
+        };
+        
+        console.error = function(...args) {
+            originalConsoleError.apply(console, args);
+            addToLog(args.join(' '), 'error');
+        };
+
+        // 初始化组件
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 开始初始化测试组件...');
+            
+            // 模拟 DataSyncManager（如果不存在）
+            if (!window.DataSyncManager) {
+                window.DataSyncManager = class {
+                    constructor() {
+                        this.debug = console.log;
+                    }
+                    enableDebugMode() {
+                        console.log('✅ 模拟 DataSyncManager 调试模式已开启');
+                    }
+                };
+                console.log('✅ 创建模拟 DataSyncManager');
+            }
+            
+            // 创建 DataSyncManager 实例
+            window.testDataSyncManager = new DataSyncManager();
+            window.testDataSyncManager.enableDebugMode();
+            
+            // 初始化店铺卡片管理器
+            ShopCardManager.quickInit({
+                debug: true,
+                selector: '.shop-card',
+                delay: 1000
+            }).then(manager => {
+                window.shopCardManager = manager;
+                console.log('✅ 店铺卡片管理器初始化完成');
+            }).catch(error => {
+                console.error('❌ 店铺卡片管理器初始化失败:', error);
+            });
+            
+            // 初始化导航红点管理器
+            try {
+                window.navBadgeManager = NavBadgeManager.quickInit({
+                    debug: true
+                });
+                console.log('✅ 导航红点管理器初始化完成');
+            } catch (error) {
+                console.error('❌ 导航红点管理器初始化失败:', error);
+            }
+        });
+
+        // 测试函数
+        function testShopBadges() {
+            console.log('🧪 测试店铺红点...');
+            if (window.shopCardManager) {
+                window.shopCardManager.updateShopBadge('test-shop-001', 5);
+                window.shopCardManager.updateShopBadge('test-shop-002', 2);
+            } else {
+                console.warn('⚠️ 店铺卡片管理器未初始化');
+            }
+        }
+        
+        function clearShopBadges() {
+            console.log('🧹 清除店铺红点...');
+            if (window.shopCardManager) {
+                window.shopCardManager.updateShopBadge('test-shop-001', 0);
+                window.shopCardManager.updateShopBadge('test-shop-002', 0);
+            }
+        }
+        
+        function showNavBadge() {
+            console.log('🧪 显示导航红点...');
+            if (window.navBadgeManager) {
+                window.navBadgeManager.updateNavBadge('messages', 3);
+            } else {
+                console.warn('⚠️ 导航红点管理器未初始化');
+            }
+        }
+        
+        function clearNavBadge() {
+            console.log('🧹 清除导航红点...');
+            if (window.navBadgeManager) {
+                window.navBadgeManager.updateNavBadge('messages', 0);
+            }
+        }
+        
+        function clearLog() {
+            logOutput.innerHTML = '';
+        }
+        
+        function checkComponents() {
+            console.log('🔍 检查组件状态...');
+            console.log('ShopCardManager:', window.shopCardManager ? '✅ 已加载' : '❌ 未加载');
+            console.log('NavBadgeManager:', window.navBadgeManager ? '✅ 已加载' : '❌ 未加载');
+            console.log('DataSyncManager:', window.DataSyncManager ? '✅ 已加载' : '❌ 未加载');
+            console.log('红点组件数量:', document.querySelectorAll('.unread-badge-component').length);
+        }
+    </script>
+</body>
+</html>

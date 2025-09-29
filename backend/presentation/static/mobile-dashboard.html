@@ -527,6 +527,58 @@
             font-size: 11px;
             font-weight: 600;
             white-space: nowrap;
+            position: relative;
+            display: inline-block;
+        }
+
+        .unread-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: #ff4757;
+            color: white;
+            border-radius: 50%;
+            min-width: 16px;
+            height: 16px;
+            font-size: 9px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid white;
+            box-shadow: 0 2px 4px rgba(255, 71, 87, 0.3);
+            animation: mobile-unread-pulse 2s infinite;
+        }
+
+        .unread-badge:empty {
+            min-width: 6px;
+            height: 6px;
+        }
+
+        @keyframes mobile-unread-pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        /* backend/presentation版店铺红点容器样式 */
+        .shop-badge-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            min-height: 20px;
+            flex-shrink: 0;
+        }
+
+        .shop-status-text {
+            font-size: 10px;
+            font-weight: 600;
+            color: #6c757d;
+            padding: 2px 4px;
+            border-radius: 8px;
+            background: #f8f9fa;
+            white-space: nowrap;
         }
 
         .status-active {
@@ -4335,12 +4387,11 @@
                     // 根据页面加载相应数据
                     loadPageData(pageName);
                     
-                    // 重置消息徽章
+                    // 导航页面切换不应该直接清除红点
+                    // 红点应该只在用户实际查看对话时才清除
                     if (pageName === 'messages') {
-                        const badge = document.getElementById('messagesBadge');
-                        if (badge) {
-                            badge.classList.add('hidden');
-                        }
+                        console.log('🧭 切换到消息页面，红点保持显示等待用户查看具体对话');
+                        // 不再直接隐藏红点，让 NavBadgeManager 处理
                     }
                 } catch (error) {
                     console.error('❌ 页面切换出错:', error);
@@ -4728,22 +4779,14 @@
                 shopCard.innerHTML = `
                     <div class="shop-header">
                         <div class="shop-icon">${shop.name.charAt(0)}</div>
-                        <div class="shop-status ${hasConversations ? 'status-active' : 'status-inactive'}" data-shop-id="${shop.id}">${hasConversations ? '有对话' : '等待中'}</div>
+                        <div class="shop-status ${hasConversations ? 'status-active' : 'status-inactive'}" data-shop-id="${shop.id}">
+                            ${hasConversations ? '有对话' : '等待中'}
+                            <span class="unread-badge" data-unread-count="${unreadCount || 0}" style="display: ${unreadCount > 0 ? 'flex' : 'none'};">${unreadCount > 0 ? (unreadCount > 99 ? '99+' : unreadCount) : ''}</span>
+                        </div>
                     </div>
                     <div class="shop-name">${shop.name}</div>
                     <div class="shop-domain">${shop.domain || '未设置域名'}</div>
-                    <div class="shop-stats">
-                        <div class="shop-stat" data-stat-type="对话" data-shop-id="${shop.id}">
-                            <div class="shop-stat-value">${conversationCount}</div>
-                            <div class="shop-stat-label">对话</div>
-                        </div>
-                        <div class="shop-stat" data-stat-type="未读" data-shop-id="${shop.id}">
-                            <div class="shop-stat-value">${unreadCount}</div>
-                            <div class="shop-stat-label">未读</div>
-                        </div>
-                    </div>
                     ${!hasConversations ? `<div class="shop-empty-hint">点击查看详情</div>` : ''}
-                    ${unreadCount > 0 ? `<div class="shop-unread-badge">${unreadCount}</div>` : ''}
                 `;
                 
                 // 增强DOM结构
@@ -4966,6 +5009,12 @@
                     id: conversation.customer_id,
                     name: conversation.customer_name || this.generateCustomerNumber(conversation.customer_id)
                 };
+                
+                // 清除相关的红点（这时用户确实在查看对话）
+                if (window.navBadgeManager) {
+                    window.navBadgeManager.clearRelevantBadges(conversation.id, conversation.shop_id);
+                    console.log(`🧭 用户查看对话 ${conversation.id}，清除相关红点`);
+                }
                 
                 // 安全地更新DOM元素
                 const backBtn = document.getElementById('messagesBackBtn');
@@ -9822,6 +9871,107 @@
             </div>
         </div>
     </div>
+
+    <!-- 数据同步管理器 -->
+    <script src="/static/js/data-sync-manager.js"></script>
+    
+    <!-- 未读红点组件 -->
+        <script src="/static/js/ui/unread-badge-component.js"></script>
+        <script src="/static/js/ui/shop-card-manager.js"></script>
+        <script src="/static/js/ui/nav-badge-manager.js"></script>
+        <script src="/static/js/ui/badge-integration.js"></script>    <script>
+        // 初始化数据同步管理器
+        window.mobileDataSyncManager = new DataSyncManager();
+        window.mobileDataSyncManager.enableDebugMode(); // 开启调试模式
+        
+        // 初始化店铺卡片管理器（backend/presentation版本）
+        ShopCardManager.quickInit({
+            debug: true,
+            selector: '.shop-card',
+            delay: 4000,
+            updateInterval: 30000
+        }).then(manager => {
+            window.shopCardManager = manager;
+            console.log('💾 backend/presentation版店铺卡片管理器初始化完成');
+        });
+
+        // 初始化导航红点管理器
+        const navBadgeManager = NavBadgeManager.quickInit({
+            debug: true
+        });
+        window.navBadgeManager = navBadgeManager;
+        console.log('🧭 backend/presentation版导航红点管理器初始化完成');
+        
+        // 移动端店铺未读消息更新函数
+        function updateMobileShopUnreadBadges() {
+            console.log('🔄 移动端: 更新店铺未读消息红点...');
+            
+            // 获取当前页面中的所有店铺卡片
+            const shopCards = document.querySelectorAll('.shop-card[data-shop-id]');
+            
+            shopCards.forEach(async (shopCard) => {
+                const shopId = shopCard.getAttribute('data-shop-id');
+                if (shopId && !window.mobileDataSyncManager.isTempId(shopId)) {
+                    try {
+                        // 获取店铺统计数据并更新红点
+                        const stats = await window.mobileDataSyncManager.forceRefreshShopStats(shopId);
+                        if (stats) {
+                            console.log(`✅ 移动端店铺 ${shopId} 未读消息已更新: ${stats.unread_count}`);
+                        }
+                    } catch (error) {
+                        console.warn(`⚠️ 移动端更新店铺 ${shopId} 未读消息失败:`, error);
+                    }
+                }
+            });
+        }
+
+        // 页面加载完成后立即更新一次
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(() => {
+                console.log('🔄 移动端初始化店铺未读消息红点更新...');
+                updateMobileShopUnreadBadges();
+            }, 2000); // 移动端延迟更长时间确保 DOM 已经渲染
+        });
+
+        // 每30秒更新一次未读消息红点
+        setInterval(() => {
+            updateMobileShopUnreadBadges();
+        }, 30000);
+
+        // 监听店铺数据刷新事件，当店铺列表更新时也更新红点
+        const observer = new MutationObserver(function(mutations) {
+            let shouldUpdate = false;
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'childList') {
+                    // 检查是否有新的店铺卡片被添加
+                    mutation.addedNodes.forEach(function(node) {
+                        if (node.nodeType === 1 && (node.classList.contains('shop-card') || node.querySelector('.shop-card'))) {
+                            shouldUpdate = true;
+                        }
+                    });
+                }
+            });
+            
+            if (shouldUpdate) {
+                setTimeout(() => {
+                    console.log('🔄 移动端检测到店铺列表变化，更新未读消息红点...');
+                    updateMobileShopUnreadBadges();
+                }, 1000);
+            }
+        });
+
+        // 监听店铺容器的变化
+        setTimeout(() => {
+            const shopsContainer = document.getElementById('shopsListView') || document.querySelector('.shop-grid');
+            if (shopsContainer) {
+                observer.observe(shopsContainer, {
+                    childList: true,
+                    subtree: true
+                });
+                console.log('📱 移动端店铺容器监听器已启动');
+            }
+        }, 1000);
+    </script>
 
 </body>
 </html>
