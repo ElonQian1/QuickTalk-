@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>客服管理系统 - 多店铺管理</title>
+    
+    <!-- 对话头像和红点样式模块 -->
+    <link rel="stylesheet" href="/static/css/conversation-avatar.css">
+    
     <style>
         * {
             margin: 0;
@@ -2061,6 +2065,9 @@
         </div>
     </div>
 
+    <!-- 对话工具模块 -->
+    <script src="/static/js/conversation-utils.js"></script>
+    
     <script>
         let currentUser = null;
         let currentSession = null;
@@ -4189,13 +4196,19 @@
                             <h4>客户对话列表</h4>
                             <div id="conversationsList">
                                 ${conversations.map(conv => `
-                                    <div class="conversation-item" onclick="loadConversation('${conv.id}', '${shopId}')">
+                                    <div class="conversation-item ${ConversationUtils.getUnreadClass(conv.unread_count)}" 
+                                         onclick="loadConversation('${conv.id}', '${shopId}')" 
+                                         data-conversation-id="${conv.id}">
+                                        ${ConversationUtils.generateAvatarHTML({
+                                            customerId: conv.customer_id,
+                                            customerName: conv.customer_name,
+                                            unreadCount: conv.unread_count || 0
+                                        })}
                                         <div class="conversation-info">
-                                            <div class="customer-name">${conv.customer_name || '匿名客户'}</div>
+                                            <div class="customer-name">${ConversationUtils.formatCustomerName(conv.customer_id, conv.customer_name)}</div>
                                             <div class="last-message">${conv.last_message || '暂无消息'}</div>
                                             <div class="conversation-time">${new Date(conv.updated_at).toLocaleString('zh-CN')}</div>
                                         </div>
-                                        ${conv.unread_count > 0 ? `<div class="unread-badge">${conv.unread_count}</div>` : ''}
                                     </div>
                                 `).join('')}
                             </div>
@@ -4242,54 +4255,7 @@
                             color: white;
                             font-size: 14px;
                         }
-                        .conversation-item {
-                            padding: 12px 15px;
-                            border-bottom: 1px solid #e1e5e9;
-                            cursor: pointer;
-                            transition: background-color 0.2s;
-                            position: relative;
-                        }
-                        .conversation-item:hover {
-                            background: #e9ecef;
-                        }
-                        .conversation-item.active {
-                            background: #667eea;
-                            color: white;
-                        }
-                        .customer-name {
-                            font-weight: 600;
-                            margin-bottom: 4px;
-                        }
-                        .last-message {
-                            font-size: 12px;
-                            color: #666;
-                            margin-bottom: 4px;
-                            overflow: hidden;
-                            white-space: nowrap;
-                            text-overflow: ellipsis;
-                        }
-                        .conversation-item.active .last-message {
-                            color: rgba(255,255,255,0.8);
-                        }
-                        .conversation-time {
-                            font-size: 11px;
-                            color: #999;
-                        }
-                        .conversation-item.active .conversation-time {
-                            color: rgba(255,255,255,0.6);
-                        }
-                        .unread-badge {
-                            position: absolute;
-                            top: 8px;
-                            right: 8px;
-                            background: #dc3545;
-                            color: white;
-                            border-radius: 10px;
-                            padding: 2px 6px;
-                            font-size: 11px;
-                            min-width: 16px;
-                            text-align: center;
-                        }
+                        /* 对话项样式已移至 /static/css/conversation-avatar.css 模块 */
                         .chat-container {
                             flex: 1;
                             display: flex;

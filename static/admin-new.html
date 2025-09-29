@@ -279,6 +279,55 @@
             border-radius: 12px;
             font-size: 12px;
             font-weight: 600;
+            position: relative;
+            display: inline-block;
+        }
+
+        .unread-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: #ff4757;
+            color: white;
+            border-radius: 50%;
+            min-width: 18px;
+            height: 18px;
+            font-size: 10px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid white;
+            box-shadow: 0 2px 4px rgba(255, 71, 87, 0.3);
+            animation: unread-pulse 2s infinite;
+        }
+
+        .unread-badge:empty {
+            min-width: 8px;
+            height: 8px;
+        }
+
+        @keyframes unread-pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        /* 店铺红点容器样式 */
+        .shop-badge-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-height: 24px;
+        }
+
+        .shop-status-text {
+            font-size: 12px;
+            font-weight: 600;
+            color: #6c757d;
+            padding: 2px 6px;
+            border-radius: 10px;
+            background: #f8f9fa;
         }
 
         .status-pending {
@@ -2887,24 +2936,15 @@
                     <div class="shop-header">
                         <h3 class="shop-name">${shop.name}</h3>
                         <span class="shop-role">${getRoleText(shop.userRole)}</span>
-                        ${shop.approvalStatus ? `<span class="shop-status status-${shop.approvalStatus}">${getStatusText(shop.approvalStatus)}</span>` : ''}
+                        ${shop.approvalStatus ? `
+                            <span class="shop-status status-${shop.approvalStatus}" data-shop-id="${shop.id}">
+                                ${getStatusText(shop.approvalStatus)}
+                                <span class="unread-badge" data-unread-count="0" style="display: none;"></span>
+                            </span>
+                        ` : ''}
                     </div>
                     <div class="shop-domain">${shop.domain}</div>
                     ${shop.description ? `<div class="shop-description">${shop.description}</div>` : ''}
-                    <div class="shop-stats">
-                        <div class="stat-item">
-                            <div class="stat-number">0</div>
-                            <div class="stat-label">待回复</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-number">0</div>
-                            <div class="stat-label">今日对话</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-number">0</div>
-                            <div class="stat-label">在线客服</div>
-                        </div>
-                    </div>
                     <div class="shop-actions">
                         ${shop.approvalStatus === 'pending' ? `
                             <button class="action-btn btn-warning" onclick="editPendingShop('${shop.id}')">
@@ -5305,5 +5345,77 @@
             font-size: 14px;
         }
     </style>
+
+    <!-- 数据同步管理器 -->
+    <script src="/static/js/data-sync-manager.js"></script>
+    
+    <!-- 未读红点组件 -->
+    <script src="/static/js/ui/unread-badge-component.js"></script>
+    <script src="/static/js/ui/shop-card-manager.js"></script>
+    <script src="/static/js/ui/badge-integration.js"></script>
+    
+    <script>
+        // 初始化数据同步管理器
+        window.dataSyncManager = new DataSyncManager();
+        window.dataSyncManager.enableDebugMode(); // 开启调试模式
+        
+        // 初始化店铺卡片管理器（替换shop-status为红点）
+        ShopCardManager.quickInit({
+            debug: true,
+            selector: '.shop-card',
+            delay: 3000,
+            updateInterval: 30000
+        }).then(manager => {
+            window.shopCardManager = manager;
+            console.log('✅ 店铺卡片管理器初始化完成');
+        });
+        
+        // 定期更新店铺未读消息红点
+        function updateAllShopUnreadBadges() {
+            if (window.currentShops && Array.isArray(window.currentShops)) {
+                window.currentShops.forEach(shop => {
+                    if (shop.id && !window.dataSyncManager.isTempId(shop.id)) {
+                        // 异步获取店铺统计数据并更新红点
+                        window.dataSyncManager.forceRefreshShopStats(shop.id)
+                            .then(stats => {
+                                if (stats) {
+                                    console.log(`✅ 店铺 ${shop.id} 未读消息已更新: ${stats.unread_count}`);
+                                }
+                            })
+                            .catch(error => {
+                                console.warn(`⚠️ 更新店铺 ${shop.id} 未读消息失败:`, error);
+                            });
+                    }
+                });
+            }
+        }
+
+        // 在页面加载完成后立即更新一次
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(() => {
+                console.log('🔄 初始化店铺未读消息红点更新...');
+                updateAllShopUnreadBadges();
+            }, 1000);
+        });
+
+        // 每30秒更新一次未读消息红点
+        setInterval(() => {
+            console.log('🔄 定期更新店铺未读消息红点...');
+            updateAllShopUnreadBadges();
+        }, 30000);
+
+        // 当店铺数据加载完成后也要更新红点
+        const originalLoadShops = window.loadShops;
+        if (typeof originalLoadShops === 'function') {
+            window.loadShops = function() {
+                const result = originalLoadShops.apply(this, arguments);
+                setTimeout(() => {
+                    console.log('🔄 店铺列表加载完成，更新未读消息红点...');
+                    updateAllShopUnreadBadges();
+                }, 500);
+                return result;
+            };
+        }
+    </script>
 </body>
 </html>

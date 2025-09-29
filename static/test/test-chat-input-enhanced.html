@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>聊天输入增强测试</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            position: relative;
+        }
+
+        .test-header {
+            padding: 20px;
+            color: white;
+            text-align: center;
+            background: rgba(0,0,0,0.1);
+        }
+
+        .chat-container {
+            height: calc(100vh - 200px);
+            background: white;
+            margin: 20px;
+            border-radius: 15px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .messages-area {
+            height: calc(100% - 80px);
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 12px 16px;
+            border-radius: 18px;
+            max-width: 70%;
+            word-break: break-word;
+        }
+
+        .message.customer {
+            background: #f1f3f4;
+            margin-right: auto;
+        }
+
+        .message.agent {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            margin-left: auto;
+        }
+
+        .test-buttons {
+            position: fixed;
+            top: 50%;
+            right: 20px;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 1000;
+        }
+
+        .test-btn {
+            padding: 10px 15px;
+            background: rgba(255,255,255,0.9);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .test-btn:hover {
+            background: white;
+            transform: scale(1.05);
+        }
+    </style>
+
+    <!-- 引入聊天输入增强模块 -->
+    <link rel="stylesheet" href="../css/chat-input-enhanced.css">
+</head>
+<body>
+    <div class="test-header">
+        <h1>🚀 聊天输入增强功能测试</h1>
+        <p>测试固定底部输入框和美化效果</p>
+    </div>
+
+    <div class="chat-container">
+        <div class="messages-area" id="messagesArea">
+            <div class="message customer">
+                这是一条客户消息，用于测试界面效果
+            </div>
+            <div class="message agent">
+                这是一条客服回复消息，展示对话界面
+            </div>
+            <div class="message customer">
+                我有一个问题需要咨询，请帮助解答一下
+            </div>
+            <div class="message agent">
+                好的，我很乐意为您解答问题。请详细描述您遇到的情况。
+            </div>
+        </div>
+
+        <!-- 使用增强的聊天输入容器 -->
+        <div class="chat-input-container" id="chatInputContainer">
+            <div class="main-input-area">
+                <button class="media-btn" title="发送图片">📷</button>
+                <button class="voice-btn" id="voiceBtn" title="语音输入">🎤</button>
+                <textarea 
+                    id="messageInput" 
+                    class="chat-input" 
+                    placeholder="输入消息..." 
+                    rows="1"
+                ></textarea>
+                <button id="sendBtn" class="send-btn" title="发送消息">
+                    <span class="send-icon">➤</span>
+                </button>
+            </div>
+            
+            <div class="quick-replies" id="quickReplies">
+                <div class="quick-reply-item" data-text="您好，有什么可以帮助您的？">问候</div>
+                <div class="quick-reply-item" data-text="请稍等，我为您查询一下">查询</div>
+                <div class="quick-reply-item" data-text="感谢您的耐心等待">感谢</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 测试按钮 -->
+    <div class="test-buttons">
+        <button class="test-btn" onclick="testAutoResize()">测试自动调整</button>
+        <button class="test-btn" onclick="testQuickReply()">测试快速回复</button>
+        <button class="test-btn" onclick="testSendMessage()">测试发送消息</button>
+        <button class="test-btn" onclick="addTestMessage()">添加测试消息</button>
+        <button class="test-btn" onclick="toggleQuickReplies()">切换快捷回复</button>
+    </div>
+
+    <!-- 引入聊天输入增强脚本 -->
+    <script src="../js/chat-input-enhanced.js"></script>
+
+    <script>
+        // 测试功能
+        function testAutoResize() {
+            const input = document.getElementById('messageInput');
+            input.value = '这是一条很长的测试消息，用于测试输入框的自动调整大小功能。当文字很多时，输入框应该自动扩展高度，但不超过最大高度限制。';
+            input.dispatchEvent(new Event('input'));
+        }
+
+        function testQuickReply() {
+            const quickReplies = document.getElementById('quickReplies');
+            const firstReply = quickReplies.querySelector('.quick-reply-item');
+            if (firstReply) {
+                firstReply.click();
+            }
+        }
+
+        function testSendMessage() {
+            const input = document.getElementById('messageInput');
+            input.value = '这是一条测试消息 ' + new Date().toLocaleTimeString();
+            document.getElementById('sendBtn').click();
+        }
+
+        function addTestMessage() {
+            const messagesArea = document.getElementById('messagesArea');
+            const isCustomer = Math.random() > 0.5;
+            const message = document.createElement('div');
+            message.className = `message ${isCustomer ? 'customer' : 'agent'}`;
+            message.textContent = `测试消息 ${new Date().toLocaleTimeString()}`;
+            messagesArea.appendChild(message);
+            messagesArea.scrollTop = messagesArea.scrollHeight;
+        }
+
+        function toggleQuickReplies() {
+            const quickReplies = document.getElementById('quickReplies');
+            quickReplies.style.display = quickReplies.style.display === 'none' ? 'flex' : 'none';
+        }
+
+        // 模拟发送消息功能
+        document.getElementById('sendBtn').addEventListener('click', function() {
+            const input = document.getElementById('messageInput');
+            const text = input.value.trim();
+            
+            if (text) {
+                const messagesArea = document.getElementById('messagesArea');
+                const message = document.createElement('div');
+                message.className = 'message agent';
+                message.textContent = text;
+                messagesArea.appendChild(message);
+                messagesArea.scrollTop = messagesArea.scrollHeight;
+                
+                input.value = '';
+                input.dispatchEvent(new Event('input')); // 触发自动调整
+                
+                console.log('发送消息:', text);
+            }
+        });
+
+        // Enter 键发送消息
+        document.getElementById('messageInput').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                document.getElementById('sendBtn').click();
+            }
+        });
+
+        console.log('🚀 聊天输入增强测试页面加载完成');
+        console.log('📱 测试功能:');
+        console.log('  - 固定底部输入框');
+        console.log('  - 自动高度调整');
+        console.log('  - 美化样式效果');
+        console.log('  - 快速回复功能');
+        console.log('  - 触摸反馈效果');
+    </script>
+</body>
+</html>

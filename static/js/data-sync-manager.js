@@ -174,7 +174,7 @@ class DataSyncManager {
             // 不强制更新状态文字，保持原模板文案
         });
 
-        // 更新未读徽章
+        // 更新未读徽章 (原有的shop-unread-badge)
         const badgeElements = [
             ...document.querySelectorAll(`[data-shop-id="${shopId}"] .shop-unread-badge`),
             ...document.querySelectorAll(`.shop-unread-badge[data-shop-id="${shopId}"]`)
@@ -190,6 +190,50 @@ class DataSyncManager {
             } else {
                 badge.style.display = 'none';
             }
+        });
+
+        // 更新店铺状态中的未读红点 (新增的unread-badge)
+        this.updateShopStatusUnreadBadge(shopId, stats.unread_count || 0);
+    }
+
+    /**
+     * 更新店铺状态中的未读消息红点
+     * @param {string} shopId 店铺ID
+     * @param {number} unreadCount 未读消息数量
+     */
+    updateShopStatusUnreadBadge(shopId, unreadCount) {
+        this.debug(`更新店铺 ${shopId} 状态红点:`, unreadCount);
+        
+        // 查找店铺状态元素
+        const statusElements = [
+            ...document.querySelectorAll(`.shop-status[data-shop-id="${shopId}"]`),
+            ...document.querySelectorAll(`[data-shop-id="${shopId}"] .shop-status`)
+        ];
+        
+        statusElements.forEach(statusElement => {
+            // 查找或创建红点元素
+            let badge = statusElement.querySelector('.unread-badge');
+            
+            if (!badge) {
+                // 创建新的红点元素
+                badge = document.createElement('span');
+                badge.className = 'unread-badge';
+                badge.setAttribute('data-unread-count', '0');
+                statusElement.appendChild(badge);
+            }
+            
+            const count = parseInt(unreadCount) || 0;
+            badge.setAttribute('data-unread-count', count);
+            
+            if (count > 0) {
+                badge.textContent = count > 99 ? '99+' : count;
+                badge.style.display = 'flex';
+            } else {
+                badge.textContent = '';
+                badge.style.display = 'none';
+            }
+            
+            this.debug(`店铺 ${shopId} 状态红点更新完成，数量: ${count}`);
         });
     }
 

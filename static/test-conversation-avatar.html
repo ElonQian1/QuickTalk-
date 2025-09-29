@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>对话头像和红点功能测试</title>
+    
+    <!-- 引入新创建的CSS和JS模块 -->
+    <link rel="stylesheet" href="/static/css/conversation-avatar.css">
+    <script src="/static/js/conversation-utils.js"></script>
+    
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+            margin: 0;
+        }
+        
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        .test-section {
+            margin-bottom: 40px;
+        }
+        
+        .test-section h2 {
+            color: #333;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .conversations-list {
+            border: 1px solid #e1e5e9;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .test-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            background: #667eea;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+        
+        .btn:hover {
+            background: #5a6fd8;
+        }
+        
+        .btn.btn-danger {
+            background: #dc3545;
+        }
+        
+        .btn.btn-danger:hover {
+            background: #c82333;
+        }
+        
+        .status-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            border-left: 4px solid #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🧪 对话头像和红点功能测试</h1>
+        
+        <div class="test-section">
+            <h2>📋 测试用例</h2>
+            <div class="test-buttons">
+                <button class="btn" onclick="generateTestConversations()">🔄 生成测试数据</button>
+                <button class="btn" onclick="updateUnreadCounts()">📧 更新未读数</button>
+                <button class="btn btn-danger" onclick="clearAllUnread()">✅ 清除所有未读</button>
+            </div>
+            
+            <div class="conversations-list" id="testConversationsList">
+                <!-- 这里将动态生成对话列表 -->
+            </div>
+            
+            <div class="status-info">
+                <strong>功能说明:</strong>
+                <ul>
+                    <li>✨ <strong>头像生成</strong>: 根据客户ID自动生成彩色圆形头像，显示客户名称首字母或ID末位数字</li>
+                    <li>🔴 <strong>未读红点</strong>: 在头像右上角显示未读消息数量，支持脉冲动画效果</li>
+                    <li>🎨 <strong>颜色主题</strong>: 基于客户ID哈希值自动分配6种不同颜色主题</li>
+                    <li>📱 <strong>响应式设计</strong>: 适配桌面端和移动端显示</li>
+                    <li>🔧 <strong>模块化架构</strong>: CSS和JS分离，便于维护和扩展</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>🛠️ 单独测试工具</h2>
+            <div style="display: flex; gap: 20px; align-items: center; margin-bottom: 15px;">
+                <input type="text" id="testCustomerId" placeholder="输入客户ID" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; width: 150px;">
+                <input type="text" id="testCustomerName" placeholder="客户名称 (可选)" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; width: 150px;">
+                <input type="number" id="testUnreadCount" placeholder="未读数" min="0" max="999" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; width: 80px;">
+                <button class="btn" onclick="generateSingleAvatar()">生成头像</button>
+            </div>
+            
+            <div id="singleAvatarTest" style="display: flex; align-items: center; gap: 20px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+                <!-- 单独头像测试结果 -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 测试数据
+        const testConversations = [
+            { id: 'conv_001', customer_id: 'user_12345', customer_name: '张三', last_message: '你好，请问有什么可以帮助的吗？', unread_count: 3 },
+            { id: 'conv_002', customer_id: 'customer_67890', customer_name: '李四', last_message: '我想咨询一下产品价格', unread_count: 1 },
+            { id: 'conv_003', customer_id: 'user_abcde', customer_name: null, last_message: '谢谢您的帮助！', unread_count: 0 },
+            { id: 'conv_004', customer_id: 'guest_98765', customer_name: '王五', last_message: '订单什么时候能发货？', unread_count: 7 },
+            { id: 'conv_005', customer_id: 'user_xyz123', customer_name: null, last_message: '质量很好，满意', unread_count: 0 },
+            { id: 'conv_006', customer_id: 'vip_888', customer_name: '赵六', last_message: '需要退货处理', unread_count: 15 },
+            { id: 'conv_007', customer_id: 'customer_999', customer_name: null, last_message: '物流信息更新了吗？', unread_count: 2 },
+            { id: 'conv_008', customer_id: 'user_premium', customer_name: '钱七', last_message: '非常好的服务体验', unread_count: 0 }
+        ];
+
+        // 生成测试对话列表
+        function generateTestConversations() {
+            const container = document.getElementById('testConversationsList');
+            
+            const html = testConversations.map(conv => `
+                <div class="conversation-item ${ConversationUtils.getUnreadClass(conv.unread_count)}" 
+                     data-conversation-id="${conv.id}">
+                    ${ConversationUtils.generateAvatarHTML({
+                        customerId: conv.customer_id,
+                        customerName: conv.customer_name,
+                        unreadCount: conv.unread_count || 0
+                    })}
+                    <div class="conversation-info">
+                        <div class="customer-name">${ConversationUtils.formatCustomerName(conv.customer_id, conv.customer_name)}</div>
+                        <div class="last-message">${conv.last_message}</div>
+                        <div class="conversation-time">${new Date().toLocaleString('zh-CN')}</div>
+                    </div>
+                </div>
+            `).join('');
+            
+            container.innerHTML = html;
+            console.log('✅ 测试对话列表已生成');
+        }
+
+        // 更新未读消息数量
+        function updateUnreadCounts() {
+            const updatedConversations = testConversations.map(conv => ({
+                ...conv,
+                unread_count: Math.floor(Math.random() * 20) // 随机生成0-19的未读数
+            }));
+            
+            ConversationUtils.updateConversationUnreadBadges(updatedConversations, '#testConversationsList');
+            console.log('✅ 未读消息数量已更新');
+        }
+
+        // 清除所有未读
+        function clearAllUnread() {
+            const clearedConversations = testConversations.map(conv => ({
+                ...conv,
+                unread_count: 0
+            }));
+            
+            ConversationUtils.updateConversationUnreadBadges(clearedConversations, '#testConversationsList');
+            console.log('✅ 所有未读消息已清除');
+        }
+
+        // 生成单个头像测试
+        function generateSingleAvatar() {
+            const customerId = document.getElementById('testCustomerId').value || 'user_test123';
+            const customerName = document.getElementById('testCustomerName').value || null;
+            const unreadCount = parseInt(document.getElementById('testUnreadCount').value) || 0;
+            
+            const avatarHTML = ConversationUtils.generateAvatarHTML({
+                customerId,
+                customerName,
+                unreadCount
+            });
+            
+            const formattedName = ConversationUtils.formatCustomerName(customerId, customerName);
+            const theme = ConversationUtils.generateAvatarTheme(customerId);
+            
+            document.getElementById('singleAvatarTest').innerHTML = `
+                ${avatarHTML}
+                <div>
+                    <strong>测试结果:</strong><br>
+                    客户ID: ${customerId}<br>
+                    显示名称: ${formattedName}<br>
+                    颜色主题: ${theme}<br>
+                    未读数量: ${unreadCount}
+                </div>
+            `;
+            
+            console.log('✅ 单独头像测试完成', { customerId, customerName, unreadCount, formattedName, theme });
+        }
+
+        // 页面加载时自动生成测试数据
+        window.addEventListener('DOMContentLoaded', () => {
+            generateTestConversations();
+            console.log('🎉 对话头像和红点功能测试页面已加载');
+            console.log('💡 您可以通过按钮测试不同功能，或在开发者工具中查看ConversationUtils对象');
+        });
+    </script>
+</body>
+</html>

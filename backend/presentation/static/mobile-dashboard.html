@@ -10,6 +10,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>QuickTalk 移动端管理后台</title>
+    
+    <!-- 对话头像和红点样式模块 -->
+    <link rel="stylesheet" href="/static/css/conversation-avatar.css">
+    
+    <!-- 聊天输入框增强样式模块 -->
+    <link rel="stylesheet" href="/static/css/chat-input-enhanced.css">
+    
     <style>
         * {
             margin: 0;
@@ -1350,47 +1357,9 @@
             background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
         }
 
-        .chat-input-container { padding: 12px 16px; background: white; border-top: 1px solid #e9ecef; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; box-shadow: 0 -2px 8px rgba(0,0,0,.03); }
+        /* .chat-input-container 样式已迁移到 chat-input-enhanced.css 模块 */
 
-        /* 多媒体按钮样式 */
-        .media-btn, .voice-btn {
-            background: #f8f9fa;
-            color: #6c757d;
-            border: 2px solid #e9ecef;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            font-size: 18px;
-            transition: all 0.3s ease;
-            flex-shrink: 0;
-        }
-
-        .media-btn:hover, .voice-btn:hover {
-            background: #e9ecef;
-            border-color: #dee2e6;
-        }
-
-        .media-btn:active, .voice-btn:active {
-            transform: scale(0.95);
-        }
-
-        /* 语音录制时的样式 */
-        .voice-btn.recording {
-            background: #dc3545;
-            color: white;
-            border-color: #dc3545;
-            animation: pulse 1s infinite;
-        }
-
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.1); }
-            100% { transform: scale(1); }
-        }
+        /* 多媒体按钮和输入框相关样式已迁移到 chat-input-enhanced.css 模块 */
 
         .chat-input {
             flex: 1;
@@ -1407,32 +1376,7 @@
             border-color: #667eea;
         }
 
-        .send-btn {
-            background: #667eea;
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 44px;
-            height: 44px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: 600;
-            transition: all 0.3s ease;
-        }
-
-        .send-btn:hover {
-            background: #5a67d8;
-            transform: scale(1.05);
-        }
-
-        .send-btn:disabled {
-            background: #adb5bd;
-            cursor: not-allowed;
-            transform: none;
-        }
+        /* 发送按钮样式已迁移到 chat-input-enhanced.css 模块 */
 
         /* 消息中的媒体内容样式 */
         .message-media {
@@ -2628,43 +2572,7 @@
             background: #e9ecef;
         }
 
-        .main-input-area {
-            display: flex;
-            gap: 8px;
-            padding: 15px;
-            background: white;
-            align-items: center;
-        }
-
-        .main-input-area .chat-input {
-            flex: 1;
-            padding: 12px 16px;
-            border: 1px solid #ddd;
-            border-radius: 25px;
-            font-size: 14px;
-            outline: none;
-        }
-
-        .main-input-area .chat-input:focus {
-            border-color: #007bff;
-        }
-
-        .main-input-area .voice-btn,
-        .main-input-area .send-btn {
-            background: #007bff;
-            color: white;
-            border: none;
-            padding: 12px 16px;
-            border-radius: 25px;
-            cursor: pointer;
-            font-size: 14px;
-            white-space: nowrap;
-        }
-
-        .main-input-area .voice-btn:hover,
-        .main-input-area .send-btn:hover {
-            background: #0056b3;
-        }
+        /* 主输入区域样式已迁移到 chat-input-enhanced.css 模块 */
 
         /* 店铺管理模态框样式 */
         .shop-management-modal {
@@ -3509,6 +3417,12 @@
     </style>
 </head>
 <body>
+    <!-- 对话工具模块 -->
+    <script src="/static/js/conversation-utils.js"></script>
+    
+    <!-- 聊天输入框增强模块 -->
+    <script src="/static/js/chat-input-enhanced.js"></script>
+    
 <script>
 // 最小登录态拦截：若未携带本地 token 则重定向登录页面
 (function(){
@@ -4955,7 +4869,6 @@
                         new Date(conversation.last_message_time).toLocaleString() : '暂无消息';
                     
                     const customerDisplayName = conversation.customer_name || this.generateCustomerNumber(conversation.customer_id);
-                    const avatarInitial = customerDisplayName.charAt(customerDisplayName.length - 3) || 'C'; // 使用编号的数字部分作为头像
                     
                     console.log(`渲染对话 ${conversation.id}:`, {
                         customer: customerDisplayName,
@@ -4964,17 +4877,42 @@
                         unreadCount: conversation.unread_count
                     });
                     
-                    conversationItem.innerHTML = `
-                        <div class="conversation-avatar">${avatarInitial}</div>
-                        <div class="conversation-content">
-                            <div class="conversation-header">
-                                <span class="customer-name">${customerDisplayName}</span>
-                                <span class="message-time" data-conversation-id="${conversation.id}">${lastMessageTime}</span>
+                    // 使用 ConversationUtils 生成增强的头像和红点
+                    if (window.ConversationUtils) {
+                        conversationItem.innerHTML = `
+                            ${window.ConversationUtils.generateAvatarHTML({
+                                customerId: conversation.customer_id,
+                                customerName: conversation.customer_name,
+                                unreadCount: conversation.unread_count || 0
+                            })}
+                            <div class="conversation-content">
+                                <div class="conversation-header">
+                                    <span class="customer-name">${window.ConversationUtils.formatCustomerName(conversation.customer_id, conversation.customer_name)}</span>
+                                    <span class="message-time" data-conversation-id="${conversation.id}">${lastMessageTime}</span>
+                                </div>
+                                <div class="last-message" data-conversation-id="${conversation.id}">${conversation.last_message || '等待客户消息...'}</div>
                             </div>
-                            <div class="last-message" data-conversation-id="${conversation.id}">${conversation.last_message || '等待客户消息...'}</div>
-                        </div>
-                        ${conversation.unread_count > 0 ? `<div class="unread-badge" data-conversation-id="${conversation.id}">${conversation.unread_count}</div>` : ''}
-                    `;
+                        `;
+                        
+                        // 添加未读状态类
+                        if (conversation.unread_count > 0) {
+                            conversationItem.classList.add('has-unread');
+                        }
+                    } else {
+                        // 回退到原始模板（如果工具库未加载）
+                        const avatarInitial = customerDisplayName.charAt(customerDisplayName.length - 3) || 'C';
+                        conversationItem.innerHTML = `
+                            <div class="conversation-avatar">${avatarInitial}</div>
+                            <div class="conversation-content">
+                                <div class="conversation-header">
+                                    <span class="customer-name">${customerDisplayName}</span>
+                                    <span class="message-time" data-conversation-id="${conversation.id}">${lastMessageTime}</span>
+                                </div>
+                                <div class="last-message" data-conversation-id="${conversation.id}">${conversation.last_message || '等待客户消息...'}</div>
+                            </div>
+                            ${conversation.unread_count > 0 ? `<div class="unread-badge" data-conversation-id="${conversation.id}">${conversation.unread_count}</div>` : ''}
+                        `;
+                    }
                     
                     // 增强DOM结构
                     if (window.DOMEnhancer) {
@@ -5019,6 +4957,8 @@
                 // 安全地更新DOM元素
                 const backBtn = document.getElementById('messagesBackBtn');
                 const titleElement = document.getElementById('messagesTitle');
+                const customerAvatarElement = document.getElementById('customerAvatar');
+                const customerNameElement = document.getElementById('customerName');
                 
                 if (backBtn) {
                     backBtn.textContent = '← 对话列表';
@@ -5026,6 +4966,19 @@
                 
                 if (titleElement) {
                     titleElement.textContent = this.currentCustomer.name;
+                }
+                
+                // 使用 ConversationUtils 更新客户头像
+                if (customerAvatarElement && window.ConversationUtils) {
+                    const avatarInitial = window.ConversationUtils.generateAvatarInitial(conversation.customer_id, conversation.customer_name);
+                    const theme = window.ConversationUtils.generateAvatarTheme(conversation.customer_id);
+                    customerAvatarElement.textContent = avatarInitial;
+                    customerAvatarElement.className = `customer-avatar ${theme}`;
+                }
+                
+                // 更新客户名称显示
+                if (customerNameElement && window.ConversationUtils) {
+                    customerNameElement.textContent = window.ConversationUtils.formatCustomerName(conversation.customer_id, conversation.customer_name);
                 }
                 
                 this.showView('chatView');
