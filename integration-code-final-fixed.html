@@ -116,11 +116,43 @@ window.QUICKTALK_CONFIG = {
         isOpen: false,
         isMini: false,
         isConnected: false,
-        userId: 'user_' + Math.random().toString(36).substr(2,9) + '_' + Date.now(),
+        userId: null,  // 将在init时从持久化存储获取或生成
         interval: null,
         lastSequenceId: 0,  // ✅ 修复：使用sequenceId而不是消息ID
         
+        // 🔧 客户会话持久化管理（使用模块化系统）
+        getOrCreateUserId() {
+            if (window.QuickTalkSession) {
+                return window.QuickTalkSession.getCurrentUserId();
+            }
+            
+            // 降级处理（如果模块未加载）
+            let persistentUserId = localStorage.getItem('qt_customer_id');
+            if (!persistentUserId) {
+                const timestamp = Date.now();
+                const random = Math.random().toString(36).substr(2, 9);
+                persistentUserId = `customer_${timestamp}_${random}`;
+                localStorage.setItem('qt_customer_id', persistentUserId);
+            }
+            return persistentUserId;
+        },
+        
+        // 🔄 重置客户会话
+        resetCustomerSession() {
+            if (window.QuickTalkSession) {
+                return window.QuickTalkSession.resetCustomerSession();
+            }
+            
+            // 降级处理
+            localStorage.removeItem('qt_customer_id');
+            this.userId = this.getOrCreateUserId();
+            console.log('🔄 客户会话已重置，新ID:', this.userId);
+        },
+        
         init() {
+            // 🆔 初始化持久化客户ID
+            this.userId = this.getOrCreateUserId();
+            
             // 验证域名
             const currentDomain = window.location.hostname;
             const authorizedDomain = window.QUICKTALK_CONFIG.authorizedDomain;
@@ -437,6 +469,9 @@ window.QUICKTALK_CONFIG = {
     window.addEventListener('beforeunload', () => {
         if (cs.interval) clearInterval(cs.interval);
     });
+    
+    // 🔧 调试工具（由模块化系统提供）
+    // QuickTalkDebug工具现在由client-session-manager.js模块提供
 })();
 </script>
 
@@ -479,6 +514,9 @@ window.QUICKTALK_CONFIG = {
 
 【🔧 技术支持】
 - 版本: v1.0.4 (2025年9月15日图片支持版)
-- 新增功能: 完整的图片消息支持
+- 新增功能: 完整的图片消息支持，模块化会话管理
 - 测试状态: ✅ 完全正常，图片消息完美显示
 -->
+
+<!-- 引入客户端会话管理模块 -->
+<script src="http://localhost:3030/js/client-session-manager.js"></script>

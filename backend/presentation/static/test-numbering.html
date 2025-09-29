@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>客户编号模块测试</title>
+</head>
+<body>
+    <h1>客户编号模块测试</h1>
+    <div id="output"></div>
+    <button onclick="testCustomerNumbering()">测试客户编号</button>
+    <button onclick="checkModuleStatus()">检查模块状态</button>
+    
+    <script src="/js/customer-numbering.js"></script>
+    <script>
+        function checkModuleStatus() {
+            const output = document.getElementById('output');
+            let status = '<h2>模块加载状态:</h2>';
+            
+            status += `<p>window.CustomerNumbering: ${typeof window.CustomerNumbering}</p>`;
+            status += `<p>window.generateCustomerNumber: ${typeof window.generateCustomerNumber}</p>`;
+            
+            if (window.CustomerNumbering) {
+                status += `<p>CustomerNumbering.generateCustomerNumber: ${typeof window.CustomerNumbering.generateCustomerNumber}</p>`;
+                status += `<p>CustomerNumbering.counter: ${window.CustomerNumbering.counter}</p>`;
+                status += `<p>CustomerMap数量: ${Object.keys(window.CustomerNumbering.customerMap || {}).length}</p>`;
+            }
+            
+            output.innerHTML = status;
+        }
+        
+        function testCustomerNumbering() {
+            const output = document.getElementById('output');
+            
+            if (!window.CustomerNumbering) {
+                output.innerHTML = '<p style="color: red;">❌ CustomerNumbering模块未加载</p>';
+                return;
+            }
+            
+            const testCustomers = ['customer_001_test', 'customer_002_test', 'customer_001_test']; // 第三个是重复测试
+            let results = '<h2>测试结果:</h2>';
+            
+            testCustomers.forEach((customerId, index) => {
+                const number = window.CustomerNumbering.generateCustomerNumber(customerId);
+                results += `<p>${index + 1}. ${customerId} → ${number}</p>`;
+            });
+            
+            results += `<p><strong>总计数器值: ${window.CustomerNumbering.counter}</strong></p>`;
+            results += `<p><strong>活跃客户数: ${Object.keys(window.CustomerNumbering.customerMap).length}</strong></p>`;
+            
+            output.innerHTML = results;
+        }
+        
+        // 页面加载完成后检查状态
+        window.addEventListener('load', checkModuleStatus);
+    </script>
+</body>
+</html>

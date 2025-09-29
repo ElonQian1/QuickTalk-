@@ -191,6 +191,26 @@
             color: #6c757d;
         }
 
+        /* 头部行布局：返回按钮与标题在同一行 */
+        .header-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header-row .back-btn {
+            padding: 8px 12px;
+            margin: 0;
+            font-size: 16px;
+            min-width: auto;
+            border-radius: 8px;
+        }
+
+        .header-row .page-title {
+            margin: 0;
+            flex: 1;
+        }
+
         .page-actions {
             margin-top: 15px;
         }
@@ -205,6 +225,10 @@
             font-weight: 500;
             cursor: pointer;
         }
+
+        /* 确保各页面头部中的返回按钮和标题使用白色文字 */
+        #messagesPage .page-header .page-title,
+        #messagesPage .page-header .back-btn { color: #fff; }
 
         .page-content {
             padding: 20px;
@@ -3443,15 +3467,11 @@
             <!-- 消息页面 -->
             <div class="page" id="messagesPage">
                 <div class="page-header">
-                    <h2 class="page-title" id="messagesTitle">客服消息</h2>
-                    <p class="page-subtitle" id="messagesSubtitle">管理所有客服对话</p>
-                    <div class="page-actions" id="messagesActions" style="display: none;">
-                        <button class="back-btn tap-feedback" id="messagesBackBtn" onclick="goBackInMessages()">← 返回</button>
-                        <div class="search-container">
-                            <input type="text" id="conversationSearch" class="search-input" placeholder="搜索对话...">
-                            <button class="search-btn" onclick="searchConversations()">🔍</button>
-                        </div>
+                    <div class="header-row">
+                        <button class="back-btn tap-feedback" id="messagesBackBtn" onclick="goBackInMessages()" style="display: none;">←</button>
+                        <h2 class="page-title" id="messagesTitle">客服消息</h2>
                     </div>
+                    <!-- page-subtitle 已移除以简化布局 -->
                 </div>
                 <div class="page-content">
                     <!-- 店铺列表视图 -->
@@ -3495,6 +3515,7 @@
                             <div class="chat-actions">
                                 <button class="chat-action-btn" onclick="viewCustomerInfo()" title="客户信息">👤</button>
                                 <button class="chat-action-btn" onclick="transferConversation()" title="转接">🔄</button>
+                                <button class="chat-action-btn" onclick="showCustomerSessionTools()" title="会话管理">🔧</button>
                                 <button class="chat-action-btn" onclick="endConversation()" title="结束对话">❌</button>
                             </div>
                         </div>
@@ -3653,6 +3674,11 @@
             </div>
         </div>
     </div>
+
+    <!-- 引入模块化JS文件 (必须在主脚本之前加载) -->
+    <script src="/js/customer-numbering.js"></script>
+    <script src="/js/session-manager.js"></script>
+    <script src="/js/debug-tools.js"></script>
 
     <script>
         // 全局变量
@@ -4476,22 +4502,41 @@
                 // 安全地更新DOM元素
                 const backBtn = document.getElementById('messagesBackBtn');
                 const titleElement = document.getElementById('messagesTitle');
-                const actionsElement = document.getElementById('messagesActions');
                 
                 if (backBtn) {
-                    backBtn.textContent = '← 店铺列表';
+                    backBtn.textContent = '←'; // 只保留箭头
+                    backBtn.style.display = 'inline-block';
                 }
                 
                 if (titleElement) {
                     titleElement.textContent = shop.name + ' - 客户对话';
                 }
                 
-                if (actionsElement) {
-                    actionsElement.style.display = 'block';
-                }
-                
                 this.showView('conversationsListView');
                 await this.loadConversationsForShop(shop.id);
+            }
+
+            // 生成客户编号（基于全局客户序号）
+            generateCustomerNumber(customerId) {
+                // 从客户ID中提取序号，如果是数字则直接使用，否则使用默认逻辑
+                let customerNumber = customerId;
+                
+                // 尝试从缓存获取客户编号映射
+                let customerNumberMap = JSON.parse(localStorage.getItem('customer_number_map') || '{}');
+                
+                if (customerNumberMap[customerId]) {
+                    return customerNumberMap[customerId];
+                }
+                
+                // 生成新的客户编号（基于已有客户数量 + 1）
+                let nextNumber = Object.keys(customerNumberMap).length + 1;
+                let formattedNumber = `客户${String(nextNumber).padStart(3, '0')}`;
+                
+                // 保存映射关系
+                customerNumberMap[customerId] = formattedNumber;
+                localStorage.setItem('customer_number_map', JSON.stringify(customerNumberMap));
+                
+                return formattedNumber;
             }
 
             // 加载店铺的对话列表
@@ -4534,11 +4579,14 @@
                     const lastMessageTime = conversation.last_message_time ? 
                         new Date(conversation.last_message_time).toLocaleString() : '暂无消息';
                     
+                    const customerDisplayName = conversation.customer_name || this.generateCustomerNumber(conversation.customer_id);
+                    const avatarInitial = customerDisplayName.charAt(customerDisplayName.length - 3) || 'C'; // 使用编号的数字部分作为头像
+                    
                     conversationItem.innerHTML = `
-                        <div class="conversation-avatar">${conversation.customer_name?.charAt(0) || 'C'}</div>
+                        <div class="conversation-avatar">${avatarInitial}</div>
                         <div class="conversation-content">
                             <div class="conversation-header">
-                                <span class="customer-name">${conversation.customer_name || '客户' + conversation.customer_id}</span>
+                                <span class="customer-name">${customerDisplayName}</span>
                                 <span class="message-time">${lastMessageTime}</span>
                             </div>
                             <div class="last-message">${conversation.last_message || '等待客户消息...'}</div>
@@ -4559,7 +4607,7 @@
                 this.currentConversationId = conversation.id;
                 this.currentCustomer = {
                     id: conversation.customer_id,
-                    name: conversation.customer_name || '客户' + conversation.customer_id
+                    name: conversation.customer_name || this.generateCustomerNumber(conversation.customer_id)
                 };
                 
                 // 安全地更新DOM元素
@@ -4859,13 +4907,13 @@
                 const conversationsListView = document.getElementById('conversationsListView');
                 const backBtn = document.getElementById('messagesBackBtn');
                 const titleElement = document.getElementById('messagesTitle');
-                const actionsElement = document.getElementById('messagesActions');
                 
                 if (chatView && chatView.style.display === 'block') {
                     // 从聊天界面返回对话列表
                     this.showView('conversationsListView');
                     if (backBtn) {
-                        backBtn.textContent = '← 店铺列表';
+                        backBtn.textContent = '←'; // 只保留箭头
+                        backBtn.style.display = 'inline-block';
                     }
                     if (titleElement) {
                         titleElement.textContent = '客户对话';
@@ -4874,13 +4922,10 @@
                     // 从对话列表返回店铺列表
                     this.showView('shopsListView');
                     if (backBtn) {
-                        backBtn.textContent = '← 返回';
+                        backBtn.style.display = 'none'; // 隐藏返回按钮
                     }
                     if (titleElement) {
-                        titleElement.textContent = '消息';
-                    }
-                    if (actionsElement) {
-                        actionsElement.style.display = 'none';
+                        titleElement.textContent = '客服消息'; // 恢复原标题
                     }
                     this.currentShopId = null;
                 }
@@ -5140,14 +5185,13 @@
             // 重置页面状态 
             const backBtn = document.getElementById('messagesBackBtn');
             const titleElement = document.getElementById('messagesTitle');
-            const actionsElement = document.getElementById('messagesActions');
             
             if (titleElement) {
-                titleElement.textContent = '消息';
+                titleElement.textContent = '客服消息';
             }
             
-            if (actionsElement) {
-                actionsElement.style.display = 'none';
+            if (backBtn) {
+                backBtn.style.display = 'none';
             }
             
             // 显示店铺列表作为消息页面的入口
@@ -7087,10 +7131,50 @@
 
         // ============ 消息管理增强功能 ============
 
+        // 客户会话持久化管理
+        class CustomerSessionManager {
+            static generatePersistentCustomerId() {
+                // 检查是否已有持久化ID
+                let customerId = localStorage.getItem('qt_customer_id');
+                if (customerId) {
+                    return customerId;
+                }
+                
+                // 生成新的持久化ID（基于时间戳和随机数）
+                const timestamp = Date.now();
+                const random = Math.random().toString(36).substr(2, 9);
+                customerId = `customer_${timestamp}_${random}`;
+                
+                // 保存到localStorage（持久化）和sessionStorage（会话级别备份）
+                localStorage.setItem('qt_customer_id', customerId);
+                sessionStorage.setItem('qt_customer_id', customerId);
+                
+                console.log('🆔 生成新的客户ID:', customerId);
+                return customerId;
+            }
+            
+            static getCurrentCustomerId() {
+                // 优先从localStorage获取，其次从sessionStorage
+                return localStorage.getItem('qt_customer_id') || 
+                       sessionStorage.getItem('qt_customer_id') || 
+                       this.generatePersistentCustomerId();
+            }
+            
+            static resetCustomerSession() {
+                // 清除会话信息（用于测试或强制重置）
+                localStorage.removeItem('qt_customer_id');
+                sessionStorage.removeItem('qt_customer_id');
+                localStorage.removeItem('customer_number_map');
+                console.log('🔄 客户会话已重置');
+            }
+        }
+
         // 搜索对话
         function searchConversations() {
+            // 输入框可能已从页面头部移除，这里做空值兼容
             const searchInput = document.getElementById('conversationSearch');
-            const searchTerm = searchInput.value.toLowerCase().trim();
+            const raw = searchInput ? searchInput.value : '';
+            const searchTerm = (raw || '').toLowerCase().trim();
             
             const conversationItems = document.querySelectorAll('.conversation-item');
             conversationItems.forEach(item => {
