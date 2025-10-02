@@ -1,0 +1,21 @@
+<!-- 审核管理面板模态框（抽取自 mobile-dashboard.html） -->
+<div id="reviewPanelModal" class="modal">
+  <div class="modal-content admin-modal">
+    <div class="modal-header">
+      <h3>📋 审核管理</h3>
+      <button class="modal-close" onclick="hideReviewPanel()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="review-section">
+        <h4>📝 待审核店铺列表</h4>
+        <div class="pending-shops-container" id="pendingShopsContainer">
+          <div class="loading">正在加载待审核店铺...</div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-buttons">
+      <button type="button" class="btn btn-secondary" onclick="hideReviewPanel()">关闭</button>
+      <button type="button" class="btn btn-primary" onclick="refreshPendingShops()">🔄 刷新列表</button>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,75 @@
+<!-- 推广赚钱模态框（抽取自 mobile-dashboard.html） -->
+<div id="promotionModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>🎁 推广赚钱 - 获得10%回报</h3>
+      <button class="modal-close" onclick="hidePromotionModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="promotion-content">
+        <div class="promotion-section">
+          <h4>💰 推广奖励政策</h4>
+          <div class="reward-info">
+            <div class="reward-item">
+              <span class="reward-icon">🎯</span>
+              <div>
+                <strong>推广佣金：10%</strong>
+                <p>每成功推荐一位朋友注册并使用服务，您将获得他们消费金额的10%作为佣金回报</p>
+              </div>
+            </div>
+            <div class="reward-item">
+              <span class="reward-icon">⚡</span>
+              <div>
+                <strong>实时结算</strong>
+                <p>朋友每次消费后，佣金立即到账，无需等待</p>
+              </div>
+            </div>
+            <div class="reward-item">
+              <span class="reward-icon">🔄</span>
+              <div>
+                <strong>长期有效</strong>
+                <p>只要是通过您的推广链接注册的用户，终身享受佣金分成</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="promotion-section">
+          <h4>🔗 您的专属推广链接</h4>
+          <div class="link-container">
+            <input type="text" id="promotionLink" readonly value="http://localhost:3030?ref=user" class="promotion-link-input">
+            <button class="copy-btn" onclick="copyPromotionLink()">📋 复制</button>
+          </div>
+          <p class="link-tip">将此链接分享给朋友，他们通过此链接注册后，您就能获得佣金！</p>
+        </div>
+
+        <div class="promotion-section">
+          <h4>📊 推广数据</h4>
+          <div class="stats-grid">
+            <div class="stat-item">
+              <div class="stat-number">0</div>
+              <div class="stat-label">推荐人数</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-number">￥0</div>
+              <div class="stat-label">累计佣金</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-number">￥0</div>
+              <div class="stat-label">本月佣金</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="promotion-section">
+          <h4>📱 分享方式</h4>
+          <div class="share-buttons">
+            <button class="share-btn" onclick="shareToWeChat()">💬 分享到微信</button>
+            <button class="share-btn" onclick="shareToQQ()">🎯 分享到QQ</button>
+            <button class="share-btn" onclick="generateQRCode()">📱 生成二维码</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

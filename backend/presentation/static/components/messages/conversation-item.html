@@ -1,0 +1,16 @@
+<!-- component: messages/conversation-item -->
+<template id="conversationItemTemplate">
+  <div class="conversation-item" data-conversation-id="" data-shop-id="">
+    <!-- avatar slot: will be injected by ConversationUtils or fallback -->
+    <div class="conversation-avatar"></div>
+    <div class="conversation-content">
+      <div class="conversation-header">
+        <span class="customer-name"></span>
+        <span class="message-time" data-conversation-id=""></span>
+      </div>
+      <div class="last-message" data-conversation-id=""></div>
+    </div>
+    <!-- unread badge (optional) -->
+    <div class="unread-badge" data-conversation-id="" style="display:none"></div>
+  </div>
+</template>

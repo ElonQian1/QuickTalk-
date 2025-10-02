@@ -1,0 +1,33 @@
+<!-- 创建店铺模态框（抽取自 mobile-dashboard.html） -->
+<div id="createShopModal" class="modal" style="display: none;">
+  <div class="modal-content mobile-modal">
+    <div class="modal-header">
+      <h3>🏪 创建新店铺</h3>
+      <span class="close" onclick="hideCreateShopModal()">&times;</span>
+    </div>
+    <form id="createShopForm" class="modal-form">
+      <div class="form-group">
+        <label for="shopName">店铺名称 *</label>
+        <input type="text" id="shopName" name="name" required placeholder="请输入店铺名称" maxlength="50">
+      </div>
+      <div class="form-group">
+        <label for="shopDomain">店铺域名 *</label>
+        <input type="text" id="shopDomain" name="domain" required placeholder="example.com" pattern="^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)*$">
+        <small>请输入有效的域名格式</small>
+      </div>
+      <div class="form-group">
+        <label for="shopEmail">联系邮箱 *</label>
+        <input type="email" id="shopEmail" name="contact_email" required placeholder="contact@example.com">
+        <small>用于接收重要通知和客服消息</small>
+      </div>
+      <div class="form-group">
+        <label for="shopDescription">店铺描述</label>
+        <textarea id="shopDescription" name="description" placeholder="简单描述您的店铺业务..." maxlength="500" rows="3"></textarea>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn btn-secondary" onclick="hideCreateShopModal()">取消</button>
+        <button type="submit" class="btn btn-primary">🚀 提交申请</button>
+      </div>
+    </form>
+  </div>
+</div>

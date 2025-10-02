@@ -1,0 +1,45 @@
+<!-- component: messages/chat-input -->
+<div class="chat-input-container">
+  <!-- 快捷回复 -->
+  <div class="quick-replies" id="quickReplies" style="display: none;">
+    <button class="quick-reply-btn">您好，我是客服，有什么可以帮您的吗？</button>
+    <button class="quick-reply-btn">请稍等，我帮您查询一下</button>
+    <button class="quick-reply-btn">感谢您的咨询，还有其他问题吗？</button>
+    <button class="quick-reply-btn">已为您记录，我们会尽快处理</button>
+  </div>
+
+  <!-- 输入工具栏 -->
+  <div class="input-toolbar">
+    <!-- 多媒体按钮 -->
+    <button id="mediaBtn" class="media-btn tap-feedback" title="发送文件">
+      <span class="media-icon">📎</span>
+    </button>
+    
+    <!-- 快捷回复按钮 -->
+    <button id="quickReplyBtn" class="quick-reply-toggle tap-feedback" title="快捷回复">
+      <span class="quick-icon">⚡</span>
+    </button>
+    
+    <!-- 表情按钮 -->
+    <button id="emojiBtn" class="emoji-btn tap-feedback" title="表情">
+      <span class="emoji-icon">😊</span>
+    </button>
+  </div>
+
+  <!-- 主输入区域 -->
+  <div class="main-input-area">
+    <!-- 文本输入框 -->
+    <input type="text" id="chatInput" class="chat-input" placeholder="输入消息...">
+    
+    <!-- 语音按钮 -->
+    <button id="voiceBtn" class="voice-btn tap-feedback" title="语音消息">
+      <span class="voice-icon">🎤</span>
+    </button>
+    
+    <!-- 发送按钮 -->
+    <button id="sendBtn" class="send-btn tap-feedback">发送</button>
+  </div>
+  
+  <!-- 隐藏的文件选择器 -->
+  <input type="file" id="fileInput" multiple accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.txt" style="display: none;">
+</div>

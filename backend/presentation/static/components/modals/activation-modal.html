@@ -1,0 +1,77 @@
+<!-- 付费开通模态框（抽取自 mobile-dashboard.html） -->
+<div id="activationModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>💎 店铺付费开通</h3>
+      <button class="modal-close" onclick="closeActivationModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <!-- 订单信息 -->
+      <div class="activation-info">
+        <div class="info-item">
+          <strong>订单号：</strong>
+          <span id="activationOrderId"></span>
+        </div>
+        <div class="info-item">
+          <strong>店铺名称：</strong>
+          <span id="activationShopName"></span>
+        </div>
+        <div class="info-item">
+          <strong>开通费用：</strong>
+          <span id="activationAmount" class="amount">¥2000</span>
+        </div>
+        <div class="info-item">
+          <strong>订单有效期：</strong>
+          <span id="activationExpiry"></span>
+        </div>
+        <div class="info-item activation-benefit">
+          <strong>开通后享受：</strong>
+          <span class="benefit-text">✅ 立即审核通过 + 1年服务期</span>
+        </div>
+      </div>
+
+      <!-- 支付方式选择 -->
+      <div id="activationPaymentMethods" class="payment-methods">
+        <h4>请选择支付方式：</h4>
+        <div class="payment-buttons">
+          <button class="payment-btn alipay-btn" onclick="selectActivationPaymentMethod('alipay')">
+            <div class="payment-icon">💙</div>
+            <div class="payment-text">支付宝</div>
+          </button>
+          <button class="payment-btn wechat-btn" onclick="selectActivationPaymentMethod('wechat')">
+            <div class="payment-icon">💚</div>
+            <div class="payment-text">微信支付</div>
+          </button>
+        </div>
+      </div>
+
+      <!-- 二维码支付区域 -->
+      <div id="activationQrCodeSection" class="qr-code-section" style="display: none;">
+        <h4 id="activationPaymentMethodName">支付宝</h4>
+        <div class="qr-code-container">
+          <img id="activationPaymentQRCode" src="" alt="付费开通支付二维码" />
+          <div class="qr-tips">
+            <p>请使用<span id="activationPaymentAppName">支付宝</span>扫码支付 <span class="amount">¥2000</span></p>
+            <p class="tip-text">付费成功后，店铺将立即审核通过</p>
+          </div>
+          <div class="qr-actions">
+            <button class="refresh-btn" onclick="refreshActivationQRCode()">🔄 刷新二维码</button>
+          </div>
+        </div>
+        <div class="test-buttons">
+          <button class="test-btn" onclick="mockActivationPaymentSuccess()">🪪 模拟支付成功 (测试)</button>
+        </div>
+      </div>
+
+      <!-- 支付成功 -->
+      <div id="activationPaymentSuccess" class="payment-success" style="display: none;">
+        <div class="success-icon">🎉</div>
+        <h4>付费开通成功！</h4>
+        <p>您的店铺已自动审核通过并获得1年有效期</p>
+        <div class="success-actions">
+          <button class="btn btn-primary" onclick="closeActivationModal(); loadShops();">返回店铺列表</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

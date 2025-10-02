@@ -1,0 +1,78 @@
+<!-- 集成代码模态框（组件） -->
+<div id="integration-code-modal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>� 集成代码</h3>
+      <button class="modal-close" onclick="closeModal('integration-code-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="integration-info">
+        <!-- 店铺信息 -->
+        <div class="info-section">
+          <h4>店铺信息</h4>
+          <div class="info-grid">
+            <div class="info-item">
+              <label>店铺名称</label>
+              <span id="shop-info-name">-</span>
+            </div>
+            <div class="info-item">
+              <label>域名</label>
+              <span id="shop-info-domain" class="code-text">-</span>
+            </div>
+            <div class="info-item">
+              <label>套餐</label>
+              <span id="shop-info-plan">-</span>
+            </div>
+            <div class="info-item">
+              <label>状态</label>
+              <span id="shop-info-status">-</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- API信息 -->
+        <div class="info-section">
+          <h4>API信息</h4>
+          <div class="info-grid">
+            <div class="info-item">
+              <label>API Key</label>
+              <span id="api-info-key" class="code-text">-</span>
+            </div>
+            <div class="info-item">
+              <label>API Secret</label>
+              <span id="api-info-secret" class="code-text">-</span>
+            </div>
+            <div class="info-item" style="grid-column: 1 / -1;">
+              <label>API端点</label>
+              <span id="api-info-endpoint" class="code-text">-</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 集成代码 -->
+        <div class="code-section">
+          <div class="code-header">
+            <h4>集成代码</h4>
+            <div class="code-actions">
+              <button class="btn btn-secondary btn-small" onclick="regenerateApiKey()">� 重新生成密钥</button>
+              <button class="btn btn-primary btn-small" onclick="copyIntegrationCode()">📋 复制代码</button>
+            </div>
+          </div>
+          <textarea id="integration-code" class="code-textarea" readonly></textarea>
+        </div>
+
+        <!-- 使用说明 -->
+        <div class="usage-guide">
+          <h4>使用说明</h4>
+          <ul>
+            <li>将上述代码复制并粘贴到您的网站页面中</li>
+            <li>建议放置在 <code>&lt;/body&gt;</code> 标签之前</li>
+            <li>客服窗口将自动显示在页面右下角</li>
+            <li>用户可以通过窗口与客服人员实时对话</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- 注意：与该模态相关的行为脚本保留在主文件中，以确保在 PartialsLoader 加载后正常执行 -->
+</div>
