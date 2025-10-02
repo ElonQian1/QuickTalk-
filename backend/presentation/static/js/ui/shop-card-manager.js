@@ -133,6 +133,15 @@ class ShopCardManager {
         const unreadCount = await this._getShopUnreadCount(shopId);
         badge.updateCount(unreadCount);
 
+        // 通知适配器保持一致
+        try {
+            if (window.ShopStatusBadgeAdapter && typeof window.ShopStatusBadgeAdapter.update === 'function') {
+                window.ShopStatusBadgeAdapter.update(shopId, unreadCount);
+            }
+        } catch (e) {
+            this.debug('通知 ShopStatusBadgeAdapter 失败（初始化阶段可忽略）:', e);
+        }
+
         this.debug(`店铺 ${shopId} 转换完成，未读数: ${unreadCount}`);
         return badge;
     }
@@ -154,6 +163,14 @@ class ShopCardManager {
             const unreadCount = count !== null ? count : await this._getShopUnreadCount(shopId);
             badge.updateCount(unreadCount);
             this.debug(`店铺 ${shopId} 红点更新成功: ${unreadCount}`);
+            // 同步适配器
+            try {
+                if (window.ShopStatusBadgeAdapter && typeof window.ShopStatusBadgeAdapter.update === 'function') {
+                    window.ShopStatusBadgeAdapter.update(shopId, unreadCount);
+                }
+            } catch (e) {
+                this.debug('同步 ShopStatusBadgeAdapter 失败（可忽略）:', e);
+            }
             return true;
         } catch (error) {
             console.warn(`更新店铺 ${shopId} 红点失败:`, error);

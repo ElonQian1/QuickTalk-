@@ -138,6 +138,45 @@ class DataSyncManager {
                 badge.style.display = 'none';
             }
         });
+
+        // 适配器：统一驱动 .shop-status 内的未读红点组件
+        try {
+            const unread = stats.unread_count || 0;
+            const hasConversations = (stats.conversation_count || 0) > 0;
+            if (window.ShopStatusBadgeAdapter && typeof window.ShopStatusBadgeAdapter.update === 'function') {
+                window.ShopStatusBadgeAdapter.update(shopId, { unread, hasConversations, conversationCount: stats.conversation_count || 0 });
+            } else {
+                // 直接兜底：更新 .shop-status 内的 .unread-badge
+                const statusScopes = document.querySelectorAll(`[data-shop-id="${shopId}"] .shop-status`);
+                statusScopes.forEach((statusEl) => {
+                    const badges = statusEl.querySelectorAll('.unread-badge');
+                    badges.forEach((b) => {
+                        const v = Math.max(0, parseInt(unread) || 0);
+                        if (v > 0) {
+                            b.textContent = v > 99 ? '99+' : String(v);
+                            b.style.display = 'inline-flex';
+                        } else if (hasConversations) {
+                            b.textContent = '';
+                            b.style.display = 'inline-flex';
+                        } else {
+                            b.textContent = '';
+                            b.style.display = 'none';
+                        }
+                    });
+                });
+            }
+        } catch (e) {
+            this.debug('ShopStatusBadgeAdapter 更新失败，已忽略:', e);
+        }
+
+        // 更新导航总未读
+        try {
+            if (window.NavUnreadAggregator && typeof window.NavUnreadAggregator.refresh === 'function') {
+                window.NavUnreadAggregator.refresh();
+            }
+        } catch (e) {
+            this.debug('NavUnreadAggregator 刷新失败，已忽略:', e);
+        }
     }
 
     /**
@@ -223,18 +262,26 @@ class DataSyncManager {
             this.debug(`更新message-time: "${oldTime}" → "${newTime}"`);
         });
 
-        // 更新未读徽章
+        // 更新未读徽章（列表项）
+        const unreadCount = parseInt(conversation.unread_count) || 0;
         const unreadBadges = document.querySelectorAll(`[data-conversation-id="${conversationId}"] .unread-badge`);
         unreadBadges.forEach(badge => {
-            const unreadCount = parseInt(conversation.unread_count) || 0;
             if (unreadCount > 0) {
                 badge.textContent = unreadCount;
                 badge.style.display = 'inline-block';
             } else {
+                badge.textContent = '';
                 badge.style.display = 'none';
             }
             this.debug(`更新unread-badge: ${unreadCount}`);
         });
+
+        // 更新头像上的徽章（通过适配器）
+        try {
+            if (window.ConversationBadgeAdapter && typeof window.ConversationBadgeAdapter.update === 'function') {
+                window.ConversationBadgeAdapter.update(conversationId, unreadCount);
+            }
+        } catch (e) { this.debug('ConversationBadgeAdapter 更新失败，已忽略:', e); }
     }
 
     /**

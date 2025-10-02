@@ -505,6 +505,14 @@
             font-weight: 600;
         }
 
+        /* 简单的未读数量显示 */
+        .unread-count {
+            color: #ff4757;
+            font-weight: 600;
+            font-size: 14px;
+            margin-left: 5px;
+        }
+
         .shop-info {
             flex: 1;
             min-width: 0; /* 允许文本截断 */
@@ -540,21 +548,22 @@
 
         .unread-badge {
             position: absolute;
-            top: -8px;
-            right: -8px;
+            top: -6px;
+            right: -6px;
             background: #ff4757;
             color: white;
             border-radius: 50%;
-            min-width: 16px;
-            height: 16px;
-            font-size: 9px;
+            min-width: 18px;
+            height: 18px;
+            font-size: 10px;
             font-weight: 700;
             display: flex;
             align-items: center;
             justify-content: center;
             border: 2px solid white;
-            box-shadow: 0 2px 4px rgba(255, 71, 87, 0.3);
+            box-shadow: 0 2px 6px rgba(255, 71, 87, 0.4);
             animation: mobile-unread-pulse 2s infinite;
+            z-index: 10; /* 确保红点在最上层 */
         }
 
         .unread-badge:empty {
@@ -588,7 +597,14 @@
             white-space: nowrap;
         }
 
+        /* 旧的状态样式已移除，现在只使用红点显示未读消息 */
+        .shop-status-indicator {
+            /* 预留用于未来扩展的状态指示器 */
+            display: none;
+        }
+
         .status-active {
+            /* 保留用于向后兼容，但现在主要使用红点 */
             background: #d4edda;
             color: #155724;
         }
@@ -4088,7 +4104,22 @@
             websocket.onmessage = function(event) {
                 try {
                     const data = JSON.parse(event.data);
-                    handleWebSocketMessage(data);
+                    if (typeof handleWebSocketMessage === 'function') {
+                        handleWebSocketMessage(data);
+                    } else {
+                        // 最小兜底：识别常见消息事件并更新导航红点
+                        const t = data && data.type;
+                        if (t === 'domain.event.message_appended' || t === 'new_message') {
+                            const badge = document.getElementById('messagesBadge');
+                            if (badge) {
+                                const cur = parseInt(badge.textContent) || 0;
+                                const next = cur + 1;
+                                badge.textContent = next > 99 ? '99+' : String(next);
+                                badge.classList.remove('hidden');
+                                badge.style.display = 'block';
+                            }
+                        }
+                    }
                 } catch (error) {
                     console.error('❌ 解析WebSocket消息失败:', error);
                 }
@@ -4131,18 +4162,22 @@
             
             // 兜底：直接返回整个事件对象
             console.log('⚠️ 兜底：使用整个事件对象');
-            return evt;
-        }
-
-        // 处理WebSocket消息（兼容 legacy 与 domain.event.*）
-        function handleWebSocketMessage(data) {
-            console.log('📨 收到WebSocket消息:', data);
-
-            // 触发实时数据管理器处理
-            if (window.RealtimeDataManager) {
-                window.RealtimeDataManager.handleWebSocketMessage(data);
-            }
-
+                        return `
+                        <div class="shop-card ${(getEffectiveStatus(shop) === 'inactive') ? 'shop-card-inactive' : ''}" data-shop-id="${sid}" onclick="handleShopClick('${sid}', event)">
+                            <div class="shop-header">
+                                <div class="shop-icon">${shop.name.charAt(0).toUpperCase()}</div>
+                                <div class="shop-status ${statusClass}" data-shop-id="${sid}">
+                                    <span class="shop-status-text" style="display:none"></span>
+                                    <span class="unread-badge" data-unread-count="${unread}" style="display: ${unread > 0 ? 'flex' : 'none'};">${unread > 0 ? (unread > 99 ? '99+' : unread) : ''}</span>
+                                </div>
+                            </div>
+                            <div class="shop-name">
+                                ${shop.name}
+                                <span class="unread-count" data-unread="${unread}" style="display: ${unread > 0 ? 'inline' : 'none'};">
+                                    ${unread > 0 ? `(${unread})` : ''}
+                                </span>
+                            </div>
+                            <div class="shop-domain">${shop.domain || 'domain.example.com'}</div>`
             const t = data && data.type;
             switch (t) {
                 case 'system.welcome':
@@ -4694,11 +4729,16 @@
                     <div class="shop-header">
                         <div class="shop-icon">${shop.name.charAt(0)}</div>
                         <div class="shop-status ${hasConversations ? 'status-active' : 'status-inactive'}" data-shop-id="${shop.id}">
-                            ${hasConversations ? '有对话' : '等待中'}
+                            <span class="shop-status-text" style="display:none"></span>
                             <span class="unread-badge" data-unread-count="${unreadCount || 0}" style="display: ${unreadCount > 0 ? 'flex' : 'none'};">${unreadCount > 0 ? (unreadCount > 99 ? '99+' : unreadCount) : ''}</span>
                         </div>
                     </div>
-                    <div class="shop-name">${shop.name}</div>
+                    <div class="shop-name">
+                        ${shop.name}
+                        <span class="unread-count" data-unread="${unreadCount || 0}" style="display: ${unreadCount > 0 ? 'inline' : 'none'};">
+                            ${unreadCount > 0 ? `(${unreadCount})` : ''}
+                        </span>
+                    </div>
                     <div class="shop-domain">${shop.domain || '未设置域名'}</div>
                     ${!hasConversations ? `<div class="shop-empty-hint">点击查看详情</div>` : ''}
                 `;
@@ -5640,17 +5680,15 @@
                         return `
                         <div class="shop-card ${(getEffectiveStatus(shop) === 'inactive') ? 'shop-card-inactive' : ''}" data-shop-id="${sid}" onclick="handleShopClick('${sid}', event)">
                             <div class="shop-header">
-                                <div class="shop-left">
-                                    <div class="shop-icon">${shop.name.charAt(0).toUpperCase()}</div>
-                                    <div class="shop-info">
-                                        <div class="shop-name">${shop.name}</div>
-                                        <div class="shop-domain">${shop.domain || 'domain.example.com'}</div>
-                                    </div>
-                                </div>
-                                <div class="shop-status ${statusClass}" data-shop-id="${sid}">
-                                    <span class="shop-status-text">${statusText}</span>
-                                    <span class="shop-unread-badge" data-shop-id="${sid}" style="${unread > 0 ? 'display:inline-block; position: static; margin-left: 8px;' : 'display:none; position: static; margin-left: 8px;'}">${unread > 0 ? unread : ''}</span>
-                                </div>
+                                <div class="shop-icon">${shop.name.charAt(0).toUpperCase()}</div>
+                            </div>
+                            <div class="shop-name">
+                                ${shop.name}
+                                <span class="unread-count" data-unread="${unread}" style="display: ${unread > 0 ? 'inline' : 'none'};">
+                                    ${unread > 0 ? `(${unread})` : ''}
+                                </span>
+                            </div>
+                            <div class="shop-domain">${shop.domain || 'domain.example.com'}</div>
                             </div>
                             
                             <div class="shop-meta">
@@ -9829,13 +9867,25 @@
     <script src="/static/js/data-sync-manager.js"></script>
     
     <!-- 未读红点组件 -->
-        <script src="/static/js/ui/unread-badge-component.js"></script>
+    <script src="/static/js/ui/unread-badge-component.js"></script>
+    <script src="/static/js/ui/shop-status-badge-adapter.js"></script>
+    <script src="/static/js/ui/nav-unread-aggregator.js"></script>
+    <script src="/static/js/ui/conversation-badge-adapter.js"></script>
         <script src="/static/js/ui/shop-card-manager.js"></script>
         <script src="/static/js/ui/nav-badge-manager.js"></script>
         <script src="/static/js/ui/badge-integration.js"></script>    <script>
         // 初始化数据同步管理器
-        window.mobileDataSyncManager = new DataSyncManager();
-        window.mobileDataSyncManager.enableDebugMode(); // 开启调试模式
+        try {
+            if (typeof DataSyncManager !== 'undefined') {
+                window.mobileDataSyncManager = new DataSyncManager();
+                window.mobileDataSyncManager.enableDebugMode(); // 开启调试模式
+                console.log('✅ mobileDataSyncManager 初始化成功');
+            } else {
+                console.error('❌ DataSyncManager 类未找到，请检查 data-sync-manager.js 文件加载');
+            }
+        } catch (error) {
+            console.error('❌ mobileDataSyncManager 初始化失败:', error);
+        }
         
         // 初始化店铺卡片管理器（backend/presentation版本）
         ShopCardManager.quickInit({
@@ -9855,6 +9905,24 @@
         window.navBadgeManager = navBadgeManager;
         console.log('🧭 backend/presentation版导航红点管理器初始化完成');
         
+        // 更新店铺未读数量显示（简化版）
+        function updateShopBadgeDisplay(shopCard, unreadCount) {
+            const unreadSpan = shopCard.querySelector('.unread-count');
+            if (unreadSpan) {
+                unreadSpan.setAttribute('data-unread', unreadCount || 0);
+                
+                if (unreadCount > 0) {
+                    unreadSpan.style.display = 'inline';
+                    unreadSpan.textContent = `(${unreadCount})`;
+                } else {
+                    unreadSpan.style.display = 'none';
+                    unreadSpan.textContent = '';
+                }
+                
+                console.log(`� 更新店铺未读数: ${shopCard.getAttribute('data-shop-id')}, 未读数: ${unreadCount}`);
+            }
+        }
+        
         // 移动端店铺未读消息更新函数
         function updateMobileShopUnreadBadges() {
             console.log('🔄 移动端: 更新店铺未读消息红点...');
@@ -9864,12 +9932,25 @@
             
             shopCards.forEach(async (shopCard) => {
                 const shopId = shopCard.getAttribute('data-shop-id');
-                if (shopId && !window.mobileDataSyncManager.isTempId(shopId)) {
+                
+                // 检查是否为临时ID，添加安全检查
+                const isTempShop = (id) => typeof id === 'string' && id.startsWith('temp-shop-');
+                
+                if (shopId && !isTempShop(shopId)) {
                     try {
+                        // 确保 mobileDataSyncManager 存在
+                        if (!window.mobileDataSyncManager) {
+                            console.warn('⚠️ mobileDataSyncManager 未初始化');
+                            return;
+                        }
+                        
                         // 获取店铺统计数据并更新红点
                         const stats = await window.mobileDataSyncManager.forceRefreshShopStats(shopId);
                         if (stats) {
                             console.log(`✅ 移动端店铺 ${shopId} 未读消息已更新: ${stats.unread_count}`);
+                            
+                            // 手动更新红点显示
+                            updateShopBadgeDisplay(shopCard, stats.unread_count);
                         }
                     } catch (error) {
                         console.warn(`⚠️ 移动端更新店铺 ${shopId} 未读消息失败:`, error);
@@ -9924,6 +10005,24 @@
                 console.log('📱 移动端店铺容器监听器已启动');
             }
         }, 1000);
+
+        // 测试未读数量显示功能
+        setTimeout(() => {
+            const firstShopCard = document.querySelector('.shop-card[data-shop-id]');
+            if (firstShopCard) {
+                console.log('🧪 测试：为第一个店铺添加未读数量显示 (5)');
+                const unreadSpan = firstShopCard.querySelector('.unread-count');
+                if (unreadSpan) {
+                    unreadSpan.style.display = 'inline';
+                    unreadSpan.textContent = '(5)';
+                    console.log('✅ 测试显示成功');
+                } else {
+                    console.log('❌ 未找到 .unread-count 元素');
+                }
+            } else {
+                console.log('❌ 未找到店铺卡片');
+            }
+        }, 3000);
     </script>
 
 </body>

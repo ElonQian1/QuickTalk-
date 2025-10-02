@@ -298,4 +298,12 @@ if (document.readyState === 'loading') {
     window.badgeUpdateCoordinator = new BadgeUpdateCoordinator();
 }
 
+// 将 isTempId 方法也添加到 DataSyncManager 原型上
+if (typeof DataSyncManager !== 'undefined') {
+    DataSyncManager.prototype.isTempId = function(id) {
+        return id && (id.startsWith('temp-') || id.includes('temp'));
+    };
+    console.log('✅ DataSyncManager.prototype.isTempId 方法已添加');
+}
+
 console.log('🔗 红点组件集成扩展模块加载完成');

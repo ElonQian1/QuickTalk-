@@ -194,6 +194,42 @@ class DataSyncManager {
 
         // 更新店铺状态中的未读红点 (新增的unread-badge)
         this.updateShopStatusUnreadBadge(shopId, stats.unread_count || 0);
+
+        // 兼容更新：直接更新店铺名称旁的简化未读文本 (.unread-count)
+        try {
+            const cards = document.querySelectorAll(`.shop-card[data-shop-id="${shopId}"]`);
+            cards.forEach(card => {
+                const span = card.querySelector('.unread-count');
+                if (!span) return;
+                const count = stats.unread_count || 0;
+                if (count > 0) {
+                    span.style.display = 'inline';
+                    span.textContent = `(${count})`;
+                    span.setAttribute('data-unread', String(count));
+                } else {
+                    span.style.display = 'none';
+                    span.textContent = '';
+                    span.setAttribute('data-unread', '0');
+                }
+            });
+            // 同步更新底部导航“消息”红点（#messagesBadge）
+            const total = Array.from(document.querySelectorAll('.unread-count'))
+                .reduce((sum, el) => sum + (parseInt(el.getAttribute('data-unread')) || 0), 0);
+            const navBadge = document.getElementById('messagesBadge');
+            if (navBadge) {
+                if (total > 0) {
+                    navBadge.textContent = total > 99 ? '99+' : String(total);
+                    navBadge.classList.remove('hidden');
+                    navBadge.style.display = 'block';
+                } else {
+                    navBadge.textContent = '0';
+                    navBadge.classList.add('hidden');
+                    navBadge.style.display = '';
+                }
+            }
+        } catch (e) {
+            this.debug('更新 .unread-count 兼容文本失败:', e);
+        }
     }
 
     /**
