@@ -1,0 +1,6 @@
+/* toast.css — 轻提示样式 */
+#toast-container { position: fixed; left: 0; right: 0; bottom: 20px; display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 9999; pointer-events: none; }
+#toast-container .toast-item { color: #fff; background: #334155; padding: 10px 14px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,.2); opacity: .98; pointer-events: auto; max-width: 90%; }
+#toast-container .toast-item.success { background: #16a34a; }
+#toast-container .toast-item.error { background: #dc2626; }
+#toast-container .toast-item.warning { background: #f59e0b; }

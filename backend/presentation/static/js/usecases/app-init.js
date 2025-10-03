@@ -204,6 +204,14 @@
       // 新模块初始化
       initializeEnhancedModules();
 
+      // 优先调用消息页胶水（新）
+      if (window.MessagesBootstrap && typeof window.MessagesBootstrap.init === 'function') {
+        window.MessagesBootstrap.init();
+      } else {
+        // 兼容旧实现
+        initializeMessagePageEnhancements();
+      }
+
       // 绑定导航事件（由 HTML 内定义的函数实现）
       if (typeof window.bindNavigationEvents === 'function') {
         window.bindNavigationEvents();

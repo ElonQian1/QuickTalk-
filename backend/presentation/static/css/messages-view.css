@@ -1,0 +1,113 @@
+/* 消息视图与底部导航样式（从 mobile-dashboard.html 拆分） */
+
+/* 聊天界面样式 */
+.chat-container {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 160px - 80px); /* 页面头部约160px + 底部导航栏80px */
+  background: white;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+  margin-bottom: 10px; /* 为底部导航栏留出额外空间 */
+}
+
+/* 聊天界面特殊布局 - 当在聊天视图时调整页面内容 */
+#chatView { padding: 0 !important; }
+#chatView .chat-container { border-radius: 0; height: calc(100vh - 140px); margin: 0; }
+
+.chat-messages { flex: 1; padding: 16px; overflow-y: auto; background: #f8f9fa; }
+
+.chat-message { display: flex; margin-bottom: 15px; }
+.chat-message.customer { justify-content: flex-start; }
+.chat-message.agent { justify-content: flex-end; }
+
+.message-bubble {
+  max-width: 70%;
+  padding: 12px 16px;
+  border-radius: 18px;
+  font-size: 15px;
+  line-height: 1.4;
+  word-wrap: break-word;
+}
+.chat-message.customer .message-bubble { background: white; color: #2c3e50; border-bottom-left-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+.chat-message.agent .message-bubble { background: #667eea; color: white; border-bottom-right-radius: 4px; }
+
+.message-time { font-size: 11px; color: #adb5bd; text-align: center; margin: 10px 0; }
+
+.message-avatar {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex; align-items: center; justify-content: center;
+  color: white; font-weight: 600; font-size: 14px; margin-right: 10px; flex-shrink: 0;
+}
+.chat-message.agent .message-avatar { margin-right: 0; margin-left: 10px; background: linear-gradient(135deg, #28a745 0%, #20c997 100%); }
+
+/* 输入框与媒体（部分已在 chat-input-enhanced.css） */
+.chat-input { flex: 1; border: 2px solid #e9ecef; border-radius: 25px; padding: 12px 16px; font-size: 15px; outline: none; transition: border-color 0.3s; min-width: 0; }
+.chat-input:focus { border-color: #667eea; }
+
+/* 消息中的媒体内容样式 */
+.message-media { margin-top: 8px; max-width: 250px; }
+.message-media img { width: 100%; border-radius: 8px; cursor: pointer; transition: transform 0.3s ease; }
+.message-media img:hover { transform: scale(1.02); }
+
+.message-file { background: rgba(102,126,234,0.1); border: 1px solid rgba(102,126,234,0.3); border-radius: 8px; padding: 12px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: all 0.3s ease; margin-top: 8px; max-width: 250px; }
+.message-file:hover { background: rgba(102,126,234,0.15); }
+.message-file .file-icon { font-size: 20px; flex-shrink: 0; }
+.message-file .file-details { flex: 1; min-width: 0; }
+.message-file .file-name { font-size: 14px; font-weight: 500; color: #495057; word-break: break-all; margin-bottom: 2px; }
+.message-file .file-size { font-size: 12px; color: #6c757d; }
+
+.message-audio { background: rgba(40,167,69,0.1); border: 1px solid rgba(40,167,69,0.3); border-radius: 8px; padding: 12px; margin-top: 8px; max-width: 250px; }
+.message-audio audio { width: 100%; }
+
+/* 底部导航栏 */
+.bottom-nav {
+  position: fixed; bottom: 0; left: 0; right: 0; height: 80px; background: white; border-top: 1px solid #e9ecef;
+  display: flex; justify-content: space-around; align-items: center; padding: 0 10px; z-index: 100;
+  box-shadow: 0 -2px 10px rgba(0,0,0,0.05); transition: transform 0.3s ease-in-out;
+}
+/* 聊天界面时隐藏底部导航栏 */
+.bottom-nav.hidden { transform: translateY(100%); }
+
+.nav-item { display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: all 0.3s ease; padding: 8px 12px; border-radius: 12px; position: relative; }
+.nav-item.active { color: #667eea; background: rgba(102,126,234,0.1); }
+.nav-item.active .nav-icon { transform: scale(1.1); }
+
+.nav-icon { font-size: 24px; margin-bottom: 4px; transition: transform 0.3s ease; }
+.nav-label { font-size: 11px; font-weight: 500; letter-spacing: 0.3px; }
+
+.nav-badge { position: absolute; top: 5px; right: 8px; background: #dc3545; color: white; font-size: 10px; padding: 2px 6px; border-radius: 10px; min-width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-weight: 600; }
+
+/* 消息页面增强样式（从 HTML 移出） */
+.search-container { display: flex; gap: 8px; margin-top: 10px; }
+.search-input { flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 20px; font-size: 14px; background: rgba(255,255,255,0.9); }
+.search-btn { background: #007bff; color: white; border: none; padding: 8px 12px; border-radius: 20px; cursor: pointer; }
+
+.conversations-header { background: #f8f9fa; padding: 12px 16px; border-bottom: 1px solid #e9ecef; margin: -20px -20px 12px -20px; }
+.conversations-stats { font-size: 13px; color: #666; margin-bottom: 8px; }
+.separator { margin: 0 8px; }
+.conversations-filter { display: flex; gap: 10px; }
+.filter-btn { background: transparent; border: 1px solid #ddd; color: #666; padding: 6px 12px; border-radius: 15px; font-size: 12px; cursor: pointer; transition: all 0.3s ease; }
+.filter-btn.active { background: #007bff; color: white; border-color: #007bff; }
+.filter-btn:hover { border-color: #007bff; color: #007bff; background: rgba(0,123,255,.06); }
+
+/* 响应式调整（聊天与底部导航） */
+@media (max-height: 667px) {
+  .bottom-nav { height: 70px; }
+  .chat-container { height: calc(100vh - 120px - 70px); }
+  #chatView .chat-container { height: calc(100vh - 100px); }
+}
+@media (max-width: 480px) {
+  .chat-container { border-radius: 8px; height: calc(100vh - 140px - 80px); }
+  #chatView { padding: 0 !important; }
+  #chatView .chat-container { border-radius: 0; height: calc(100vh - 120px); margin: 0; box-shadow: none; }
+  .chat-input { font-size: 16px; }
+}
+
+/* 解决 iOS 安全区 */
+@media (max-width: 480px) {
+  .chat-container { padding-bottom: env(safe-area-inset-bottom, 0); }
+  .bottom-nav { padding-bottom: env(safe-area-inset-bottom, 0); }
+}

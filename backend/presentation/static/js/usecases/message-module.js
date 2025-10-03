@@ -77,8 +77,6 @@ class MessageModule {
                     if (this.currentShopId) this.loadConversationsForShop(this.currentShopId);
                     return;
                 }
-
-                // 新版领域事件
                 if (t.startsWith('domain.event.')) {
                     const unwrap = (evt) => {
                         if (!evt) return null;
@@ -102,6 +100,51 @@ class MessageModule {
                         const payload = unwrap(data);
                         this.handleDomainMessageDeleted(payload);
                         return;
+                    }
+                }
+            }
+
+            // 加载聊天消息
+            async loadMessages(conversationId) {
+                const container = document.getElementById('chatMessages');
+                if (container) {
+                    container.innerHTML = '';
+                    if (window.LoadingStatesUI && typeof window.LoadingStatesUI.spinner === 'function') {
+                        container.appendChild(window.LoadingStatesUI.spinner('正在加载消息...'));
+                    }
+                }
+                try {
+                    const response = await fetch(`/api/conversations/${conversationId}/messages`, {
+                        headers: {
+                            'Authorization': `Bearer ${getAuthToken()}`
+                        }
+                    });
+                    const data = await response.json();
+                    
+                    if (data.success && data.data) {
+                        this.messages = data.data;
+                        this.renderMessages();
+                        return;
+                    } else {
+                        console.error('获取消息失败:', data.error);
+                        if (container) {
+                            container.innerHTML = '';
+                            if (window.ErrorStatesUI && typeof window.ErrorStatesUI.errorBlock === 'function') {
+                                container.appendChild(window.ErrorStatesUI.errorBlock('加载消息失败', data.error || '请稍后重试'));
+                            } else {
+                                container.textContent = data.error || '加载消息失败';
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error('网络错误:', error);
+                    if (container) {
+                        container.innerHTML = '';
+                        if (window.ErrorStatesUI && typeof window.ErrorStatesUI.errorBlock === 'function') {
+                            container.appendChild(window.ErrorStatesUI.errorBlock('网络错误', '无法获取消息，请检查网络连接'));
+                        } else {
+                            container.textContent = '网络错误，无法获取消息';
+                        }
                     }
                 }
             }
@@ -237,24 +280,36 @@ class MessageModule {
                 container.appendChild(shopsGrid);
             }
 
-            // 创建单个店铺卡片
+            // 创建单个店铺卡片（委托 UI 组件）
             async createShopCard(shop) {
-                // 获取店铺的对话统计
                 const conversationCount = await this.getShopConversationCount(shop.id);
                 const unreadCount = await this.getShopUnreadCount(shop.id);
                 const hasConversations = conversationCount > 0;
-                
+                const onCardClick = async () => {
+                    if (hasConversations) {
+                        this.selectShop(shop);
+                    } else {
+                        this.showToast(`店铺 "${shop.name}" 暂无客户对话，等待客户发起对话`, 'info');
+                        this.selectShop(shop);
+                    }
+                };
+                if (window.ShopCardUI && typeof window.ShopCardUI.build === 'function') {
+                    const actionsHTML = '';
+                    const card = window.ShopCardUI.build({ ...shop, unreadCount }, { hasConversations, onClick: onCardClick, actionsHTML });
+                    setTimeout(() => {
+                        if (window.DataSyncManager) {
+                            window.DataSyncManager.forceRefreshShopStats(shop.id).catch(()=>{});
+                        }
+                    }, 500);
+                    return card;
+                }
+                // 回退：原实现（简化版）
                 const shopCard = document.createElement('div');
                 shopCard.className = `shop-card ${!hasConversations ? 'shop-card-inactive' : ''}`;
-                shopCard.setAttribute('data-shop-id', shop.id); // 重要：设置data属性
-                
+                shopCard.setAttribute('data-shop-id', shop.id);
                 shopCard.innerHTML = `
                     <div class="shop-header">
                         <div class="shop-icon">${shop.name.charAt(0)}</div>
-                        <div class="shop-status ${hasConversations ? 'status-active' : 'status-inactive'}" data-shop-id="${shop.id}">
-                            <span class="shop-status-text" style="display:none"></span>
-                            <span class="unread-badge" data-unread-count="${unreadCount || 0}" style="display: ${unreadCount > 0 ? 'flex' : 'none'};">${unreadCount > 0 ? (unreadCount > 99 ? '99+' : unreadCount) : ''}</span>
-                        </div>
                     </div>
                     <div class="shop-name">
                         ${shop.name}
@@ -263,39 +318,8 @@ class MessageModule {
                         </span>
                     </div>
                     <div class="shop-domain">${shop.domain || '未设置域名'}</div>
-                    ${!hasConversations ? `<div class="shop-empty-hint">点击查看详情</div>` : ''}
                 `;
-                
-                // 增强DOM结构
-                if (window.DOMEnhancer) {
-                    window.DOMEnhancer.enhanceShopCard(shopCard, {
-                        ...shop,
-                        conversation_count: conversationCount,
-                        unread_count: unreadCount
-                    });
-                }
-                
-                // 强制刷新数据显示
-                setTimeout(() => {
-                    if (window.DataSyncManager) {
-                        window.DataSyncManager.forceRefreshShopStats(shop.id).then(() => {
-                            console.log(`✅ 店铺 ${shop.id} 数据刷新完成`);
-                        }).catch(error => {
-                            console.error(`❌ 店铺 ${shop.id} 数据刷新失败:`, error);
-                        });
-                    }
-                }, 500);
-                
-                shopCard.addEventListener('click', async () => {
-                    if (hasConversations) {
-                        this.selectShop(shop);
-                    } else {
-                        // 显示提示信息，但仍然允许进入查看空状态
-                        this.showToast(`店铺 "${shop.name}" 暂无客户对话，等待客户发起对话`, 'info');
-                        this.selectShop(shop); // 仍然可以进入查看空状态
-                    }
-                });
-                
+                shopCard.addEventListener('click', onCardClick);
                 return shopCard;
             }
 
@@ -409,19 +433,22 @@ class MessageModule {
                 container.innerHTML = '';
 
                 if (this.conversations.length === 0) {
-                    const tpl = document.getElementById('emptyConversationsTemplate');
-                    if (tpl && tpl.content) {
-                        container.innerHTML = '';
-                        const node = tpl.content.firstElementChild.cloneNode(true);
-                        container.appendChild(node);
+                    if (window.EmptyStatesUI && typeof window.EmptyStatesUI.conversations === 'function') {
+                        container.appendChild(window.EmptyStatesUI.conversations());
                     } else {
-                        container.innerHTML = `
-                            <div class="empty-state">
-                                <div class="empty-icon">💬</div>
-                                <h3>暂无对话</h3>
-                                <p>等待客户发起对话</p>
-                            </div>
-                        `;
+                        const tpl = document.getElementById('emptyConversationsTemplate');
+                        if (tpl && tpl.content) {
+                            const node = tpl.content.firstElementChild.cloneNode(true);
+                            container.appendChild(node);
+                        } else {
+                            container.innerHTML = `
+                                <div class="empty-state">
+                                    <div class="empty-icon">💬</div>
+                                    <h3>暂无对话</h3>
+                                    <p>等待客户发起对话</p>
+                                </div>
+                            `;
+                        }
                     }
                     return;
                 }
@@ -430,84 +457,49 @@ class MessageModule {
                 list.className = 'conversation-list';
 
                 this.conversations.forEach(conversation => {
-                    const conversationItem = document.createElement('div');
-                    conversationItem.className = 'conversation-item';
-                    conversationItem.setAttribute('data-conversation-id', conversation.id); // 重要：设置data属性
-                    conversationItem.setAttribute('data-shop-id', conversation.shop_id || this.currentShopId);
-                    
-                    const lastMessageTime = conversation.last_message_time ? 
-                        new Date(conversation.last_message_time).toLocaleString() : '暂无消息';
-                    
-                    const customerDisplayName = conversation.customer_name || this.generateCustomerNumber(conversation.customer_id);
-                    
-                    console.log(`渲染对话 ${conversation.id}:`, {
-                        customer: customerDisplayName,
-                        lastMessage: conversation.last_message,
-                        lastTime: lastMessageTime,
-                        unreadCount: conversation.unread_count
-                    });
-                    
-                    // 使用 ConversationUtils 生成增强的头像和红点
-                    if (window.ConversationUtils) {
-                        conversationItem.innerHTML = `
-                            ${window.ConversationUtils.generateAvatarHTML({
-                                customerId: conversation.customer_id,
-                                customerName: conversation.customer_name,
-                                unreadCount: conversation.unread_count || 0
-                            })}
-                            <div class="conversation-content">
-                                <div class="conversation-header">
-                                    <span class="customer-name">${window.ConversationUtils.formatCustomerName(conversation.customer_id, conversation.customer_name)}</span>
-                                    <span class="message-time" data-conversation-id="${conversation.id}">${lastMessageTime}</span>
+                    const item = (window.ConversationItemUI && typeof window.ConversationItemUI.create === 'function')
+                        ? window.ConversationItemUI.create(conversation, { onClick: (c)=> this.selectConversation(c) })
+                        : (function(self){
+                            const conversationItem = document.createElement('div');
+                            conversationItem.className = 'conversation-item';
+                            conversationItem.setAttribute('data-conversation-id', conversation.id);
+                            conversationItem.setAttribute('data-shop-id', conversation.shop_id || self.currentShopId);
+                            const lastMessageTime = conversation.last_message_time ? new Date(conversation.last_message_time).toLocaleString() : '暂无消息';
+                            const customerDisplayName = conversation.customer_name || self.generateCustomerNumber(conversation.customer_id);
+                            const avatarInitial = customerDisplayName.charAt(customerDisplayName.length - 3) || 'C';
+                            conversationItem.innerHTML = `
+                                <div class="conversation-avatar">${avatarInitial}</div>
+                                <div class="conversation-content">
+                                    <div class="conversation-header">
+                                        <span class="customer-name">${customerDisplayName}</span>
+                                        <span class="message-time" data-conversation-id="${conversation.id}">${lastMessageTime}</span>
+                                    </div>
+                                    <div class="last-message" data-conversation-id="${conversation.id}">${conversation.last_message || '等待客户消息...'}</div>
                                 </div>
-                                <div class="last-message" data-conversation-id="${conversation.id}">${conversation.last_message || '等待客户消息...'}</div>
-                            </div>
-                        `;
-                        
-                        // 添加未读状态类
-                        if (conversation.unread_count > 0) {
-                            conversationItem.classList.add('has-unread');
-                        }
-                    } else {
-                        // 回退到原始模板（如果工具库未加载）
-                        const avatarInitial = customerDisplayName.charAt(customerDisplayName.length - 3) || 'C';
-                        conversationItem.innerHTML = `
-                            <div class="conversation-avatar">${avatarInitial}</div>
-                            <div class="conversation-content">
-                                <div class="conversation-header">
-                                    <span class="customer-name">${customerDisplayName}</span>
-                                    <span class="message-time" data-conversation-id="${conversation.id}">${lastMessageTime}</span>
-                                </div>
-                                <div class="last-message" data-conversation-id="${conversation.id}">${conversation.last_message || '等待客户消息...'}</div>
-                            </div>
-                            ${conversation.unread_count > 0 ? `<div class="unread-badge" data-conversation-id="${conversation.id}">${conversation.unread_count}</div>` : ''}
-                        `;
-                    }
-                    
-                    // 增强DOM结构
-                    if (window.DOMEnhancer) {
-                        window.DOMEnhancer.enhanceConversationItem(conversationItem, conversation);
-                    }
-                    
-                    // 强制刷新对话数据显示
-                    setTimeout(() => {
-                        if (window.DataSyncManager) {
-                            window.DataSyncManager.updateConversationDOM(conversation.id, conversation);
-                        }
-                        if (window.DisplayFixer) {
-                            window.DisplayFixer.fixSingleLastMessage(conversationItem.querySelector('.last-message'), conversation.id);
-                            window.DisplayFixer.fixSingleMessageTime(conversationItem.querySelector('.message-time'), conversation.id);
-                        }
-                    }, 100);
-                    
-                    conversationItem.addEventListener('click', () => {
-                        this.selectConversation(conversation);
-                    });
-                    
-                    list.appendChild(conversationItem);
+                                ${conversation.unread_count > 0 ? `<div class="unread-badge" data-conversation-id="${conversation.id}">${conversation.unread_count}</div>` : ''}
+                            `;
+                            if (window.DOMEnhancer) try { window.DOMEnhancer.enhanceConversationItem(conversationItem, conversation); } catch(_e){}
+                            setTimeout(() => {
+                                if (window.DataSyncManager) window.DataSyncManager.updateConversationDOM(conversation.id, conversation);
+                                if (window.DisplayFixer) {
+                                    window.DisplayFixer.fixSingleLastMessage(conversationItem.querySelector('.last-message'), conversation.id);
+                                    window.DisplayFixer.fixSingleMessageTime(conversationItem.querySelector('.message-time'), conversation.id);
+                                }
+                            }, 100);
+                            conversationItem.addEventListener('click', () => { self.selectConversation(conversation); });
+                            return conversationItem;
+                        })(this);
+                    list.appendChild(item);
                 });
 
                 container.appendChild(list);
+
+                // 列表渲染后更新会话统计（若模块存在）
+                try {
+                    if (window.ConversationsHeader && typeof window.ConversationsHeader.refresh === 'function') {
+                        window.ConversationsHeader.refresh();
+                    }
+                } catch(e) { /* noop */ }
             }
 
             // 选择对话，进入聊天界面
@@ -517,164 +509,102 @@ class MessageModule {
                     id: conversation.customer_id,
                     name: conversation.customer_name || this.generateCustomerNumber(conversation.customer_id)
                 };
-                
-                // 清除相关的红点（这时用户确实在查看对话）
-                if (window.navBadgeManager) {
-                    window.navBadgeManager.clearRelevantBadges(conversation.id, conversation.shop_id);
-                    console.log(`🧭 用户查看对话 ${conversation.id}，清除相关红点`);
+
+                // 更新聊天头部
+                if (window.ChatHeaderUI && typeof window.ChatHeaderUI.updateForConversation === 'function') {
+                    window.ChatHeaderUI.updateForConversation(conversation, { customerName: this.currentCustomer.name });
+                } else {
+                    const titleElement = document.getElementById('messagesTitle');
+                    if (titleElement) titleElement.textContent = this.currentCustomer.name;
                 }
-                
-                // 安全地更新DOM元素
-                const backBtn = document.getElementById('messagesBackBtn');
-                const titleElement = document.getElementById('messagesTitle');
-                const customerAvatarElement = document.getElementById('customerAvatar');
-                const customerNameElement = document.getElementById('customerName');
-                
-                if (backBtn) {
-                    backBtn.textContent = '← 对话列表';
-                }
-                
-                if (titleElement) {
-                    titleElement.textContent = this.currentCustomer.name;
-                }
-                
-                // 使用 ConversationUtils 更新客户头像
-                if (customerAvatarElement && window.ConversationUtils) {
-                    const avatarInitial = window.ConversationUtils.generateAvatarInitial(conversation.customer_id, conversation.customer_name);
-                    const theme = window.ConversationUtils.generateAvatarTheme(conversation.customer_id);
-                    customerAvatarElement.textContent = avatarInitial;
-                    customerAvatarElement.className = `customer-avatar ${theme}`;
-                }
-                
-                // 更新客户名称显示
-                if (customerNameElement && window.ConversationUtils) {
-                    customerNameElement.textContent = window.ConversationUtils.formatCustomerName(conversation.customer_id, conversation.customer_name);
-                }
-                
+
+                // 切换视图到聊天
                 this.showView('chatView');
+
+                // 先展示加载态
+                const container = document.getElementById('chatMessages');
+                if (container) {
+                    container.innerHTML = '';
+                    if (window.LoadingStatesUI && typeof window.LoadingStatesUI.spinner === 'function') {
+                        container.appendChild(window.LoadingStatesUI.spinner('正在加载消息...'));
+                    }
+                }
+
+                // 加载消息
                 await this.loadMessages(conversation.id);
                 this.focusChatInput();
+                this.scrollToBottom();
             }
 
-            // 加载聊天消息
-            async loadMessages(conversationId) {
-                try {
-                    const response = await fetch(`/api/conversations/${conversationId}/messages`, {
-                        headers: {
-                            'Authorization': `Bearer ${getAuthToken()}`
-                        }
-                    });
-                    const data = await response.json();
-                    
-                    if (data.success && data.data) {
-                        this.messages = data.data;
-                        this.renderMessages();
-                    } else {
-                        console.error('获取消息失败:', data.error);
-                    }
-                } catch (error) {
-                    console.error('网络错误:', error);
-                }
-            }
-
-            // 渲染聊天消息
+            // 批量渲染消息列表
             renderMessages() {
                 const container = document.getElementById('chatMessages');
+                if (!container) return;
                 container.innerHTML = '';
-
-                this.messages.forEach(message => {
-                    this.renderMessage(message);
-                });
-
+                if (!Array.isArray(this.messages) || this.messages.length === 0) {
+                    return;
+                }
+                this.messages.forEach((m) => this.renderMessage(m));
                 this.scrollToBottom();
             }
 
             // 渲染单条消息
             renderMessage(message) {
                 const container = document.getElementById('chatMessages');
+                if (window.MessageBubbleUI && typeof window.MessageBubbleUI.create === 'function') {
+                    const node = window.MessageBubbleUI.create(message, { currentCustomerName: this.currentCustomer?.name });
+                    container.appendChild(node);
+                    return;
+                }
+                // 回退：原内联实现
                 const messageDiv = document.createElement('div');
                 messageDiv.className = `chat-message ${message.sender_type}`;
-                
-                const avatar = message.sender_type === 'customer' ? 
-                    this.currentCustomer.name.charAt(0) : 'A';
-                
-                // 基本消息结构
+                const avatar = message.sender_type === 'customer' ? this.currentCustomer.name.charAt(0) : 'A';
                 const messageContent = document.createElement('div');
                 messageContent.className = 'message-bubble';
-                
-                // 添加文本内容
                 if (message.content && message.content.trim()) {
                     const textContent = document.createElement('div');
                     textContent.textContent = message.content;
                     messageContent.appendChild(textContent);
                 }
-                
-                // 添加文件内容
                 if (message.files && message.files.length > 0) {
                     message.files.forEach(file => {
                         const mediaContent = this.createMediaElement(file);
                         messageContent.appendChild(mediaContent);
                     });
                 }
-                
-                messageDiv.innerHTML = `
-                    <div class="message-avatar">${avatar}</div>
-                `;
+                messageDiv.innerHTML = `<div class="message-avatar">${avatar}</div>`;
                 messageDiv.appendChild(messageContent);
-                
                 container.appendChild(messageDiv);
             }
 
-            // 创建媒体元素
+            // 创建媒体元素（委托 UI 组件，保留回退）
             createMediaElement(file) {
+                if (window.MessageMediaUI && typeof window.MessageMediaUI.createMediaElement === 'function') {
+                    return window.MessageMediaUI.createMediaElement(file);
+                }
+                // 回退到内置实现（保持兼容）
                 console.log('创建媒体元素:', file);
                 const mediaDiv = document.createElement('div');
-                
-                // 验证URL
-                if (!file.url || file.url === 'undefined') {
-                    console.error('文件URL无效:', file);
-                    mediaDiv.innerHTML = '<p>文件URL无效</p>';
-                    return mediaDiv;
-                }
-                
+                if (!file.url || file.url === 'undefined') { mediaDiv.innerHTML = '<p>文件URL无效</p>'; return mediaDiv; }
                 if (file.type.startsWith('image/')) {
-                    // 图片显示
                     mediaDiv.className = 'message-media';
                     const img = document.createElement('img');
-                    img.src = file.url;
-                    img.alt = file.name || '图片';
+                    img.src = file.url; img.alt = file.name || '图片';
                     img.onclick = () => this.openImageModal(file.url);
-                    console.log('设置图片src:', file.url);
-                    
-                    // 添加错误处理
-                    img.onerror = () => {
-                        console.error('图片加载失败:', file.url);
-                        img.alt = '图片加载失败';
-                    };
-                    
+                    img.onerror = () => { img.alt = '图片加载失败'; };
                     mediaDiv.appendChild(img);
-                    
                 } else if (file.type.startsWith('audio/')) {
-                    // 音频播放器
                     mediaDiv.className = 'message-audio';
                     const audio = document.createElement('audio');
-                    audio.controls = true;
-                    audio.src = file.url;
-                    audio.preload = 'metadata';
+                    audio.controls = true; audio.src = file.url; audio.preload = 'metadata';
                     mediaDiv.appendChild(audio);
-                    
                 } else if (file.type.startsWith('video/')) {
-                    // 视频播放器
                     mediaDiv.className = 'message-media';
                     const video = document.createElement('video');
-                    video.controls = true;
-                    video.src = file.url;
-                    video.style.maxWidth = '100%';
-                    video.style.borderRadius = '8px';
+                    video.controls = true; video.src = file.url; video.style.maxWidth = '100%'; video.style.borderRadius = '8px';
                     mediaDiv.appendChild(video);
-                    
                 } else {
-                    // 其他文件类型显示为下载链接
                     mediaDiv.className = 'message-file';
                     mediaDiv.innerHTML = `
                         <div class="file-icon">${this.getFileIcon(file.type)}</div>
@@ -685,58 +615,24 @@ class MessageModule {
                     `;
                     mediaDiv.onclick = () => window.open(file.url, '_blank');
                 }
-                
                 return mediaDiv;
             }
 
-            // 打开图片模态框
+            // 打开图片模态框（委托 UI 组件，保留回退）
             openImageModal(imageSrc) {
-                // 创建模态框
+                if (window.MessageMediaUI && typeof window.MessageMediaUI.openImageModal === 'function') {
+                    return window.MessageMediaUI.openImageModal(imageSrc);
+                }
                 const modal = document.createElement('div');
-                modal.style.cssText = `
-                    position: fixed;
-                    top: 0;
-                    left: 0;
-                    width: 100%;
-                    height: 100%;
-                    background: rgba(0,0,0,0.9);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    z-index: 1000;
-                `;
-                
+                modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:1000;';
                 const img = document.createElement('img');
-                img.src = imageSrc;
-                img.style.cssText = `
-                    max-width: 90%;
-                    max-height: 90%;
-                    object-fit: contain;
-                `;
-                
+                img.src = imageSrc; img.style.cssText = 'max-width:90%;max-height:90%;object-fit:contain;';
                 const closeBtn = document.createElement('button');
                 closeBtn.textContent = '×';
-                closeBtn.style.cssText = `
-                    position: absolute;
-                    top: 20px;
-                    right: 20px;
-                    background: rgba(255,255,255,0.8);
-                    border: none;
-                    border-radius: 50%;
-                    width: 40px;
-                    height: 40px;
-                    font-size: 24px;
-                    cursor: pointer;
-                `;
-                
+                closeBtn.style.cssText = 'position:absolute;top:20px;right:20px;background:rgba(255,255,255,0.8);border:none;border-radius:50%;width:40px;height:40px;font-size:24px;cursor:pointer;';
                 closeBtn.onclick = () => document.body.removeChild(modal);
-                modal.onclick = (e) => {
-                    if (e.target === modal) document.body.removeChild(modal);
-                };
-                
-                modal.appendChild(img);
-                modal.appendChild(closeBtn);
-                document.body.appendChild(modal);
+                modal.onclick = (e) => { if (e.target === modal) document.body.removeChild(modal); };
+                modal.appendChild(img); modal.appendChild(closeBtn); document.body.appendChild(modal);
             }
 
             // 发送消息 - 仅处理文本消息
@@ -809,27 +705,21 @@ class MessageModule {
                 }
             }
 
-            // 显示指定视图
+            // 显示指定视图（委托 MessagesViews）
             showView(viewId) {
+                if (window.MessagesViews && typeof window.MessagesViews.show === 'function') {
+                    window.MessagesViews.show(viewId);
+                    return;
+                }
                 const views = ['shopsListView', 'conversationsListView', 'chatView'];
                 const bottomNav = document.querySelector('.bottom-nav');
-                
                 views.forEach(id => {
                     const element = document.getElementById(id);
-                    if (element) {
-                        element.style.display = id === viewId ? 'block' : 'none';
-                    }
+                    if (element) element.style.display = id === viewId ? 'block' : 'none';
                 });
-
-                // 控制底部导航栏的显示/隐藏
                 if (bottomNav) {
-                    if (viewId === 'chatView') {
-                        // 进入聊天界面时隐藏导航栏
-                        bottomNav.classList.add('hidden');
-                    } else {
-                        // 其他界面显示导航栏
-                        bottomNav.classList.remove('hidden');
-                    }
+                    if (viewId === 'chatView') bottomNav.classList.add('hidden');
+                    else bottomNav.classList.remove('hidden');
                 }
             }
 

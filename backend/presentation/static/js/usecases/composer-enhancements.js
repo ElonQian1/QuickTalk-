@@ -76,6 +76,11 @@
 
   let __inited = false;
   function init(){
+    // 如果新的 ChatComposer 已加载，则交由其统一绑定，避免重复
+    if (window.ChatComposer && typeof window.ChatComposer.init === 'function') {
+      window.ChatComposer.init();
+      return;
+    }
     if (__inited) return; // 幂等保护
     const input = getComposer();
     if (!input) {
