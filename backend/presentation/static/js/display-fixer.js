@@ -124,8 +124,8 @@ class DisplayFixer {
         this.fixedElements.add(`shop-stat-${index}`);
 
         // 如果有shop-id，尝试刷新数据
-        if (shopId && window.DataSyncManager) {
-            window.DataSyncManager.queueUpdate('shop', shopId);
+        if (shopId && window.unifiedDataSyncManager) {
+            window.unifiedDataSyncManager.queueUpdate('shop_stats', shopId);
         }
 
         this.debug(`shop-stat元素 ${index} 修复完成`, {
@@ -181,8 +181,8 @@ class DisplayFixer {
         // 如果内容为空或默认值，尝试从数据中获取
         const currentText = element.textContent.trim();
         if (!currentText || currentText === '等待客户消息...') {
-            if (conversationId && window.DataSyncManager) {
-                window.DataSyncManager.queueUpdate('conversation', conversationId);
+            if (conversationId && window.unifiedDataSyncManager) {
+                window.unifiedDataSyncManager.queueUpdate('conversation', conversationId);
             }
         }
 
@@ -352,10 +352,10 @@ class DisplayFixer {
     async forceRefreshAllData() {
         this.debug('开始强制刷新所有数据');
         
-        if (window.DataSyncManager) {
+        if (window.unifiedDataSyncManager) {
             try {
-                await window.DataSyncManager.refreshAllVisibleShops();
-                await window.DataSyncManager.refreshAllVisibleConversations();
+                await window.unifiedDataSyncManager.clearAllCaches();
+                // 触发重新获取可见的店铺和对话数据
                 this.debug('数据刷新完成');
             } catch (error) {
                 this.debug('数据刷新失败:', error);

@@ -136,55 +136,23 @@
     }
   }
 
-  // 初始化 WebSocket（包含后备最小处理逻辑）
+  // 初始化 WebSocket（委托给 UnifiedWebSocket）
   function initializeWebSocket() {
     try {
+      if (window.UnifiedWebSocket) {
+        window.UnifiedWebSocket.init({ /* 可通过 init 注入参数 */ }).connect();
+        return;
+      }
+      // 兼容兜底（理论上不会走到）
       const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const wsUrl = `${wsProto}//${location.host}/ws`;
       const ws = new WebSocket(wsUrl);
       window.websocket = ws;
-
-      ws.onopen = function() {
-        console.log('🔗 WebSocket连接已建立');
-        updateConnectionStatus(true);
-      };
-
-      ws.onclose = function() {
-        console.log('🔌 WebSocket连接已断开');
-        updateConnectionStatus(false);
-        setTimeout(initializeWebSocket, 5000);
-      };
-
-      ws.onerror = function(error) {
-        console.error('❌ WebSocket连接错误:', error);
-        updateConnectionStatus(false);
-      };
-
-      ws.onmessage = function(event) {
-        try {
-          const data = JSON.parse(event.data);
-          if (typeof window.handleWebSocketMessage === 'function') {
-            window.handleWebSocketMessage(data);
-          } else {
-            const t = data && data.type;
-            if (t === 'domain.event.message_appended' || t === 'new_message') {
-              const badge = document.getElementById('messagesBadge');
-              if (badge) {
-                const cur = parseInt(badge.textContent) || 0;
-                const next = cur + 1;
-                badge.textContent = next > 99 ? '99+' : String(next);
-                badge.classList.remove('hidden');
-                badge.style.display = 'block';
-              }
-            }
-          }
-        } catch (error) {
-          console.error('❌ 解析WebSocket消息失败:', error);
-        }
-      };
-    } catch (e) {
-      console.warn('initializeWebSocket 出错:', e);
-    }
+      ws.onopen = function(){ updateConnectionStatus(true); };
+      ws.onclose = function(){ updateConnectionStatus(false); setTimeout(initializeWebSocket, 5000); };
+      ws.onerror = function(){ updateConnectionStatus(false); };
+      ws.onmessage = function(event){ try { const data = JSON.parse(event.data); if (typeof window.handleWebSocketMessage==='function') window.handleWebSocketMessage(data); } catch(_){} };
+    } catch (e) { console.warn('initializeWebSocket 出错:', e); }
   }
 
   // 应用初始化主流程（带幂等保护）

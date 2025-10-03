@@ -20,4 +20,23 @@
     };
     return statusMap[status] || '⏳ 待审核';
   };
+
+  // 过滤可用店铺：已批准/激活
+  window.getActiveShops = function getActiveShops(shops){
+    if (!Array.isArray(shops)) return [];
+    return shops.filter(function(s){
+      var st = window.getEffectiveStatus(s);
+      return st === 'active' || st === 'approved';
+    });
+  };
+
+  // 合并统计：将 {shopId -> stats} 合并到店铺数组，返回新数组
+  window.mergeShopStats = function mergeShopStats(shops, statsMap){
+    if (!Array.isArray(shops) || !statsMap) return shops || [];
+    return shops.map(function(s){
+      var id = s.id || s.shop_id || s.shopId;
+      var stats = statsMap[id];
+      return stats ? Object.assign({}, s, { stats: stats }) : s;
+    });
+  };
 })();

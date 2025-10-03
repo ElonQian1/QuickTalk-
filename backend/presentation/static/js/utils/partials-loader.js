@@ -6,6 +6,16 @@
 (function(){
   'use strict';
 
+  // 幂等保护：避免被重复加载
+  if (window.__PartialsLoaderLoaded) {
+    console.log('ℹ️ partials-loader 已加载，跳过重复初始化');
+    return;
+  }
+  window.__PartialsLoaderLoaded = true;
+
+  // 全局脚本加载去重集合
+  window.__LoadedScriptSrcSet = window.__LoadedScriptSrcSet || new Set();
+
   async function fetchText(url){
     const res = await fetch(url, { credentials: 'same-origin' });
     if (!res.ok) throw new Error('Fetch partial failed: ' + res.status);
@@ -18,7 +28,13 @@
     scripts.forEach(old => {
       const s = document.createElement('script');
       if (old.src) {
-        s.src = old.src;
+        // 若该 src 已加载过，则跳过，避免重复执行
+        const src = old.src.split('?')[0];
+        if (window.__LoadedScriptSrcSet.has(src) || document.querySelector(`script[src="${src}"]`)) {
+          return;
+        }
+        s.src = src;
+        window.__LoadedScriptSrcSet.add(src);
       } else {
         s.textContent = old.textContent;
       }
@@ -46,9 +62,15 @@
 
   async function loadPartials(root){
     const scope = root || document;
-    const nodes = Array.from(scope.querySelectorAll('[data-include]'));
-    for (const el of nodes){
-      await loadOne(el);
+    // 迭代式加载，直到没有新的 data-include 未处理项（支持嵌套片段）
+    while (true) {
+      const nodes = Array
+        .from(scope.querySelectorAll('[data-include]'))
+        .filter(el => !el.__included);
+      if (!nodes.length) break;
+      for (const el of nodes){
+        await loadOne(el);
+      }
     }
   }
 

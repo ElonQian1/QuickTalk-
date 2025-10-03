@@ -33,12 +33,13 @@
     <link rel="stylesheet" href="/static/css/state-styles.css">
     
     <!-- UI 启动（usecases）：数据同步与店铺卡片管理器初始化 -->
-    <script src="/static/js/usecases/ui-bootstrap.js"></script>
+    <!-- 移除重复引用，保留文末业务模块统一启动的 ui-bootstrap.js -->
     
     <!-- 原约2600行内联样式已拆分至以上11个外部CSS模块，提升可维护性 -->
     
     <!-- 按功能拆分：聊天与底部导航样式外置 -->
     <link rel="stylesheet" href="/static/css/messages-view.css">
+<!-- 结束 head，开始 body -->
 </head>
 <body>
     <!-- 对话工具模块 -->
@@ -48,9 +49,9 @@
     <script src="/static/js/chat-input-enhanced.js"></script>
     
     <!-- 局部组件加载器 -->
-    <script src="/static/js/partial-loader.js"></script>
-</head>
-<body>
+    <script src="/static/js/utils/partials-loader.js"></script>
+    <!-- 网站图标（避免浏览器请求 /favicon.ico 404） -->
+    <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
     <!-- 最小登录态拦截（外链） -->
     <script src="/static/js/login-guard.js"></script>
     <div class="app-container">
@@ -67,16 +68,37 @@
     </div>
 
     <!-- 引入模块化JS文件 (必须在主脚本之前加载) -->
-    <script src="/js/customer-numbering.js"></script>
-    <script src="/js/session-manager.js"></script>
-    <script src="/js/debug-tools.js"></script>
-    <!-- 局部片段加载器（utils） -->
-    <script src="/static/js/utils/partials-loader.js"></script>
-    <script src="/js/dom-enhancer.js"></script>
-    <script src="/js/realtime-data-manager.js"></script>
-    <script src="/js/data-sync-manager.js"></script>
-    <script src="/js/display-fixer.js"></script>
-    <!-- 全局状态（utils） -->
+    <!-- 1. 核心基础设施（必须最先加载） -->
+    <script src="/static/js/core/module-registry.js"></script>
+    <script src="/static/js/core/module-loader-compat.js"></script>
+    <script src="/static/js/core/constants.js"></script>
+    <script src="/static/js/core/logger.js"></script>
+    <script src="/static/js/core/event-bus.js"></script>
+    
+    <!-- 2. 领域模型和服务 -->
+    <script src="/static/js/domain/entities/conversation.js"></script>
+    <script src="/static/js/domain/entities/message.js"></script>
+    <script src="/static/js/domain/entities/shop.js"></script>
+    <script src="/static/js/domain/services/session-service.js"></script>
+    <script src="/static/js/domain/services/badge-service.js"></script>
+    
+    <!-- 3. 传统模块（向后兼容，待重构） -->
+    <script src="/static/js/customer-numbering.js"></script>
+    <script src="/static/js/debug-tools.js"></script>
+    <script src="/static/js/dom-enhancer.js"></script>
+    <script src="/static/js/realtime-data-manager.js"></script>
+    <script src="/static/js/display-fixer.js"></script>
+    
+    <!-- 3.5. 新整合模块（统一会话和数据管理） -->
+    <script src="/static/js/application/unified-session-manager.js"></script>
+    
+    <!-- 3.6. 统一用例聚合与表单门面（需在 usecases 之前加载，避免代理时序问题） -->
+    <script src="/static/js/core/unified-usecases.js"></script>
+    <script src="/static/js/core/unified-forms.js"></script>
+    <!-- 3.7. 统一 WebSocket 门面（需在 ws-* 用例之前加载） -->
+    <script src="/static/js/core/unified-websocket.js"></script>
+    
+    <!-- 4. 全局状态管理 -->
     <script src="/static/js/globals.js"></script>
 
     <script>
@@ -111,14 +133,8 @@
     <script src="/static/js/utils/common-utils.js"></script>
     <!-- UI Toast（覆盖 common-utils 中的 showToast 占位实现） -->
     <script src="/static/js/ui/toast.js"></script>
-    <!-- 消息媒体渲染 UI 组件（ui） -->
-    <script src="/static/js/ui/message-media.js"></script>
-    <!-- 聊天头部 UI 组件（ui） -->
-    <script src="/static/js/ui/chat-header.js"></script>
-    <!-- 对话项 UI 组件（ui） -->
-    <script src="/static/js/ui/conversation-item.js"></script>
-    <!-- 店铺卡片 UI 组件（ui） -->
-    <script src="/static/js/ui/shop-card.js"></script>
+    <!-- 统一 UI 组件模块（合并 message-media/chat-header/conversation-item/shop-card） -->
+    <script src="/static/js/core/unified-ui-components.js"></script>
     <!-- 空状态 UI 组件（ui） -->
     <script src="/static/js/ui/empty-states.js"></script>
     <script src="/static/js/ui/loading-states.js"></script>
@@ -259,11 +275,7 @@
     <script src="/static/js/modals/integration-code-modal.js"></script>
     <!-- 在模态框内追加：服务器地址输入，用于生成集成代码的 serverUrl -->
     <script src="/static/js/modals/integration-code-modal-ui.js"></script>
-                    <!-- 删除：重复的“嵌入代码展示块”被错放在模态框外部，导致页面底部出现内容外泄。该区块已移除，保留模态框内的唯一版本。 -->
-                </div>
-            </div>
-        </div>
-    </div>
+    <!-- 注：移除了多余闭合标签，确保文档结构完整性 -->
 
     <!-- 创建店铺模态框（组件引入） -->
     <div data-include="/static/components/modals/create-shop-modal.html"></div>
@@ -283,28 +295,36 @@
 
     <!-- 付费开通模态框（组件引入） -->
     <div data-include="/static/components/modals/activation-modal.html"></div>
-    <!-- 用例：创建激活订单并打开模态（保持全局函数名 activateShop） -->
+    
+    <!-- 用例模块 -->
     <script src="/static/js/usecases/activate-shop.js"></script>
     <script src="/static/js/modals/activation-modal.js"></script>
 
-    <!-- 数据同步管理器 -->
-    <script src="/static/js/data-sync-manager.js"></script>
+    <!-- 5. 数据管理模块（依赖基础模块） -->
+    <script src="/static/js/application/unified-data-sync-manager.js"></script>
     
-    <!-- 未读红点组件 -->
+    <!-- 6. UI组件模块（依赖数据管理） -->
     <script src="/static/js/ui/unread-badge-component.js"></script>
     <script src="/static/js/ui/shop-status-badge-adapter.js"></script>
     <script src="/static/js/ui/nav-unread-aggregator.js"></script>
     <script src="/static/js/ui/conversation-badge-adapter.js"></script>
     <script src="/static/js/ui/shop-card-manager.js"></script>
     <script src="/static/js/ui/nav-badge-manager.js"></script>
+    
+    <!-- 7. 集成模块（依赖所有前面的模块） -->
     <script src="/static/js/ui/badge-integration.js"></script>
-    <!-- 导航与徽章初始化（usecases） -->
+    
+    <!-- 8. 用例模块（业务逻辑） -->
     <script src="/static/js/usecases/nav-bootstrap.js"></script>
-    <!-- 消息输入增强（usecases） -->
     <script src="/static/js/usecases/composer-enhancements.js"></script>
-    <!-- Profile 页面胶水（usecases） -->
     <script src="/static/js/usecases/profile-bootstrap.js"></script>
-    <!-- 工作台胶水（usecases） -->
     <script src="/static/js/usecases/workbench-bootstrap.js"></script>
-    <!-- UI 启动引导（用例整合） -->
     <script src="/static/js/usecases/ui-bootstrap.js"></script>
+    
+    <!-- 9. 应用启动器（统一初始化） -->
+    <script src="/static/js/bootstrap/app-bootstrap.js"></script>
+    
+    <!-- 开发环境调试工具 -->
+        <script src="/static/js/utils/module-debugger.js"></script>
+    </body>
+</html>

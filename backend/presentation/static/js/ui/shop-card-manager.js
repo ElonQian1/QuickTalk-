@@ -3,10 +3,14 @@
  * 专门处理店铺卡片中 shop-status 按钮到未读红点的转换
  * 
  * @author GitHub Copilot
- * @version 1.0
- * @date 2025-09-29
+ * @version 1.1
+ * @date 2025-10-03
  */
 
+// 使用模块加载器防止重复声明
+window.ModuleLoader = window.ModuleLoader || { defineClass: (name, fn) => fn() };
+
+// 先定义类
 class ShopCardManager {
     constructor() {
         this.badges = new Map(); // 存储每个店铺的红点组件
@@ -14,7 +18,9 @@ class ShopCardManager {
         this.dataSyncManager = null;
         
         // 绑定数据同步管理器
-        if (window.dataSyncManager) {
+        if (window.unifiedDataSyncManager) {
+            this.dataSyncManager = window.unifiedDataSyncManager;
+        } else if (window.dataSyncManager) {
             this.dataSyncManager = window.dataSyncManager;
         } else if (window.mobileDataSyncManager) {
             this.dataSyncManager = window.mobileDataSyncManager;
@@ -365,5 +371,16 @@ class ShopCardManager {
     }
 }
 
-// 导出到全局
+// 使用旧模块系统注册
+window.ModuleLoader.defineClass('ShopCardManager', function() {
+    return ShopCardManager;
+});
+
+// 注册到新的模块系统
+if (window.registerModule) {
+    window.registerModule('ShopCardManager', ShopCardManager, ['UnifiedDataSyncManager']);
+}
+
+// 向后兼容
 window.ShopCardManager = ShopCardManager;
+console.log('🏠 店铺卡片管理器已加载');

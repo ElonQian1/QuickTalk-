@@ -31,13 +31,24 @@
   // 新消息到达的 UI 更新（全局兜底）
   function handleNewMessage(data){
     try {
-      const badge = document.getElementById('messagesBadge');
-      if (badge) {
-        const cur = parseInt(badge.textContent) || 0;
-        const next = cur + 1;
-        badge.textContent = next > 99 ? '99+' : String(next);
-        badge.classList.remove('hidden');
-        badge.style.display = 'block';
+      // 优先委托 NavBadgeManager，避免直接 DOM 改写
+      let updated = false;
+      const nbm = window.navBadgeManager;
+      if (nbm && typeof nbm.getBadgeCount === 'function' && typeof nbm.updateNavBadge === 'function') {
+        const cur = nbm.getBadgeCount('messages') || 0;
+        nbm.updateNavBadge('messages', cur + 1);
+        updated = true;
+      }
+      // 兜底：直接更新 DOM（保持兼容旧路径）
+      if (!updated) {
+        const badge = document.getElementById('messagesBadge');
+        if (badge) {
+          const cur = parseInt(badge.textContent) || 0;
+          const next = cur + 1;
+          badge.textContent = next > 99 ? '99+' : String(next);
+          badge.classList.remove('hidden');
+          badge.style.display = 'block';
+        }
       }
 
       if (window.currentPage === 'messages' && typeof window.loadConversations === 'function') {
@@ -63,6 +74,13 @@
   // 全局事件分发入口（供 app-init 的 ws.onmessage 调用）
   function handleWebSocketMessage(data){
     try {
+      // 优先把原始消息给统一数据同步管理器处理（集中刷新/队列）
+      try {
+        if (window.unifiedDataSyncManager && typeof window.unifiedDataSyncManager.handleWsMessage === 'function') {
+          window.unifiedDataSyncManager.handleWsMessage(data);
+        }
+      } catch(_) {}
+
       const t = data && data.type;
       if (!t) return;
 
@@ -127,6 +145,13 @@
   window.handleNewMessage = handleNewMessage;
   window.handleShopUpdate = handleShopUpdate;
   window.handleWebSocketMessage = handleWebSocketMessage;
+
+  // 与 UnifiedWebSocket 集成：注册消息监听（不影响原有全局入口）
+  try {
+    if (window.UnifiedWebSocket && typeof window.UnifiedWebSocket.onMessage === 'function') {
+      window.UnifiedWebSocket.onMessage(handleWebSocketMessage);
+    }
+  } catch(_){}
 
   console.log('✅ WebSocket 事件桥已加载 (ws-event-bridge.js)');
 })();

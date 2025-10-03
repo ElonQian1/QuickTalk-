@@ -6,7 +6,7 @@ description = "QuickTalk Pure Rust Customer Service System"
 
 # 纯Rust模式 - 移除hybrid功能
 [[bin]]
-name = "quicktalk-pure-rust"
+name = "quicktalk-server"
 path = "src/main.rs"
 
 [dependencies]

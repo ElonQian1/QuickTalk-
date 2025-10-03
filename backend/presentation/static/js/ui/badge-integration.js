@@ -3,15 +3,26 @@
  * 为现有的 DataSyncManager 添加红点组件支持
  * 
  * @author GitHub Copilot
- * @version 1.0
- * @date 2025-09-29
+ * @version 1.1
+ * @date 2025-10-03
  */
 
 /**
  * 扩展 DataSyncManager 的函数
  */
 function enhanceDataSyncManager() {
-    if (!window.DataSyncManager || typeof DataSyncManager !== 'function') {
+    // 检查新的数据同步管理器是否可用
+    if (!window.unifiedDataSyncManager && !window.DataSyncManager) {
+        console.warn('⚠️ DataSyncManager 尚未加载，等待...');
+        if (window.ModuleLoader) {
+            window.ModuleLoader.waitForModules(['data-sync-manager']).then(() => {
+                enhanceDataSyncManager();
+            });
+        }
+        return;
+    }
+    
+    if (!window.DataSyncManager || typeof window.DataSyncManager !== 'function') {
         console.warn('⚠️ DataSyncManager 不存在，等待加载...');
         return false;
     }
@@ -153,14 +164,21 @@ class BadgeUpdateCoordinator {
     }
 
     initNavBadgeManager() {
-        // 等待NavBadgeManager加载
-        if (window.NavBadgeManager) {
-            this.navBadgeManager = new NavBadgeManager().enableDebug();
-            console.log('✅ 导航红点管理器已集成');
-        } else {
-            // 延迟重试
-            setTimeout(() => this.initNavBadgeManager(), 100);
-        }
+            // 等待NavBadgeManager加载
+            if (window.NavBadgeManager) {
+                // 复用全局实例，避免重复实例化
+                if (window.navBadgeManager instanceof window.NavBadgeManager) {
+                    this.navBadgeManager = window.navBadgeManager;
+                } else {
+                    this.navBadgeManager = new NavBadgeManager().enableDebug();
+                    // 若上层尚未挂全局实例，这里补挂，供其他模块复用
+                    if (!window.navBadgeManager) window.navBadgeManager = this.navBadgeManager;
+                }
+                console.log('✅ 导航红点管理器已集成');
+            } else {
+                // 延迟重试
+                setTimeout(() => this.initNavBadgeManager(), 100);
+            }
     }
 
     setupEventListeners() {
@@ -298,4 +316,8 @@ if (document.readyState === 'loading') {
     window.badgeUpdateCoordinator = new BadgeUpdateCoordinator();
 }
 
+// 标记模块已加载（使用兼容性桥接）
+if (window.ModuleLoader && window.ModuleLoader.markLoaded) {
+    window.ModuleLoader.markLoaded('badge-integration');
+}
 console.log('🔗 红点组件集成扩展模块加载完成');

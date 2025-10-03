@@ -3,9 +3,39 @@
  * 专门处理API数据获取和DOM同步更新
  * 
  * @author GitHub Copilot
- * @version 2.0
- * @date 2025-09-29
+ * @version 2.1
+ * @date 2025-10-03
  */
+
+// 使用模块加载器防止重复声明
+window.ModuleLoader = window.ModuleLoader || { defineClass: (name, fn) => fn() };
+
+window.ModuleLoader.defineClass('DataSyncManager', function() {
+
+// 若统一数据同步管理器已存在，则导出“薄代理”兼容构造器，避免重复实现与双实例
+try {
+    var __getUnified = function(){
+        return window.unifiedDataSyncManager
+            || (window.getModule && window.getModule('UnifiedDataSyncManager'))
+            || null;
+    };
+    if (__getUnified()) {
+        function CompatDataSyncManager(){
+            // 允许用 new 但返回统一实例（保持 API 统一）
+            return __getUnified();
+        }
+        // 兜底兼容静态/全局调用
+        window.DataSyncManager = CompatDataSyncManager;
+        window.refreshShopStats = function(shopId){
+            var uds = __getUnified(); return uds && uds.forceRefresh ? uds.forceRefresh('shop_stats', shopId) : undefined;
+        };
+        window.refreshConversation = function(conversationId){
+            var uds = __getUnified(); return uds && uds.forceRefresh ? uds.forceRefresh('conversation', conversationId) : undefined;
+        };
+        // 提前返回兼容构造器，跳过旧实现
+        return CompatDataSyncManager;
+    }
+} catch(_) {}
 
 class DataSyncManager {
     constructor() {
@@ -408,19 +438,34 @@ class DataSyncManager {
     }
 }
 
-// 创建全局实例
-window.DataSyncManager = new DataSyncManager();
+// 导出构造器（交由调用方按需实例化；避免与 Unified 实例重复）
+window.DataSyncManager = DataSyncManager;
 
 // 向后兼容函数
 window.refreshShopStats = function(shopId) {
-    return window.DataSyncManager.forceRefreshShopStats(shopId);
+    try {
+        if (window.unifiedDataSyncManager && typeof window.unifiedDataSyncManager.forceRefresh === 'function') {
+            return window.unifiedDataSyncManager.forceRefresh('shop_stats', shopId);
+        }
+        if (window.dataSyncManager && typeof window.dataSyncManager.forceRefreshShopStats === 'function') {
+            return window.dataSyncManager.forceRefreshShopStats(shopId);
+        }
+    } catch(_) {}
 };
 
 window.refreshConversation = function(conversationId) {
-    return window.DataSyncManager.forceRefreshConversation(conversationId);
+    try {
+        if (window.unifiedDataSyncManager && typeof window.unifiedDataSyncManager.forceRefresh === 'function') {
+            return window.unifiedDataSyncManager.forceRefresh('conversation', conversationId);
+        }
+        if (window.dataSyncManager && typeof window.dataSyncManager.forceRefreshConversation === 'function') {
+            return window.dataSyncManager.forceRefreshConversation(conversationId);
+        }
+    } catch(_) {}
 };
 
-// 导出供其他模块使用
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = DataSyncManager;
-}
+    return DataSyncManager;
+});
+
+// 标记模块已加载
+window.ModuleLoader.markLoaded('data-sync-manager');

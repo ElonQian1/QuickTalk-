@@ -1,0 +1,324 @@
+/* 聊天输入框增强样式模块 */
+
+.chat-input-container {
+    position: relative;
+    background: white;
+    border-top: 1px solid #e0e0e0;
+    padding: 12px;
+    box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
+}
+
+.chat-input-wrapper {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    max-width: 100%;
+}
+
+.chat-input-field {
+    flex: 1;
+    min-height: 40px;
+    max-height: 120px;
+    padding: 10px 12px;
+    border: 1px solid #ddd;
+    border-radius: 20px;
+    font-size: 14px;
+    line-height: 1.4;
+    resize: none;
+    outline: none;
+    transition: border-color 0.2s ease;
+    font-family: inherit;
+    background: #f9f9f9;
+}
+
+.chat-input-field:focus {
+    border-color: #2196F3;
+    background: white;
+    box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.1);
+}
+
+.chat-input-field:disabled {
+    background: #f5f5f5;
+    color: #999;
+    cursor: not-allowed;
+}
+
+.chat-input-field::placeholder {
+    color: #999;
+    font-style: italic;
+}
+
+/* 发送按钮 */
+.chat-send-button {
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 50%;
+    background: #2196F3;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.chat-send-button:hover:not(:disabled) {
+    background: #1976D2;
+    transform: scale(1.05);
+}
+
+.chat-send-button:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.chat-send-button svg,
+.chat-send-button i {
+    font-size: 16px;
+}
+
+/* 附件按钮 */
+.chat-attachment-button {
+    width: 40px;
+    height: 40px;
+    border: 1px solid #ddd;
+    border-radius: 50%;
+    background: white;
+    color: #666;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.chat-attachment-button:hover {
+    background: #f5f5f5;
+    border-color: #2196F3;
+    color: #2196F3;
+}
+
+/* 输入增强功能 */
+.chat-input-enhanced {
+    position: relative;
+}
+
+.chat-input-counter {
+    position: absolute;
+    bottom: 4px;
+    right: 12px;
+    font-size: 11px;
+    color: #999;
+    background: rgba(255,255,255,0.8);
+    padding: 2px 4px;
+    border-radius: 8px;
+}
+
+.chat-input-counter.warning {
+    color: #ff9800;
+}
+
+.chat-input-counter.error {
+    color: #f44336;
+}
+
+/* 正在输入指示器 */
+.typing-indicator {
+    padding: 8px 12px;
+    font-size: 12px;
+    color: #666;
+    font-style: italic;
+    background: rgba(33, 150, 243, 0.05);
+    border-radius: 12px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.typing-indicator .typing-dots {
+    display: flex;
+    gap: 2px;
+}
+
+.typing-indicator .typing-dot {
+    width: 4px;
+    height: 4px;
+    background: #2196F3;
+    border-radius: 50%;
+    animation: typingPulse 1.4s infinite ease-in-out;
+}
+
+.typing-indicator .typing-dot:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.typing-indicator .typing-dot:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes typingPulse {
+    0%, 60%, 100% {
+        transform: scale(0.8);
+        opacity: 0.5;
+    }
+    30% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* 快捷回复 */
+.quick-replies {
+    display: flex;
+    gap: 8px;
+    padding: 8px 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.quick-replies::-webkit-scrollbar {
+    display: none;
+}
+
+.quick-reply-button {
+    flex-shrink: 0;
+    padding: 6px 12px;
+    background: #f0f0f0;
+    border: 1px solid #ddd;
+    border-radius: 16px;
+    font-size: 12px;
+    color: #333;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.quick-reply-button:hover {
+    background: #e3f2fd;
+    border-color: #2196F3;
+    color: #2196F3;
+}
+
+/* 表情符号选择器 */
+.emoji-picker-trigger {
+    width: 40px;
+    height: 40px;
+    border: 1px solid #ddd;
+    border-radius: 50%;
+    background: white;
+    color: #666;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    transition: all 0.2s ease;
+}
+
+.emoji-picker-trigger:hover {
+    background: #f5f5f5;
+    border-color: #2196F3;
+}
+
+/* 文件上传预览 */
+.file-upload-preview {
+    display: flex;
+    gap: 8px;
+    padding: 8px 0;
+    overflow-x: auto;
+}
+
+.file-preview-item {
+    position: relative;
+    flex-shrink: 0;
+    width: 60px;
+    height: 60px;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #f0f0f0;
+    border: 1px solid #ddd;
+}
+
+.file-preview-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.file-preview-remove {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    width: 16px;
+    height: 16px;
+    background: #f44336;
+    color: white;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .chat-input-container {
+        padding: 8px;
+    }
+    
+    .chat-input-field {
+        font-size: 16px; /* 防止 iOS 缩放 */
+        border-radius: 18px;
+        padding: 8px 12px;
+    }
+    
+    .chat-send-button,
+    .chat-attachment-button,
+    .emoji-picker-trigger {
+        width: 36px;
+        height: 36px;
+    }
+    
+    .quick-reply-button {
+        font-size: 11px;
+        padding: 4px 8px;
+    }
+}
+
+/* 暗色主题支持 */
+@media (prefers-color-scheme: dark) {
+    .chat-input-container {
+        background: #2d2d2d;
+        border-top-color: #444;
+    }
+    
+    .chat-input-field {
+        background: #3d3d3d;
+        border-color: #555;
+        color: white;
+    }
+    
+    .chat-input-field:focus {
+        background: #4d4d4d;
+        border-color: #2196F3;
+    }
+    
+    .quick-reply-button {
+        background: #3d3d3d;
+        border-color: #555;
+        color: #ccc;
+    }
+    
+    .quick-reply-button:hover {
+        background: #4d4d4d;
+        color: #2196F3;
+    }
+}

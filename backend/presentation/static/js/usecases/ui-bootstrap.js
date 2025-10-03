@@ -6,10 +6,23 @@
 (function(){
   'use strict';
 
+  if (window.__UIBootstrapBooted) {
+    console.log('ℹ️ ui-bootstrap 已执行过，跳过重复执行');
+    return;
+  }
+
   function initDataSync() {
     try {
-      if (typeof window.DataSyncManager !== 'undefined') {
-        window.mobileDataSyncManager = new window.DataSyncManager();
+      if (window.unifiedDataSyncManager) {
+        window.mobileDataSyncManager = window.unifiedDataSyncManager;
+        console.log('✅ 复用 unifiedDataSyncManager 作为 mobileDataSyncManager');
+      } else if (typeof window.DataSyncManager !== 'undefined') {
+        try {
+          window.mobileDataSyncManager = new window.DataSyncManager();
+        } catch(_) {
+          // 兼容薄代理返回实例
+          window.mobileDataSyncManager = window.DataSyncManager;
+        }
         if (typeof window.mobileDataSyncManager.enableDebugMode === 'function') {
           window.mobileDataSyncManager.enableDebugMode();
         }
@@ -54,9 +67,16 @@
 
   // 若页面已就绪则自动启动（与原内联脚本保持体验一致）
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', bootstrapUI);
+    document.addEventListener('DOMContentLoaded', function(){
+      if (window.__UIBootstrapBooted) return;
+      window.__UIBootstrapBooted = true;
+      bootstrapUI();
+    });
   } else {
-    bootstrapUI();
+    if (!window.__UIBootstrapBooted) {
+      window.__UIBootstrapBooted = true;
+      bootstrapUI();
+    }
   }
 
   console.log('✅ ui-bootstrap.js 加载完成');

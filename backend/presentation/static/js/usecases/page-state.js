@@ -10,12 +10,25 @@
   }
 
   async function init(){
+    const U = window.UnifiedUsecases;
     // 首屏仪表板数据
-    await callIf(window, 'loadDashboardData');
+    if (U && typeof U.loadPageData === 'function') {
+      await U.loadPageData('home');
+    } else {
+      await callIf(window, 'loadDashboardData');
+    }
     // 个人资料页面初始化
-    callIf(window, 'initializeProfilePage');
+    if (U && typeof U.initializeProfilePage === 'function') {
+      U.initializeProfilePage();
+    } else {
+      callIf(window, 'initializeProfilePage');
+    }
     // 页面状态初始化（tab 可见性/默认展示页等）
-    callIf(window, 'initializePageStates');
+    if (U && typeof U.initializePageStates === 'function') {
+      U.initializePageStates();
+    } else {
+      callIf(window, 'initializePageStates');
+    }
     console.log('✅ PageState.init 完成');
   }
 

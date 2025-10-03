@@ -113,9 +113,9 @@ pub async fn serve_mobile_admin() -> Html<String> {
 
 // === 强制固定完整版仪表盘 (最终体验阶段) ===
 // 使用编译期内嵌，保证 /mobile/dashboard 始终返回旧完整界面，不再受运行目录/文件移动影响。
-// 源文件：仓库根目录 static/mobile-dashboard.html (标注 DEPRECATED COPY)。若需修改 UI，请直接编辑该文件并重新编译。
-// 内嵌旧副本（只做兜底）。实际优先读取 authoritative: presentation/static/mobile-dashboard.html
-pub const EMBED_DASHBOARD_FALLBACK: &str = include_str!("../../static/mobile-dashboard.html");
+// 源文件：backend/presentation/static/mobile-dashboard.html
+// 内嵌副本（只做兜底）。实际优先读取 authoritative: presentation/static/mobile-dashboard.html
+pub const EMBED_DASHBOARD_FALLBACK: &str = include_str!("../presentation/static/mobile-dashboard.html");
 pub async fn serve_mobile_dashboard() -> Html<String> {
     // 优先顺序：presentation authoritative -> 根 static -> embed fallback
     // 增加完整性校验：必须包含 <!DOCTYPE 与 </html>，且不含“仪表盘占位文件”占位提示

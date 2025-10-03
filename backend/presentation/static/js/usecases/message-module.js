@@ -233,14 +233,11 @@ class MessageModule {
             // 显示店铺列表
             async showShops() {
                 try {
-                    // 复用统一的获取逻辑，避免两处实现不一致（确保未审核店铺也能显示在消息页网格）
                     const shops = await fetchShops();
-                    // 仅消息页：只展示已通过/活跃店铺（未审核店铺不能使用消息功能）
-                    const list = Array.isArray(shops) ? shops : [];
-                    this.shops = list.filter(s => {
-                        const st = (s && (s.approvalStatus || s.status)) || 'pending';
-                        return st === 'approved' || st === 'active';
-                    });
+                    const arr = Array.isArray(shops) ? shops : [];
+                    // 使用集中工具统一过滤活跃/已审核店铺
+                    const filterFn = (typeof window.getActiveShops === 'function') ? window.getActiveShops : (a)=>a;
+                    this.shops = filterFn(arr);
                     if (!Array.isArray(shops)) {
                         console.warn('fetchShops 返回的非数组结果，已回退为空数组:', shops);
                     }
@@ -254,7 +251,23 @@ class MessageModule {
 
             // 渲染店铺列表
             async renderShopsList() {
-                const container = document.getElementById('shopsListView');
+                // 确保片段已注入（messages/page -> shops-list-view.html）
+                try {
+                    if (window.PartialsLoader && typeof window.PartialsLoader.loadPartials === 'function') {
+                        await window.PartialsLoader.loadPartials();
+                    }
+                } catch(_) {}
+
+                let container = document.getElementById('shopsListView');
+                if (!container) {
+                    // 延迟重试一次，兼容慢速片段注入
+                    await new Promise(r => setTimeout(r, 60));
+                    container = document.getElementById('shopsListView');
+                }
+                if (!container) {
+                    console.warn('renderShopsList: shopsListView 未就绪，放弃本次渲染');
+                    return;
+                }
                 container.innerHTML = '';
 
                 if (this.shops.length === 0) {
@@ -282,8 +295,24 @@ class MessageModule {
 
             // 创建单个店铺卡片（委托 UI 组件）
             async createShopCard(shop) {
-                const conversationCount = await this.getShopConversationCount(shop.id);
-                const unreadCount = await this.getShopUnreadCount(shop.id);
+                let conversationCount = 0;
+                let unreadCount = 0;
+                // 优先使用统一数据同步管理器获取统计，避免重复 N 次对话列表请求
+                try {
+                    if (window.unifiedDataSyncManager && typeof window.unifiedDataSyncManager.fetchShopStats === 'function') {
+                        const stats = await window.unifiedDataSyncManager.fetchShopStats(shop.id, true);
+                        conversationCount = stats && stats.conversation_count ? stats.conversation_count : 0;
+                        unreadCount = stats && stats.unread_count ? stats.unread_count : 0;
+                    } else {
+                        // 兜底：使用原有 API 方式
+                        conversationCount = await this.getShopConversationCount(shop.id);
+                        unreadCount = await this.getShopUnreadCount(shop.id);
+                    }
+                } catch (e) {
+                    console.warn('获取店铺统计失败，使用兜底为 0:', shop.id, e);
+                    conversationCount = conversationCount || 0;
+                    unreadCount = unreadCount || 0;
+                }
                 const hasConversations = conversationCount > 0;
                 const onCardClick = async () => {
                     if (hasConversations) {
@@ -438,6 +467,7 @@ class MessageModule {
             // 渲染对话列表
             renderConversationsList() {
                 const container = document.getElementById('conversationsListView');
+                if (!container) { console.warn('renderConversationsList: 容器未就绪'); return; }
                 container.innerHTML = '';
 
                 if (this.conversations.length === 0) {

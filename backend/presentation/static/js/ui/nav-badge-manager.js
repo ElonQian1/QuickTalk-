@@ -4,12 +4,21 @@
  * 确保红点只在点击conversation-item时消失，而不是点击nav-item本身
  * 
  * @author GitHub Copilot
- * @version 1.0
- * @date 2025-09-29
+ * @version 1.1
+ * @date 2025-10-03
  */
 
+// 使用模块加载器防止重复声明，并添加幂等防护
+window.ModuleLoader = window.ModuleLoader || { defineClass: (name, fn) => fn() };
+if (window.__NavBadgeManagerLoaded) {
+    console.log('ℹ️ NavBadgeManager 已加载，跳过重复初始化');
+} else {
+    window.__NavBadgeManagerLoaded = true;
+
+// 先定义类
 class NavBadgeManager {
     constructor() {
+        this.__version = '1.1.0';
         this.isDebugMode = false;
         this.navBadges = new Map(); // 存储各个导航项的红点状态
         this.conversationListeners = new Map(); // 存储conversation-item事件监听器
@@ -229,8 +238,18 @@ class NavBadgeManager {
     }
 }
 
-// 自动挂载到全局
-if (typeof window !== 'undefined') {
-    window.NavBadgeManager = NavBadgeManager;
-    console.log('✅ NavBadgeManager 已加载');
+// 使用旧模块系统注册
+window.ModuleLoader.defineClass('NavBadgeManager', function() {
+    return NavBadgeManager;
+});
+
+// 注册到新的模块系统
+if (window.registerModule) {
+    window.registerModule('NavBadgeManager', NavBadgeManager, ['UnifiedDataSyncManager']);
+}
+
+// 向后兼容
+window.NavBadgeManager = NavBadgeManager;
+console.log('📍 导航徽章管理器已加载');
+console.log('✅ NavBadgeManager 已加载');
 }

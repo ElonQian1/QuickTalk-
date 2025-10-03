@@ -10,7 +10,8 @@
         // 初始化消息模块（如果还没有创建）
         if (!window.messageModule) {
             if (typeof window.MessageModule === 'function') {
-                window.messageModule = new window.MessageModule();
+                try { window.messageModule = new window.MessageModule(); }
+                catch(e){ console.error('初始化 MessageModule 失败:', e); }
             }
         }
         
@@ -27,8 +28,14 @@
         }
         
         // 显示店铺列表作为消息页面的入口
+        try {
+            // 确保片段加载（避免容器不存在）
+            if (window.PartialsLoader && typeof window.PartialsLoader.loadPartials === 'function') {
+                await window.PartialsLoader.loadPartials();
+            }
+        } catch(_) {}
         if (window.messageModule && typeof window.messageModule.showShops === 'function') {
-            window.messageModule.showShops();
+            try { await window.messageModule.showShops(); } catch(e){ console.warn('showShops 调用失败:', e); }
         }
     };
 
@@ -90,14 +97,18 @@
         
         try {
             console.log('🔄 开始加载店铺列表');
-            const shopsData = fetchShops ? await fetchShops() : [];
-            console.log('📊 获取到的店铺数据:', shopsData);
-            
+            const rawShops = fetchShops ? await fetchShops() : [];
+            console.log('📊 获取到的店铺数据:', rawShops);
+
+            // 统一过滤活跃/已审批店铺（若有需要）
+            const filterFn = (typeof window.getActiveShops === 'function') ? window.getActiveShops : (arr)=>arr;
+            const shopsData = Array.isArray(rawShops) ? filterFn(rawShops) : [];
+
             // 将店铺数据存储到全局
-            window.shopsData = Array.isArray(shopsData) ? shopsData : [];
+            window.shopsData = shopsData;
             
             // 确保shopsData是数组
-            if (!Array.isArray(shopsData)) {
+            if (!Array.isArray(rawShops)) {
                 console.error('❌ shopsData不是数组:', typeof shopsData, shopsData);
                 window.shopsData = [];
             }
