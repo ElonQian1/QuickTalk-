@@ -13,4 +13,9 @@
     };
     return map[role] || role || '未知';
   };
+
+  // 兼容旧实现：getRoleDisplayName 别名
+  window.getRoleDisplayName = function getRoleDisplayName(role){
+    return window.getRoleName ? window.getRoleName(role) : (role || '未知');
+  };
 })();

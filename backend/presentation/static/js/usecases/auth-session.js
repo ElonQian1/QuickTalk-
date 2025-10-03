@@ -79,4 +79,78 @@
     }
 
     console.log('✅ 认证与会话模块已加载 (auth-session.js)');
+
+    // 检查登录状态（从 HTML 抽取并增强健壮性）
+    window.checkLoginStatus = async function() {
+        try {
+            let savedUser = localStorage.getItem('quicktalk_user');
+
+            if (!savedUser) {
+                // 兼容旧键：若仅存在 qt_admin_user，则复用并回填
+                const legacyUser = localStorage.getItem('qt_admin_user');
+                if (legacyUser) {
+                    try {
+                        localStorage.setItem('quicktalk_user', legacyUser);
+                        savedUser = legacyUser;
+                    } catch (error) {
+                        console.warn('无法回填 legacy 用户信息:', error);
+                    }
+                }
+            }
+
+            if (savedUser) {
+                try {
+                    window.userData = JSON.parse(savedUser);
+                    if (typeof window.updateUserInfo === 'function') {
+                        window.updateUserInfo();
+                    }
+                    return true;
+                } catch (error) {
+                    console.error('解析保存的用户信息失败:', error);
+                    localStorage.removeItem('quicktalk_user');
+                    localStorage.removeItem('qt_admin_user');
+                }
+            }
+            
+            // 如果没有登录信息，跳转到登录页面（同时清理所有凭证，避免重定向循环）
+            console.log('未找到登录信息，跳转到登录页面');
+            localStorage.removeItem('qt_admin_token');
+            localStorage.removeItem('admin_token');
+            localStorage.removeItem('qt_admin_user');
+            window.location.href = '/mobile/login';
+            return false;
+        } catch (e) {
+            console.warn('checkLoginStatus 出错，回退到登录页:', e);
+            try {
+                window.location.href = '/mobile/login';
+            } catch(_) {}
+            return false;
+        }
+    };
+
+    // 更新用户信息显示（从 HTML 抽取）
+    window.updateUserInfo = function() {
+        try {
+            const u = typeof window.userData !== 'undefined' ? window.userData : null;
+            if (!u) return;
+            const avatar = document.getElementById('userAvatar');
+            const name = document.getElementById('userName');
+            if (avatar) avatar.textContent = u.avatar || (u.username ? u.username.charAt(0).toUpperCase() : 'U');
+            if (name) name.textContent = u.username || 'User';
+            
+            // 根据用户角色显示/隐藏超级管理员功能
+            const adminOnlySettings = document.getElementById('adminOnlySettings');
+            if (adminOnlySettings) {
+                if (u.role === 'super_admin' || u.role === 'administrator') {
+                    adminOnlySettings.style.display = 'block';
+                    console.log('👨‍💼 显示超级管理员功能');
+                } else {
+                    adminOnlySettings.style.display = 'none';
+                    console.log('🔒 隐藏超级管理员功能');
+                }
+            }
+        } catch (e) {
+            console.warn('updateUserInfo 出错:', e);
+        }
+    };
 })();

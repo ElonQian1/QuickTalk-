@@ -180,4 +180,114 @@
     };
 
     console.log('✅ 页面导航模块已加载 (page-navigation.js)');
+    
+    // 绑定导航事件（从 mobile-dashboard.html 抽取）
+    window.bindNavigationEvents = function() {
+        try {
+            console.log('🔗 开始绑定导航事件...');
+
+            // 绑定底部导航栏点击事件
+            const navItems = document.querySelectorAll('.nav-item[data-page]');
+            console.log(`🔗 找到 ${navItems.length} 个导航项`);
+            navItems.forEach(item => {
+                item.addEventListener('click', function() {
+                    const page = this.getAttribute('data-page');
+                    console.log(`🖱️ 点击导航项: ${page}`);
+                    if (typeof window.switchPage === 'function') {
+                        window.switchPage(page);
+                    }
+                });
+            });
+
+            // 绑定快速操作按钮事件
+            const switchPageButtons = document.querySelectorAll('[data-switch-page]');
+            console.log(`🔗 找到 ${switchPageButtons.length} 个快速操作按钮`);
+            switchPageButtons.forEach((btn, index) => {
+                const page = btn.getAttribute('data-switch-page');
+                console.log(`🔗 绑定按钮 ${index + 1}: ${page}`);
+                btn.addEventListener('click', function(e) {
+                    console.log(`🖱️ 点击快速操作按钮: ${page}`);
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (typeof window.switchPage === 'function') {
+                        window.switchPage(page);
+                    }
+                });
+            });
+
+            // 绑定消息页面增强功能（由 app-init.js 暴露）
+            if (typeof window.initializeMessagePageEnhancements === 'function') {
+                window.initializeMessagePageEnhancements();
+            }
+
+            // 添加测试功能 - 检查按钮状态
+            setTimeout(() => {
+                console.log('🔍 延迟检查按钮状态...');
+                const testButtons = document.querySelectorAll('[data-switch-page]');
+                console.log(`🔍 延迟检查找到 ${testButtons.length} 个按钮`);
+                testButtons.forEach((btn, i) => {
+                    const page = btn.getAttribute('data-switch-page');
+                    const rect = btn.getBoundingClientRect();
+                    console.log(`🔍 按钮 ${i+1} (${page}): 可见=${rect.width > 0 && rect.height > 0}, 位置=${rect.top},${rect.left}`);
+                });
+
+                // 添加全局测试函数
+                window.testSwitchPage = function(page) {
+                    console.log(`🧪 测试切换页面: ${page}`);
+                    if (typeof window.switchPage === 'function') {
+                        window.switchPage(page);
+                    }
+                };
+
+                // 添加按钮点击测试
+                window.testButtonClick = function(buttonIndex = 0) {
+                    const buttons = document.querySelectorAll('[data-switch-page]');
+                    if (buttons[buttonIndex]) {
+                        console.log(`🧪 模拟点击按钮 ${buttonIndex}`);
+                        buttons[buttonIndex].click();
+                    } else {
+                        console.log(`❌ 按钮 ${buttonIndex} 不存在`);
+                    }
+                };
+
+                // 添加新增店铺测试
+                window.testCreateShop = function() {
+                    console.log('🧪 测试新增店铺功能');
+                    try {
+                        if (typeof window.createNewShop === 'function') {
+                            window.createNewShop();
+                        }
+                    } catch (error) {
+                        console.error('❌ 测试新增店铺出错:', error);
+                    }
+                };
+
+                // 添加关闭模态框测试
+                window.testCloseShop = function() {
+                    console.log('🧪 测试关闭店铺模态框');
+                    try {
+                        if (typeof window.hideCreateShopModal === 'function') {
+                            window.hideCreateShopModal();
+                        }
+                    } catch (error) {
+                        console.error('❌ 测试关闭模态框出错:', error);
+                    }
+                };
+
+                // 添加表单提交测试
+                window.testSubmitShop = function() {
+                    console.log('🧪 测试提交店铺表单');
+                    const form = document.getElementById('createShopForm');
+                    if (form) {
+                        const event = new Event('submit', { bubbles: true, cancelable: true });
+                        form.dispatchEvent(event);
+                    } else {
+                        console.error('❌ 未找到表单元素');
+                    }
+                };
+            }, 1000);
+        } catch (e) {
+            console.warn('bindNavigationEvents 出错:', e);
+        }
+    };
 })();

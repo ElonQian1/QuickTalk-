@@ -22,6 +22,19 @@
         return canManage;
     };
 
+    // 兼容：是否可批准店铺
+    window.canApproveShops = function() {
+        const canApprove = window.isAdmin();
+        console.log(`店铺批准权限检查: 可批准=${canApprove}`);
+        return canApprove;
+    };
+
+    // 兼容：是否可激活店铺
+    window.canActivateShops = function() {
+        // 管理员可以根据店主续费情况激活店铺
+        return window.isAdmin();
+    };
+
     // 检查用户是否有权限执行特定操作
     window.hasActionPermission = function(action, shop = null) {
         const getUserData = typeof window.getUserData === 'function' ? window.getUserData : () => null;
