@@ -152,6 +152,51 @@
     }
   }
 
+  // 兼容旧版页面上的复制/下载按钮（generated-code 区域）
+  function copyCode() {
+    const codeTextarea = document.getElementById('generated-code');
+    if (!codeTextarea) return;
+    try {
+      codeTextarea.select();
+      document.execCommand('copy');
+      if (typeof showSuccess==='function') showSuccess('代码已复制到剪贴板');
+      else if (typeof showToast==='function') showToast('代码已复制到剪贴板', 'success');
+    } catch (e) {
+      console.error('复制失败:', e);
+      if (typeof showError==='function') showError('复制失败，请手动复制');
+      else if (typeof showToast==='function') showToast('复制失败，请手动复制', 'error');
+    }
+  }
+
+  function getFileExtension(platform) {
+    switch (platform) {
+      case 'html': return 'html';
+      case 'react': return 'jsx';
+      case 'php': return 'php';
+      case 'python': return 'py';
+      default: return 'txt';
+    }
+  }
+
+  function downloadCode() {
+    if (!window.currentGeneratedCode) {
+      if (typeof showToast==='function') showToast('没有可下载的代码', 'error');
+      return;
+    }
+    const { platform, code } = window.currentGeneratedCode;
+    const filename = `quicktalk-integration.${getFileExtension(platform)}`;
+    const blob = new Blob([code], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    if (typeof showToast==='function') showToast(`${filename} 下载成功`, 'success');
+  }
+
   async function regenerateApiKey() {
     if (!confirm('重新生成API密钥后，现有的集成将失效，确定继续吗？')) {
       return;
@@ -183,4 +228,8 @@
   window.generateIntegrationCode = generateIntegrationCode;
   window.copyIntegrationCode = copyIntegrationCode;
   window.regenerateApiKey = regenerateApiKey;
+  // 兼容旧版的按钮处理函数
+  window.copyCode = copyCode;
+  window.downloadCode = downloadCode;
+  window.getFileExtension = getFileExtension;
 })();
