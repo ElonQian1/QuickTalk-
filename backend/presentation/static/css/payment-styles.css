@@ -1,0 +1,341 @@
+/* 
+ * 付费激活与支付相关样式
+ * 包含: 付费计划、二维码、支付按钮等
+ */
+
+/* 付费模态框样式 */
+.payment-options {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+    margin-top: 20px;
+}
+
+@media (min-width: 768px) {
+    .payment-options {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+.payment-plan {
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    position: relative;
+    background: white;
+    transition: all 0.3s ease;
+}
+
+.payment-plan:hover {
+    border-color: #007bff;
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.15);
+}
+
+.payment-plan.popular {
+    border-color: #28a745;
+    transform: scale(1.05);
+}
+
+.popular-badge {
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #28a745;
+    color: white;
+    padding: 4px 16px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.payment-plan h4 {
+    margin: 0 0 10px 0;
+    color: #333;
+    font-size: 18px;
+}
+
+.payment-plan .price {
+    font-size: 24px;
+    font-weight: bold;
+    color: #007bff;
+    margin-bottom: 15px;
+}
+
+.payment-plan ul {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 20px 0;
+    text-align: left;
+}
+
+.payment-plan li {
+    padding: 5px 0;
+    font-size: 14px;
+    color: #666;
+}
+
+.payment-plan .btn {
+    width: 100%;
+    padding: 10px;
+    font-size: 14px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.payment-plan .btn.primary {
+    background: #007bff;
+    color: white;
+}
+
+.payment-plan .btn.primary:hover {
+    background: #0056b3;
+}
+
+/* 付费开通模态框样式 */
+.activation-info {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    border: 1px solid #dee2e6;
+}
+
+.info-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.info-item:last-child {
+    border-bottom: none;
+}
+
+.info-item strong {
+    color: #495057;
+    font-weight: 600;
+}
+
+.amount {
+    color: #dc3545;
+    font-weight: 700;
+    font-size: 16px;
+}
+
+.activation-benefit .benefit-text {
+    color: #28a745;
+    font-weight: 600;
+}
+
+.payment-methods {
+    margin: 20px 0;
+}
+
+.payment-methods h4 {
+    color: #333;
+    margin-bottom: 16px;
+    text-align: center;
+    font-size: 16px;
+}
+
+.payment-buttons {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+}
+
+.payment-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 16px;
+    border: 2px solid #e9ecef;
+    border-radius: 12px;
+    background: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-width: 120px;
+    text-align: center;
+}
+
+.payment-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.alipay-btn:hover {
+    border-color: #1677ff;
+    background: linear-gradient(135deg, #f0f8ff 0%, #e6f7ff 100%);
+}
+
+.wechat-btn:hover {
+    border-color: #07c160;
+    background: linear-gradient(135deg, #f0fff4 0%, #e6f7ec 100%);
+}
+
+.payment-icon {
+    font-size: 28px;
+    margin-bottom: 8px;
+    transition: transform 0.3s ease;
+}
+
+.payment-btn:hover .payment-icon {
+    transform: scale(1.1);
+}
+
+.payment-text {
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+}
+
+.alipay-btn:hover .payment-text {
+    color: #1677ff;
+}
+
+.wechat-btn:hover .payment-text {
+    color: #07c160;
+}
+
+.qr-code-section {
+    text-align: center;
+    margin: 20px 0;
+}
+
+.qr-code-section h4 {
+    color: #333;
+    margin-bottom: 16px;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.qr-code-section h4::before {
+    content: "💰";
+    font-size: 18px;
+}
+
+.qr-code-section[data-method="wechat"] h4::before {
+    content: "💚";
+}
+
+.qr-code-container {
+    display: inline-block;
+    padding: 16px;
+    background: white;
+    border: 2px solid #eee;
+    border-radius: 12px;
+    margin: 16px 0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+}
+
+.qr-code-container:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+}
+
+.qr-code-container.alipay-style {
+    border-color: #1677ff;
+}
+
+.qr-code-container.wechat-style {
+    border-color: #07c160;
+}
+
+.qr-code-container img {
+    width: 180px;
+    height: 180px;
+    border: none;
+    display: block;
+    margin: 0 auto;
+    border-radius: 8px;
+}
+
+.qr-tips {
+    margin-top: 12px;
+}
+
+.qr-tips p {
+    margin: 6px 0;
+    color: #333;
+    font-size: 14px;
+}
+
+.tip-text {
+    color: #666 !important;
+    font-size: 12px;
+}
+
+.qr-actions {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #f0f0f0;
+}
+
+.test-buttons {
+    margin-top: 16px;
+}
+
+.payment-success {
+    text-align: center;
+    padding: 30px 20px;
+}
+
+.success-icon {
+    font-size: 42px;
+    margin-bottom: 16px;
+}
+
+.payment-success h4 {
+    color: #28a745;
+    margin-bottom: 8px;
+    font-size: 16px;
+}
+
+.payment-success p {
+    color: #666;
+    margin-bottom: 16px;
+    font-size: 14px;
+}
+
+.success-actions {
+    margin-top: 16px;
+}
+
+/* 移动端适配 */
+@media (max-width: 480px) {
+    .payment-buttons {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .payment-btn {
+        flex-direction: row;
+        gap: 12px;
+        min-width: auto;
+        padding: 16px;
+    }
+    
+    .payment-icon {
+        font-size: 24px;
+        margin-bottom: 0;
+    }
+    
+    .qr-code-container img {
+        width: 160px;
+        height: 160px;
+    }
+    
+    .activation-info {
+        padding: 16px;
+    }
+}

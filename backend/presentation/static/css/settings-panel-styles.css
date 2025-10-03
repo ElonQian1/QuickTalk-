@@ -1,0 +1,248 @@
+/* 
+ * 设置列表与管理面板样式
+ * 包含: 设置项、管理面板、超级管理员功能等
+ */
+
+.settings-list {
+    background: white;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    margin-bottom: 30px; /* 增加底部间距 */
+}
+
+.settings-item {
+    display: flex;
+    align-items: center;
+    padding: 15px 20px;
+    border-bottom: 1px solid #f8f9fa;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.settings-item:hover {
+    background: #f8f9fa;
+}
+
+.settings-item:last-child {
+    border-bottom: none;
+}
+
+.settings-icon {
+    font-size: 20px;
+    margin-right: 15px;
+    width: 24px;
+    text-align: center;
+}
+
+.settings-text {
+    flex: 1;
+    font-size: 16px;
+    color: #2c3e50;
+}
+
+.settings-arrow {
+    font-size: 16px;
+    color: #adb5bd;
+}
+
+.settings-divider {
+    font-size: 14px;
+    font-weight: 600;
+    color: #6c757d;
+    margin-bottom: 12px;
+    padding: 8px 16px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    text-align: center;
+}
+
+/* 管理面板样式 */
+.admin-only-section {
+    margin-top: 20px;
+    border-top: 1px solid #e9ecef;
+    padding-top: 20px;
+}
+
+/* 系统统计样式 */
+.system-stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.system-stat-item {
+    background: #f8f9fa;
+    padding: 16px;
+    border-radius: 8px;
+    text-align: center;
+    border: 1px solid #e9ecef;
+}
+
+.system-stat-number {
+    font-size: 24px;
+    font-weight: 700;
+    color: #667eea;
+    margin-bottom: 4px;
+}
+
+.system-stat-label {
+    font-size: 12px;
+    color: #6c757d;
+}
+
+/* 店主管理样式 */
+.search-container {
+    margin-bottom: 16px;
+}
+
+.search-input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.owners-list {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.owner-item {
+    background: white;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 8px;
+}
+
+.owner-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+}
+
+.owner-info h6 {
+    margin: 0;
+    font-size: 14px;
+    color: #2c3e50;
+}
+
+.owner-info p {
+    margin: 2px 0;
+    font-size: 12px;
+    color: #6c757d;
+}
+
+.owner-actions {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+
+.owner-actions .btn {
+    padding: 4px 8px;
+    font-size: 10px;
+    min-width: auto;
+}
+
+/* 店铺监控样式 */
+.shops-monitor {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.shop-monitor-item {
+    background: white;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.shop-monitor-info h6 {
+    margin: 0;
+    font-size: 14px;
+    color: #2c3e50;
+}
+
+.shop-monitor-info p {
+    margin: 2px 0;
+    font-size: 11px;
+    color: #6c757d;
+}
+
+/* 审核管理样式 */
+.pending-shops-container {
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.pending-shop-item {
+    background: white;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 12px;
+}
+
+.pending-shop-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+}
+
+.pending-shop-info h5 {
+    margin: 0 0 4px 0;
+    font-size: 16px;
+    color: #2c3e50;
+}
+
+.pending-shop-info .domain {
+    font-size: 12px;
+    color: #6c757d;
+    margin-bottom: 6px;
+}
+
+.pending-shop-info .description {
+    font-size: 13px;
+    color: #495057;
+    line-height: 1.4;
+    background: #f8f9fa;
+    padding: 8px;
+    border-radius: 4px;
+}
+
+.pending-shop-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 8px 0;
+    font-size: 11px;
+    color: #6c757d;
+}
+
+.pending-shop-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.empty-pending {
+    text-align: center;
+    padding: 40px;
+    color: #6c757d;
+}
+
+.empty-pending i {
+    font-size: 48px;
+    margin-bottom: 15px;
+    display: block;
+}

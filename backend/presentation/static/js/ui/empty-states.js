@@ -24,6 +24,31 @@
     return build('🏪', '暂无可用店铺', '只有审核通过的店铺才会在此显示；请在店铺通过审核后再来处理客服消息');
   }
 
-  window.EmptyStatesUI = { build, conversations, shops };
+  function messages(){
+    return build('📭', '暂无消息', '当前对话还没有消息记录');
+  }
+
+  function search(){
+    return build('🔍', '未找到匹配结果', '试试其他搜索关键词');
+  }
+
+  function workbench(){
+    return build('📊', '暂无数据', '当前统计周期内没有数据');
+  }
+
+  function generic(icon, title, desc){
+    return build(icon || '📋', title || '暂无内容', desc || '');
+  }
+
+  window.EmptyStatesUI = { 
+    build, 
+    conversations, 
+    shops, 
+    messages, 
+    search, 
+    workbench,
+    generic
+  };
   console.log('✅ UI 组件已加载 (empty-states.js)');
 })();
+

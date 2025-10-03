@@ -21,6 +21,11 @@
     try { return el.scrollHeight - el.scrollTop - el.clientHeight <= threshold; } catch(_e){ return false; }
   }
 
+  function nearTop(el, threshold){
+    threshold = threshold || 40; // px
+    try { return el.scrollTop <= threshold; } catch(_e){ return false; }
+  }
+
   async function loadMoreMessages(){
     if (state.loadingMessages) return;
     var mm = window.messageModule;
@@ -45,6 +50,9 @@
     if (!mm || !mm.currentShopId) return;
     state.loadingConversations = true;
     try {
+      if (window.ConversationsPagination && typeof window.ConversationsPagination.loadMore === 'function'){
+        window.ConversationsPagination.loadMore();
+      } else
       if (typeof mm.loadMoreConversations === 'function') {
         await mm.loadMoreConversations(++state.lastConvPage);
       } else if (typeof window.loadMoreConversations === 'function') {
@@ -63,8 +71,8 @@
     if (chatList) {
       chatList.addEventListener('scroll', function(){
         if (!state.enabled) return;
-        // 当滚动接近底部时尝试加载更多；如果 UI 希望滚动到顶部加载历史，可将 nearBottom 改为 scrollTop<=阈值
-        if (nearBottom(chatList, 40)) {
+        // 在聊天历史里使用上拉触顶加载更早消息
+        if (nearTop(chatList, 40)) {
           loadMoreMessages();
         }
       });

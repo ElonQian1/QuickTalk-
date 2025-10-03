@@ -1,0 +1,199 @@
+/* 
+ * 状态提示与空状态样式
+ * 包含: 空状态、加载状态、错误消息、状态提示等
+ */
+
+/* 空状态样式 */
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    text-align: center;
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+.empty-icon {
+    font-size: 64px;
+    margin-bottom: 20px;
+    opacity: 0.3;
+}
+
+.empty-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 10px;
+}
+
+.empty-desc {
+    font-size: 14px;
+    color: #6c757d;
+    line-height: 1.6;
+}
+
+/* 加载状态 */
+.loading-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    text-align: center;
+}
+
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #667eea;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 20px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.loading-text {
+    font-size: 16px;
+    color: #6c757d;
+}
+
+.empty-state, .error-message {
+    text-align: center;
+    padding: 40px 20px;
+    color: #666;
+}
+
+.empty-icon {
+    font-size: 48px;
+    margin-bottom: 15px;
+}
+
+.empty-state h3 {
+    margin: 0 0 10px 0;
+    color: #333;
+}
+
+.error-message {
+    color: #dc3545;
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    border-radius: 6px;
+}
+
+/* 状态提示样式 */
+.status-info {
+    display: block !important;
+    margin: 15px 0;
+}
+
+.status-message {
+    display: flex;
+    align-items: flex-start;
+    padding: 15px;
+    border-radius: 8px;
+    background: #f8f9fa;
+    border-left: 4px solid #007bff;
+}
+
+.status-message.pending {
+    background: #fff3cd;
+    border-left-color: #ffc107;
+}
+
+.status-message.payment-pending {
+    background: #d1ecf1;
+    border-left-color: #17a2b8;
+}
+
+.status-icon {
+    font-size: 24px;
+    margin-right: 12px;
+    flex-shrink: 0;
+}
+
+.status-text h4 {
+    margin: 0 0 5px 0;
+    font-size: 16px;
+    color: #333;
+}
+
+.status-text p {
+    margin: 0;
+    font-size: 14px;
+    color: #666;
+    line-height: 1.4;
+}
+
+/* 触摸反馈 */
+.tap-feedback {
+    position: relative;
+    overflow: hidden;
+}
+
+.tap-feedback::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(102, 126, 234, 0.3);
+    transition: width 0.3s, height 0.3s;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+}
+
+.tap-feedback:active::before {
+    width: 200px;
+    height: 200px;
+}
+
+/* 店铺详情模态框样式 */
+.shop-detail-info {
+    margin-bottom: 20px;
+}
+
+.detail-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 15px;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 5px;
+}
+
+.detail-item label {
+    font-weight: bold;
+    color: #333;
+    min-width: 80px;
+    margin-right: 10px;
+}
+
+.detail-item span {
+    flex: 1;
+    color: #666;
+}
+
+.api-key-display {
+    font-family: monospace;
+    background: #e9ecef;
+    padding: 5px 8px;
+    border-radius: 3px;
+    font-size: 12px;
+}
+
+.shop-detail-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 20px;
+}

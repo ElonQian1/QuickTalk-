@@ -6,25 +6,9 @@
 (function(){
   'use strict';
 
-  function ensureBanner(){
-    var el = document.getElementById('typingIndicator');
-    if (el) return el;
-    var header = document.querySelector('.chat-header');
-    if (!header) return null;
-    el = document.createElement('div');
-    el.id = 'typingIndicator';
-    el.style.cssText = 'position:absolute;left:20px;bottom:-18px;font-size:12px;color:#999;';
-    el.textContent = '';
-    header.appendChild(el);
-    return el;
-  }
-
   function showTyping(){
-    var banner = ensureBanner();
-    if (banner){
-      banner.textContent = '对方正在输入...';
-      clearTimeout(banner.__hideTimer);
-      banner.__hideTimer = setTimeout(function(){ banner.textContent = ''; }, 3000);
+    if (window.TypingIndicatorUI && typeof window.TypingIndicatorUI.show==='function'){
+      window.TypingIndicatorUI.show('对方正在输入...');
     } else if (typeof window.showToast === 'function') {
       window.showToast('对方正在输入...', 'info');
     }

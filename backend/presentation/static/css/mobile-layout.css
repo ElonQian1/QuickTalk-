@@ -1,0 +1,196 @@
+/* 
+ * 移动端基础布局样式
+ * 包含: 容器、页面结构、顶部栏、主内容区等基础布局
+ */
+
+.app-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+/* 顶部状态栏 */
+.top-bar {
+    height: 60px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+}
+
+.page-title {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: 0.2px;
+    color: #2c3e50;
+    margin-bottom: 4px;
+}
+
+.page-subtitle { 
+    font-size: 13px; 
+    color: #6c757d; 
+    opacity: 0.95; 
+}
+
+/* 头部行布局：返回按钮与标题在同一行 */
+.header-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.header-row .back-btn {
+    padding: 8px 12px;
+    margin: 0;
+    font-size: 16px;
+    min-width: auto;
+    border-radius: 8px;
+}
+
+.header-row .page-title {
+    margin: 0;
+    flex: 1;
+}
+
+.page-actions { 
+    margin-top: 12px; 
+}
+
+.back-btn { 
+    background: rgba(255,255,255,0.20); 
+    color: #fff; 
+    border: 1px solid rgba(255,255,255,0.35); 
+    padding: 8px 16px; 
+    border-radius: 20px; 
+    font-size: 14px; 
+    font-weight: 500; 
+    cursor: pointer; 
+    backdrop-filter: blur(8px); 
+}
+
+.page-header .search-input { 
+    background: rgba(255,255,255,0.92); 
+    border-color: rgba(255,255,255,0.8); 
+}
+
+.page-header .search-btn { 
+    background: rgba(255,255,255,0.20); 
+    color: #fff; 
+    border: 1px solid rgba(255,255,255,0.35); 
+    backdrop-filter: blur(8px); 
+}
+
+.page-header .search-btn:hover { 
+    background: rgba(255,255,255,0.28); 
+}
+
+/* 各页面主题配色（标题/副标题自动白色以增强可读性） */
+#homePage .page-header { 
+    background: linear-gradient(135deg, #43cea2 0%, #185a9d 100%); 
+}
+
+#messagesPage .page-header { 
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+}
+
+#shopsPage .page-header { 
+    background: linear-gradient(135deg, #ff9966 0%, #ff5e62 100%); 
+}
+
+#profilePage .page-header { 
+    background: linear-gradient(135deg, #396afc 0%, #2948ff 100%); 
+}
+
+#homePage .page-header .page-title,
+#homePage .page-header .page-subtitle,
+#homePage .page-header .back-btn,
+#messagesPage .page-header .page-title,
+#messagesPage .page-header .back-btn,
+#shopsPage .page-header .page-title,
+#shopsPage .page-header .page-subtitle,
+#shopsPage .page-header .back-btn,
+#profilePage .page-header .page-title,
+#profilePage .page-header .page-subtitle,
+#profilePage .page-header .back-btn { 
+    color: #fff; 
+}
+
+.page-content {
+    padding: 20px;
+    padding-bottom: 100px; /* 为底部导航栏留出空间 */
+    min-height: calc(100vh - 160px); /* 确保内容区域至少占满剩余高度 */
+}
+
+/* 首页样式 */
+#homePage .page-content {
+    padding: 20px;
+    padding-bottom: 100px;
+    box-shadow: 0 6px 14px rgba(17, 24, 39, 0.06);
+    background: #ffffff;
+}
+
+.action-btn:active {
+    transform: translateY(0) scale(0.98);
+    box-shadow: 0 3px 8px rgba(17, 24, 39, 0.06);
+}
+
+.action-btn:focus-visible {
+    outline: 3px solid rgba(102, 126, 234, 0.3);
+    outline-offset: 2px;
+}
+
+/* 消息页面样式 */
+.conversation-list {
+    background: white;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+/* 自定义滚动条 */
+.page::-webkit-scrollbar {
+    width: 3px;
+}
+
+.page::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.page::-webkit-scrollbar-thumb {
+    background: rgba(102, 126, 234, 0.3);
+    border-radius: 3px;
+}
+
+/* 隐藏类 */
+.hidden {
+    display: none !important;
+}
+
+/* 响应式调整 */
+@media (max-width: 375px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+    .action-buttons {
+        grid-template-columns: 1fr;
+    }
+    
+    .action-btn {
+        min-width: 100px;
+        font-size: 13px;
+        padding: 10px 12px;
+    }
+    
+    .page-content {
+        padding: 15px;
+    }
+}
+
+@media (max-height: 667px) {
+    .top-bar { height: 50px; }
+    .main-content { padding-bottom: 70px; }
+}
+
+@media (max-width: 480px) {
+    #messagesPage .page-content { padding: 10px; }
+}

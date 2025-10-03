@@ -386,6 +386,14 @@ class MessageModule {
                 }
                 
                 this.showView('conversationsListView');
+                // 骨架屏（可选）
+                try {
+                    const container = document.getElementById('conversationsListView');
+                    if (container && window.SkeletonListUI && typeof window.SkeletonListUI.buildConversationsSkeleton === 'function'){
+                        container.innerHTML = '';
+                        container.appendChild(window.SkeletonListUI.buildConversationsSkeleton(6));
+                    }
+                } catch(e){}
                 await this.loadConversationsForShop(shop.id);
             }
 
@@ -546,6 +554,8 @@ class MessageModule {
                 }
                 this.messages.forEach((m) => this.renderMessage(m));
                 this.scrollToBottom();
+                // 应用消息分页（首次渲染后）
+                try { if (window.MessagesPagination && typeof window.MessagesPagination.apply==='function') window.MessagesPagination.apply(); } catch(e){}
             }
 
             // 渲染单条消息
@@ -554,6 +564,7 @@ class MessageModule {
                 if (window.MessageBubbleUI && typeof window.MessageBubbleUI.create === 'function') {
                     const node = window.MessageBubbleUI.create(message, { currentCustomerName: this.currentCustomer?.name });
                     container.appendChild(node);
+                    try { container.dispatchEvent(new CustomEvent('message:rendered', { detail: { id: message.id } })); } catch(e){}
                     return;
                 }
                 // 回退：原内联实现
@@ -576,6 +587,15 @@ class MessageModule {
                 messageDiv.innerHTML = `<div class="message-avatar">${avatar}</div>`;
                 messageDiv.appendChild(messageContent);
                 container.appendChild(messageDiv);
+            }
+
+            // 分页加载更多历史消息（供滚动/按钮触发）
+            async loadMoreMessages(page){
+                try {
+                    if (window.MessagesPagination && typeof window.MessagesPagination.loadMore==='function'){
+                        await window.MessagesPagination.loadMore();
+                    }
+                } catch(e){ console.warn('loadMoreMessages failed', e); }
             }
 
             // 创建媒体元素（委托 UI 组件，保留回退）

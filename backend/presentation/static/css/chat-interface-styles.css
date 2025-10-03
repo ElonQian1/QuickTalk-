@@ -1,0 +1,126 @@
+/* 
+ * 聊天界面与对话相关样式
+ * 包含: 聊天头部、客户信息、快捷回复、输入工具栏等
+ */
+
+.chat-header {
+    background: white;
+    padding: 15px 20px;
+    border-bottom: 1px solid #e9ecef;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: -20px -20px 20px -20px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.customer-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.customer-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #007bff;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 16px;
+}
+
+.customer-details {
+    flex: 1;
+}
+
+.customer-name {
+    font-weight: bold;
+    font-size: 16px;
+    color: #333;
+}
+
+.customer-status {
+    font-size: 12px;
+    color: #28a745;
+}
+
+.chat-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.chat-action-btn {
+    background: #f8f9fa;
+    border: 1px solid #ddd;
+    padding: 8px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 14px;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.chat-action-btn:hover {
+    background: #e9ecef;
+}
+
+.quick-replies {
+    background: #f8f9fa;
+    padding: 10px;
+    border-top: 1px solid #e9ecef;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.quick-reply-btn {
+    background: white;
+    border: 1px solid #ddd;
+    padding: 8px 12px;
+    border-radius: 15px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+}
+
+.quick-reply-btn:hover {
+    background: #007bff;
+    color: white;
+    border-color: #007bff;
+}
+
+.input-toolbar {
+    display: flex;
+    gap: 8px;
+    padding: 8px 15px;
+    background: #f8f9fa;
+    border-top: 1px solid #e9ecef;
+}
+
+.input-toolbar button {
+    background: white;
+    border: 1px solid #ddd;
+    padding: 8px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 16px;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.input-toolbar button:hover {
+    background: #e9ecef;
+}
