@@ -124,11 +124,13 @@
       const statusDot = document.getElementById('connectionStatus');
       const statusText = document.getElementById('connectionText');
       if (!statusDot || !statusText) return;
+      // 统一按样式类名处理：online/offline（见 css/top-bar.css）
+      statusDot.classList.remove('online', 'offline', 'reconnecting', 'disconnected');
       if (isConnected) {
-        statusDot.classList.remove('disconnected');
+        statusDot.classList.add('online');
         statusText.textContent = '已连接';
       } else {
-        statusDot.classList.add('disconnected');
+        statusDot.classList.add('offline');
         statusText.textContent = '未连接';
       }
     } catch (e) {

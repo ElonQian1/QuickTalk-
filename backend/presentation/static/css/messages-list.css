@@ -1,0 +1,24 @@
+/* 消息列表与条目样式补全 */
+
+.conversations-header { background: #f8f9fa; padding: 12px 16px; border-bottom: 1px solid #e9ecef; margin: -20px -20px 12px -20px; }
+.conversations-stats { font-size: 13px; color: #666; margin-bottom: 8px; }
+.separator { margin: 0 8px; }
+.conversations-filter { display: flex; gap: 10px; }
+.filter-btn { background: transparent; border: 1px solid #ddd; color: #666; padding: 6px 12px; border-radius: 15px; font-size: 12px; cursor: pointer; transition: all 0.2s ease; }
+.filter-btn.active { background: #667eea; color: white; border-color: #667eea; }
+.filter-btn:hover { border-color: #667eea; color: #667eea; background: rgba(102,126,234,.06); }
+
+.conversation-list { display: flex; flex-direction: column; gap: 6px; }
+.conversation-item { display: flex; align-items: center; gap: 12px; background: white; border: 1px solid #eef2f7; border-radius: 12px; padding: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.04); position: relative; }
+.conversation-content { flex: 1; min-width: 0; }
+.conversation-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.customer-name { font-size: 14px; font-weight: 700; color: #2c3e50; }
+.last-message { font-size: 13px; color: #6c757d; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.unread-badge { position: absolute; top: 10px; right: 12px; background: #dc3545; color: #fff; border-radius: 10px; min-width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; padding: 0 6px; }
+
+.loading-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; color: #6c757d; }
+.loading-spinner { width: 24px; height: 24px; border: 3px solid #e9ecef; border-top-color: #667eea; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 8px; }
+.loading-text { font-size: 13px; }
+
+@keyframes spin { to { transform: rotate(360deg); } }

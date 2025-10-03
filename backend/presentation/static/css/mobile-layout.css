@@ -9,6 +9,12 @@
     height: 100vh;
 }
 
+/* 主内容容器与页面切换基础 */
+.main-content { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; background: #f3f4f6; }
+.page { display: none; }
+.page.active { display: block; }
+.page-header { padding: 16px 16px 12px; background: #fff; border-bottom: 1px solid #eef2f7; }
+
 /* 顶部状态栏 */
 .top-bar {
     height: 60px;

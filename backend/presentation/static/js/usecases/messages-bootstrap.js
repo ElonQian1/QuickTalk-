@@ -49,13 +49,17 @@
     });
 
     // 表情与媒体按钮（提示占位）
-    const emojiBtn = root.querySelector('#emojiBtn');
-    if (emojiBtn){
-      emojiBtn.addEventListener('click', function(){ if (typeof window.showToast==='function') window.showToast('表情功能开发中...', 'info'); });
-    }
-    const mediaBtn = root.querySelector('#mediaBtn');
-    if (mediaBtn){
-      mediaBtn.addEventListener('click', function(){ if (typeof window.showToast==='function') window.showToast('文件上传功能开发中...', 'info'); });
+    // 若 ChatComposer 已接管，则此处不再重复绑定，避免重复触发
+    const composerTaken = !!(window.ChatComposer && typeof window.ChatComposer.init === 'function');
+    if (!composerTaken){
+      const emojiBtn = root.querySelector('#emojiBtn');
+      if (emojiBtn){
+        emojiBtn.addEventListener('click', function(){ if (typeof window.showToast==='function') window.showToast('表情功能开发中...', 'info'); });
+      }
+      const mediaBtn = root.querySelector('#mediaBtn');
+      if (mediaBtn){
+        mediaBtn.addEventListener('click', function(){ if (typeof window.showToast==='function') window.showToast('文件上传功能开发中...', 'info'); });
+      }
     }
 
     console.log('✅ messages-bootstrap.js 事件绑定完成');

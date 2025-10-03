@@ -21,6 +21,10 @@
 
     try { window.MessagesBootstrap && typeof window.MessagesBootstrap.init==='function' && window.MessagesBootstrap.init(); } catch(_){}
     try { window.MessagesHeader && typeof window.MessagesHeader.init==='function' && window.MessagesHeader.init(); } catch(_){}
+    // 在片段加载后再初始化 ChatComposer，确保能找到输入与按钮
+    try { window.ChatComposer && typeof window.ChatComposer.init==='function' && window.ChatComposer.init(); } catch(_){}
+    // 启用聊天滚动指示器（回到底部按钮）
+    try { window.ChatScrollIndicator && typeof window.ChatScrollIndicator.init==='function' && window.ChatScrollIndicator.init(); } catch(_){}
     // messages-views 只需要导出 show，无需 init；此处只是保证已加载
     if (!window.MessagesViews) {
       console.warn('messages-views.js 尚未加载，视图切换使用兜底显示');

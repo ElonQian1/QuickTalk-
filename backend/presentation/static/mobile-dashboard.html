@@ -11,6 +11,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>QuickTalk 移动端管理后台</title>
     
+    <!-- 全局基础样式（优先级最高，放在最前） -->
+    <link rel="stylesheet" href="/static/css/reset.css">
+    <link rel="stylesheet" href="/static/css/variables.css">
+    
     <!-- 对话头像和红点样式模块 -->
     <link rel="stylesheet" href="/static/css/conversation-avatar.css">
     
@@ -20,8 +24,11 @@
     <link rel="stylesheet" href="/static/css/toast.css">
     
     <!-- 移动端样式模块化引入 -->
+    <link rel="stylesheet" href="/static/css/top-bar.css">
     <link rel="stylesheet" href="/static/css/mobile-layout.css">
+    <link rel="stylesheet" href="/static/css/bottom-nav.css">
     <link rel="stylesheet" href="/static/css/shop-card-styles.css">
+    <link rel="stylesheet" href="/static/css/home.css">
     <link rel="stylesheet" href="/static/css/modal-styles.css">
     <link rel="stylesheet" href="/static/css/form-styles.css">
     <link rel="stylesheet" href="/static/css/button-styles.css">
@@ -31,6 +38,8 @@
     <link rel="stylesheet" href="/static/css/promotion-integration-styles.css">
     <link rel="stylesheet" href="/static/css/chat-interface-styles.css">
     <link rel="stylesheet" href="/static/css/state-styles.css">
+    <link rel="stylesheet" href="/static/css/messages-list.css">
+    <link rel="stylesheet" href="/static/css/shops-grid.css">
     
     <!-- UI 启动（usecases）：数据同步与店铺卡片管理器初始化 -->
     <!-- 移除重复引用，保留文末业务模块统一启动的 ui-bootstrap.js -->
@@ -39,6 +48,7 @@
     
     <!-- 按功能拆分：聊天与底部导航样式外置 -->
     <link rel="stylesheet" href="/static/css/messages-view.css">
+    <link rel="stylesheet" href="/static/css/chat-view.css">
 <!-- 结束 head，开始 body -->
 </head>
 <body>
@@ -232,6 +242,8 @@
     <script src="/static/js/usecases/conversations-header.js"></script>
     <!-- 消息头返回键胶水（usecases） -->
     <script src="/static/js/usecases/messages-header.js"></script>
+    <!-- 消息页统一初始化入口（确保上面依赖加载后再执行） -->
+    <script src="/static/js/usecases/messages-init.js"></script>
     <!-- 正在输入指示胶水（usecases） -->
     <script src="/static/js/usecases/messages-typing.js"></script>
     <!-- 附件上传入口胶水（usecases） -->

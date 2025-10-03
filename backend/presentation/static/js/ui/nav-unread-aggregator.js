@@ -25,9 +25,14 @@
   }
 
   function updateNav(total) {
+    const v = Math.max(0, parseInt(total) || 0);
+    // 优先委托 NavBadgeManager，保持统一的红点更新路径
+    if (window.navBadgeManager && typeof window.navBadgeManager.updateNavBadge === 'function') {
+      try { window.navBadgeManager.updateNavBadge('messages', v); return; } catch(_){}
+    }
+    // 兜底：直接更新 DOM（旧路径兼容）
     const el = document.querySelector(SEL);
     if (!el) return;
-    const v = Math.max(0, parseInt(total) || 0);
     if (v > 0) {
       el.textContent = v > 99 ? '99+' : String(v);
       el.style.display = 'inline-flex';

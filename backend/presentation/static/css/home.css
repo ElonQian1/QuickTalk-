@@ -1,0 +1,19 @@
+/* 首页模块样式补全 */
+
+.scrollable-content { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+
+.stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.stat-card { background: #fff; border: 1px solid #eef2f7; border-radius: 12px; padding: 14px; box-shadow: 0 1px 4px rgba(0,0,0,.04); }
+.stat-value { font-size: 22px; font-weight: 800; color: #2c3e50; }
+.stat-label { font-size: 12px; color: #6c757d; margin-top: 4px; }
+
+.quick-actions { margin-top: 16px; }
+.actions-title { font-size: 14px; font-weight: 700; color: #2c3e50; margin-bottom: 10px; }
+.action-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.action-btn { background: #fff; border: 1px solid #e9ecef; border-radius: 12px; padding: 12px; font-size: 14px; color: #2c3e50; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,.04); transition: all .2s ease; }
+.action-btn:hover { border-color: #667eea; box-shadow: 0 2px 8px rgba(102,126,234,.15); transform: translateY(-1px); }
+.tap-feedback:active { transform: scale(.98); }
+
+@media (max-width: 375px) {
+  .action-buttons { grid-template-columns: 1fr; }
+}

@@ -1,0 +1,103 @@
+/* 顶部栏与状态指示样式（从 mobile-dashboard 内联样式拆分并补全） */
+
+.top-bar {
+  height: 60px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #fff;
+}
+
+.top-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.app-title {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: .2px;
+  margin: 0;
+}
+
+.connection-status { 
+  display: inline-flex; 
+  align-items: center; 
+  gap: 6px; 
+  padding: 4px 8px; 
+  border-radius: 999px; 
+  background: rgba(255,255,255,.18); 
+  backdrop-filter: blur(8px); 
+}
+
+.status-dot { 
+  width: 10px; 
+  height: 10px; 
+  border-radius: 50%; 
+  background: #a0aec0; /* default: unknown */ 
+  box-shadow: 0 0 0 2px rgba(255,255,255,.35); 
+}
+.status-dot.online { background: #22c55e; }
+.status-dot.offline { background: #ef4444; }
+.status-dot.reconnecting { background: #f59e0b; }
+
+#connectionText { 
+  font-size: 12px; 
+  color: #fff; 
+  opacity: .95; 
+}
+
+.top-bar-actions { 
+  display: flex; 
+  align-items: center; 
+  gap: 10px; 
+}
+
+.promotion-btn { 
+  display: inline-flex; 
+  align-items: center; 
+  justify-content: center; 
+  width: 34px; 
+  height: 34px; 
+  border-radius: 10px; 
+  border: 1px solid rgba(255,255,255,.35); 
+  background: rgba(255,255,255,.18); 
+  color: #fff; 
+  cursor: pointer; 
+  transition: all .2s ease; 
+  backdrop-filter: blur(8px); 
+}
+.promotion-btn:hover { background: rgba(255,255,255,.25); }
+.promotion-btn:active { transform: scale(.98); }
+
+.user-info { 
+  display: inline-flex; 
+  align-items: center; 
+  gap: 8px; 
+}
+
+.user-avatar { 
+  width: 28px; 
+  height: 28px; 
+  border-radius: 50%; 
+  display: inline-flex; 
+  align-items: center; 
+  justify-content: center; 
+  background: rgba(255,255,255,.25); 
+  color: #fff; 
+  font-size: 12px; 
+  font-weight: 700; 
+  border: 1px solid rgba(255,255,255,.35); 
+}
+
+#userName { 
+  font-size: 13px; 
+  font-weight: 600; 
+  color: #fff; 
+}
+
+@media (max-height: 667px) {
+  .top-bar { height: 50px; }
+}

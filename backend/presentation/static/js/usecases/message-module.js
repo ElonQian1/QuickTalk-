@@ -18,6 +18,10 @@ class MessageModule {
                 this.isRecording = false;
                 this.mediaRecorder = null;
                 this.recordedChunks = [];
+                // 加载过程防抖/重入保护
+                this._loadingConversations = false;
+                this._loadingShopId = null;
+                this._loadingMessagesFor = null;
                 this.initWebSocket();
                 this.initMediaHandlers();
             }
@@ -106,6 +110,10 @@ class MessageModule {
 
             // 加载聊天消息
             async loadMessages(conversationId) {
+                // 重入保护：同一会话的并发加载直接跳过
+                if (this._loadingMessagesFor === conversationId) {
+                    return;
+                }
                 const container = document.getElementById('chatMessages');
                 if (container) {
                     container.innerHTML = '';
@@ -114,6 +122,7 @@ class MessageModule {
                     }
                 }
                 try {
+                    this._loadingMessagesFor = conversationId;
                     const response = await fetch(`/api/conversations/${conversationId}/messages`, {
                         headers: {
                             'Authorization': `Bearer ${getAuthToken()}`
@@ -145,6 +154,11 @@ class MessageModule {
                         } else {
                             container.textContent = '网络错误，无法获取消息';
                         }
+                    }
+                } finally {
+                    // 清理加载标记
+                    if (this._loadingMessagesFor === conversationId) {
+                        this._loadingMessagesFor = null;
                     }
                 }
             }
@@ -219,14 +233,29 @@ class MessageModule {
 
             // 处理新消息
             handleNewMessage(messageData) {
-                if (this.currentConversationId && 
-                    messageData.conversation_id === this.currentConversationId) {
-                    this.messages.push(messageData);
-                    this.renderMessage(messageData);
-                    this.scrollToBottom();
+                // 仅处理属于当前会话的渲染
+                if (this.currentConversationId && String(messageData.conversation_id) === String(this.currentConversationId)) {
+                    // 去重策略：优先按 id；若无 id，则按 sender_type+content+timestamp 近似匹配
+                    const exists = this.messages.some(m => {
+                        if (messageData.id && m.id) return String(m.id) === String(messageData.id);
+                        const sameSender = m.sender_type === messageData.sender_type;
+                        const sameContent = (m.content || '').trim() === (messageData.content || '').trim();
+                        const t1 = m.timestamp || m.sent_at || m.created_at;
+                        const t2 = messageData.timestamp || messageData.sent_at || messageData.created_at;
+                        const sameTime = t1 && t2 && String(t1) === String(t2);
+                        const filesLen1 = Array.isArray(m.files) ? m.files.length : 0;
+                        const filesLen2 = Array.isArray(messageData.files) ? messageData.files.length : 0;
+                        const sameFilesLen = filesLen1 === filesLen2;
+                        return sameSender && sameContent && sameTime && sameFilesLen;
+                    });
+                    if (!exists) {
+                        this.messages.push(messageData);
+                        this.renderMessage(messageData);
+                        this.scrollToBottom();
+                    }
                 }
-                
-                // 更新对话列表中的最后消息
+
+                // 更新对话列表中的最后消息预览
                 this.updateConversationPreview(messageData);
             }
 
@@ -445,7 +474,13 @@ class MessageModule {
 
             // 加载店铺的对话列表
             async loadConversationsForShop(shopId) {
+                // 避免同店铺多次并发加载
+                if (this._loadingConversations && this._loadingShopId === shopId) {
+                    return;
+                }
                 try {
+                    this._loadingConversations = true;
+                    this._loadingShopId = shopId;
                     const response = await fetch(`/api/conversations?shop_id=${shopId}`, {
                         headers: {
                             'Authorization': `Bearer ${getAuthToken()}`
@@ -461,6 +496,9 @@ class MessageModule {
                     }
                 } catch (error) {
                     console.error('网络错误:', error);
+                } finally {
+                    this._loadingConversations = false;
+                    this._loadingShopId = null;
                 }
             }
 
@@ -504,7 +542,7 @@ class MessageModule {
                             conversationItem.setAttribute('data-shop-id', conversation.shop_id || self.currentShopId);
                             const lastMessageTime = conversation.last_message_time ? new Date(conversation.last_message_time).toLocaleString() : '暂无消息';
                             const customerDisplayName = conversation.customer_name || self.generateCustomerNumber(conversation.customer_id);
-                            const avatarInitial = customerDisplayName.charAt(customerDisplayName.length - 3) || 'C';
+                            const avatarInitial = (customerDisplayName && customerDisplayName.trim().charAt(0)) ? customerDisplayName.trim().charAt(0).toUpperCase() : 'C';
                             conversationItem.innerHTML = `
                                 <div class="conversation-avatar">${avatarInitial}</div>
                                 <div class="conversation-content">
@@ -705,16 +743,15 @@ class MessageModule {
 
                 console.log('📤 准备发送消息:', messageData);
                 
-                // 发送WebSocket消息 - 使用全局 websocket 变量
-                if (websocket && websocket.readyState === WebSocket.OPEN) {
+                // 发送WebSocket消息 - 使用模块内的 this.websocket
+                if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
                     console.log('✅ WebSocket连接正常，发送消息');
-                    websocket.send(JSON.stringify(messageData));
+                    this.websocket.send(JSON.stringify(messageData));
                 } else {
-                    console.error('❌ WebSocket连接不可用:', websocket ? websocket.readyState : 'websocket is null');
+                    console.error('❌ WebSocket连接不可用:', this.websocket ? this.websocket.readyState : 'websocket is null');
                 }
 
-                // 不再在本地立即添加消息，等待WebSocket广播回来
-                // 这样可以避免重复显示消息
+                // 不在本地立即添加消息，等待WebSocket广播回来，避免重复显示
                 
                 // 清空输入
                 input.value = '';
@@ -898,17 +935,8 @@ class MessageModule {
                     if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
                         this.websocket.send(JSON.stringify(messageData));
                     }
-
-                    // 本地添加消息
-                    this.messages.push({
-                        ...messageData,
-                        id: Date.now() + Math.random() // 避免ID冲突
-                    });
-                    
-                    this.renderMessage(messageData);
-                    this.scrollToBottom();
-                    
-                    this.showToast(`${file.name} 发送成功`, 'success');
+                    // 与文本消息一致：不在本地立即渲染，等待WS回执，避免重复
+                    this.showToast(`${file.name} 已发送`, 'success');
                 } catch (error) {
                     console.error('文件发送失败:', error);
                     this.showToast(`${file.name} 发送失败`, 'error');
@@ -1038,7 +1066,7 @@ class MessageModule {
 
             updateConversationPreview(messageData) {
                 // 更新对话列表中的预览信息
-                if (this.conversations.length > 0) {
+                if (this.conversations.length > 0 && this.currentShopId) {
                     this.loadConversationsForShop(this.currentShopId);
                 }
             }

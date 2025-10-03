@@ -27,35 +27,37 @@
         const getAuthToken = typeof window.getAuthToken === 'function' ? window.getAuthToken : () => '';
 
         try {
-            // 调用不需要认证的店铺API（与成功的店铺列表API保持一致）
             const authToken = getAuthToken();
-            const shopsResponse = await fetch('/api/shops', {
-                headers: authToken ? {
-                    'Authorization': `Bearer ${authToken}`,
-                    'X-Session-Id': authToken
-                } : {}
-            });
+            const headers = authToken ? { 'Authorization': `Bearer ${authToken}`, 'X-Session-Id': authToken } : {};
 
-            if (shopsResponse.ok) {
-                const shopsData = await shopsResponse.json();
-                const shops = shopsData.data || [];
-                
-                return {
-                    totalShops: shops.length,
-                    todayMessages: 0,  // 暂时设为0，需要消息API
-                    // 已移除：activeChats / responseRate
-                };
-            } else {
-                throw new Error('获取店铺数据失败');
-            }
+            // 1) 店铺总数
+            let totalShops = 0;
+            try {
+                const shopsResponse = await fetch('/api/shops', { headers });
+                if (shopsResponse.ok) {
+                    const shopsData = await shopsResponse.json();
+                    totalShops = Array.isArray(shopsData.data) ? shopsData.data.length : 0;
+                }
+            } catch (_) { /* 忽略，保留默认0 */ }
+
+            // 2) 今日消息数（复用工作台汇总接口）
+            let todayMessages = 0;
+            try {
+                const wbRes = await fetch('/api/workbench/summary?days=1', { headers });
+                if (wbRes.ok) {
+                    const wb = await wbRes.json();
+                    const totals = (wb && wb.data && wb.data.totals) || (wb && wb.totals) || {};
+                    todayMessages = totals.messages_today || 0;
+                }
+            } catch (_) { /* 忽略，保留默认0 */ }
+
+            return {
+                totalShops,
+                todayMessages
+            };
         } catch (error) {
             console.error('获取统计数据失败:', error);
-            // 如果API调用失败，返回空数据而不是随机数据
-            return {
-                totalShops: 0,
-                todayMessages: 0,
-                // 已移除：activeChats / responseRate
-            };
+            return { totalShops: 0, todayMessages: 0 };
         }
     };
 
