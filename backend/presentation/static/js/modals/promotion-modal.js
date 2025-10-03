@@ -1,30 +1,3 @@
-// 加载推广数据
-async function loadPromotionData() {
-  try {
-    // 这里可以从后端API获取真实的推广数据，暂时使用模拟数据
-    const promotionData = {
-      referralCount: 0,
-      totalCommission: 0,
-      monthlyCommission: 0
-    };
-    document.querySelector('.stat-item:nth-child(1) .stat-number').textContent = promotionData.referralCount;
-    document.querySelector('.stat-item:nth-child(2) .stat-number').textContent = `￥${promotionData.totalCommission}`;
-    document.querySelector('.stat-item:nth-child(3) .stat-number').textContent = `￥${promotionData.monthlyCommission}`;
-  } catch (error) {
-    console.error('加载推广数据失败:', error);
-  }
-}
-
-// 导出到全局
-try {
-  window.showPromotionModal = showPromotionModal;
-  window.hidePromotionModal = hidePromotionModal;
-  window.copyPromotionLink = copyPromotionLink;
-  window.shareToWeChat = shareToWeChat;
-  window.shareToQQ = shareToQQ;
-  window.generateQRCode = generateQRCode;
-  window.loadPromotionData = loadPromotionData;
-} catch (e) {}
 // 推广赚钱模态相关逻辑（从 mobile-dashboard.html 抽取）
 function showPromotionModal() {
   const modal = document.getElementById('promotionModal');
