@@ -15,7 +15,8 @@
 use crate::domain::conversation::{DomainEvent, ConversationId, MessageId};
 use super::event_types::{
     MESSAGE_APPENDED, MESSAGE_UPDATED, MESSAGE_DELETED,
-    CONVERSATION_OPENED, CONVERSATION_CLOSED, CONVERSATION_REOPENED
+    CONVERSATION_OPENED, CONVERSATION_CLOSED, CONVERSATION_REOPENED,
+    SHOP_CREATED, SHOP_UPDATED, SHOP_STATUS_CHANGED,
 };
 use serde_json::Value;
 use chrono::Utc;
@@ -37,6 +38,9 @@ pub fn serialize_event(ev: DomainEvent, enrich: Option<Value>) -> Value {
         DomainEvent::ConversationOpened { conversation_id } => simple_no_msg(CONVERSATION_OPENED, conversation_id),
         DomainEvent::ConversationClosed { conversation_id } => simple_no_msg(CONVERSATION_CLOSED, conversation_id),
         DomainEvent::ConversationReopened { conversation_id } => simple_no_msg(CONVERSATION_REOPENED, conversation_id),
+        DomainEvent::ShopCreated { shop_id } => envelope(SHOP_CREATED, serde_json::json!({"shop_id": shop_id})),
+        DomainEvent::ShopUpdated { shop_id } => envelope(SHOP_UPDATED, serde_json::json!({"shop_id": shop_id})),
+        DomainEvent::ShopStatusChanged { shop_id, old_status, new_status } => envelope(SHOP_STATUS_CHANGED, serde_json::json!({"shop_id": shop_id, "old_status": old_status, "new_status": new_status})),
     }
 }
 

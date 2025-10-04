@@ -38,6 +38,9 @@ impl EventBusWithDb {
                 DomainEvent::ConversationOpened { conversation_id } => serialize_event(DomainEvent::ConversationOpened { conversation_id }, None),
                 DomainEvent::ConversationClosed { conversation_id } => serialize_event(DomainEvent::ConversationClosed { conversation_id }, None),
                 DomainEvent::ConversationReopened { conversation_id } => serialize_event(DomainEvent::ConversationReopened { conversation_id }, None),
+                DomainEvent::ShopCreated { shop_id } => serialize_event(DomainEvent::ShopCreated { shop_id }, None),
+                DomainEvent::ShopUpdated { shop_id } => serialize_event(DomainEvent::ShopUpdated { shop_id }, None),
+                DomainEvent::ShopStatusChanged { shop_id, old_status, new_status } => serialize_event(DomainEvent::ShopStatusChanged { shop_id, old_status, new_status }, None),
             };
             serialized.push(value);
         }

@@ -21,9 +21,14 @@ use crate::api::integrations::generate_integration_code;
 use crate::api::payments::{generate_activation_payment_qr, get_activation_order_status, mock_activation_payment_success};
 use crate::api::shops::{
     search_shops, check_domain, delete_shop, rotate_api_key, get_shops, create_shop, update_shop, get_shop_details,
-    approve_shop, reject_shop, activate_shop, deactivate_shop, create_shop_activation_order
+    approve_shop, reject_shop, activate_shop, deactivate_shop, create_shop_activation_order, debug_shops
 };
 use crate::api::workbench::get_workbench_summary;
+use crate::api::user::{
+    get_current_user_profile, update_user_profile, change_password_proxy,
+    get_notification_settings, update_notification_settings, dashboard_stats
+};
+use crate::auth::auth_session_info;
 use crate::api::system::{fix_shop_owners, validate_shop_data_integrity, clean_test_data, force_clean_shops, reset_database, create_test_user, state_summary, whoami, diagnose_owner_mismatch};
 use axum::routing::{get, post, delete, put};
 
@@ -43,6 +48,9 @@ pub async fn build_app(db: SqlitePool) -> Router {
         .route("/embed/service.js", get(web::serve_embed_service))
         .route("/embed/styles.css", get(web::serve_embed_styles))
         .route("/api/shops", get(get_shops).post(create_shop))
+    .route("/api/shops/debug", get(debug_shops))
+    .route("/api/shops/orphans", get(api::shops::list_orphan_shops))
+    .route("/api/shops/reassign-owner", post(api::shops::reassign_shop_owner))
         .route("/api/shops/search", get(search_shops))
         .route("/api/shops/check-domain", get(check_domain))
         .route("/api/shops/:id", get(get_shop_details).put(update_shop).delete(delete_shop))
@@ -77,6 +85,11 @@ pub async fn build_app(db: SqlitePool) -> Router {
         .route("/api/conversations/:id/summary", get(get_conversation_summary))
     .route("/api/events/replay", get(replay_events))
         .route("/api/workbench/summary", get(get_workbench_summary))
+    // 兼容旧前端：用户信息与仪表盘
+    .route("/api/user/profile", get(get_current_user_profile).put(update_user_profile))
+    .route("/api/user/change-password", post(change_password_proxy))
+    .route("/api/user/notification-settings", get(get_notification_settings).put(update_notification_settings))
+    .route("/api/dashboard/stats", get(dashboard_stats))
         .route("/api/upload", post(upload_file))
         .route("/api/uploads", get(list_uploaded_files))
         .route("/api/admin/login", post(admin_login))
@@ -87,6 +100,7 @@ pub async fn build_app(db: SqlitePool) -> Router {
     .route("/api/auth/change-password", post(admin_change_password))
         .route("/api/admin/me", get(admin_me))
         .route("/api/auth/me", get(admin_me))
+    .route("/api/auth/session", get(auth_session_info))
         .route("/api/admin/profile", post(admin_update_profile))
         .route("/api/auth/profile", post(admin_update_profile))
         .route("/api/admin/recover-super-admin", post(recover_super_admin))

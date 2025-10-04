@@ -119,6 +119,10 @@ pub enum DomainEvent {
     MessageUpdated { conversation_id: ConversationId, message_id: MessageId },
     // 新增：消息删除（soft=true 表示软删除，false 表示硬删除）
     MessageDeleted { conversation_id: ConversationId, message_id: MessageId, soft: bool },
+    // ---- Shop domain events (incremental; will move to shared in future refactor) ----
+    ShopCreated { shop_id: String },
+    ShopUpdated { shop_id: String },
+    ShopStatusChanged { shop_id: String, old_status: String, new_status: String },
 }
 
 // Repository trait (domain-level abstraction)

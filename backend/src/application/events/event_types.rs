@@ -7,6 +7,10 @@ pub const MESSAGE_DELETED: &str = "domain.event.message_deleted";
 pub const CONVERSATION_OPENED: &str = "domain.event.conversation_opened";
 pub const CONVERSATION_CLOSED: &str = "domain.event.conversation_closed";
 pub const CONVERSATION_REOPENED: &str = "domain.event.conversation_reopened";
+// Shop domain events
+pub const SHOP_CREATED: &str = "domain.event.shop_created";
+pub const SHOP_UPDATED: &str = "domain.event.shop_updated";
+pub const SHOP_STATUS_CHANGED: &str = "domain.event.shop_status_changed";
 
 #[cfg(test)]
 mod tests {
