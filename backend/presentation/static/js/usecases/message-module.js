@@ -49,6 +49,12 @@ class MessageModule {
                 
                 // 渲染委托初始化
                 setTimeout(() => {
+                    // 初始化滚动协调器（若存在）
+                    try {
+                        if (window.ScrollCoordinator && typeof window.ScrollCoordinator.init === 'function') {
+                            window.ScrollCoordinator.init({ getContainer: ()=> document.getElementById('chatMessages'), autoStick: true, stickThreshold: 80 });
+                        }
+                    } catch(e){ console.warn('[MessageModule] ScrollCoordinator 初始化失败', e); }
                     if (window.MessageRenderer && typeof window.MessageRenderer.init === 'function') {
                         this._renderer = window.MessageRenderer.init(this);
                     }
@@ -79,7 +85,7 @@ class MessageModule {
                                         this.messages.push(localMsg);
                                         this.renderMessage(localMsg);
                                     }
-                                    this.scrollToBottom();
+                                    this._notifyNewMessageForScroll();
                                 },
                                 onLocalPatch: (tempId, patch) => {
                                     const list = (this.messagesManager && this.messagesManager.messages) ? this.messagesManager.messages : this.messages;
@@ -381,7 +387,7 @@ class MessageModule {
                     if (!exists) {
                         this.messages.push(messageData);
                         this.renderMessage(messageData);
-                        this.scrollToBottom();
+                        this._notifyNewMessageForScroll();
                     }
                 }
                 
@@ -604,7 +610,7 @@ class MessageModule {
                 if (!container) return;
                 container.innerHTML = '';
                 (this.messages || []).forEach(m => this.renderMessage(m));
-                this.scrollToBottom();
+                this._notifyNewMessageForScroll();
             }
 
             // 渲染单条消息（委托给渲染器）
@@ -625,10 +631,11 @@ class MessageModule {
 
             // 辅助方法
             scrollToBottom() {
-                const container = document.getElementById('chatMessages');
-                if (container) {
-                    container.scrollTop = container.scrollHeight;
+                if (window.ScrollCoordinator) {
+                    return window.ScrollCoordinator.scrollToEnd(true);
                 }
+                const container = document.getElementById('chatMessages');
+                if (container) container.scrollTop = container.scrollHeight;
             }
 
             focusChatInput() {
@@ -877,6 +884,15 @@ class MessageModule {
             // Typing 指示（旧模块回退用）
             handleTypingIndicator(evt){
                 try { if (window.ChatTypingIndicator) window.ChatTypingIndicator.showTyping(evt); } catch(_){ }
+            }
+
+            // 滚动协调器通知封装
+            _notifyNewMessageForScroll(){
+                if (window.ScrollCoordinator && typeof window.ScrollCoordinator.notifyNewMessage === 'function') {
+                    window.ScrollCoordinator.notifyNewMessage();
+                } else {
+                    this.scrollToBottom();
+                }
             }
         }
 
