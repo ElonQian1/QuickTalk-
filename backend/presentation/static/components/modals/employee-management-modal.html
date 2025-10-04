@@ -1,0 +1,41 @@
+<!-- 员工管理模态框 -->
+<div id="employee-management-modal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>👥 员工管理</h3>
+      <button class="modal-close" onclick="closeModal('employee-management-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <!-- 添加员工区域 -->
+      <div class="add-employee-section">
+        <h4>添加员工</h4>
+        <div class="add-employee-form">
+          <div class="form-row">
+            <div class="form-group flex-1">
+              <input type="email" id="employee-email" placeholder="员工邮箱">
+            </div>
+            <div class="form-group">
+              <select id="employee-role">
+                <option value="agent">客服专员</option>
+                <option value="manager">经理</option>
+                <option value="viewer">观察员</option>
+              </select>
+            </div>
+            <button class="btn btn-primary btn-small" onclick="addEmployee()">添加</button>
+          </div>
+        </div>
+        <div class="employee-help">
+          <small class="form-help">输入员工邮箱地址，系统将发送邀请邮件</small>
+        </div>
+      </div>
+      
+      <!-- 员工列表 -->
+      <div class="employee-list-section">
+        <h4>员工列表</h4>
+        <div id="employees-list" class="employees-list">
+          <!-- 员工列表将在这里动态生成 -->
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

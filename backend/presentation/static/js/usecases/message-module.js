@@ -1,13 +1,22 @@
 /**
- * MessageModule - 消息模块
- * 管理三层结构的消息系统：店铺 → 对话 → 消息
- * 负责 WebSocket 连接、消息收发、媒体处理
+ * MessageModule - 消息模块协调器 (重构版)
+ * 职责：协调各业务管理器，提供统一接口，处理视图切换
+ * 依赖：ShopsManager, ConversationsManager, MessagesManager, MediaHandler
  */
 (function() {
     'use strict';
 
 class MessageModule {
             constructor() {
+                // 业务管理器
+                this.shopsManager = null;
+                this.conversationsManager = null;
+                this.messagesManager = null;
+                
+                // 媒体处理器
+                this.mediaHandler = null;
+                
+                // 兼容性字段（向后兼容）
                 this.currentShopId = null;
                 this.currentConversationId = null;
                 this.currentCustomer = null;
@@ -15,227 +24,299 @@ class MessageModule {
                 this.conversations = [];
                 this.messages = [];
                 this.websocket = null;
+                
+                // 兼容字段（委托给MediaHandler）
                 this.isRecording = false;
                 this.mediaRecorder = null;
                 this.recordedChunks = [];
-                // 加载过程防抖/重入保护
-                this._loadingConversations = false;
-                this._loadingShopId = null;
-                this._loadingMessagesFor = null;
-                this.initWebSocket();
-                this.initMediaHandlers();
+                
+                // 初始化管理器
+                this.initManagers();
+                
+                // 初始化 WebSocket 适配器
+                this._initWSAdapter();
+                
+                // 移除媒体处理器初始化（已委托给MediaHandler）
+                
+                // 渲染委托初始化
+                setTimeout(() => {
+                    if (window.MessageRenderer && typeof window.MessageRenderer.init === 'function') {
+                        this._renderer = window.MessageRenderer.init(this);
+                    }
+                }, 0);
             }
 
-            // 初始化WebSocket连接
-            initWebSocket() {
-                if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
-                    return;
+            /**
+             * 初始化业务管理器
+             */
+            initManagers() {
+                // 店铺管理器
+                if (window.ShopsManager) {
+                    this.shopsManager = new window.ShopsManager({
+                        onShopSelected: (shop, stats) => this.handleShopSelected(shop, stats),
+                        debug: false
+                    });
                 }
 
+                // 对话管理器
+                if (window.ConversationsManager) {
+                    this.conversationsManager = new window.ConversationsManager({
+                        onConversationSelected: (conversation, customer) => this.handleConversationSelected(conversation, customer),
+                        debug: false
+                    });
+                }
+
+                // 消息管理器
+                if (window.MessagesManager) {
+                    this.messagesManager = new window.MessagesManager({
+                        onNewMessage: (message) => this.handleNewMessageEvent(message),
+                        onMessageUpdated: (message) => this.handleMessageUpdatedEvent(message),
+                        onMessageDeleted: (messageId) => this.handleMessageDeletedEvent(messageId),
+                        debug: false
+                    });
+                }
+
+                // 媒体处理器
+                if (window.MediaHandler) {
+                    this.mediaHandler = new window.MediaHandler({
+                        messagesManager: this.messagesManager,
+                        debug: false
+                    });
+                    
+                    // 同步兼容字段
+                    Object.defineProperty(this, 'isRecording', {
+                        get: () => this.mediaHandler ? this.mediaHandler.getRecordingState().isRecording : false
+                    });
+                }
+            }
+
+            /**
+             * 处理店铺选择
+             */
+            async handleShopSelected(shop, stats) {
+                this.currentShopId = shop.id;
+                this.shops = this.shopsManager ? this.shopsManager.shops : [];
+                
+                // 更新UI
+                this.updateNavigationUI(shop.name + ' - 客户对话', true);
+                this.showView('conversationsListView');
+                
+                // 加载对话列表
+                if (this.conversationsManager) {
+                    try {
+                        const conversations = await this.conversationsManager.loadConversationsForShop(shop.id);
+                        this.conversations = conversations;
+                    } catch (error) {
+                        console.error('[MessageModule] 加载对话失败:', error);
+                    }
+                }
+            }
+
+            /**
+             * 处理对话选择
+             */
+            async handleConversationSelected(conversation, customer) {
+                this.currentConversationId = conversation.id;
+                this.currentCustomer = customer;
+                
+                // 更新聊天头部
+                this.updateChatHeader(conversation, customer);
+                
+                // 切换到聊天视图
+                this.showView('chatView');
+                
+                // 加载消息
+                if (this.messagesManager) {
+                    try {
+                        const messages = await this.messagesManager.loadMessages(conversation.id, customer);
+                        this.messages = messages;
+                        this.focusChatInput();
+                    } catch (error) {
+                        console.error('[MessageModule] 加载消息失败:', error);
+                    }
+                }
+            }
+
+            /**
+             * 更新导航UI
+             */
+            updateNavigationUI(title, showBackBtn = false) {
+                const backBtn = document.getElementById('messagesBackBtn');
+                const titleElement = document.getElementById('messagesTitle');
+                
+                if (titleElement) {
+                    titleElement.textContent = title;
+                }
+                
+                if (backBtn) {
+                    if (showBackBtn) {
+                        backBtn.textContent = '←';
+                        backBtn.style.display = 'inline-block';
+                    } else {
+                        backBtn.style.display = 'none';
+                    }
+                }
+            }
+
+            /**
+             * 更新聊天头部
+             */
+            updateChatHeader(conversation, customer) {
+                if (window.ChatHeaderUI && typeof window.ChatHeaderUI.updateForConversation === 'function') {
+                    window.ChatHeaderUI.updateForConversation(conversation, { customerName: customer.name });
+                } else {
+                    const titleElement = document.getElementById('messagesTitle');
+                    if (titleElement) titleElement.textContent = customer.name;
+                }
+            }
+
+            // 初始化 WebSocket 适配器
+            _initWSAdapter(){
+                if (window.MessageWSAdapter) {
+                    this.wsAdapter = new window.MessageWSAdapter({ debug: false });
+                    // 兼容旧字段：暴露当前底层 socket（只读用途）
+                    Object.defineProperty(this, 'websocket', { get: ()=> this.wsAdapter?._ws });
+                    // 订阅所有消息
+                    this.wsAdapter.on('*any', (data)=>{
+                        try {
+                            if (window.WsEventRouter && typeof window.WsEventRouter.route === 'function') {
+                                window.WsEventRouter.route(this, data);
+                            } else {
+                                this.handleWebSocketMessage(data); // 回退
+                            }
+                        } catch(e){ console.error('Ws route error', e); }
+                    });
+                    this.wsAdapter.on('*open', ()=> console.log('[MessageModule] WebSocket已连接')); 
+                    this.wsAdapter.on('*close', (info)=> console.log('[MessageModule] WebSocket已关闭', info));
+                    this.wsAdapter.on('*error', (err)=> console.warn('[MessageModule] WebSocket错误', err));
+                } else {
+                    console.warn('MessageWSAdapter 未加载，使用旧 initWebSocket 回退');
+                    this._legacyInitWebSocket();
+                }
+            }
+
+            // 旧版回退（仅在适配器缺失时使用）
+            _legacyInitWebSocket(){
+                if (this.websocket && this.websocket.readyState === WebSocket.OPEN) return;
                 const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
                 const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
-                
                 this.websocket = new WebSocket(wsUrl);
-                
-                this.websocket.onopen = () => {
-                    console.log('WebSocket连接已建立');
-                };
-                
-                this.websocket.onmessage = (event) => {
-                    try {
-                        const data = JSON.parse(event.data);
-                        this.handleWebSocketMessage(data);
-                    } catch (error) {
-                        console.error('WebSocket消息解析错误:', error);
-                    }
-                };
-                
-                this.websocket.onclose = () => {
-                    console.log('WebSocket连接已关闭');
-                    // 3秒后尝试重连
-                    setTimeout(() => this.initWebSocket(), 3000);
-                };
-                
-                this.websocket.onerror = (error) => {
-                    console.error('WebSocket错误:', error);
-                };
+                this.websocket.onopen = ()=> console.log('[legacy] WebSocket连接已建立');
+                this.websocket.onmessage = (event)=>{
+                    try { const data = JSON.parse(event.data); this.handleWebsocketDispatch(data); } catch(e){ console.error('legacy WS解析失败', e);} };
+                this.websocket.onclose = ()=>{ console.log('[legacy] WebSocket关闭，3s后重连'); setTimeout(()=> this._legacyInitWebSocket(), 3000); };
+                this.websocket.onerror = (err)=> console.error('[legacy] WebSocket错误', err);
             }
 
-            // 处理WebSocket消息（兼容新版领域事件与旧版格式）
+            handleWebsocketDispatch(data){
+                if (window.WsEventRouter && typeof window.WsEventRouter.route === 'function') {
+                    window.WsEventRouter.route(this, data);
+                } else {
+                    this.handleWebSocketMessage(data); // 回退
+                }
+            }
+
+            // WebSocket 事件处理（委托给管理器）
             handleWebSocketMessage(data) {
-                const t = data && data.type;
-                if (!t) return;
-
-                if (t === 'system.welcome' || t === 'Pong') return; // 心跳/欢迎
-
-                // 旧版
-                if (t === 'message' || (data.msg_type === 'message')) {
-                    this.handleNewMessage(data);
+                if (!data || !data.type) return;
+                
+                // 优先使用路由器
+                if (window.WsEventRouter && typeof window.WsEventRouter.route === 'function') {
+                    return window.WsEventRouter.route(this, data);
+                }
+                
+                // 降级：处理核心事件
+                const t = data.type;
+                
+                if (t === 'message' || data.msg_type === 'message') {
+                    this.handleLegacyNewMessage(data);
                     return;
                 }
+                
                 if (t === 'typing') {
-                    this.handleTypingIndicator(data);
+                    if (this.handleTypingIndicator) this.handleTypingIndicator(data);
                     return;
                 }
+                
                 if (t === 'conversation_update') {
-                    if (this.currentShopId) this.loadConversationsForShop(this.currentShopId);
+                    if (this.currentShopId && this.conversationsManager) {
+                        this.conversationsManager.loadConversationsForShop(this.currentShopId);
+                    }
                     return;
                 }
-                if (t.startsWith('domain.event.')) {
-                    const unwrap = (evt) => {
-                        if (!evt) return null;
-                        if (evt.data) {
-                            if (evt.data.message) return evt.data.message;
-                            return evt.data;
-                        }
-                        return evt;
-                    };
-                    if (t === 'domain.event.message_appended') {
-                        const msg = unwrap(data);
-                        this.handleDomainMessageAppended(msg);
-                        return;
-                    }
-                    if (t === 'domain.event.message_updated') {
-                        const msg = unwrap(data);
-                        this.handleDomainMessageUpdated(msg);
-                        return;
-                    }
-                    if (t === 'domain.event.message_deleted') {
-                        const payload = unwrap(data);
-                        this.handleDomainMessageDeleted(payload);
-                        return;
-                    }
+                
+                // 领域事件处理
+                if (t && t.startsWith('domain.event.')) {
+                    this.handleDomainEvent(t, data);
                 }
             }
 
-            // 加载聊天消息
-            async loadMessages(conversationId) {
-                // 重入保护：同一会话的并发加载直接跳过
-                if (this._loadingMessagesFor === conversationId) {
-                    return;
-                }
-                const container = document.getElementById('chatMessages');
-                if (container) {
-                    container.innerHTML = '';
-                    if (window.LoadingStatesUI && typeof window.LoadingStatesUI.spinner === 'function') {
-                        container.appendChild(window.LoadingStatesUI.spinner('正在加载消息...'));
-                    }
-                }
-                try {
-                    this._loadingMessagesFor = conversationId;
-                    const response = await fetch(`/api/conversations/${conversationId}/messages`, {
-                        headers: {
-                            'Authorization': `Bearer ${getAuthToken()}`
-                        }
-                    });
-                    const data = await response.json();
-                    
-                    if (data.success && data.data) {
-                        this.messages = data.data;
-                        this.renderMessages();
-                        return;
-                    } else {
-                        console.error('获取消息失败:', data.error);
-                        if (container) {
-                            container.innerHTML = '';
-                            if (window.ErrorStatesUI && typeof window.ErrorStatesUI.errorBlock === 'function') {
-                                container.appendChild(window.ErrorStatesUI.errorBlock('加载消息失败', data.error || '请稍后重试'));
-                            } else {
-                                container.textContent = data.error || '加载消息失败';
-                            }
-                        }
-                    }
-                } catch (error) {
-                    console.error('网络错误:', error);
-                    if (container) {
-                        container.innerHTML = '';
-                        if (window.ErrorStatesUI && typeof window.ErrorStatesUI.errorBlock === 'function') {
-                            container.appendChild(window.ErrorStatesUI.errorBlock('网络错误', '无法获取消息，请检查网络连接'));
-                        } else {
-                            container.textContent = '网络错误，无法获取消息';
-                        }
-                    }
-                } finally {
-                    // 清理加载标记
-                    if (this._loadingMessagesFor === conversationId) {
-                        this._loadingMessagesFor = null;
-                    }
+            // 处理领域事件
+            handleDomainEvent(eventType, data) {
+                const unwrap = (evt) => (evt && evt.data) ? (evt.data.message || evt.data) : evt;
+                const message = unwrap(data);
+                
+                if (eventType.endsWith('message_appended')) {
+                    this.handleDomainMessageAppended(message);
+                } else if (eventType.endsWith('message_updated')) {
+                    this.handleDomainMessageUpdated(message);
+                } else if (eventType.endsWith('message_deleted')) {
+                    this.handleDomainMessageDeleted(message);
                 }
             }
 
-            // 新版事件：追加
+            // 处理消息追加（委托给消息管理器）
             handleDomainMessageAppended(message) {
                 if (!message) {
                     console.error('❌ handleDomainMessageAppended: 消息为空');
                     return;
                 }
                 
-                console.log('🔔 MessageModule收到新消息事件:', message);
-                console.log('📍 当前会话ID:', this.currentConversationId);
-                console.log('📨 消息会话ID:', message.conversation_id);
-                console.log('👤 消息发送者类型:', message.sender_type);
-                console.log('📝 消息内容:', message.content);
-                console.log('🏪 消息店铺ID:', message.shop_id);
-                
-                // 如果在当前会话，直接渲染
-                if (this.currentConversationId && String(message.conversation_id) === String(this.currentConversationId)) {
-                    // 检查是否重复消息
-                    const existingMessage = this.messages.find(m => m.id === message.id);
-                    if (!existingMessage) {
-                        console.log('✅ 添加新消息到当前会话');
-                        this.messages.push(message);
-                        this.renderMessage(message);
-                        this.scrollToBottom();
-                    } else {
-                        console.log('⚠️ 消息已存在，跳过重复添加');
-                    }
+                if (this.messagesManager) {
+                    this.messagesManager.handleNewMessage(message);
                 } else {
-                    console.log('📝 消息不属于当前会话，仅更新预览');
-                }
-                
-                // 刷新会话列表预览（无论是否在当前会话）
-                this.updateConversationPreview({
-                    conversation_id: message.conversation_id,
-                    content: message.content,
-                    sent_at: message.sent_at || message.created_at || new Date().toISOString(),
-                });
-                
-                // 刷新会话列表以显示新消息
-                if (!this.currentConversationId) {
-                    console.log('🔄 当前未在特定会话中，刷新会话列表');
-                    if (this.currentShopId) {
-                        this.loadConversationsForShop(this.currentShopId);
-                    }
+                    this.handleLegacyNewMessage(message);
                 }
             }
 
-            // 新版事件：更新
+            // 处理消息更新（委托给消息管理器）
             handleDomainMessageUpdated(message) {
                 if (!message) return;
-                // 更新内存中的消息
-                const idx = this.messages.findIndex(m => m.id === message.id);
-                if (idx >= 0) {
-                    this.messages[idx] = { ...this.messages[idx], ...message };
-                    this.renderMessages();
+                
+                if (this.messagesManager) {
+                    this.messagesManager.handleMessageUpdated(message);
+                } else {
+                    // 降级：更新内存中的消息
+                    const idx = this.messages.findIndex(m => m.id === message.id);
+                    if (idx >= 0) {
+                        this.messages[idx] = { ...this.messages[idx], ...message };
+                        this.renderMessages();
+                    }
                 }
             }
 
-            // 新版事件：删除
+            // 处理消息删除（委托给消息管理器）
             handleDomainMessageDeleted(payload) {
                 if (!payload) return;
-                const { id, conversation_id } = payload;
-                const before = this.messages.length;
-                this.messages = this.messages.filter(m => m.id !== id);
-                if (this.messages.length !== before && this.currentConversationId === conversation_id) {
-                    this.renderMessages();
+                
+                if (this.messagesManager) {
+                    this.messagesManager.handleMessageDeleted(payload);
+                } else {
+                    // 降级：从内存中删除
+                    const { id, conversation_id } = payload;
+                    const before = this.messages.length;
+                    this.messages = this.messages.filter(m => m.id !== id);
+                    if (this.messages.length !== before && this.currentConversationId === conversation_id) {
+                        this.renderMessages();
+                    }
                 }
             }
 
-            // 处理新消息
-            handleNewMessage(messageData) {
-                // 仅处理属于当前会话的渲染
-                if (this.currentConversationId && String(messageData.conversation_id) === String(this.currentConversationId)) {
-                    // 去重策略：优先按 id；若无 id，则按 sender_type+content+timestamp 近似匹配
+            // 兼容处理新消息（降级使用）
+            handleLegacyNewMessage(messageData) {
+                if (this.currentConversationId && 
+                    String(messageData.conversation_id) === String(this.currentConversationId)) {
+                    
                     const exists = this.messages.some(m => {
                         if (messageData.id && m.id) return String(m.id) === String(messageData.id);
                         const sameSender = m.sender_type === messageData.sender_type;
@@ -243,36 +324,161 @@ class MessageModule {
                         const t1 = m.timestamp || m.sent_at || m.created_at;
                         const t2 = messageData.timestamp || messageData.sent_at || messageData.created_at;
                         const sameTime = t1 && t2 && String(t1) === String(t2);
-                        const filesLen1 = Array.isArray(m.files) ? m.files.length : 0;
-                        const filesLen2 = Array.isArray(messageData.files) ? messageData.files.length : 0;
-                        const sameFilesLen = filesLen1 === filesLen2;
-                        return sameSender && sameContent && sameTime && sameFilesLen;
+                        return sameSender && sameContent && sameTime;
                     });
+                    
                     if (!exists) {
                         this.messages.push(messageData);
                         this.renderMessage(messageData);
                         this.scrollToBottom();
                     }
                 }
-
-                // 更新对话列表中的最后消息预览
+                
                 this.updateConversationPreview(messageData);
             }
 
-            // 显示店铺列表
+            // 原有消息加载逻辑（降级使用）
+            async _legacyLoadMessages(conversationId) {
+                if (this.messagesManager && this.messagesManager._loadingMessagesFor === conversationId) {
+                    return;
+                }
+                
+                const container = document.getElementById('chatMessages');
+                if (container) {
+                    container.innerHTML = '';
+                    if (window.UIStates && window.UIStates.showLoading) {
+                        window.UIStates.showLoading(container, '正在加载消息...');
+                    } else if (window.LoadingStatesUI && typeof window.LoadingStatesUI.spinner === 'function') {
+                        container.appendChild(window.LoadingStatesUI.spinner('正在加载消息...'));
+                    }
+                }
+                
+                try {
+                    const response = await fetch(`/api/conversations/${conversationId}/messages`, {
+                        headers: window.AuthHelper ? window.AuthHelper.getHeaders() : {
+                            'Authorization': `Bearer ${window.getAuthToken ? window.getAuthToken() : ''}`
+                        }
+                    });
+                    const data = await response.json();
+                    
+                    if (data.success && data.data) {
+                        this.messages = data.data;
+                        this.renderMessages();
+                        return this.messages;
+                    } else {
+                        console.error('[MessageModule] 降级：获取消息失败:', data.error);
+                        if (container) {
+                            if (window.UIStates && window.UIStates.showError) {
+                                window.UIStates.showError(container, '加载消息失败', data.error || '请稍后重试');
+                            } else {
+                                container.textContent = data.error || '加载消息失败';
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error('[MessageModule] 降级：网络错误:', error);
+                    if (container && window.UIStates && window.UIStates.showError) {
+                        window.UIStates.showError(container, '网络错误', '无法获取消息，请检查网络连接');
+                    }
+                }
+            }
+
+            // 处理新消息事件（来自管理器）
+            handleNewMessageEvent(message) {
+                // 更新对话预览
+                if (this.conversationsManager) {
+                    this.conversationsManager.updateConversationPreview(message);
+                } else {
+                    this.updateConversationPreview(message);
+                }
+            }
+
+            // 处理消息更新事件
+            handleMessageUpdatedEvent(message) {
+                // 如果需要额外处理，在此添加
+                console.log('[MessageModule] 消息已更新:', message.id);
+            }
+
+            // 处理消息删除事件
+            handleMessageDeletedEvent(messageId) {
+                // 如果需要额外处理，在此添加
+                console.log('[MessageModule] 消息已删除:', messageId);
+            }
+
+            // 发送消息（委托给消息管理器）
+            async sendMessage() {
+                const input = document.getElementById('chatInput');
+                const content = input ? input.value.trim() : '';
+                
+                if (!content) return;
+
+                if (this.messagesManager) {
+                    const success = await this.messagesManager.sendTextMessage(content);
+                    if (success && input) {
+                        input.value = '';
+                        input.focus();
+                    }
+                } else {
+                    // 降级：使用原有逻辑
+                    this._legacySendMessage(content);
+                    if (input) {
+                        input.value = '';
+                        input.focus();
+                    }
+                }
+            }
+
+            // 原有发送消息逻辑（降级使用）
+            _legacySendMessage(content) {
+                if (!this.currentConversationId) return;
+
+                const messageData = {
+                    type: 'message',
+                    conversation_id: this.currentConversationId,
+                    content: content,
+                    files: [],
+                    sender_type: 'agent',
+                    timestamp: Date.now()
+                };
+
+                const sent = this.wsAdapter 
+                    ? this.wsAdapter.send(messageData) 
+                    : (this.websocket && this.websocket.readyState === WebSocket.OPEN && 
+                       this.websocket.send(JSON.stringify(messageData)) === undefined);
+                
+                if (!sent) {
+                    console.error('[MessageModule] 降级：WebSocket发送失败');
+                }
+            }
+
+            // 显示店铺列表（委托给店铺管理器）
             async showShops() {
+                if (this.shopsManager) {
+                    try {
+                        const shops = await this.shopsManager.loadAndShowShops();
+                        this.shops = shops;
+                        this.updateNavigationUI('客服消息', false);
+                        this.showView('shopsListView');
+                        return shops;
+                    } catch (error) {
+                        console.error('[MessageModule] 显示店铺列表失败:', error);
+                    }
+                }
+                
+                // 降级：使用原有逻辑
+                return this._legacyShowShops();
+            }
+
+            // 原有店铺显示逻辑（降级使用）
+            async _legacyShowShops() {
                 try {
                     const shops = await fetchShops();
                     const arr = Array.isArray(shops) ? shops : [];
-                    // 使用集中工具统一过滤活跃/已审核店铺
-                    const filterFn = (typeof window.getActiveShops === 'function') ? window.getActiveShops : (a)=>a;
+                    const filterFn = (typeof window.getActiveShops === 'function') ? window.getActiveShops : (a) => a;
                     this.shops = filterFn(arr);
-                    if (!Array.isArray(shops)) {
-                        console.warn('fetchShops 返回的非数组结果，已回退为空数组:', shops);
-                    }
                     this.renderShopsList();
                 } catch (error) {
-                    console.error('网络错误: 获取店铺列表失败', error);
+                    console.error('[MessageModule] 降级：获取店铺列表失败', error);
                     this.shops = [];
                     this.renderShopsList();
                 }
@@ -381,464 +587,81 @@ class MessageModule {
                 return shopCard;
             }
 
-            // 获取店铺对话数量
-            async getShopConversationCount(shopId) {
-                try {
-                    const response = await fetch(`/api/conversations?shop_id=${shopId}`, {
-                        headers: {
-                            'Authorization': `Bearer ${getAuthToken()}`
-                        }
-                    });
-                    const data = await response.json();
-                    
-                    if (data.success && data.data) {
-                        return data.data.length;
-                    }
-                    return 0;
-                } catch (error) {
-                    console.error('获取店铺对话数量失败:', error);
-                    return 0;
-                }
-            }
 
-            // 获取店铺未读数量
-            async getShopUnreadCount(shopId) {
-                try {
-                    const response = await fetch(`/api/conversations?shop_id=${shopId}`, {
-                        headers: {
-                            'Authorization': `Bearer ${getAuthToken()}`
-                        }
-                    });
-                    const data = await response.json();
-                    
-                    if (data.success && data.data) {
-                        const conversations = data.data;
-                        const totalUnread = conversations.reduce((sum, conv) => {
-                            return sum + (conv.unread_count || 0);
-                        }, 0);
-                        console.log(`店铺 ${shopId} 未读数量: ${totalUnread}`);
-                        return totalUnread;
-                    }
-                    return 0;
-                } catch (error) {
-                    console.error('获取店铺未读数量失败:', error);
-                    return 0;
-                }
-            }
 
-            // 选择店铺，显示对话列表
+            // 选择店铺（委托给店铺管理器）
             async selectShop(shop) {
-                this.currentShopId = shop.id;
-                
-                // 安全地更新DOM元素
-                const backBtn = document.getElementById('messagesBackBtn');
-                const titleElement = document.getElementById('messagesTitle');
-                
-                if (backBtn) {
-                    backBtn.textContent = '←'; // 只保留箭头
-                    backBtn.style.display = 'inline-block';
-                }
-                
-                if (titleElement) {
-                    titleElement.textContent = shop.name + ' - 客户对话';
-                }
-                
-                this.showView('conversationsListView');
-                // 骨架屏（可选）
-                try {
-                    const container = document.getElementById('conversationsListView');
-                    if (container && window.SkeletonListUI && typeof window.SkeletonListUI.buildConversationsSkeleton === 'function'){
-                        container.innerHTML = '';
-                        container.appendChild(window.SkeletonListUI.buildConversationsSkeleton(6));
-                    }
-                } catch(e){}
-                await this.loadConversationsForShop(shop.id);
-            }
-
-            // 生成客户编号（使用模块化系统）
-            generateCustomerNumber(customerId) {
-                // 优先使用模块化系统
-                if (window.CustomerNumbering && window.CustomerNumbering.generateCustomerNumber) {
-                    return window.CustomerNumbering.generateCustomerNumber(customerId);
-                }
-                
-                // 降级处理：使用向后兼容的全局函数
-                if (window.generateCustomerNumber && window.generateCustomerNumber !== this.generateCustomerNumber) {
-                    return window.generateCustomerNumber(customerId);
-                }
-                
-                // 最终降级：简单格式化
-                console.warn('客户编号模块未加载，使用降级处理');
-                return `客户${customerId.replace('customer_', '').substring(0, 8)}`;
-            }
-
-            // 加载店铺的对话列表
-            async loadConversationsForShop(shopId) {
-                // 避免同店铺多次并发加载
-                if (this._loadingConversations && this._loadingShopId === shopId) {
-                    return;
-                }
-                try {
-                    this._loadingConversations = true;
-                    this._loadingShopId = shopId;
-                    const response = await fetch(`/api/conversations?shop_id=${shopId}`, {
-                        headers: {
-                            'Authorization': `Bearer ${getAuthToken()}`
-                        }
-                    });
-                    const data = await response.json();
-                    
-                    if (data.success && data.data) {
-                        this.conversations = data.data;
-                        this.renderConversationsList();
-                    } else {
-                        console.error('获取对话列表失败:', data.error);
-                    }
-                } catch (error) {
-                    console.error('网络错误:', error);
-                } finally {
-                    this._loadingConversations = false;
-                    this._loadingShopId = null;
-                }
-            }
-
-            // 渲染对话列表
-            renderConversationsList() {
-                const container = document.getElementById('conversationsListView');
-                if (!container) { console.warn('renderConversationsList: 容器未就绪'); return; }
-                container.innerHTML = '';
-
-                if (this.conversations.length === 0) {
-                    if (window.EmptyStatesUI && typeof window.EmptyStatesUI.conversations === 'function') {
-                        container.appendChild(window.EmptyStatesUI.conversations());
-                    } else {
-                        const tpl = document.getElementById('emptyConversationsTemplate');
-                        if (tpl && tpl.content) {
-                            const node = tpl.content.firstElementChild.cloneNode(true);
-                            container.appendChild(node);
-                        } else {
-                            container.innerHTML = `
-                                <div class="empty-state">
-                                    <div class="empty-icon">💬</div>
-                                    <h3>暂无对话</h3>
-                                    <p>等待客户发起对话</p>
-                                </div>
-                            `;
-                        }
-                    }
-                    return;
-                }
-
-                const list = document.createElement('div');
-                list.className = 'conversation-list';
-
-                this.conversations.forEach(conversation => {
-                    const item = (window.ConversationItemUI && typeof window.ConversationItemUI.create === 'function')
-                        ? window.ConversationItemUI.create(conversation, { onClick: (c)=> this.selectConversation(c) })
-                        : (function(self){
-                            const conversationItem = document.createElement('div');
-                            conversationItem.className = 'conversation-item';
-                            conversationItem.setAttribute('data-conversation-id', conversation.id);
-                            conversationItem.setAttribute('data-shop-id', conversation.shop_id || self.currentShopId);
-                            const lastMessageTime = conversation.last_message_time ? new Date(conversation.last_message_time).toLocaleString() : '暂无消息';
-                            const customerDisplayName = conversation.customer_name || self.generateCustomerNumber(conversation.customer_id);
-                            const avatarInitial = (customerDisplayName && customerDisplayName.trim().charAt(0)) ? customerDisplayName.trim().charAt(0).toUpperCase() : 'C';
-                            conversationItem.innerHTML = `
-                                <div class="conversation-avatar">${avatarInitial}</div>
-                                <div class="conversation-content">
-                                    <div class="conversation-header">
-                                        <span class="customer-name">${customerDisplayName}</span>
-                                        <span class="message-time" data-conversation-id="${conversation.id}">${lastMessageTime}</span>
-                                    </div>
-                                    <div class="last-message" data-conversation-id="${conversation.id}">${conversation.last_message || '等待客户消息...'}</div>
-                                </div>
-                                ${conversation.unread_count > 0 ? `<div class="unread-badge" data-conversation-id="${conversation.id}">${conversation.unread_count}</div>` : ''}
-                            `;
-                            if (window.DOMEnhancer) try { window.DOMEnhancer.enhanceConversationItem(conversationItem, conversation); } catch(_e){}
-                            setTimeout(() => {
-                                if (window.DataSyncManager) window.DataSyncManager.updateConversationDOM(conversation.id, conversation);
-                                if (window.DisplayFixer) {
-                                    window.DisplayFixer.fixSingleLastMessage(conversationItem.querySelector('.last-message'), conversation.id);
-                                    window.DisplayFixer.fixSingleMessageTime(conversationItem.querySelector('.message-time'), conversation.id);
-                                }
-                            }, 100);
-                            conversationItem.addEventListener('click', () => { self.selectConversation(conversation); });
-                            return conversationItem;
-                        })(this);
-                    list.appendChild(item);
-                });
-
-                container.appendChild(list);
-
-                // 列表渲染后更新会话统计（若模块存在）
-                try {
-                    if (window.ConversationsHeader && typeof window.ConversationsHeader.refresh === 'function') {
-                        window.ConversationsHeader.refresh();
-                    }
-                } catch(e) { /* noop */ }
-            }
-
-            // 选择对话，进入聊天界面
-            async selectConversation(conversation) {
-                this.currentConversationId = conversation.id;
-                this.currentCustomer = {
-                    id: conversation.customer_id,
-                    name: conversation.customer_name || this.generateCustomerNumber(conversation.customer_id)
-                };
-
-                // 更新聊天头部
-                if (window.ChatHeaderUI && typeof window.ChatHeaderUI.updateForConversation === 'function') {
-                    window.ChatHeaderUI.updateForConversation(conversation, { customerName: this.currentCustomer.name });
+                if (this.shopsManager) {
+                    await this.shopsManager.selectShop(shop);
                 } else {
-                    const titleElement = document.getElementById('messagesTitle');
-                    if (titleElement) titleElement.textContent = this.currentCustomer.name;
+                    // 降级：直接处理
+                    await this.handleShopSelected(shop, { conversationCount: 0, unreadCount: 0 });
                 }
-
-                // 切换视图到聊天
-                this.showView('chatView');
-
-                // 先展示加载态
-                const container = document.getElementById('chatMessages');
-                if (container) {
-                    container.innerHTML = '';
-                    if (window.LoadingStatesUI && typeof window.LoadingStatesUI.spinner === 'function') {
-                        container.appendChild(window.LoadingStatesUI.spinner('正在加载消息...'));
-                    }
-                }
-
-                // 加载消息
-                await this.loadMessages(conversation.id);
-                this.focusChatInput();
-                this.scrollToBottom();
             }
 
-            // 批量渲染消息列表
+            // 选择对话（委托给对话管理器）
+            async selectConversation(conversation) {
+                if (this.conversationsManager) {
+                    await this.conversationsManager.selectConversation(conversation);
+                } else {
+                    // 降级：直接处理
+                    const customer = {
+                        id: conversation.customer_id,
+                        name: conversation.customer_name || this.generateCustomerNumber(conversation.customer_id)
+                    };
+                    await this.handleConversationSelected(conversation, customer);
+                }
+            }
+
+            // 加载消息（委托给消息管理器）
+            async loadMessages(conversationId) {
+                if (this.messagesManager) {
+                    try {
+                        const messages = await this.messagesManager.loadMessages(conversationId, this.currentCustomer);
+                        this.messages = messages;
+                        return messages;
+                    } catch (error) {
+                        console.error('[MessageModule] 委托加载消息失败:', error);
+                        throw error;
+                    }
+                }
+                
+                // 降级：使用原有逻辑
+                return this._legacyLoadMessages(conversationId);
+            }
+
+            // (移除重复 generateCustomerNumber 定义，统一使用后方兼容方法版本)
+
+
+
+            // 渲染消息（委托给渲染器）
             renderMessages() {
+                if (this._renderer && this._renderer.renderMessages) {
+                    return this._renderer.renderMessages();
+                }
+                // 降级：简单实现
                 const container = document.getElementById('chatMessages');
                 if (!container) return;
                 container.innerHTML = '';
-                if (!Array.isArray(this.messages) || this.messages.length === 0) {
-                    return;
-                }
-                this.messages.forEach((m) => this.renderMessage(m));
+                (this.messages || []).forEach(m => this.renderMessage(m));
                 this.scrollToBottom();
-                // 应用消息分页（首次渲染后）
-                try { if (window.MessagesPagination && typeof window.MessagesPagination.apply==='function') window.MessagesPagination.apply(); } catch(e){}
             }
 
-            // 渲染单条消息
+            // 渲染单条消息（委托给渲染器）
             renderMessage(message) {
+                if (this._renderer && this._renderer.renderMessage) {
+                    return this._renderer.renderMessage(message);
+                }
+                // 降级：最小实现
                 const container = document.getElementById('chatMessages');
-                if (window.MessageBubbleUI && typeof window.MessageBubbleUI.create === 'function') {
-                    const node = window.MessageBubbleUI.create(message, { currentCustomerName: this.currentCustomer?.name });
-                    container.appendChild(node);
-                    try { container.dispatchEvent(new CustomEvent('message:rendered', { detail: { id: message.id } })); } catch(e){}
-                    return;
-                }
-                // 回退：原内联实现
-                const messageDiv = document.createElement('div');
-                messageDiv.className = `chat-message ${message.sender_type}`;
-                const avatar = message.sender_type === 'customer' ? this.currentCustomer.name.charAt(0) : 'A';
-                const messageContent = document.createElement('div');
-                messageContent.className = 'message-bubble';
-                if (message.content && message.content.trim()) {
-                    const textContent = document.createElement('div');
-                    textContent.textContent = message.content;
-                    messageContent.appendChild(textContent);
-                }
-                if (message.files && message.files.length > 0) {
-                    message.files.forEach(file => {
-                        const mediaContent = this.createMediaElement(file);
-                        messageContent.appendChild(mediaContent);
-                    });
-                }
-                messageDiv.innerHTML = `<div class="message-avatar">${avatar}</div>`;
-                messageDiv.appendChild(messageContent);
-                container.appendChild(messageDiv);
+                if (!container) return;
+                const div = document.createElement('div');
+                div.className = 'chat-message';
+                div.textContent = (message.content || '').slice(0, 200);
+                container.appendChild(div);
             }
 
-            // 分页加载更多历史消息（供滚动/按钮触发）
-            async loadMoreMessages(page){
-                try {
-                    if (window.MessagesPagination && typeof window.MessagesPagination.loadMore==='function'){
-                        await window.MessagesPagination.loadMore();
-                    }
-                } catch(e){ console.warn('loadMoreMessages failed', e); }
-            }
-
-            // 创建媒体元素（委托 UI 组件，保留回退）
-            createMediaElement(file) {
-                if (window.MessageMediaUI && typeof window.MessageMediaUI.createMediaElement === 'function') {
-                    return window.MessageMediaUI.createMediaElement(file);
-                }
-                // 回退到内置实现（保持兼容）
-                console.log('创建媒体元素:', file);
-                const mediaDiv = document.createElement('div');
-                if (!file.url || file.url === 'undefined') { mediaDiv.innerHTML = '<p>文件URL无效</p>'; return mediaDiv; }
-                if (file.type.startsWith('image/')) {
-                    mediaDiv.className = 'message-media';
-                    const img = document.createElement('img');
-                    img.src = file.url; img.alt = file.name || '图片';
-                    img.onclick = () => this.openImageModal(file.url);
-                    img.onerror = () => { img.alt = '图片加载失败'; };
-                    mediaDiv.appendChild(img);
-                } else if (file.type.startsWith('audio/')) {
-                    mediaDiv.className = 'message-audio';
-                    const audio = document.createElement('audio');
-                    audio.controls = true; audio.src = file.url; audio.preload = 'metadata';
-                    mediaDiv.appendChild(audio);
-                } else if (file.type.startsWith('video/')) {
-                    mediaDiv.className = 'message-media';
-                    const video = document.createElement('video');
-                    video.controls = true; video.src = file.url; video.style.maxWidth = '100%'; video.style.borderRadius = '8px';
-                    mediaDiv.appendChild(video);
-                } else {
-                    mediaDiv.className = 'message-file';
-                    mediaDiv.innerHTML = `
-                        <div class="file-icon">${this.getFileIcon(file.type)}</div>
-                        <div class="file-details">
-                            <div class="file-name">${file.name}</div>
-                            <div class="file-size">${this.formatFileSize(file.size)}</div>
-                        </div>
-                    `;
-                    mediaDiv.onclick = () => window.open(file.url, '_blank');
-                }
-                return mediaDiv;
-            }
-
-            // 打开图片模态框（委托 UI 组件，保留回退）
-            openImageModal(imageSrc) {
-                if (window.MessageMediaUI && typeof window.MessageMediaUI.openImageModal === 'function') {
-                    return window.MessageMediaUI.openImageModal(imageSrc);
-                }
-                const modal = document.createElement('div');
-                modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:1000;';
-                const img = document.createElement('img');
-                img.src = imageSrc; img.style.cssText = 'max-width:90%;max-height:90%;object-fit:contain;';
-                const closeBtn = document.createElement('button');
-                closeBtn.textContent = '×';
-                closeBtn.style.cssText = 'position:absolute;top:20px;right:20px;background:rgba(255,255,255,0.8);border:none;border-radius:50%;width:40px;height:40px;font-size:24px;cursor:pointer;';
-                closeBtn.onclick = () => document.body.removeChild(modal);
-                modal.onclick = (e) => { if (e.target === modal) document.body.removeChild(modal); };
-                modal.appendChild(img); modal.appendChild(closeBtn); document.body.appendChild(modal);
-            }
-
-            // 发送消息 - 仅处理文本消息
-            async sendMessage() {
-                const input = document.getElementById('chatInput');
-                const content = input.value.trim();
-                
-                // 只处理文本消息
-                if (!content) return;
-                if (!this.currentConversationId) return;
-
-                const messageData = {
-                    type: 'message',
-                    conversation_id: this.currentConversationId,
-                    content: content,
-                    files: [], // 文本消息不包含文件
-                    sender_type: 'agent',
-                    timestamp: Date.now()
-                };
-
-                console.log('📤 准备发送消息:', messageData);
-                
-                // 发送WebSocket消息 - 使用模块内的 this.websocket
-                if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
-                    console.log('✅ WebSocket连接正常，发送消息');
-                    this.websocket.send(JSON.stringify(messageData));
-                } else {
-                    console.error('❌ WebSocket连接不可用:', this.websocket ? this.websocket.readyState : 'websocket is null');
-                }
-
-                // 不在本地立即添加消息，等待WebSocket广播回来，避免重复显示
-                
-                // 清空输入
-                input.value = '';
-                input.focus();
-            }
-
-            // 上传文件
-            async uploadFile(file) {
-                const formData = new FormData();
-                formData.append('file', file);
-                formData.append('conversation_id', this.currentConversationId);
-
-                try {
-                    console.log('正在上传文件:', file.name);
-                    const response = await fetch('/api/upload', {
-                        method: 'POST',
-                        body: formData
-                    });
-
-                    const result = await response.json();
-                    console.log('上传API响应:', result);
-                    
-                    if (result.success && result.data && result.data.files && result.data.files.length > 0) {
-                        // 提取第一个文件的URL
-                        const fileInfo = result.data.files[0];
-                        console.log('提取的文件信息:', fileInfo);
-                        return {
-                            success: true,
-                            url: fileInfo.url
-                        };
-                    } else {
-                        console.error('上传失败，响应格式不正确:', result);
-                        throw new Error(result.error || result.message || '上传失败');
-                    }
-                } catch (error) {
-                    console.error('文件上传错误:', error);
-                    return { success: false, error: error.message };
-                }
-            }
-
-            // 显示指定视图（委托 MessagesViews）
-            showView(viewId) {
-                if (window.MessagesViews && typeof window.MessagesViews.show === 'function') {
-                    window.MessagesViews.show(viewId);
-                    return;
-                }
-                const views = ['shopsListView', 'conversationsListView', 'chatView'];
-                const bottomNav = document.querySelector('.bottom-nav');
-                views.forEach(id => {
-                    const element = document.getElementById(id);
-                    if (element) element.style.display = id === viewId ? 'block' : 'none';
-                });
-                if (bottomNav) {
-                    if (viewId === 'chatView') bottomNav.classList.add('hidden');
-                    else bottomNav.classList.remove('hidden');
-                }
-            }
-
-            // 返回上一级
-            goBack() {
-                const chatView = document.getElementById('chatView');
-                const conversationsListView = document.getElementById('conversationsListView');
-                const backBtn = document.getElementById('messagesBackBtn');
-                const titleElement = document.getElementById('messagesTitle');
-                
-                if (chatView && chatView.style.display === 'block') {
-                    // 从聊天界面返回对话列表
-                    this.showView('conversationsListView');
-                    if (backBtn) {
-                        backBtn.textContent = '←'; // 只保留箭头
-                        backBtn.style.display = 'inline-block';
-                    }
-                    if (titleElement) {
-                        titleElement.textContent = '客户对话';
-                    }
-                } else if (conversationsListView && conversationsListView.style.display === 'block') {
-                    // 从对话列表返回店铺列表
-                    this.showView('shopsListView');
-                    if (backBtn) {
-                        backBtn.style.display = 'none'; // 隐藏返回按钮
-                    }
-                    if (titleElement) {
-                        titleElement.textContent = '客服消息'; // 恢复原标题
-                    }
-                    this.currentShopId = null;
-                }
-            }
+            // (重复 sendMessage 定义已移除，统一使用前方兼容实现)
 
             // 辅助方法
             scrollToBottom() {
@@ -855,218 +678,271 @@ class MessageModule {
                 }, 100);
             }
 
-            // 初始化多媒体处理器
-            initMediaHandlers() {
-                // 文件选择按钮
-                const mediaBtn = document.getElementById('mediaBtn');
-                const fileInput = document.getElementById('fileInput');
-                const voiceBtn = document.getElementById('voiceBtn');
-
-                if (mediaBtn) {
-                    mediaBtn.addEventListener('click', () => {
-                        if (fileInput) fileInput.click();
-                    });
-                }
-
-                if (fileInput) {
-                    fileInput.addEventListener('change', (e) => {
-                        this.handleFileSelection(e.target.files);
-                        // 重置文件输入，允许重复选择相同文件
-                        e.target.value = '';
-                    });
-                }
-
-                if (voiceBtn) {
-                    voiceBtn.addEventListener('click', () => {
-                        this.toggleVoiceRecording();
-                    });
-                }
-            }
-
-            // 处理文件选择 - 直接发送
-            async handleFileSelection(files) {
-                if (!files || files.length === 0) return;
-                if (!this.currentConversationId) {
-                    this.showToast('请先选择一个对话', 'error');
+            // 显示指定视图
+            showView(viewId) {
+                if (window.MessagesViews && typeof window.MessagesViews.show === 'function') {
+                    window.MessagesViews.show(viewId);
                     return;
                 }
-
-                this.showToast('正在发送文件...', 'info');
-
-                const fileArray = Array.from(files);
                 
-                // 逐个发送文件
-                for (const file of fileArray) {
-                    await this.sendFileDirectly(file);
+                // 降级实现
+                const views = ['shopsListView', 'conversationsListView', 'chatView'];
+                const bottomNav = document.querySelector('.bottom-nav');
+                
+                views.forEach(id => {
+                    const element = document.getElementById(id);
+                    if (element) element.style.display = id === viewId ? 'block' : 'none';
+                });
+                
+                if (bottomNav) {
+                    if (viewId === 'chatView') {
+                        bottomNav.classList.add('hidden');
+                    } else {
+                        bottomNav.classList.remove('hidden');
+                    }
                 }
             }
 
-            // 直接发送单个文件
+            // 返回上一级
+            goBack() {
+                const chatView = document.getElementById('chatView');
+                const conversationsListView = document.getElementById('conversationsListView');
+                
+                if (chatView && chatView.style.display === 'block') {
+                    // 从聊天界面返回对话列表
+                    this.showView('conversationsListView');
+                    this.updateNavigationUI('客户对话', true);
+                } else if (conversationsListView && conversationsListView.style.display === 'block') {
+                    // 从对话列表返回店铺列表
+                    this.showView('shopsListView');
+                    this.updateNavigationUI('客服消息', false);
+                    this.currentShopId = null;
+                }
+            }
+
+
+
+
+
+            // 媒体处理方法（委托给MediaHandler）
+            
+            // 创建媒体元素（委托）
+            createMediaElement(file) {
+                if (this.mediaHandler && this.mediaHandler.createMediaElement) {
+                    return this.mediaHandler.createMediaElement(file);
+                }
+                // 降级
+                const div = document.createElement('div');
+                div.textContent = file?.name || 'file';
+                return div;
+            }
+
+            // 打开图片模态框（委托）
+            openImageModal(src) {
+                if (this.mediaHandler && this.mediaHandler.openImageModal) {
+                    return this.mediaHandler.openImageModal(src);
+                }
+            }
+
+            // 上传文件（委托给MediaHandler）
+            async uploadFile(file) {
+                if (this.mediaHandler && this.mediaHandler.uploadFile) {
+                    return this.mediaHandler.uploadFile(file);
+                }
+                throw new Error('MediaHandler 不可用');
+            }
+
+            // 文件选择处理（委托）
+            async handleFileSelection(files) {
+                if (this.mediaHandler && this.mediaHandler.handleFileSelection) {
+                    return this.mediaHandler.handleFileSelection(files);
+                }
+            }
+
+            // 语音录制切换（委托）
+            async toggleVoiceRecording() {
+                if (this.mediaHandler && this.mediaHandler.toggleVoiceRecording) {
+                    return this.mediaHandler.toggleVoiceRecording();
+                }
+            }
+
+            // 直接发送文件（委托）
             async sendFileDirectly(file) {
-                try {
-                    // 上传文件
-                    const uploadResult = await this.uploadFile(file);
-                    if (!uploadResult.success) {
-                        this.showToast(`${file.name} 上传失败`, 'error');
-                        return;
-                    }
-
-                    // 构建文件消息数据
-                    const fileInfo = {
-                        url: uploadResult.url,
-                        type: file.type,
-                        name: file.name,
-                        size: file.size
-                    };
-
-                    // 调试输出
-                    console.log('发送文件信息:', fileInfo);
-
-                    const messageData = {
-                        type: 'message',
-                        conversation_id: this.currentConversationId,
-                        content: '', // 纯文件消息，内容为空
-                        files: [fileInfo],
-                        sender_type: 'agent',
-                        timestamp: Date.now()
-                    };
-
-                    // 发送WebSocket消息
-                    if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
-                        this.websocket.send(JSON.stringify(messageData));
-                    }
-                    // 与文本消息一致：不在本地立即渲染，等待WS回执，避免重复
-                    this.showToast(`${file.name} 已发送`, 'success');
-                } catch (error) {
-                    console.error('文件发送失败:', error);
-                    this.showToast(`${file.name} 发送失败`, 'error');
+                if (this.mediaHandler && this.mediaHandler.sendFileDirectly) {
+                    return this.mediaHandler.sendFileDirectly(file);
                 }
             }
 
-            // 获取文件图标
+            // 获取文件图标（委托）
             getFileIcon(mimeType) {
-                if (mimeType.startsWith('image/')) return '🖼️';
-                if (mimeType.startsWith('audio/')) return '🎵';
-                if (mimeType.startsWith('video/')) return '🎥';
-                if (mimeType.includes('pdf')) return '📄';
-                if (mimeType.includes('word') || mimeType.includes('document')) return '📝';
-                if (mimeType.includes('text')) return '📃';
+                if (this.mediaHandler && this.mediaHandler.getFileIcon) {
+                    return this.mediaHandler.getFileIcon(mimeType);
+                }
                 return '📁';
             }
 
-            // 格式化文件大小
+            // 格式化文件大小（委托）
             formatFileSize(bytes) {
-                if (bytes === 0) return '0 Bytes';
-                const k = 1024;
-                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-                const i = Math.floor(Math.log(bytes) / Math.log(k));
-                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-            }
-
-            // 切换语音录制
-            async toggleVoiceRecording() {
-                const voiceBtn = document.getElementById('voiceBtn');
-                const voiceIcon = voiceBtn?.querySelector('.voice-icon');
-
-                if (!this.isRecording) {
-                    await this.startVoiceRecording();
-                    if (voiceBtn) voiceBtn.classList.add('recording');
-                    if (voiceIcon) voiceIcon.textContent = '⏹️';
-                } else {
-                    this.stopVoiceRecording();
-                    if (voiceBtn) voiceBtn.classList.remove('recording');
-                    if (voiceIcon) voiceIcon.textContent = '🎤';
+                if (this.mediaHandler && this.mediaHandler.formatFileSize) {
+                    return this.mediaHandler.formatFileSize(bytes);
                 }
-            }
-
-            // 开始语音录制
-            async startVoiceRecording() {
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    this.mediaRecorder = new MediaRecorder(stream);
-                    this.recordedChunks = [];
-
-                    this.mediaRecorder.ondataavailable = (event) => {
-                        if (event.data.size > 0) {
-                            this.recordedChunks.push(event.data);
-                        }
-                    };
-
-                    this.mediaRecorder.onstop = async () => {
-                        const blob = new Blob(this.recordedChunks, { type: 'audio/wav' });
-                        const file = new File([blob], `语音消息_${Date.now()}.wav`, { type: 'audio/wav' });
-                        
-                        // 直接发送语音文件
-                        await this.sendFileDirectly(file);
-                        
-                        // 停止所有音轨
-                        stream.getTracks().forEach(track => track.stop());
-                    };
-
-                    this.mediaRecorder.start();
-                    this.isRecording = true;
-                    this.showToast('开始录音...', 'info');
-                } catch (error) {
-                    console.error('录音启动失败:', error);
-                    this.showToast('录音功能不可用', 'error');
-                }
-            }
-
-            // 停止语音录制
-            stopVoiceRecording() {
-                if (this.mediaRecorder && this.isRecording) {
-                    this.mediaRecorder.stop();
-                    this.isRecording = false;
-                    this.showToast('录音完成', 'success');
-                }
+                return bytes + ' bytes';
             }
 
             // 显示提示消息
             showToast(message, type = 'info') {
-                // 创建toast元素
-                const toast = document.createElement('div');
-                toast.className = `toast toast-${type}`;
-                toast.textContent = message;
-                
-                // 添加样式
-                Object.assign(toast.style, {
-                    position: 'fixed',
-                    top: '20px',
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    backgroundColor: type === 'info' ? '#17a2b8' : type === 'error' ? '#dc3545' : '#28a745',
-                    color: 'white',
-                    padding: '12px 20px',
-                    borderRadius: '8px',
-                    zIndex: '9999',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-                    opacity: '0',
-                    transition: 'opacity 0.3s ease'
-                });
-                
-                document.body.appendChild(toast);
-                
-                // 显示动画
-                setTimeout(() => {
-                    toast.style.opacity = '1';
-                }, 100);
-                
-                // 3秒后自动消失
-                setTimeout(() => {
-                    toast.style.opacity = '0';
-                    setTimeout(() => {
-                        if (toast.parentNode) {
-                            toast.parentNode.removeChild(toast);
-                        }
-                    }, 300);
-                }, 3000);
+                // 统一委托 global-utils
+                if (typeof window.showToast === 'function') {
+                    window.showToast(message, type);
+                } else {
+                    console.log(`[Toast ${type}] ${message}`);
+                }
             }
 
+            // 兼容方法：渲染店铺列表（委托给店铺管理器）
+            async renderShopsList() {
+                if (this.shopsManager) {
+                    await this.shopsManager.renderShopsList();
+                } else {
+                    console.warn('[MessageModule] ShopsManager 不可用，跳过店铺列表渲染');
+                }
+            }
+
+            // 兼容方法：加载店铺对话列表（委托给对话管理器）
+            async loadConversationsForShop(shopId) {
+                if (this.conversationsManager) {
+                    try {
+                        const conversations = await this.conversationsManager.loadConversationsForShop(shopId);
+                        this.conversations = conversations;
+                        return conversations;
+                    } catch (error) {
+                        console.error('[MessageModule] 委托加载对话失败:', error);
+                        throw error;
+                    }
+                }
+                
+                // 降级：使用原有逻辑
+                return this._legacyLoadConversationsForShop(shopId);
+            }
+
+            // 原有对话加载逻辑（降级使用）
+            async _legacyLoadConversationsForShop(shopId) {
+                if (this.conversationsManager && this.conversationsManager._loading && 
+                    this.conversationsManager._loadingShopId === shopId) {
+                    return;
+                }
+                
+                try {
+                    const response = await fetch(`/api/conversations?shop_id=${shopId}`, {
+                        headers: window.AuthHelper ? window.AuthHelper.getHeaders() : {
+                            'Authorization': `Bearer ${window.getAuthToken ? window.getAuthToken() : ''}`
+                        }
+                    });
+                    const data = await response.json();
+                    
+                    if (data.success && data.data) {
+                        this.conversations = data.data;
+                        this.renderConversationsList();
+                        return this.conversations;
+                    } else {
+                        console.error('[MessageModule] 降级：获取对话列表失败:', data.error);
+                    }
+                } catch (error) {
+                    console.error('[MessageModule] 降级：网络错误:', error);
+                }
+            }
+
+            // 兼容方法：渲染对话列表（委托给对话管理器）
+            async renderConversationsList() {
+                if (this.conversationsManager) {
+                    await this.conversationsManager.renderConversationsList();
+                } else {
+                    console.warn('[MessageModule] ConversationsManager 不可用，跳过对话列表渲染');
+                }
+            }
+
+            // 兼容方法：生成客户编号
+            generateCustomerNumber(customerId) {
+                if (this.conversationsManager) {
+                    return this.conversationsManager.generateCustomerNumber(customerId);
+                }
+                
+                // 降级处理
+                if (window.CustomerNumbering && window.CustomerNumbering.generateCustomerNumber) {
+                    return window.CustomerNumbering.generateCustomerNumber(customerId);
+                }
+                
+                if (window.generateCustomerNumber && 
+                    typeof window.generateCustomerNumber === 'function') {
+                    return window.generateCustomerNumber(customerId);
+                }
+                
+                return `客户${customerId.replace('customer_', '').substring(0, 8)}`;
+            }
+
+            // 兼容方法：获取店铺对话数量（委托给店铺管理器）
+            async getShopConversationCount(shopId) {
+                if (this.shopsManager) {
+                    return this.shopsManager.getShopConversationCount(shopId);
+                }
+                
+                // 降级实现
+                try {
+                    const response = await fetch(`/api/conversations?shop_id=${shopId}`, {
+                        headers: window.AuthHelper ? window.AuthHelper.getHeaders() : {
+                            'Authorization': `Bearer ${window.getAuthToken ? window.getAuthToken() : ''}`
+                        }
+                    });
+                    const data = await response.json();
+                    return (data.success && data.data) ? data.data.length : 0;
+                } catch (error) {
+                    console.error('[MessageModule] 降级：获取店铺对话数量失败:', error);
+                    return 0;
+                }
+            }
+
+            // 兼容方法：获取店铺未读数量（委托给店铺管理器）
+            async getShopUnreadCount(shopId) {
+                if (this.shopsManager) {
+                    return this.shopsManager.getShopUnreadCount(shopId);
+                }
+                
+                // 降级实现
+                try {
+                    const response = await fetch(`/api/conversations?shop_id=${shopId}`, {
+                        headers: window.AuthHelper ? window.AuthHelper.getHeaders() : {
+                            'Authorization': `Bearer ${window.getAuthToken ? window.getAuthToken() : ''}`
+                        }
+                    });
+                    const data = await response.json();
+                    if (data.success && data.data) {
+                        return data.data.reduce((sum, conv) => sum + (conv.unread_count || 0), 0);
+                    }
+                    return 0;
+                } catch (error) {
+                    console.error('[MessageModule] 降级：获取店铺未读数量失败:', error);
+                    return 0;
+                }
+            }
+
+            // 兼容方法：分页加载更多消息
+            async loadMoreMessages(page = 1) {
+                try {
+                    if (window.MessagesPagination && 
+                        typeof window.MessagesPagination.loadMore === 'function') {
+                        await window.MessagesPagination.loadMore();
+                    }
+                } catch (error) {
+                    console.warn('[MessageModule] 分页加载失败:', error);
+                }
+            }
+
+            // 更新对话预览
             updateConversationPreview(messageData) {
-                // 更新对话列表中的预览信息
-                if (this.conversations.length > 0 && this.currentShopId) {
+                if (this.conversationsManager) {
+                    this.conversationsManager.updateConversationPreview(messageData);
+                } else if (this.conversations.length > 0 && this.currentShopId) {
+                    // 降级：重新加载对话列表
                     this.loadConversationsForShop(this.currentShopId);
                 }
             }
@@ -1075,5 +951,5 @@ class MessageModule {
     // 将类暴露到全局
     window.MessageModule = MessageModule;
 
-    console.log('✅ 消息模块已加载 (message-module.js)');
+    console.log('✅ 消息模块已加载 (message-module.js) - 重构版');
 })();

@@ -1,7 +1,91 @@
 <!-- component: workbench/content -->
 <div id="workbenchContent">
-  <div class="loading-state">
-    <div class="loading-spinner"></div>
-    <div class="loading-text">正在加载工作台数据...</div>
+  <!-- 快速统计 -->
+  <div class="quick-stats">
+    <div class="stat-card">
+      <div class="stat-icon">💬</div>
+      <div class="stat-info">
+        <div class="stat-number" id="totalConversations">-</div>
+        <div class="stat-label">总对话数</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">🔥</div>
+      <div class="stat-info">
+        <div class="stat-number" id="activeConversations">-</div>
+        <div class="stat-label">活跃对话</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">📨</div>
+      <div class="stat-info">
+        <div class="stat-number" id="unreadMessages">-</div>
+        <div class="stat-label">未读消息</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">👥</div>
+      <div class="stat-info">
+        <div class="stat-number" id="totalCustomers">-</div>
+        <div class="stat-label">客户数量</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 快速操作 -->
+  <div class="quick-actions">
+    <h4>⚡ 快速操作</h4>
+    <div class="actions-grid">
+      <button class="action-item" onclick="quickCreateShop()">
+        <div class="action-icon">🏪</div>
+        <div class="action-label">创建店铺</div>
+      </button>
+      <button class="action-item" onclick="quickViewMessages()">
+        <div class="action-icon">💬</div>
+        <div class="action-label">查看消息</div>
+      </button>
+      <button class="action-item" onclick="quickManageShops()">
+        <div class="action-icon">⚙️</div>
+        <div class="action-label">管理店铺</div>
+      </button>
+      <button class="action-item" onclick="quickViewProfile()">
+        <div class="action-icon">👤</div>
+        <div class="action-label">个人设置</div>
+      </button>
+    </div>
+  </div>
+
+  <!-- 最近活动 -->
+  <div class="recent-activity">
+    <h4>📋 最近活动</h4>
+    <div class="activity-list" id="activityList">
+      <div class="loading-state">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">正在加载活动记录...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 系统状态 -->
+  <div class="system-status">
+    <h4>📊 系统状态</h4>
+    <div class="status-items">
+      <div class="status-item">
+        <div class="status-label">WebSocket连接</div>
+        <div class="status-value" id="wsStatus">检查中...</div>
+      </div>
+      <div class="status-item">
+        <div class="status-label">数据库状态</div>
+        <div class="status-value" id="dbStatus">正常</div>
+      </div>
+      <div class="status-item">
+        <div class="status-label">API服务</div>
+        <div class="status-value" id="apiStatus">正常</div>
+      </div>
+      <div class="status-item">
+        <div class="status-label">最后更新</div>
+        <div class="status-value" id="lastUpdate">-</div>
+      </div>
+    </div>
   </div>
 </div>

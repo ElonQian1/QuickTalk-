@@ -49,6 +49,9 @@
     <!-- 按功能拆分：聊天与底部导航样式外置 -->
     <link rel="stylesheet" href="/static/css/messages-view.css">
     <link rel="stylesheet" href="/static/css/chat-view.css">
+    <link rel="stylesheet" href="/static/css/pages/shops-page.css">
+    <link rel="stylesheet" href="/static/css/workbench-styles.css">
+    <link rel="stylesheet" href="/static/css/profile-styles.css">
 <!-- 结束 head，开始 body -->
 </head>
 <body>
@@ -78,6 +81,9 @@
     </div>
 
     <!-- 引入模块化JS文件 (必须在主脚本之前加载) -->
+    <!-- 0. 全局工具库（最优先加载，避免重复代码） -->
+    <script src="/static/js/utils/global-utils.js"></script>
+    
     <!-- 1. 核心基础设施（必须最先加载） -->
     <script src="/static/js/core/module-registry.js"></script>
     <script src="/static/js/core/module-loader-compat.js"></script>
@@ -196,6 +202,11 @@
     <script src="/static/js/usecases/shop-api-key.js"></script>
     <!-- 会话工具（usecases） -->
     <script src="/static/js/usecases/conversations-tools.js"></script>
+    <!-- 通用工具模块（utils） - 在所有其他模块之前加载 -->
+    <script src="/static/js/utils/auth-helper.js"></script>
+    <script src="/static/js/utils/notify.js"></script>
+    <script src="/static/js/utils/ui-states.js"></script>
+    
     <!-- 消息页工具（usecases） -->
     <script src="/static/js/usecases/message-tools.js"></script>
     <!-- 对话基础动作（usecases） -->
@@ -222,6 +233,8 @@
     <script src="/static/js/usecases/shops-list.js"></script>
     <!-- 店铺管理模块（usecases） - 管理店铺操作和权限 -->
     <script src="/static/js/usecases/shop-management.js"></script>
+    <!-- 店铺头部筛选/搜索控制器（usecases） -->
+    <script src="/static/js/usecases/shops-header.js"></script>
     <!-- 店铺页胶水（usecases） -->
     <script src="/static/js/usecases/shops-bootstrap.js"></script>
     <!-- 未读数管理模块（usecases） - 店铺未读消息红点 -->
@@ -232,8 +245,29 @@
     <script src="/static/js/usecases/page-guard.js"></script>
     <!-- 应用初始化模块（usecases） - DOMContentLoaded 启动流程、WebSocket、增强模块 -->
     <script src="/static/js/usecases/app-init.js"></script>
+    
+    <!-- 重构版业务管理器模块（usecases） - 拆分后的独立模块 -->
+    <script src="/static/js/usecases/shops-manager-refactored.js"></script>
+    <script src="/static/js/usecases/conversations-manager-refactored.js"></script>
+    <script src="/static/js/usecases/messages-manager-refactored.js"></script>
+    <script src="/static/js/usecases/media-handler.js"></script>
+
+    <!-- 原版管理器（已暂停加载以避免重复实例化；保留文件以备回滚） -->
+    <!-- <script src="/static/js/usecases/shops-manager.js"></script> -->
+    <!-- <script src="/static/js/usecases/conversations-manager.js"></script> -->
+    <!-- <script src="/static/js/usecases/messages-manager.js"></script> -->
+    <!-- Legacy 名称兼容别名（需在重构版加载后、其它依赖使用前） -->
+    <script src="/static/js/bootstrap/legacy-managers-alias.js"></script>
+
     <!-- 消息模块（usecases） - 管理三层结构消息系统 -->
-    <script src="/static/js/usecases/message-module.js"></script>
+    <!-- WebSocket 适配器（usecases） - 连接管理、重连、事件订阅 -->
+    <script src="/static/js/usecases/message-ws-adapter.js"></script>
+    <!-- WebSocket 事件路由（usecases） -->
+    <script src="/static/js/usecases/ws-event-router.js"></script>
+    <!-- 重构版消息模块（精简协调器） -->
+    <script src="/static/js/usecases/message-module-refactored.js"></script>
+    <!-- 原版消息模块（暂时移除避免与精简版双实例冲突，保留文件以便回滚） -->
+    <!-- <script src="/static/js/usecases/message-module.js"></script> -->
     <!-- 消息视图切换胶水（usecases） -->
     <script src="/static/js/usecases/messages-views.js"></script>
     <!-- 消息页胶水（usecases） -->
@@ -293,6 +327,10 @@
     <div data-include="/static/components/modals/create-shop-modal.html"></div>
     <script src="/static/js/modals/create-shop-modal.js"></script>
 
+    <!-- 员工管理模态框（组件引入） -->
+    <div data-include="/static/components/modals/employee-management-modal.html"></div>
+    <script src="/static/js/modals/employee-management-modal.js"></script>
+
     <!-- 推广赚钱模态框（组件引入） -->
     <div data-include="/static/components/modals/promotion-modal.html"></div>
     <script src="/static/js/modals/promotion-modal.js"></script>
@@ -330,11 +368,16 @@
     <script src="/static/js/usecases/nav-bootstrap.js"></script>
     <script src="/static/js/usecases/composer-enhancements.js"></script>
     <script src="/static/js/usecases/profile-bootstrap.js"></script>
+    <script src="/static/js/usecases/profile-manager.js"></script>
     <script src="/static/js/usecases/workbench-bootstrap.js"></script>
+    <script src="/static/js/usecases/workbench-manager.js"></script>
+    <script src="/static/js/usecases/mobile-interaction-enhancer.js"></script>
     <script src="/static/js/usecases/ui-bootstrap.js"></script>
     
     <!-- 9. 应用启动器（统一初始化） -->
     <script src="/static/js/bootstrap/app-bootstrap.js"></script>
+    <!-- 9.1 消息模块单一启动器（小步快跑：确保只实例化精简协调器） -->
+    <script src="/static/js/bootstrap/messages-micro-bootstrap.js"></script>
     
     <!-- 开发环境调试工具 -->
         <script src="/static/js/utils/module-debugger.js"></script>

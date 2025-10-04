@@ -152,8 +152,35 @@ class AppBootstrap {
 
         // 初始化现有的UI组件（向后兼容）
         this._initializeLegacyComponents();
+        
+        // 加载初始数据
+        await this._loadInitialData();
 
         window.log.info('AppBootstrap', '✅ UI组件初始化完成');
+    }
+    
+    /**
+     * 加载初始数据
+     * @private
+     */
+    async _loadInitialData() {
+        try {
+            // 等待部分组件加载
+            await new Promise(r => setTimeout(r, 300));
+            
+            // 加载首页统计数据
+            if (typeof window.loadDashboardData === 'function') {
+                await window.loadDashboardData();
+                window.log.info('AppBootstrap', '✅ 首页数据已加载');
+            }
+            
+            // 触发其他模块初始化
+            if (window.DashboardBootstrap && typeof window.DashboardBootstrap.init === 'function') {
+                window.DashboardBootstrap.init();
+            }
+        } catch (error) {
+            window.log.error('AppBootstrap', '初始数据加载失败', error);
+        }
     }
 
     /**

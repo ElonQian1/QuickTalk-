@@ -1,0 +1,311 @@
+/* 用户档案样式 */
+
+/* 用户信息卡片 */
+.user-info-card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    margin: 16px 0 20px 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.user-avatar {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #007aff, #5856d6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.avatar-text {
+    color: white;
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.user-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.user-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 4px;
+}
+
+.user-email {
+    font-size: 13px;
+    color: #6c757d;
+    margin-bottom: 2px;
+}
+
+.user-role {
+    font-size: 12px;
+    color: #007aff;
+    font-weight: 500;
+    background: #f0f8ff;
+    padding: 2px 8px;
+    border-radius: 10px;
+    display: inline-block;
+}
+
+.edit-profile-btn {
+    background: #f8f9fa;
+    border: none;
+    border-radius: 8px;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.edit-profile-btn:hover {
+    background: #e9ecef;
+}
+
+.edit-profile-btn span {
+    font-size: 14px;
+}
+
+/* 设置列表样式 */
+.settings-list {
+    padding: 0 16px 20px 16px;
+}
+
+.settings-divider {
+    font-size: 12px;
+    font-weight: 600;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 20px 0 8px 0;
+    padding-left: 4px;
+}
+
+.settings-item {
+    background: white;
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.settings-item:hover {
+    background: #f8f9fa;
+    transform: translateY(-1px);
+}
+
+.settings-item.tap-feedback:active {
+    transform: translateY(0);
+    background: #e9ecef;
+}
+
+.settings-icon {
+    font-size: 18px;
+    width: 32px;
+    text-align: center;
+}
+
+.settings-text {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 500;
+    color: #2c3e50;
+}
+
+.settings-arrow {
+    font-size: 16px;
+    color: #6c757d;
+}
+
+/* 管理员专属区域 */
+.admin-only-section {
+    margin-top: 20px;
+}
+
+.admin-only-section .settings-item {
+    border-left: 3px solid #dc3545;
+}
+
+.admin-only-section .settings-icon {
+    color: #dc3545;
+}
+
+/* 退出登录按钮特殊样式 */
+.logout-section {
+    margin-top: 30px;
+}
+
+.logout-btn {
+    background: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 16px;
+    width: 100%;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
+}
+
+.logout-btn:hover {
+    background: #c82333;
+    transform: translateY(-1px);
+}
+
+.logout-btn:active {
+    transform: translateY(0);
+}
+
+/* 模态框相关样式 */
+.profile-modal {
+    max-width: 400px;
+}
+
+.profile-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.form-avatar-section {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.form-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #007aff, #5856d6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 24px;
+    font-weight: 600;
+}
+
+.avatar-upload-btn {
+    background: #f8f9fa;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.avatar-upload-btn:hover {
+    background: #e9ecef;
+}
+
+/* 通知设置样式 */
+.notification-settings {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.notification-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid #f1f1f1;
+}
+
+.notification-item:last-child {
+    border-bottom: none;
+}
+
+.notification-label {
+    font-size: 14px;
+    color: #2c3e50;
+}
+
+.notification-description {
+    font-size: 12px;
+    color: #6c757d;
+    margin-top: 2px;
+}
+
+.toggle-switch {
+    position: relative;
+    width: 44px;
+    height: 24px;
+    background: #ccc;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+.toggle-switch.active {
+    background: #007aff;
+}
+
+.toggle-switch::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 20px;
+    height: 20px;
+    background: white;
+    border-radius: 50%;
+    transition: transform 0.3s ease;
+}
+
+.toggle-switch.active::after {
+    transform: translateX(20px);
+}
+
+/* 响应式设计 */
+@media (max-width: 480px) {
+    .user-info-card {
+        padding: 16px;
+        gap: 12px;
+    }
+    
+    .user-avatar {
+        width: 50px;
+        height: 50px;
+    }
+    
+    .avatar-text {
+        font-size: 18px;
+    }
+    
+    .user-name {
+        font-size: 15px;
+    }
+    
+    .settings-item {
+        padding: 14px;
+    }
+    
+    .settings-icon {
+        font-size: 16px;
+        width: 28px;
+    }
+}

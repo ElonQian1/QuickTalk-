@@ -1,5 +1,23 @@
 <!-- component: shops/header -->
 <div class="page-header">
-  <h2 class="page-title">店铺管理</h2>
-  <p class="page-subtitle">管理所有关联店铺</p>
+  <div class="page-header-main">
+    <div class="page-header-titles">
+      <h2 class="page-title">店铺管理</h2>
+      <p class="page-subtitle">管理所有关联店铺</p>
+    </div>
+    <div class="page-header-actions">
+      <button class="shop-action-btn primary" data-action="create-shop-inline" id="createShopBtn">➕ 新建店铺</button>
+    </div>
+  </div>
+  <div class="shop-toolbar" id="shopToolbar">
+    <div class="shop-search-wrapper">
+      <input id="shopSearch" type="search" placeholder="搜索店铺名称..." autocomplete="off" />
+      <span class="icon">🔍</span>
+    </div>
+    <div class="shop-filters">
+      <button class="filter-btn" data-shops-action="sort-name" title="按名称排序">⤓ 名称</button>
+      <button class="filter-btn" data-shops-action="filter-active" title="仅显示活跃/已通过">✅ 活跃</button>
+      <button class="filter-btn ghost" data-shops-action="reset-filters" title="重置筛选">↺ 重置</button>
+    </div>
+  </div>
 </div>

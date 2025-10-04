@@ -1,13 +1,34 @@
 <!-- component: profile/settings-list -->
 <div class="settings-list">
+  <!-- 用户信息卡片 -->
+  <div class="user-info-card">
+    <div class="user-avatar" id="userAvatar">
+      <span class="avatar-text" id="userAvatarText">U</span>
+    </div>
+    <div class="user-details">
+      <div class="user-name" id="userName">加载中...</div>
+      <div class="user-email" id="userEmail">-</div>
+      <div class="user-role" id="userRole">-</div>
+    </div>
+    <button class="edit-profile-btn" onclick="editUserProfile()">
+      <span>✏️</span>
+    </button>
+  </div>
+
+  <!-- 账户设置 -->
+  <div class="settings-divider">账户设置</div>
   <div data-include="/static/components/profile/setting-change-password.html"></div>
   <div data-include="/static/components/profile/setting-notifications.html"></div>
+  
+  <!-- 系统设置 -->
+  <div class="settings-divider">系统设置</div>
   <div data-include="/static/components/profile/setting-system.html"></div>
 
   <!-- 超级管理员专属功能 -->
   <div data-include="/static/components/profile/admin-section.html"></div>
 
-  <!-- 常规功能继续 -->
+  <!-- 应用信息 -->
+  <div class="settings-divider">应用信息</div>
   <div data-include="/static/components/profile/setting-about.html"></div>
 
   <!-- 退出登录 -->

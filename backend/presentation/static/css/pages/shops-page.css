@@ -1,0 +1,39 @@
+/* shops-page.css : 店铺页搜索/筛选/工具栏与头部动作增强 */
+
+.page-header { padding: 0.75rem 1rem 0.5rem; background: #fff; border-bottom: 1px solid var(--border-color,#eee); }
+.page-header-main { display:flex; align-items:center; justify-content:space-between; gap:.75rem; flex-wrap:wrap; }
+.page-header-titles .page-title { font-size:1.15rem; margin:0; font-weight:600; }
+.page-header-titles .page-subtitle { font-size:.75rem; margin:.15rem 0 0; color:#666; }
+
+.page-header-actions { display:flex; align-items:center; gap:.5rem; }
+.shop-action-btn { font-size:.75rem; padding:.45rem .7rem; border-radius:6px; border:1px solid #037aff; background:#0582ff; color:#fff; cursor:pointer; line-height:1; box-shadow:0 1px 2px rgba(0,0,0,.08); }
+.shop-action-btn.primary:hover { background:#026ad1; }
+.shop-action-btn:active { transform:translateY(1px); }
+.shop-action-btn.ghost { background:#fff; color:#333; border-color:#d0d7de; }
+.shop-action-btn.ghost:hover { background:#f5f7fa; }
+
+.shop-toolbar { display:flex; align-items:center; gap:.75rem; padding:.55rem 0 .2rem; flex-wrap:wrap; }
+.shop-search-wrapper { position:relative; flex:1 1 180px; }
+.shop-search-wrapper input { width:100%; border:1px solid #d0d7de; border-radius:20px; padding:.45rem .9rem .45rem 2rem; font-size:.8rem; background:#f9fafb; transition:border-color .15s, background .15s; }
+.shop-search-wrapper input:focus { outline:none; border-color:#0582ff; background:#fff; }
+.shop-search-wrapper .icon { position:absolute; top:50%; left:.65rem; transform:translateY(-50%); font-size:.8rem; color:#777; pointer-events:none; }
+
+.shop-filters { display:flex; align-items:center; gap:.45rem; }
+.filter-btn { font-size:.68rem; padding:.4rem .65rem; border:1px solid #d0d7de; background:#fff; border-radius:5px; cursor:pointer; color:#333; display:inline-flex; align-items:center; gap:.25rem; box-shadow:0 1px 2px rgba(0,0,0,.06); }
+.filter-btn:hover { background:#f0f6ff; border-color:#0582ff; }
+.filter-btn.active { background:#0582ff; color:#fff; border-color:#0582ff; box-shadow:0 2px 4px -1px rgba(0,0,0,.15); }
+.filter-btn.active:hover { background:#0373e6; }
+.filter-btn:active { transform:translateY(1px); }
+.filter-btn.ghost { background:transparent; border-color:transparent; color:#555; }
+.filter-btn.ghost:hover { background:#f2f4f6; border-color:#d0d7de; }
+
+/* 响应式 */
+@media (max-width:480px){
+  .page-header-main { flex-direction:column; align-items:stretch; }
+  .page-header-actions { align-self:flex-end; }
+  .shop-toolbar { padding-top:.35rem; }
+}
+
+/* 过渡进入动画（小增强，不影响功能） */
+.page-header, .shop-toolbar { animation:fadeIn .35s ease; }
+@keyframes fadeIn { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:translateY(0); } }
