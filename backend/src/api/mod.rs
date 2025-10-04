@@ -10,3 +10,4 @@ pub mod system;
 pub mod errors;
 pub mod events;
 pub mod workbench;
+pub mod user;

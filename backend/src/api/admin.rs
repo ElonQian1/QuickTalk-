@@ -1,4 +1,4 @@
-use axum::{extract::{State, Json}, http::StatusCode, response::Json as AxumJson};
+use axum::{extract::{State, Json}, response::Json as AxumJson};
 use chrono::Utc;
 use serde_json::json;
 use serde::Deserialize;
@@ -8,15 +8,18 @@ use tracing::{error, info};
 use uuid::Uuid;
 
 use crate::bootstrap::app_state::AppState;
+use crate::application::admin::update_profile::{update_profile as uc_update_profile, UpdateProfileInput, UpdateProfileError};
 use crate::types::ApiResponse;
+use crate::api::errors::ApiError;
 use crate::types::dto::auth::{LoginRequest, RegisterRequest};
 use argon2::{Argon2, password_hash::{PasswordHasher, PasswordVerifier, PasswordHash, SaltString}};
 use rand::rngs::OsRng;
+use crate::application::admin::change_password::{change_password as uc_change_password, ChangePasswordInput};
 
 pub async fn admin_login(
     State(state): State<Arc<AppState>>,
     Json(request): Json<LoginRequest>,
-) -> Result<AxumJson<ApiResponse<serde_json::Value>>, StatusCode> {
+) -> Result<AxumJson<ApiResponse<serde_json::Value>>, ApiError> {
     info!("🔐 Processing login for: {}", request.username);
     
     let user_result = sqlx::query("SELECT id, username, password_hash, role, email FROM admins WHERE username = ?")
@@ -106,7 +109,7 @@ pub async fn admin_login(
         }
         Err(e) => {
             error!("Database error during login: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
+            Err(ApiError::internal("登录失败: 数据库错误"))
         }
     }
 }
@@ -121,38 +124,25 @@ pub async fn admin_update_profile(
     State(state): State<Arc<AppState>>,
     crate::auth::SessionExtractor(session): crate::auth::SessionExtractor,
     Json(payload): Json<UpdateAdminProfileRequest>,
-) -> Result<AxumJson<ApiResponse<serde_json::Value>>, StatusCode> {
-    // 简单校验：若提供 email，做最基本格式检查
-    if let Some(ref email) = payload.email {
-        if email.trim().is_empty() {
-            return Ok(AxumJson(ApiResponse { success: false, data: None, message: "邮箱不能为空".into() }));
-        }
-        if !email.contains('@') {
-            return Ok(AxumJson(ApiResponse { success: false, data: None, message: "邮箱格式不正确".into() }));
+) -> Result<AxumJson<ApiResponse<serde_json::Value>>, ApiError> {
+    let trimmed = payload.email.as_ref().map(|e| e.trim().to_string());
+    let input = UpdateProfileInput { admin_id: session.admin_id.clone(), email: trimmed.filter(|s| !s.is_empty()) };
+    match uc_update_profile(&*state.admin_repo, input).await {
+        Ok(()) => Ok(AxumJson(ApiResponse { success: true, data: Some(json!({"updated": true})), message: "资料已更新".into() })),
+        Err(e) => {
+            let msg = match e {
+                UpdateProfileError::EmailInvalid(_) => "邮箱格式不正确".to_string(),
+                UpdateProfileError::Repo(_) => "服务器内部错误".to_string(),
+            };
+            Ok(AxumJson(ApiResponse { success: false, data: None, message: msg }))
         }
     }
-
-    // 执行更新（允许将 email 设为 NULL 当 payload.email 为 None 时不更新；若想清空，可以传空字符串）
-    let email_to_set = payload.email.as_deref().map(|s| s.trim()).unwrap_or("");
-    let affected = sqlx::query("UPDATE admins SET email = ? WHERE id = ?")
-        .bind(if email_to_set.is_empty() { None::<String> } else { Some(email_to_set.to_string()) })
-        .bind(&session.admin_id)
-        .execute(&state.db)
-        .await
-        .map_err(|e| { error!("更新管理员邮箱失败: {}", e); StatusCode::INTERNAL_SERVER_ERROR })?
-        .rows_affected();
-
-    if affected == 0 {
-        return Ok(AxumJson(ApiResponse { success: false, data: None, message: "未找到管理员或未更新".into() }));
-    }
-
-    Ok(AxumJson(ApiResponse { success: true, data: Some(json!({ "updated": true })), message: "资料已更新".into() }))
 }
 
 pub async fn admin_register(
     State(state): State<Arc<AppState>>,
     Json(request): Json<RegisterRequest>,
-) -> Result<AxumJson<ApiResponse<serde_json::Value>>, StatusCode> {
+) -> Result<AxumJson<ApiResponse<serde_json::Value>>, ApiError> {
     info!("🆕 Processing user registration for: {}", request.username);
     
     if request.username.is_empty() || request.email.is_empty() || request.password.is_empty() {
@@ -174,10 +164,7 @@ pub async fn admin_register(
     let super_count_row = sqlx::query("SELECT COUNT(*) as count FROM admins WHERE role = 'super_admin'")
         .fetch_one(&state.db)
         .await
-        .map_err(|e| {
-            error!("Database error checking super_admin count: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
+        .map_err(|e| { error!("Database error checking super_admin count: {}", e); ApiError::internal("数据库错误") })?;
     let super_count: i64 = super_count_row.get("count");
 
     // 角色判定策略（严格模式）：
@@ -212,10 +199,7 @@ pub async fn admin_register(
             }));
         }
         Ok(None) => {}
-        Err(e) => {
-            error!("Database error checking username: {}", e);
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        }
+        Err(e) => { error!("Database error checking username: {}", e); return Err(ApiError::internal("数据库错误")); }
     }
     
     let user_id = Uuid::new_v4().to_string();
@@ -260,40 +244,33 @@ pub async fn admin_register(
                 message: if elevated_to_super { "注册成功：已自动设为超级管理员".to_string() } else { "注册成功".to_string() },
             }))
         }
-        Err(e) => {
-            error!("Failed to save user to database: {}", e);
-            Ok(AxumJson(ApiResponse {
-                success: false,
-                data: None,
-                message: "注册失败，请稍后重试".to_string(),
-            }))
-        }
+        Err(e) => { error!("Failed to save user to database: {}", e); Ok(AxumJson(ApiResponse { success: false, data: None, message: "注册失败，请稍后重试".to_string() })) }
     }
 }
 
 pub async fn get_account_stats(
     State(state): State<Arc<AppState>>,
     SessionExtractor(session): SessionExtractor,
-) -> Result<AxumJson<ApiResponse<serde_json::Value>>, StatusCode> {
+) -> Result<AxumJson<ApiResponse<serde_json::Value>>, ApiError> {
     info!("📊 Fetching account statistics (scoped)");
     // 查询当前用户角色
     let role_row = sqlx::query("SELECT role, username FROM admins WHERE id = ?")
         .bind(&session.admin_id)
         .fetch_one(&state.db)
         .await
-        .map_err(|e| { error!("role lookup failed: {}", e); StatusCode::INTERNAL_SERVER_ERROR })?;
+        .map_err(|e| { error!("role lookup failed: {}", e); ApiError::internal("查询角色失败") })?;
     let role: String = role_row.get("role");
     let username: String = role_row.get("username");
 
     if role == "super_admin" {
         // 原超级管理员全量视图
-        let admin_count = sqlx::query("SELECT COUNT(*) as c FROM admins").fetch_one(&state.db).await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?.get::<i64,_>("c");
-        let shop_count = sqlx::query("SELECT COUNT(*) as c FROM shops").fetch_one(&state.db).await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?.get::<i64,_>("c");
-        let customer_count = sqlx::query("SELECT COUNT(*) as c FROM customers").fetch_one(&state.db).await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?.get::<i64,_>("c");
+    let admin_count = sqlx::query("SELECT COUNT(*) as c FROM admins").fetch_one(&state.db).await.map_err(|e| { error!(?e, "count admins failed"); ApiError::internal("统计失败") })?.get::<i64,_>("c");
+    let shop_count = sqlx::query("SELECT COUNT(*) as c FROM shops").fetch_one(&state.db).await.map_err(|e| { error!(?e, "count shops failed"); ApiError::internal("统计失败") })?.get::<i64,_>("c");
+    let customer_count = sqlx::query("SELECT COUNT(*) as c FROM customers").fetch_one(&state.db).await.map_err(|e| { error!(?e, "count customers failed"); ApiError::internal("统计失败") })?.get::<i64,_>("c");
         let admins = sqlx::query("SELECT id, username, role, created_at FROM admins ORDER BY created_at")
-            .fetch_all(&state.db).await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            .fetch_all(&state.db).await.map_err(|e| { error!(?e, "list admins failed"); ApiError::internal("统计失败") })?;
         let shops = sqlx::query("SELECT id, name, owner_id, status, created_at FROM shops ORDER BY created_at")
-            .fetch_all(&state.db).await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            .fetch_all(&state.db).await.map_err(|e| { error!(?e, "list shops failed"); ApiError::internal("统计失败") })?;
         let admin_details: Vec<serde_json::Value> = admins.iter().map(|row| json!({
             "id": row.get::<String,_>("id"),
             "username": row.get::<String,_>("username"),
@@ -320,7 +297,7 @@ pub async fn get_account_stats(
         .bind(&session.admin_id)
         .fetch_all(&state.db)
         .await
-        .map_err(|e| { error!("fetch owned shops failed: {}", e); StatusCode::INTERNAL_SERVER_ERROR })?;
+        .map_err(|e| { error!("fetch owned shops failed: {}", e); ApiError::internal("查询失败") })?;
     let shop_brief: Vec<serde_json::Value> = owned_shops.iter().map(|r| json!({
         "id": r.get::<String,_>("id"),
         "name": r.get::<String,_>("name"),
@@ -340,16 +317,13 @@ pub async fn get_account_stats(
 
 pub async fn recover_super_admin(
     State(state): State<Arc<AppState>>,
-) -> Result<AxumJson<ApiResponse<serde_json::Value>>, StatusCode> {
+) -> Result<AxumJson<ApiResponse<serde_json::Value>>, ApiError> {
     info!("🛡️ 尝试恢复超级管理员 admin");
 
     let super_count_row = sqlx::query("SELECT COUNT(*) as count FROM admins WHERE role = 'super_admin'")
         .fetch_one(&state.db)
         .await
-        .map_err(|e| {
-            error!("统计 super_admin 失败: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
+        .map_err(|e| { error!("统计 super_admin 失败: {}", e); ApiError::internal("统计失败") })?;
     let super_count: i64 = super_count_row.get("count");
     if super_count > 0 {
         return Ok(AxumJson(ApiResponse {
@@ -362,10 +336,7 @@ pub async fn recover_super_admin(
     let existing_admin = sqlx::query("SELECT id FROM admins WHERE username = 'admin'")
         .fetch_optional(&state.db)
         .await
-        .map_err(|e| {
-            error!("查询 admin 账号失败: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
+        .map_err(|e| { error!("查询 admin 账号失败: {}", e); ApiError::internal("查询失败") })?;
 
     let password_hash = "hash_admin123".to_string();
     let (user_id, created_new);
@@ -376,10 +347,7 @@ pub async fn recover_super_admin(
             .bind(&uid)
             .execute(&state.db)
             .await
-            .map_err(|e| {
-                error!("提升 admin 为 super_admin 失败: {}", e);
-                StatusCode::INTERNAL_SERVER_ERROR
-            })?;
+            .map_err(|e| { error!("提升 admin 为 super_admin 失败: {}", e); ApiError::internal("操作失败") })?;
         user_id = uid;
         created_new = false;
         info!("✔ 已将现有 admin 提升为 super_admin 并重置密码");
@@ -390,10 +358,7 @@ pub async fn recover_super_admin(
             .bind(&password_hash)
             .execute(&state.db)
             .await
-            .map_err(|e| {
-                error!("创建 admin 超级管理员失败: {}", e);
-                StatusCode::INTERNAL_SERVER_ERROR
-            })?;
+            .map_err(|e| { error!("创建 admin 超级管理员失败: {}", e); ApiError::internal("创建失败") })?;
         user_id = uid;
         created_new = true;
         info!("✔ 已创建新的 admin 超级管理员");
@@ -419,7 +384,7 @@ use crate::auth::SessionExtractor;
 pub async fn admin_logout(
     State(state): State<Arc<AppState>>,
     SessionExtractor(session): SessionExtractor,
-) -> Result<AxumJson<ApiResponse<serde_json::Value>>, StatusCode> {
+) -> Result<AxumJson<ApiResponse<serde_json::Value>>, ApiError> {
     let _ = sqlx::query("DELETE FROM sessions WHERE session_id = ?")
         .bind(&session.session_id)
         .execute(&state.db)
@@ -435,7 +400,7 @@ pub async fn admin_change_password(
     State(state): State<Arc<AppState>>,
     SessionExtractor(session): SessionExtractor,
     Json(req): Json<ChangePasswordRequest>,
-) -> Result<AxumJson<ApiResponse<serde_json::Value>>, StatusCode> {
+) -> Result<AxumJson<ApiResponse<serde_json::Value>>, ApiError> {
     if req.new_password.len() < 6 {
         return Ok(AxumJson(ApiResponse { success: false, data: None, message: "新密码至少需要6位".into() }));
     }
@@ -445,7 +410,7 @@ pub async fn admin_change_password(
         .bind(&session.admin_id)
         .fetch_optional(&state.db)
         .await
-        .map_err(|e| { error!("查找管理员失败: {}", e); StatusCode::INTERNAL_SERVER_ERROR })?;
+        .map_err(|e| { error!("查找管理员失败: {}", e); ApiError::internal("查询失败") })?;
     let row = if let Some(r) = row_opt { r } else {
         return Ok(AxumJson(ApiResponse { success: false, data: None, message: "用户不存在".into() }));
     };
@@ -470,22 +435,14 @@ pub async fn admin_change_password(
     let argon2 = Argon2::default();
     let new_hash = argon2
         .hash_password(req.new_password.as_bytes(), &salt)
-        .map_err(|e| { error!("新密码哈希失败: {}", e); StatusCode::INTERNAL_SERVER_ERROR })?
+    .map_err(|e| { error!("新密码哈希失败: {}", e); ApiError::internal("密码处理失败") })?
         .to_string();
 
-    sqlx::query("UPDATE admins SET password_hash = ? WHERE id = ?")
-        .bind(&new_hash)
-        .bind(&session.admin_id)
-        .execute(&state.db)
-        .await
-        .map_err(|e| { error!("更新密码失败: {}", e); StatusCode::INTERNAL_SERVER_ERROR })?;
-
-    // 使当前用户所有会话失效，强制重新登录
-    let _ = sqlx::query("DELETE FROM sessions WHERE admin_id = ?")
-        .bind(&session.admin_id)
-        .execute(&state.db)
-        .await;
-
+    // 通过用例执行（包含失效会话）
+    if let Err(e) = uc_change_password(&*state.admin_repo, ChangePasswordInput { admin_id: session.admin_id.clone(), new_hash: new_hash.clone() }).await {
+        error!(?e, "用例更新密码失败");
+        return Ok(AxumJson(ApiResponse { success: false, data: None, message: "更新密码失败".into() }));
+    }
     info!("🔐 密码已更新并清理会话: {}", username);
     Ok(AxumJson(ApiResponse { success: true, data: Some(json!({ "require_relogin": true })), message: "密码已更新，请重新登录".into() }))
 }
@@ -494,12 +451,12 @@ pub async fn admin_change_password(
 pub async fn admin_me(
     State(state): State<Arc<AppState>>,
     SessionExtractor(session): SessionExtractor,
-) -> Result<AxumJson<ApiResponse<serde_json::Value>>, StatusCode> {
+) -> Result<AxumJson<ApiResponse<serde_json::Value>>, ApiError> {
     let row = sqlx::query("SELECT id, username, role, email, created_at FROM admins WHERE id = ?")
         .bind(&session.admin_id)
         .fetch_one(&state.db)
         .await
-        .map_err(|e| { error!("查询当前管理员失败: {}", e); StatusCode::INTERNAL_SERVER_ERROR })?;
+        .map_err(|e| { error!("查询当前管理员失败: {}", e); ApiError::internal("查询失败") })?;
     let id: String = row.get("id");
     let username: String = row.get("username");
     let role: String = row.get("role");

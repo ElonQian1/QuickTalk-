@@ -12,20 +12,19 @@ pub struct FieldError { pub field: String, pub message: String }
 pub enum ApiError {
     BadRequest(String),
     NotFound(String),
-    #[allow(dead_code)] // 预留：鉴权模块接入后使用
     Unauthorized(String),
-    #[allow(dead_code)] // 预留：权限控制（角色/策略）
     Forbidden(String),
-    #[allow(dead_code)] // 预留：资源版本冲突/乐观锁
     Conflict(String),
     Internal(String),
-    // 其他错误类型可以在这里添加
 }
 
 impl ApiError {
     pub fn bad_request<M: Into<String>>(m: M) -> Self { Self::BadRequest(m.into()) }
     pub fn not_found<M: Into<String>>(m: M) -> Self { Self::NotFound(m.into()) }
     pub fn internal<M: Into<String>>(m: M) -> Self { Self::Internal(m.into()) }
+    pub fn forbidden<M: Into<String>>(m: M) -> Self { Self::Forbidden(m.into()) }
+    pub fn conflict<M: Into<String>>(m: M) -> Self { Self::Conflict(m.into()) }
+    pub fn unauthorized<M: Into<String>>(m: M) -> Self { Self::Unauthorized(m.into()) }
     pub fn message(&self) -> &str { match self { ApiError::BadRequest(m)|ApiError::NotFound(m)|ApiError::Unauthorized(m)|ApiError::Forbidden(m)|ApiError::Conflict(m)|ApiError::Internal(m) => m } }
     pub fn status(&self) -> StatusCode { match self { ApiError::BadRequest(_) => StatusCode::BAD_REQUEST, ApiError::NotFound(_) => StatusCode::NOT_FOUND, ApiError::Unauthorized(_) => StatusCode::UNAUTHORIZED, ApiError::Forbidden(_) => StatusCode::FORBIDDEN, ApiError::Conflict(_) => StatusCode::CONFLICT, ApiError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR } }
 }
@@ -33,7 +32,15 @@ impl ApiError {
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         let status = self.status();
-        let body = ApiResponse::<serde_json::Value> { success: false, data: None, message: self.message().to_string() };
+        // 对外结构可加入 code 字段（保持 data=None 与通用 message）
+        let body = ApiResponse::<serde_json::Value> {
+            success: false,
+            data: Some(serde_json::json!({
+                "code": status.as_u16(),
+                "error": self.message(),
+            })),
+            message: self.message().to_string(),
+        };
         (status, Json(body)).into_response()
     }
 }

@@ -1,4 +1,4 @@
-use axum::{extract::Multipart, http::StatusCode, response::Json};
+use axum::{extract::Multipart, response::Json};
 use chrono::Utc;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -6,24 +6,25 @@ use uuid::Uuid;
 
 use crate::bootstrap::app_state::AppState;
 use crate::types::ApiResponse;
+use crate::api::errors::ApiError;
 
 pub async fn upload_file(
     axum::extract::State(_state): axum::extract::State<Arc<AppState>>,
     mut multipart: Multipart,
-) -> Result<Json<ApiResponse<serde_json::Value>>, StatusCode> {
+) -> Result<Json<ApiResponse<serde_json::Value>>, ApiError> {
     let mut uploaded_files = Vec::new();
 
-    while let Some(field) = multipart.next_field().await.map_err(|_| StatusCode::BAD_REQUEST)? {
+    while let Some(field) = multipart.next_field().await.map_err(|e| { tracing::error!(error=%e, "multipart read failed"); ApiError::bad_request("表单解析失败") })? {
         let _name = field.name().unwrap_or("file").to_string();
         let filename = field.file_name().unwrap_or("unknown").to_string();
         let content_type = field.content_type().unwrap_or("application/octet-stream").to_string();
-        let data = field.bytes().await.map_err(|_| StatusCode::BAD_REQUEST)?;
+    let data = field.bytes().await.map_err(|e| { tracing::error!(error=%e, "read field bytes failed"); ApiError::bad_request("文件读取失败") })?;
 
         // 创建上传目录
         let upload_dir = PathBuf::from("../uploads");
         tokio::fs::create_dir_all(&upload_dir)
             .await
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            .map_err(|e| { tracing::error!(error=%e, dir=%upload_dir.display(), "create upload dir failed"); ApiError::internal("创建上传目录失败") })?;
 
         // 生成唯一文件名
         let file_extension = filename.split('.').last().unwrap_or("bin");
@@ -38,7 +39,7 @@ pub async fn upload_file(
         // 保存文件
         tokio::fs::write(&file_path, &data)
             .await
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            .map_err(|e| { tracing::error!(error=%e, path=%file_path.display(), "write file failed"); ApiError::internal("写入文件失败") })?;
 
         tracing::info!(
             original = %filename,
@@ -58,7 +59,7 @@ pub async fn upload_file(
     }
 
     if uploaded_files.is_empty() {
-        return Err(StatusCode::BAD_REQUEST);
+        return Err(ApiError::bad_request("未选择文件"));
     }
 
     Ok(Json(ApiResponse {
@@ -71,7 +72,7 @@ pub async fn upload_file(
     }))
 }
 
-pub async fn list_uploaded_files() -> Result<Json<ApiResponse<Vec<serde_json::Value>>>, StatusCode> {
+pub async fn list_uploaded_files() -> Result<Json<ApiResponse<Vec<serde_json::Value>>>, ApiError> {
     let upload_dir = PathBuf::from("../uploads");
 
     if !upload_dir.exists() {
@@ -85,9 +86,9 @@ pub async fn list_uploaded_files() -> Result<Json<ApiResponse<Vec<serde_json::Va
     let mut files = Vec::new();
     let mut dir = tokio::fs::read_dir(upload_dir)
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(|e| { tracing::error!(error=%e, "read_dir failed"); ApiError::internal("读取目录失败") })?;
 
-    while let Some(entry) = dir.next_entry().await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)? {
+    while let Some(entry) = dir.next_entry().await.map_err(|e| { tracing::error!(error=%e, "read_dir entry failed"); ApiError::internal("读取文件条目失败") })? {
         if let Ok(metadata) = entry.metadata().await {
             if metadata.is_file() {
                 let filename = entry.file_name().to_string_lossy().to_string();
