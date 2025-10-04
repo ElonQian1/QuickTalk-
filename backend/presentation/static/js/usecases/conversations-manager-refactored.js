@@ -99,6 +99,11 @@
                 // 触发回调
                 this.options.onConversationSelected(conversation, customer);
                 
+                // 自动标记对话为已读
+                if (conversation.unread_count > 0) {
+                    this.markConversationAsRead(conversation.id);
+                }
+                
                 return { conversation, customer };
             } catch (error) {
                 console.error('[ConversationsManagerRefactored] 选择对话失败:', error);
@@ -268,16 +273,48 @@
         }
 
         /**
-         * 标记对话为已读
+         * 标记对话为已读 - 使用统一管理器
          */
-        markConversationAsRead(conversationId) {
+        async markConversationAsRead(conversationId) {
             const conversation = this.conversations.find(c => 
                 String(c.id) === String(conversationId)
             );
             
             if (conversation && conversation.unread_count > 0) {
+                // 先更新本地状态
+                const oldUnreadCount = conversation.unread_count;
                 conversation.unread_count = 0;
                 this.renderConversationsList();
+                
+                // 使用统一管理器调用后端
+                const success = await window.UnifiedReadManager.markConversationAsRead(conversationId);
+                
+                if (success) {
+                    // 刷新徽章显示
+                    this.updateUnreadBadges();
+                } else {
+                    // 回滚本地状态
+                    conversation.unread_count = oldUnreadCount;
+                    this.renderConversationsList();
+                }
+            }
+        }
+
+        /**
+         * 更新未读徽章显示
+         */
+        updateUnreadBadges() {
+            // 计算总未读数
+            const totalUnread = this.conversations.reduce((sum, conv) => sum + (conv.unread_count || 0), 0);
+            
+            // 触发全局未读更新事件
+            document.dispatchEvent(new CustomEvent('unread:update', { 
+                detail: { total: totalUnread, reason: 'conversation-read' }
+            }));
+            
+            // 如果有shop卡片系统，也更新shop级别的未读数
+            if (window.updateShopUnreadBadges && typeof window.updateShopUnreadBadges === 'function') {
+                window.updateShopUnreadBadges();
             }
         }
 

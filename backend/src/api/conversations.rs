@@ -19,6 +19,7 @@
 // 注意: 旧的 "new_message" 广播已移除
 use axum::{extract::{Path, Query, State}, http::StatusCode, response::Json};
 use sqlx::Row; // bring Row trait into scope for .get
+use chrono::{DateTime, Utc}; // 添加 DateTime 导入
 use crate::auth::SessionExtractor;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -48,7 +49,6 @@ pub async fn get_conversations(
     Query(params): Query<HashMap<String, String>>,
 ) -> ApiResult<Vec<Conversation>> {
     let shop_id = params.get("shop_id").map(|s| s.as_str());
-    let repo = &state.conversation_repo; // reuse injected
     // 基于 shop_id 过滤 + 非 super_admin 时限制为其拥有的 shops
     let mut effective_shop_id = shop_id.map(|s| s.to_string());
     // 若未提供 shop_id，可以后续扩展：列出该管理员全部 shops 的会话；当前简化为必须带 shop_id
@@ -85,24 +85,82 @@ pub async fn get_conversations(
         }
     }
     let list_scope = effective_shop_id.as_ref().map(|s| s.as_str());
-    match repo.list(list_scope).await {
-        Ok(convos) => {
-            // strip domain-specific fields already aligned with API entity; domain aggregate currently identical shape (messages empty here)
-            let result: Vec<Conversation> = convos.into_iter().map(|c| Conversation {
-                id: c.id.0,
-                shop_id: c.shop_id,
-                customer_id: c.customer_id,
-                status: c.status,
-                created_at: c.created_at,
-                updated_at: c.updated_at,
-            }).collect();
-            success(result, "Conversations retrieved successfully")
-        }
-        Err(e) => {
-            tracing::error!(?e, "list conversations failed");
-            Err(ApiError::internal("Failed to list conversations"))
-        }
+    
+    // 使用直接的 SQL 查询获取包含未读计数和最新消息的会话列表
+    let rows = if let Some(sid) = list_scope {
+        sqlx::query(
+            "SELECT c.id, c.shop_id, c.customer_id, c.status, c.created_at, c.updated_at,
+                    COALESCE(unread_stats.unread_count, 0) as unread_count,
+                    latest_msg.content as last_message,
+                    latest_msg.timestamp as last_message_time
+             FROM conversations c
+             LEFT JOIN (
+                 SELECT conversation_id, COUNT(*) as unread_count
+                 FROM messages 
+                 WHERE sender_type = 'customer'
+                 GROUP BY conversation_id
+             ) unread_stats ON c.id = unread_stats.conversation_id
+             LEFT JOIN (
+                 SELECT m1.conversation_id, m1.content, m1.timestamp
+                 FROM messages m1
+                 INNER JOIN (
+                     SELECT conversation_id, MAX(timestamp) as max_timestamp
+                     FROM messages
+                     GROUP BY conversation_id
+                 ) m2 ON m1.conversation_id = m2.conversation_id AND m1.timestamp = m2.max_timestamp
+             ) latest_msg ON c.id = latest_msg.conversation_id
+             WHERE c.shop_id = ?
+             ORDER BY COALESCE(latest_msg.timestamp, c.updated_at) DESC"
+        )
+        .bind(sid)
+        .fetch_all(&state.db).await.map_err(|e| ApiError::internal(&format!("Database error: {}", e)))?
+    } else {
+        sqlx::query(
+            "SELECT c.id, c.shop_id, c.customer_id, c.status, c.created_at, c.updated_at,
+                    COALESCE(unread_stats.unread_count, 0) as unread_count,
+                    latest_msg.content as last_message,
+                    latest_msg.timestamp as last_message_time
+             FROM conversations c
+             LEFT JOIN (
+                 SELECT conversation_id, COUNT(*) as unread_count
+                 FROM messages 
+                 WHERE sender_type = 'customer'
+                 GROUP BY conversation_id
+             ) unread_stats ON c.id = unread_stats.conversation_id
+             LEFT JOIN (
+                 SELECT m1.conversation_id, m1.content, m1.timestamp
+                 FROM messages m1
+                 INNER JOIN (
+                     SELECT conversation_id, MAX(timestamp) as max_timestamp
+                     FROM messages
+                     GROUP BY conversation_id
+                 ) m2 ON m1.conversation_id = m2.conversation_id AND m1.timestamp = m2.max_timestamp
+             ) latest_msg ON c.id = latest_msg.conversation_id
+             ORDER BY COALESCE(latest_msg.timestamp, c.updated_at) DESC"
+        )
+        .fetch_all(&state.db).await.map_err(|e| ApiError::internal(&format!("Database error: {}", e)))?
+    };
+
+    let mut result = Vec::with_capacity(rows.len());
+    for row in rows {
+        let unread_count: i64 = row.try_get("unread_count").unwrap_or(0);
+        let last_message: Option<String> = row.try_get("last_message").ok();
+        let last_message_time: Option<DateTime<Utc>> = row.try_get("last_message_time").ok();
+        
+        result.push(Conversation {
+            id: row.get("id"),
+            shop_id: row.get("shop_id"),
+            customer_id: row.get("customer_id"),
+            status: row.get("status"),
+            created_at: row.get("created_at"),
+            updated_at: row.get("updated_at"),
+            unread_count: if unread_count > 0 { Some(unread_count) } else { None },
+            last_message,
+            last_message_time,
+        });
     }
+    
+    success(result, "Conversations retrieved successfully")
 }
 
 pub async fn get_conversation_details(
@@ -119,6 +177,9 @@ pub async fn get_conversation_details(
             status: c.status,
             created_at: c.created_at,
             updated_at: c.updated_at,
+            unread_count: None,
+            last_message: None,
+            last_message_time: None,
         }, "Conversation details retrieved successfully"),
         Ok(None) => Err(ApiError::not_found("Conversation not found")),
         Err(e) => { tracing::error!(?e, "get conversation failed"); Err(ApiError::internal("Failed to get conversation")) }
@@ -135,7 +196,17 @@ pub async fn create_conversation(
     match uc.exec(input).await {
         Ok(out) => {
             // 事件总线（open 已记录事件）暂未单独发布：open 构造期间事件在聚合内部未外传，这里简化忽略
-            let conversation = Conversation { id: out.conversation_id, shop_id: request.shop_id, customer_id: request.customer_id, status: "active".into(), created_at: out.created_at, updated_at: out.created_at };
+            let conversation = Conversation { 
+                id: out.conversation_id, 
+                shop_id: request.shop_id, 
+                customer_id: request.customer_id, 
+                status: "active".into(), 
+                created_at: out.created_at, 
+                updated_at: out.created_at,
+                unread_count: Some(0),
+                last_message: None,
+                last_message_time: None,
+            };
             success(conversation, "Conversation created successfully")
         }
         Err(e) => {
@@ -368,7 +439,17 @@ pub async fn search_conversations(
     let rm = ConversationReadModelSqlx { pool: state.db.clone() };
     match rm.search(shop_id, term).await {
         Ok(rows) => {
-            let list: Vec<Conversation> = rows.into_iter().map(|r| Conversation { id: r.id, shop_id: r.shop_id, customer_id: r.customer_id, status: r.status, created_at: r.created_at, updated_at: r.updated_at }).collect();
+            let list: Vec<Conversation> = rows.into_iter().map(|r| Conversation { 
+                id: r.id, 
+                shop_id: r.shop_id, 
+                customer_id: r.customer_id, 
+                status: r.status, 
+                created_at: r.created_at, 
+                updated_at: r.updated_at,
+                unread_count: None,
+                last_message: None,
+                last_message_time: None,
+            }).collect();
             success(list, "Search results")
         }
         Err(e) => {
@@ -403,4 +484,59 @@ pub async fn get_conversation_summary(
         Err(QueryError::NotFound) => Err(ApiError::not_found("Conversation not found")),
         Err(e) => { tracing::error!(?e, "summary failed"); Err(ApiError::internal("Failed to get conversation summary")) }
     }
+}
+
+// POST /api/conversations/:id/read - 标记对话中的所有消息为已读
+pub async fn mark_conversation_read(
+    State(state): State<Arc<AppState>>,
+    SessionExtractor(session): SessionExtractor,
+    Path(conversation_id): Path<String>,
+) -> ApiResult<()> {
+    tracing::info!(conversation_id = %conversation_id, admin_id = %session.admin_id, "标记对话为已读");
+    
+    // 首先验证用户是否有权限访问这个对话（通过店铺权限）
+    let conversation_exists = sqlx::query_scalar::<_, bool>(
+        r#"
+        SELECT EXISTS(
+            SELECT 1 FROM conversations c
+            INNER JOIN shops s ON c.shop_id = s.id
+            INNER JOIN shop_members sm ON s.id = sm.shop_id
+            WHERE c.id = ? AND sm.admin_id = ?
+        ) as exists_flag
+        "#
+    )
+    .bind(&conversation_id)
+    .bind(&session.admin_id)
+    .fetch_one(&state.db)
+    .await
+    .map_err(|e| {
+        tracing::error!(?e, "检查对话权限失败");
+        ApiError::internal("Failed to check conversation permission")
+    })?;
+
+    if !conversation_exists {
+        return Err(ApiError::not_found("Conversation not found or no permission"));
+    }
+
+    // 更新该对话中所有未读消息的read_at字段
+    let result = sqlx::query(
+        r#"
+        UPDATE messages 
+        SET read_at = CURRENT_TIMESTAMP 
+        WHERE conversation_id = ? AND read_at IS NULL
+        "#
+    )
+    .bind(&conversation_id)
+    .execute(&state.db)
+    .await
+    .map_err(|e| {
+        tracing::error!(?e, "更新消息已读状态失败");
+        ApiError::internal("Failed to mark messages as read")
+    })?;
+
+    let updated_count = result.rows_affected();
+
+    tracing::info!(conversation_id = %conversation_id, updated_count = %updated_count, "成功标记消息为已读");
+    
+    success_empty("Messages marked as read successfully")
 }

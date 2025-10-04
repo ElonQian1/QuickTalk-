@@ -187,7 +187,10 @@
     <!-- UI Toast（覆盖 common-utils 中的 showToast 占位实现） -->
     <script src="/static/js/ui/toast.js"></script>
     <!-- 统一 UI 组件模块（合并 message-media/chat-header/conversation-item/shop-card） -->
+    <script src="/static/js/utils/conversation-normalizer.js"></script>
     <script src="/static/js/core/unified-ui-components.js"></script>
+    <!-- 会话列表增强（布局切换、局部更新） -->
+    <script src="/static/js/ui/conversation-list-enhancements.js"></script>
     <!-- 空状态 UI 组件（ui） -->
     <script src="/static/js/ui/empty-states.js"></script>
     <script src="/static/js/ui/loading-states.js"></script>
@@ -322,6 +325,8 @@
     
     <!-- 重构版业务管理器模块（usecases） - 拆分后的独立模块 -->
     <script src="/static/js/usecases/shops-manager-refactored.js"></script>
+    <!-- 统一已读状态管理器 - conversations-manager-refactored.js 依赖 -->
+    <script src="/static/js/core/unified-read-manager.js"></script>
     <script src="/static/js/usecases/conversations-manager-refactored.js"></script>
     <script src="/static/js/usecases/messages-manager-refactored.js"></script>
     <script src="/static/js/usecases/media-handler.js"></script>
