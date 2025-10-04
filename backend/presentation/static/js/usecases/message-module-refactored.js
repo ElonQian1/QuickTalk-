@@ -134,6 +134,7 @@
         async handleConversationSelected(conversation, customer) {
             this.currentConversationId = conversation.id;
             this.currentCustomer = customer;
+            try { window.__QT_ACTIVE_CONV_ID = conversation.id; } catch(_){ }
             
             // 更新聊天头部
             this.updateChatHeader(conversation, customer);
@@ -191,7 +192,7 @@
             const message = unwrap(data);
             
             if (eventType.endsWith('message_appended')) {
-                this.handleNewMessage(message);
+                this.handleDomainMessageAppended(message);
             } else if (eventType.endsWith('message_updated')) {
                 if (this.messagesManager) {
                     this.messagesManager.handleMessageUpdated(message);
@@ -201,6 +202,81 @@
                     this.messagesManager.handleMessageDeleted(message);
                 }
             }
+        }
+
+        /**
+         * 新增: 领域事件 message_appended 的专用处理
+         * 目的:
+         *  1. 确保真正通过领域事件路径进入的消息也会走统一的 onNewMessage 流程
+         *  2. 触发对话预览更新 / 未读聚合 / Toast 提示
+         *  3. 避免之前挂在 ws-event-bridge.handleNewMessage 未被调用的问题
+         */
+        handleDomainMessageAppended(raw){
+            if (!raw) return;
+            const msg = raw.message || raw; // 兼容 {message: {...}}
+            if (window.MessageNormalizer && window.MessageNormalizer.ensureMessageShape) {
+                window.MessageNormalizer.ensureMessageShape(msg);
+            }
+            try {
+                if (this.messagesManager) {
+                    this.messagesManager.handleNewMessage(msg);
+                }
+                // 更新对话预览
+                if (this.conversationsManager && msg) {
+                    this.conversationsManager.updateConversationPreview(msg);
+                }
+                // 分发一个统一的 DOM 事件供 unread-badge-aggregator 增量或其他监听
+                try {
+                    document.dispatchEvent(new CustomEvent('ws:domain.event.message_appended', { detail: { message: msg }}));
+                } catch(_) {}
+                // 兜底: 若没有 unreadBadgeAggregator, 直接触发一次 unread:update 增量
+                if (!window.unreadBadgeAggregator && msg && msg.shop_id) {
+                    const shopId = msg.shop_id;
+                    // 简单 DOM 直接自增 (不创建结构)
+                    const badge = document.querySelector(`.shop-card[data-shop-id="${shopId}"] .unread-count, .shop-card[data-shop-id="${shopId}"] .unread-badge`);
+                    if (badge) {
+                        const cur = parseInt(badge.textContent) || parseInt(badge.getAttribute('data-unread')) || 0;
+                        const next = msg.sender_type === 'agent' ? cur : cur + 1; // 客户消息才自增
+                        if (next !== cur) {
+                            badge.textContent = next;
+                            badge.setAttribute('data-unread', next);
+                        }
+                        // 汇总 total
+                        let total = 0;
+                        document.querySelectorAll('.shop-card .unread-count, .shop-card .unread-badge').forEach(el=>{ total += (parseInt(el.textContent)||parseInt(el.getAttribute('data-unread'))||0); });
+                        document.dispatchEvent(new CustomEvent('unread:update', { detail: { total, reason: 'incoming-message-fallback' }}));
+                    }
+                }
+                // Toast 提示 (仅当不在当前会话 或 当前视图不是 chatView)
+                const inCurrentConversation = (this.currentConversationId && (msg.conversation_id === this.currentConversationId));
+                const chatVisible = document.getElementById('chatView') && document.getElementById('chatView').style.display === 'block';
+                if (!inCurrentConversation || !chatVisible) {
+                    this._showIncomingToast(msg);
+                }
+            } catch(e){
+                console.error('[MessageModuleRefactored] handleDomainMessageAppended 处理失败', e);
+            }
+        }
+
+        _showIncomingToast(msg){
+            const content = (msg && msg.content) ? (msg.content.length>40? msg.content.slice(0,40)+'…' : msg.content) : '新消息';
+            const from = msg && msg.sender_type === 'agent' ? '客服' : '客户';
+            const text = `${from}: ${content}`;
+            if (typeof window.showToast === 'function') {
+                try { window.showToast(text); return; } catch(_){}
+            }
+            // fallback 简易 toast
+            let box = document.getElementById('__qt_simple_toast');
+            if (!box) {
+                box = document.createElement('div');
+                box.id='__qt_simple_toast';
+                box.style.cssText='position:fixed;bottom:72px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.78);color:#fff;padding:8px 14px;border-radius:20px;font-size:13px;z-index:9999;max-width:70%;text-align:center;';
+                document.body.appendChild(box);
+            }
+            box.textContent = text;
+            box.style.opacity='1';
+            clearTimeout(box.__h);
+            box.__h = setTimeout(()=>{ box.style.transition='opacity .4s'; box.style.opacity='0'; }, 2400);
         }
 
         /**

@@ -42,6 +42,13 @@
       } catch(e){ console.warn('[WsEventRouter] sendChannel 回流覆盖失败', e); }
       // 再委托到上下文管理器
       ctx.handleDomainMessageAppended && ctx.handleDomainMessageAppended(payload);
+      // 广播一个可订阅的 DOM 事件 (供 unread-badge-aggregator / 其他模块使用) —— 若 aggregator 已监听同名事件将增量自增
+      try {
+        if (window.__QT_DEBUG_WS || (window.QT_CONFIG && window.QT_CONFIG.debug && window.QT_CONFIG.debug.wsEvents)) {
+          console.log('[WsEventRouter] 🔔 dispatch ws:domain.event.message_appended', payload);
+        }
+        document.dispatchEvent(new CustomEvent('ws:domain.event.message_appended', { detail: { message: (payload && (payload.message||payload)) } }));
+      } catch(evtErr){ console.warn('[WsEventRouter] 分发 DOM 事件失败', evtErr); }
     },
     'message_updated' : (ctx, payload) => ctx.handleDomainMessageUpdated && ctx.handleDomainMessageUpdated(payload),
     'message_deleted' : (ctx, payload) => ctx.handleDomainMessageDeleted && ctx.handleDomainMessageDeleted(payload),
@@ -70,7 +77,13 @@
       const key = type.replace('domain.event.', '');
       const handler = DOMAIN_EVENT_MAP[key];
       if (handler) {
-        try { handler(ctx, unwrap(raw)); } catch(e){ console.error('[WsEventRouter] 领域事件处理失败', type, e); }
+        try {
+          const unwrapped = unwrap(raw);
+          if (window.MessageNormalizer && window.MessageNormalizer.normalizeIncoming) {
+            window.MessageNormalizer.normalizeIncoming(unwrapped);
+          }
+          handler(ctx, unwrapped);
+        } catch(e){ console.error('[WsEventRouter] 领域事件处理失败', type, e); }
       } else {
         // 未登记的领域事件，静默忽略
       }
@@ -93,7 +106,12 @@
           }
         } catch(e){ console.warn('[WsEventRouter] sendChannel 普通消息回流覆盖失败', e); }
       }
-      try { handler(ctx, raw); } catch(e){ console.error('[WsEventRouter] 事件处理失败', type, e); }
+      try {
+        if (window.MessageNormalizer && window.MessageNormalizer.normalizeIncoming) {
+          window.MessageNormalizer.normalizeIncoming(raw);
+        }
+        handler(ctx, raw);
+      } catch(e){ console.error('[WsEventRouter] 事件处理失败', type, e); }
     }
   }
 

@@ -106,9 +106,18 @@ function enhanceDataSyncManager() {
         const shopCards = document.querySelectorAll('.shop-card[data-shop-id]');
         const refreshPromises = [];
 
+        // Fallback: 若某些构造路径未注入 isTempId，提供本地安全实现
+        const safeIsTempId = (id) => {
+            try {
+                const fn = this && typeof this.isTempId === 'function' ? this.isTempId : null;
+                if (fn) return fn.call(this, id);
+            } catch(_) {}
+            return !!(id && (String(id).startsWith('temp-') || String(id).includes('temp')));
+        };
+
         shopCards.forEach(card => {
             const shopId = card.getAttribute('data-shop-id');
-            if (shopId && !this.isTempId(shopId)) {
+            if (shopId && !safeIsTempId(shopId)) {
                 const promise = this.forceRefreshShopStats(shopId)
                     .then(stats => {
                         if (stats && window.shopCardManager) {
@@ -305,8 +314,37 @@ class BadgeUpdateCoordinator {
 BadgeUpdateCoordinator.prototype._bindUnreadAggregator = function(){
     document.addEventListener('unread:update', (e)=>{
         const detail = e.detail || {};
+        // 为避免与 NavBadgeManager 自身监听逻辑互相“打架”导致闪烁，这里做被动模式：
+        // 1. 如果已有 NavBadgeManager，它自己已经实现忽略策略，这里只在需要强制覆盖的特殊 reason 时才更新
+        // 2. 普通 incoming-message 或 total=0 的刷新交给 NavBadgeManager 原生监听处理
         if (this.navBadgeManager) {
-            this.navBadgeManager.updateNavBadge('messages', detail.total || 0);
+            const total = detail.total || 0;
+            const reason = detail.reason || '';
+            const forceReasons = ['manual-clear','force','incoming-message-fallback'];
+            if (forceReasons.includes(reason)) {
+                this.navBadgeManager.updateNavBadge('messages', total);
+                return;
+            }
+            // 若为普通 poll/init/refresh 且 total=0，而当前已有非零，则不覆盖
+            const current = this.navBadgeManager.getBadgeCount('messages');
+            if (total === 0 && current > 0) return; // 保持现状
+            // 若 total>0 但 NavBadgeManager 可能尚未来得及运行（少数竞态），可以补一次
+            if (total > 0 && current === 0 && reason !== 'incoming-message') {
+                this.navBadgeManager.updateNavBadge('messages', total);
+            }
+            return; // 默认不做多余覆盖
+        }
+        // 没有 NavBadgeManager 时（异常降级）才直接处理
+        const navItem = document.querySelector('[data-page="messages"] .nav-badge');
+        if (navItem) {
+            const total = detail.total || 0;
+            if (total>0){
+                navItem.textContent = total>99? '99+': total;
+                navItem.classList.remove('hidden');
+            } else {
+                navItem.textContent='';
+                navItem.classList.add('hidden');
+            }
         }
     });
 };

@@ -1,0 +1,11 @@
+.chat-message.pending .bubble{opacity:.55;position:relative}
+.chat-message.pending .bubble:after{content:'排队中';font-size:10px;color:#888;margin-left:6px}
+.chat-message.sending .bubble{opacity:.7;position:relative}
+.chat-message.sending .bubble:after{content:'发送中';font-size:10px;color:#666;margin-left:6px;display:inline-flex;align-items:center}
+.chat-message.sending .bubble:before{content:'';display:inline-block;width:10px;height:10px;border:2px solid rgba(0,0,0,.25);border-top-color:rgba(0,0,0,.55);border-radius:50%;animation:msg-spin 0.9s linear infinite;margin-right:4px}
+.chat-message.failed .bubble{opacity:0.85;border:1px solid #d94848;position:relative}
+.chat-message.failed .bubble:after{content:'发送失败';font-size:10px;color:#d94848;margin-left:6px}
+.chat-message.failed button.msg-retry-btn{margin-left:8px;background:#d94848;color:#fff;border:none;padding:2px 6px;font-size:11px;border-radius:4px;cursor:pointer}
+.chat-message.failed button.msg-retry-btn:hover{background:#c43e3e}
+
+@keyframes msg-spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}

@@ -23,10 +23,26 @@ class NavBadgeManager {
         this.ns = 'navBadge';
         this.navBadges = new Map(); // 存储各个导航项的红点状态
         this.conversationListeners = new Map(); // 存储conversation-item事件监听器
+        // 调试追踪结构
+        if (!window.__QT_BADGE_DEBUG) {
+            window.__QT_BADGE_DEBUG = { history: [], push(entry){ this.history.push(entry); if (this.history.length>120) this.history.shift(); } };
+        }
         
         this.debug('导航红点管理器初始化完成');
         this.setupEventListeners();
         this._subscribeUnreadAggregator();
+        // 读回执本地事件: 若当前有未读, 直接触发清零 (带允许原因)
+        const readEvt = (window.Events && window.Events.Events.CONVERSATION.READ_LOCAL) || 'conversation.read.local';
+        document.addEventListener(readEvt, (e)=>{
+            const cur = this.getBadgeCount('messages');
+            if (cur>0) {
+                // 直接允许清零, 设置强制标志绕过防闪烁一次
+                window.__QT_FORCE_BADGE_CLEAR = true;
+                this.updateNavBadge('messages', 0);
+                setTimeout(()=>{ window.__QT_FORCE_BADGE_CLEAR = false; }, 50);
+                this.debug('会话本地已读 -> 清零导航未读');
+            }
+        });
     }
 
     /**
@@ -80,8 +96,57 @@ class NavBadgeManager {
         document.addEventListener('unread:update', (e)=>{
             const detail = e.detail || {};
             const total = detail.total || 0;
-            this.updateNavBadge('messages', total);
-            this.debug('收到 unread:update 事件 -> messages =', total, 'reason=', detail.reason);
+            const reason = detail.reason || '';
+            // 记录最后一次 unread:update 原因
+            this.__lastUnreadUpdate = { ts: Date.now(), total, reason };
+            // 当 reason = incoming-message 且 total=0 时，可能是聚合尚未及时统计到刚刚自增的本地未读，避免把已有红点清零
+            if (detail.reason === 'incoming-message' && total === 0) {
+                this.debug('忽略 unread:update (reason=incoming-message & total=0) 以避免闪烁');
+                return;
+            }
+            // 额外保护：若当前已有非零计数，而本次 total=0 且没有明确刷新/清除原因，则忽略
+            if (total === 0) {
+                const current = this.getBadgeCount('messages');
+                const allowReasons = ['refresh','sync','recount','clear','manual-clear'];
+                if (current > 0 && (!detail.reason || !allowReasons.includes(detail.reason))) {
+                    this.debug('忽略 unread:update (total=0 无明确原因, 保留当前计数=', current, ')');
+                    return;
+                }
+            }
+            // Hysteresis: 对 total=0 延迟隐藏，给后续增量一个窗口，避免先 0 后 +N 闪烁
+            if (total === 0) {
+                // 若已有计划隐藏，重新计时即可
+                clearTimeout(this.__pendingHideTimer);
+                const delay = (window.QT_CONFIG && window.QT_CONFIG.badgeHideDelay) ? window.QT_CONFIG.badgeHideDelay : 1500;
+                this.__pendingHideTimer = setTimeout(()=>{
+                    // 窗口期内若出现了新的未读或增量，则放弃隐藏
+                    const cur = this.getBadgeCount('messages');
+                    if (cur > 0) {
+                        this.debug('延迟隐藏放弃，期间出现新未读 cur=', cur);
+                        return;
+                    }
+                    this.updateNavBadge('messages', 0);
+                    this.debug('延迟隐藏执行 (reason=', reason, ')');
+                }, delay);
+                this.debug('计划延迟隐藏 messages badge, delay=', delay, 'ms reason=', reason);
+            } else {
+                // 有正向未读：取消待执行隐藏
+                clearTimeout(this.__pendingHideTimer);
+                this.__pendingHideTimer = null;
+                this.updateNavBadge('messages', total);
+                this.debug('收到 unread:update 事件 -> messages =', total, 'reason=', detail.reason);
+            }
+        });
+        // 高水位策略：若存在 highwater 事件，则使用其 total 覆盖低估值
+        document.addEventListener('unread:highwater', (e)=>{
+            const d = e.detail||{};
+            const high = d.total||0;
+            const current = this.getBadgeCount('messages');
+            if (high>current) {
+                clearTimeout(this.__pendingHideTimer);
+                this.updateNavBadge('messages', high);
+                this.debug('高水位覆盖 ->', high);
+            }
         });
     }
 
@@ -163,6 +228,20 @@ class NavBadgeManager {
         const newCount = Math.max(0, parseInt(count) || 0);
         
         // 更新红点显示
+        // 反闪烁：若尝试隐藏(=0)且距离上次正向变为>0 时间过短且无允许原因，则忽略
+        if (newCount === 0) {
+            const now = Date.now();
+            this.__lastBadgeMeta = this.__lastBadgeMeta || {};
+            const meta = this.__lastBadgeMeta[navPage] || {}; // {lastRaiseTs, lastCount}
+            const elapsed = meta.lastRaiseTs ? now - meta.lastRaiseTs : Infinity;
+            // 允许立刻清零的理由（事件监听层已做原因过滤，这里兜底）
+            const allowImmediate = (window.__QT_FORCE_BADGE_CLEAR === true);
+            if (meta.lastCount > 0 && elapsed < 1200 && !allowImmediate) {
+                this.debug(`忽略过快隐藏 (elapsed=${elapsed}ms <1200ms) 保持 ${meta.lastCount}`);
+                return true; // 不执行隐藏
+            }
+        }
+
         if (newCount > 0) {
             // 正常显示红点
             badge.textContent = newCount > 99 ? '99+' : newCount.toString();
@@ -179,6 +258,16 @@ class NavBadgeManager {
 
         // 记录状态
         this.navBadges.set(navPage, newCount);
+        // 记录元数据，用于反闪烁判定
+        this.__lastBadgeMeta = this.__lastBadgeMeta || {};
+        if (!this.__lastBadgeMeta[navPage]) this.__lastBadgeMeta[navPage] = {};
+        if (newCount > 0) {
+            this.__lastBadgeMeta[navPage].lastRaiseTs = Date.now();
+            this.__lastBadgeMeta[navPage].lastCount = newCount;
+        } else {
+            this.__lastBadgeMeta[navPage].lastHideTs = Date.now();
+        }
+        try { window.__QT_BADGE_DEBUG.push({ t: Date.now(), page: navPage, count: newCount, stack: (new Error()).stack.split('\n').slice(1,4).join(' | ') }); } catch(_){ }
         return true;
     }
 

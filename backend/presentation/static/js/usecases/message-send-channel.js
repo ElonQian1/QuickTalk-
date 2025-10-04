@@ -32,6 +32,8 @@
       this.opts = { ...DEFAULTS, ...opts };
       this.queue = []; // 所有 queueItem
       this._sending = false; // 调度锁
+      this._bus = window.MessageEventBus || null;
+      this._events = (window.Events && window.Events.Events) ? window.Events : null;
     }
 
     static init(options){
@@ -92,6 +94,7 @@
       item.state = 'pending';
       item.error = null;
       if (this.opts.onLocalPatch) this.opts.onLocalPatch(tempId,{ state:'pending', error:null });
+      if (this._bus) this._bus.publish('message.updated', { message: this._draftToLocalMessage(item), conversationId: item.conversation_id });
       this._schedule();
       return true;
     }
@@ -101,7 +104,13 @@
       if (!item) return false;
       item.state = 'canceled';
       if (this.opts.onLocalPatch) this.opts.onLocalPatch(tempId,{ state:'canceled' });
+      if (this._bus) this._bus.publish('message.updated', { message: this._draftToLocalMessage(item), conversationId: item.conversation_id });
       return true;
+    }
+
+    resendFailed(tempId){
+      const item = this.queue.find(q=> q.tempId === tempId && item.state==='failed');
+      return this.retry(tempId);
     }
 
     markServerMessage(serverMsg){
@@ -136,13 +145,16 @@
         createdAt,
         lastAttemptAt: null,
         fingerprint: null,
-        error: null
+        error: null,
+        ackTimer: null
       };
       draft.fingerprint = (typeof this.opts.fingerprint === 'function') ? this.opts.fingerprint(draft) : DEFAULTS.fingerprint(draft);
       if (this.opts.onLocalEnqueue) {
         const localMsg = this._draftToLocalMessage(draft);
         this.opts.onLocalEnqueue(localMsg);
       }
+      // 发布队列进入事件
+      try { this._emitEvt('SEND.QUEUED', { tempId, draft }); } catch(_){}
       return draft;
     }
 
@@ -182,6 +194,9 @@
       item.attempt += 1;
       item.lastAttemptAt = this.opts.now();
       if (this.opts.onLocalPatch) this.opts.onLocalPatch(item.tempId,{ state:'sending', attempt:item.attempt });
+  if (this._bus) this._bus.publish('message.updated', { message: this._draftToLocalMessage(item), conversationId: item.conversation_id });
+    this._emitState(item, 'sending');
+    this._emitEvt('SEND.DISPATCH', { tempId: item.tempId, attempt: item.attempt });
 
       try {
         // 预处理（上传文件/语音）
@@ -193,7 +208,8 @@
         const ok = await this._sendOutbound(payload);
         if (!ok) throw new Error('WS_NOT_READY');
         // 等待服务器回流覆盖 -> 这里不立即标记 sent
-        // 设置 fallback ack 超时：暂不失败，只可后续扩展
+        // 启动 ACK 超时定时器
+        this._startAckTimer(item);
       } catch (err){
         if (this.opts.debug) console.warn('[MessageSendChannel] 发送失败', item.tempId, err.message);
         this._handleSendFailure(item, err.message || 'SEND_FAIL');
@@ -207,8 +223,8 @@
     _buildOutboundPayload(item){
       const base = {
         conversation_id: item.conversation_id,
-        sender_type: 'agent',
-        sender_id: 'admin',
+        sender_type: this._resolveSenderType(),
+        sender_id: this._resolveSenderId(),
         message_type: 'text',
         temp_id: item.tempId
       };
@@ -228,6 +244,30 @@
       }
       
       return base;
+    }
+
+    _resolveSenderType(){
+      // 统一从当前用户上下文推断，默认 agent
+      let raw = 'agent';
+      try {
+        if (window.currentUser && (window.currentUser.role || window.currentUser.type)) {
+          raw = window.currentUser.role || window.currentUser.type;
+        } else if (localStorage.getItem('quicktalk_role')) {
+          raw = localStorage.getItem('quicktalk_role');
+        }
+      } catch(_){ }
+      if (window.MessageNormalizer && window.MessageNormalizer.normalizeSenderType) {
+        return window.MessageNormalizer.normalizeSenderType(raw);
+      }
+      return 'agent';
+    }
+
+    _resolveSenderId(){
+      try {
+        if (window.currentUser && window.currentUser.id) return window.currentUser.id;
+        if (localStorage.getItem('quicktalk_user_id')) return localStorage.getItem('quicktalk_user_id');
+      } catch(_){ }
+      return 'admin';
     }
 
     async _sendOutbound(payload){
@@ -296,19 +336,28 @@
         item.state = 'failed';
         item.error = { code:'RETRIES_EXCEEDED', message: reason };
         if (this.opts.onLocalPatch) this.opts.onLocalPatch(item.tempId,{ state:'failed', error:item.error });
+        if (this._bus) this._bus.publish('message.updated', { message: this._draftToLocalMessage(item), conversationId: item.conversation_id });
+        this._emitState(item, 'failed');
+        this._emitEvt('SEND.FAILED', { tempId: item.tempId, reason:item.error });
       } else {
         // 指数退避后重试
         const delay = Math.min(this.opts.baseRetryDelayMs * Math.pow(2, item.attempt-1), 10000);
         item.state = 'pending'; // 重新排队
         if (this.opts.onLocalPatch) this.opts.onLocalPatch(item.tempId,{ state:'pending', retryIn: delay });
+        if (this._bus) this._bus.publish('message.updated', { message: this._draftToLocalMessage(item), conversationId: item.conversation_id });
+        this._emitState(item, 'pending');
         setTimeout(()=> this._schedule(), delay);
       }
     }
 
     _finalize(item, serverMsg){
       item.state = 'sent';
+      if (item.ackTimer){ clearTimeout(item.ackTimer); item.ackTimer = null; }
       if (this.opts.onLocalPatch) this.opts.onLocalPatch(item.tempId,{ state:'sent', server_id: serverMsg.id });
       if (typeof this.opts.onFinalized === 'function') this.opts.onFinalized(item.tempId, serverMsg);
+      if (this._bus) this._bus.publish('message.updated', { message: this._draftToLocalMessage(item), conversationId: item.conversation_id });
+      this._emitState(item, 'sent');
+      this._emitEvt('SEND.FINALIZED', { tempId: item.tempId, serverId: serverMsg.id });
     }
 
     _buildServerFingerprint(serverMsg){
@@ -334,6 +383,43 @@
     _resolveConversation(){
       if (typeof this.opts.conversationResolver === 'function') return this.opts.conversationResolver();
       return null;
+    }
+
+    _startAckTimer(item){
+      const GRACE = (this.opts.ackTimeoutMs || 8000);
+      if (item.ackTimer) clearTimeout(item.ackTimer);
+      item.ackTimer = setTimeout(()=>{
+        if (item.state !== 'sent') {
+          item.state = 'failed';
+          item.error = { code:'ACK_TIMEOUT', message:'服务器未在宽限期内确认' };
+          if (this.opts.onLocalPatch) this.opts.onLocalPatch(item.tempId,{ state:'failed', error:item.error });
+          this._emitState(item, 'failed');
+          this._emitEvt('SEND.ACK_TIMEOUT', { tempId: item.tempId });
+        }
+      }, GRACE);
+    }
+
+    // ---- 事件封装 ----
+    _emitState(item, newState){
+      try {
+        if (this._events) {
+          this._events.emit(this._events.Events.MESSAGE.STATE_CHANGED, { tempId:item.tempId, state:newState, conversation_id:item.conversation_id });
+        } else {
+          document.dispatchEvent(new CustomEvent('message.state.changed', { detail:{ tempId:item.tempId, state:newState }}));
+        }
+      } catch(_){ }
+    }
+
+    _emitEvt(name, detail){
+      try {
+        if (!this._events) return;
+        const parts = name.split('.'); // e.g. SEND.FAILED
+        let evtObj = this._events.Events;
+        parts.forEach(p=>{ if (evtObj && evtObj[p]) evtObj = evtObj[p]; });
+        // 若未找到枚举, 直接用拼接
+        const evtName = (typeof evtObj === 'string') ? evtObj : name.toLowerCase();
+        this._events.emit(evtName, detail);
+      } catch(_){ }
     }
   }
 

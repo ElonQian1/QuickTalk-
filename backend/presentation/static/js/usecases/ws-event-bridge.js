@@ -7,6 +7,36 @@
 (function(){
   'use strict';
 
+  // 兜底 toast 实现：若全局没有 showToast 则动态注入一个极简版本
+  (function ensureFallbackToast(){
+    if (typeof window.showToast === 'function') return; // 已存在
+    const containerId = '__qt_fallback_toast_container__';
+    function createContainer(){
+      let c = document.getElementById(containerId);
+      if (!c){
+        c = document.createElement('div');
+        c.id = containerId;
+        c.style.cssText = 'position:fixed;left:50%;top:12px;z-index:9999;transform:translateX(-50%);display:flex;flex-direction:column;gap:8px;';
+        document.body.appendChild(c);
+      }
+      return c;
+    }
+    window.showToast = function(msg,type='info',timeout=2800){
+      try {
+        const c = createContainer();
+        const item = document.createElement('div');
+        item.textContent = msg;
+        const color = type==='error'?'#fff':'#fff';
+        const bg = type==='error'?'#e74c3c': type==='success'? '#2ecc71': '#3498db';
+        item.style.cssText = 'font:14px/1.4 system-ui,Arial;opacity:0;transition:opacity .25s,transform .25s;padding:10px 14px;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.15);background:'+bg+';color:'+color+';transform:translateY(-6px);max-width:240px;word-break:break-all;';
+        c.appendChild(item);
+        requestAnimationFrame(()=>{ item.style.opacity='1'; item.style.transform='translateY(0)'; });
+        setTimeout(()=>{ item.style.opacity='0'; item.style.transform='translateY(-4px)'; setTimeout(()=> item.remove(), 260); }, timeout);
+      } catch(e){ console.warn('[fallback-toast] 显示失败', e); }
+    };
+    console.log('ℹ️ 已注入 fallback showToast (ws-event-bridge)');
+  })();
+
   // 安全调用工具
   function callIf(fn, ...args){
     try { return typeof fn === 'function' ? fn(...args) : undefined; } catch(e){ console.warn('callIf error:', e); }
@@ -31,6 +61,12 @@
   // 新消息到达的 UI 更新（全局兜底）
   function handleNewMessage(data){
     try {
+      // 统一标准化
+      if (window.MessageNormalizer && window.MessageNormalizer.normalizeIncoming) {
+        window.MessageNormalizer.normalizeIncoming(data);
+      }
+      window.__QT_CHAT_DEBUG = window.__QT_CHAT_DEBUG || { messages: [], push(m){ this.messages.push(m); if(this.messages.length>50) this.messages.shift(); } };
+      try { window.__QT_CHAT_DEBUG.push({ dir:'in', at:Date.now(), msg: (data && (data.message||data)) }); } catch(_){}
       // 优先委托 NavBadgeManager，避免直接 DOM 改写
       let updated = false;
       const nbm = window.navBadgeManager;
@@ -50,6 +86,62 @@
           badge.style.display = 'block';
         }
       }
+
+      // === 新增：店铺未读红点实时更新逻辑 (仅客户消息) ===
+      try {
+        const msg = data && (data.message || data);
+        const senderType = msg && (msg.sender_type || msg.senderType || msg.sender);
+        if (window.MessageNormalizer && window.MessageNormalizer.normalizeSenderType) {
+          const norm = window.MessageNormalizer.normalizeSenderType(senderType);
+          if (norm) msg.sender_type = norm; // 覆盖为标准化
+        }
+        const shopId = msg && (msg.shop_id || msg.shopId);
+        const conversationId = msg && (msg.conversation_id || msg.conversationId);
+        const isCustomerMsg = (msg && msg.sender_type === 'customer');
+        // 当前打开的会话（可能由其它模块维护）
+        const activeConv = window.currentConversationId || (window.ActiveConversation && window.ActiveConversation.id);
+        const inActiveConversation = activeConv && conversationId && String(activeConv) === String(conversationId);
+        if (isCustomerMsg && shopId && !inActiveConversation) {
+          // 1. 优先通过 shopCardManager 累加
+            let applied = false;
+            const scm = window.shopCardManager;
+            if (scm && typeof scm.incrementUnread === 'function') {
+              try { scm.incrementUnread(shopId, 1); applied = true; } catch(e){ console.warn('[ws-event-bridge] incrementUnread 调用失败', e); }
+            }
+            // 2. 如果没有专用方法，尝试直接查找 DOM 并更新
+            if (!applied) {
+              const card = document.querySelector(`.shop-card[data-shop-id="${shopId}"]`);
+              if (card) {
+                const span = card.querySelector('.unread-count');
+                if (span) {
+                  const cur = parseInt(span.getAttribute('data-unread')) || 0;
+                  const next = cur + 1;
+                  span.setAttribute('data-unread', next);
+                  span.textContent = `(${next})`;
+                  span.style.display = 'inline';
+                  applied = true;
+                }
+              }
+            }
+            // 3. 若存在 updateShopBadgeDisplay 辅助函数（保持一致性）
+            if (!applied && typeof window.updateShopBadgeDisplay === 'function') {
+              try {
+                const card = document.querySelector(`.shop-card[data-shop-id="${shopId}"]`);
+                if (card) window.updateShopBadgeDisplay(card, (card.querySelector('.unread-count')?.getAttribute('data-unread')||1));
+              } catch(e){ console.warn('[ws-event-bridge] updateShopBadgeDisplay 调用失败', e); }
+            }
+            // 4. 触发聚合事件（供 nav-unread-aggregator/nav-badge-manager 汇总）
+            try {
+              const totalUnread = (function(){
+                // 汇总所有 .shop-card 上的 data-unread
+                let sum = 0; document.querySelectorAll('.shop-card .unread-count[data-unread]').forEach(el=>{ const v = parseInt(el.getAttribute('data-unread'))||0; sum += v; });
+                return sum;
+              })();
+              document.dispatchEvent(new CustomEvent('unread:update', { detail:{ total: totalUnread, reason:'incoming-message', shopId, conversationId }}));
+            } catch(e){ console.warn('[ws-event-bridge] 触发 unread:update 事件失败', e); }
+        }
+      } catch(e){ console.warn('[ws-event-bridge] 店铺未读实时更新逻辑异常', e); }
+      // === 结束新增逻辑 ===
 
       if (window.currentPage === 'messages' && typeof window.loadConversations === 'function') {
         window.loadConversations();

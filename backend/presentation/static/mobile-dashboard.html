@@ -66,6 +66,8 @@
     <link rel="stylesheet" href="/static/css/shops-grid.css">
     <!-- 新增：消息模块布局/长消息折叠/纵横布局支持 -->
     <link rel="stylesheet" href="/static/css/layout-modes.css">
+    <!-- 消息状态样式 (pending/failed/retry) -->
+    <link rel="stylesheet" href="/static/css/message-status.css">
     
     <!-- UI 启动（usecases）：数据同步与店铺卡片管理器初始化 -->
     <!-- 移除重复引用，保留文末业务模块统一启动的 ui-bootstrap.js -->
@@ -246,6 +248,41 @@
     <script src="/static/js/usecases/message-tools.js"></script>
     <!-- 消息发送通道（usecases） - 统一消息发送逻辑 -->
     <script src="/static/js/usecases/message-send-channel.js"></script>
+    <script>
+        // 初始化发送通道（若尚未初始化的场景，添加 UI 回调）
+        (function(){
+            if (!window.MessageSendChannel || window.MessageSendChannelInstance) return;
+            try {
+                window.MessageSendChannel.init({
+                    debug:false,
+                    conversationResolver: function(){ return window.MessageStateStore && window.MessageStateStore.currentConversationId; },
+                    onLocalEnqueue: function(localMsg){ /* 直接交给状态存储追加 */
+                        if (window.MessageStateStore && localMsg) {
+                            const cid = localMsg.conversation_id;
+                            window.MessageStateStore.appendMessage(cid, { ...localMsg });
+                        }
+                    },
+                    onLocalPatch: function(tempId, patch){
+                        if (!window.MessageStateStore) return;
+                        // 在当前会话内找到 temp 消息，合并状态
+                        const cid = window.MessageStateStore.currentConversationId;
+                        const list = window.MessageStateStore.getCurrentMessages();
+                        const idx = list.findIndex(m=>m.temp_id===tempId);
+                        if (idx>=0){
+                            list[idx] = { ...list[idx], ...patch };
+                            window.MessageEventBus && window.MessageEventBus.publish('message.updated',{ message:list[idx], conversationId: cid });
+                        }
+                    },
+                    onFinalized: function(tempId, serverMsg){
+                        if (window.MessageStateStore && serverMsg && serverMsg.conversation_id){
+                            window.MessageStateStore.replaceTemp(tempId, serverMsg);
+                        }
+                    },
+                    ackTimeoutMs: 8000
+                });
+            } catch(e){ console.warn('MessageSendChannel init failed', e); }
+        })();
+    </script>
     <!-- 对话基础动作（usecases） -->
     <script src="/static/js/usecases/conversation-actions.js"></script>
     <!-- 推广功能模块（usecases） -->

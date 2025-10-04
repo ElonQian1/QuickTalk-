@@ -35,7 +35,21 @@
         return; // 已在连接中
       }
       const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const url = `${proto}//${window.location.host}${this.endpoint}`;
+        // 追加角色 / 用户标识，便于后端区分 agent / customer；不破坏已有后端兼容（无参数时后端默认逻辑）
+        let role = 'agent';
+        try {
+          if (window.currentUser && (currentUser.role||currentUser.type)) role = currentUser.role||currentUser.type;
+          else if (localStorage.getItem('quicktalk_role')) role = localStorage.getItem('quicktalk_role');
+        } catch(_){ }
+        if (window.MessageNormalizer && window.MessageNormalizer.normalizeSenderType) {
+          role = window.MessageNormalizer.normalizeSenderType(role);
+        }
+        let uid = 'admin';
+        try { if (window.currentUser && currentUser.id) uid = currentUser.id; else if (localStorage.getItem('quicktalk_user_id')) uid = localStorage.getItem('quicktalk_user_id'); } catch(_){ }
+        const q = `role=${encodeURIComponent(role)}&sender_id=${encodeURIComponent(uid)}`;
+        const sep = this.endpoint.includes('?') ? '&' : '?';
+        const url = `${proto}//${window.location.host}${this.endpoint}${sep}${q}`;
+        window.__LAST_WS_URL = url;
       this.log('connecting to', url);
       try {
         this._ws = new WebSocket(url);
