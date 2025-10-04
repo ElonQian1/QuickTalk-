@@ -34,43 +34,105 @@
   }
 
   // 获取店铺列表
-  window.fetchShops = async function fetchShops() {
+  window.fetchShops = async function fetchShops(options) {
+    const TTL = (options && options.ttlMs) || 30000; // 30s 默认TTL
+    const CACHE_KEY = 'shops_cache_v1';
+    const now = Date.now();
+
+    const readCache = () => {
+      try {
+        const raw = sessionStorage.getItem(CACHE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || !Array.isArray(parsed.data)) return null;
+        if (now - (parsed.ts || 0) > TTL) return null; // 过期
+        return parsed;
+      } catch(_) { return null; }
+    };
+
+    const writeCache = (data) => {
+      try { sessionStorage.setItem(CACHE_KEY, JSON.stringify({ data, ts: Date.now() })); } catch(_) {}
+    };
+
+    const fireUpdated = (data) => {
+      try { window.dispatchEvent(new CustomEvent('shops:updated', { detail: { count: data.length }})); } catch(_) {}
+    };
+
+    // 先尝试返回缓存 (快速渲染)
+    const cached = readCache();
+    if (cached) {
+      // 后台刷新（不阻塞首次渲染）
+      setTimeout(() => fetchShops({ force: true }), 0);
+      return cached.data;
+    }
+
+    if (options && options.force) {
+      // 强制刷新逻辑继续向下执行
+    }
+
     try {
       console.log('🔄 正在获取店铺列表...');
-      
-      const apiUrl = '/api/shops';
-      const authToken = (typeof getAuthToken === 'function') ? getAuthToken() : '';
-      const headers = {
-        'Content-Type': 'application/json'
-      };
-      
-      if (authToken) {
-        headers['Authorization'] = `Bearer ${authToken}`;
-        headers['X-Session-Id'] = authToken;
-      }
-      
-      console.log(`📡 调用API: ${apiUrl}`, { hasToken: !!authToken });
-      
-      const response = await fetch(apiUrl, { headers });
-      if (response.ok) {
-        const result = await response.json();
-        console.log('📦 API响应:', result);
-        
-        // 检查响应格式并正确提取数据
-        if (result.success && Array.isArray(result.data)) {
-          console.log('✅ 成功获取店铺数据:', result.data);
-          return result.data;
-        } else if (Array.isArray(result)) {
-          console.log('✅ 直接数组格式店铺数据:', result);
-          return result;
-        } else {
-          console.warn('⚠️ 意外的响应格式:', result);
-          return [];
+
+      // 等待会话（避免过早请求导致 401 返回空列表）
+      const waitForSession = async (retries = 10, interval = 150) => {
+        for (let i = 0; i < retries; i++) {
+          const t = (typeof getAuthToken === 'function') ? getAuthToken() : '';
+          if (t) return t;
+          await new Promise(r => setTimeout(r, interval));
         }
-      } else {
+        return '';
+      };
+
+      let authToken = (typeof getAuthToken === 'function') ? getAuthToken() : '';
+      if (!authToken) {
+        authToken = await waitForSession();
+      }
+
+      if (!authToken) {
+        console.warn('⚠️ 无可用会话 token，延迟返回空数组（未登录或登录尚未完成）');
+        return [];
+      }
+
+      const apiUrl = '/api/shops';
+      const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}`, 'X-Session-Id': authToken };
+      console.log(`📡 调用API: ${apiUrl}`, { hasToken: !!authToken });
+
+      const response = await fetch(apiUrl, { headers });
+      if (response.status === 401) {
+        console.warn('⚠️ 401 未授权，尝试调用 /api/auth/session 诊断');
+        try {
+          const diag = await fetch('/api/auth/session', { headers });
+          if (diag.ok) {
+            const j = await diag.json();
+            console.log('🩺 会话诊断:', j);
+          }
+        } catch(_){ }
+        try { sessionStorage.removeItem(CACHE_KEY); } catch(_) {}
+        if (typeof showToast === 'function') showToast('登录已过期或未登录，请重新登录', 'warning');
+        return [];
+      }
+      if (!response.ok) {
         console.error('❌ API响应失败:', response.status, response.statusText);
         return [];
       }
+
+      const result = await response.json();
+      console.log('📦 API响应:', result);
+      let data = [];
+      if (result.success && Array.isArray(result.data)) {
+        data = result.data;
+      } else if (Array.isArray(result)) {
+        data = result;
+      } else if (Array.isArray(result.data?.items)) {
+        data = result.data.items;
+      } else {
+        console.warn('⚠️ 意外的响应格式:', result);
+        data = [];
+      }
+      writeCache(data);
+      fireUpdated(data);
+      console.log('✅ 成功获取并缓存店铺数据:', data.length);
+      return data;
     } catch (error) {
       console.error('❌ 获取店铺列表API调用失败:', error);
       return [];

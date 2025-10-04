@@ -140,6 +140,8 @@
                 }
                 this.focusChatInput();
             }
+            // 进入会话后清零未读
+            try { if (window.UnreadSync && typeof window.UnreadSync.markCurrentAsRead === 'function') { window.UnreadSync.markCurrentAsRead(); } } catch(_){ }
         }
 
         /**
@@ -153,6 +155,13 @@
             } else if (data.type === 'message' || data.msg_type === 'message') {
                 this.handleNewMessage(data);
             }
+        }
+
+        /**
+         * Typing 指示处理（供 ws-event-router 或旧路径调用）
+         */
+        handleTypingIndicator(evt){
+            try { if (window.ChatTypingIndicator) window.ChatTypingIndicator.showTyping(evt); } catch(_){ }
         }
 
         /**

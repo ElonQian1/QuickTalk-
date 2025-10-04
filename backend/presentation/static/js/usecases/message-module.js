@@ -8,6 +8,15 @@
 
 class MessageModule {
             constructor() {
+                // 初始化增强特性（幂等：若骨架未加载则安全跳过）
+                try {
+                    if (window.ShopStatsService && typeof window.ShopStatsService.init === 'function') {
+                        window.ShopStatsService.init({ ttlMs: 20000 });
+                    }
+                    if (window.CustomerNumbering && typeof window.CustomerNumbering.init === 'function') {
+                        window.CustomerNumbering.init({ prefix: '客户', strategy: 'sequential-hash', padLength: 4 });
+                    }
+                } catch(e){ console.warn('[MessageModule] 增强特性初始化失败', e); }
                 // 业务管理器
                 this.shopsManager = null;
                 this.conversationsManager = null;
@@ -43,6 +52,56 @@ class MessageModule {
                     if (window.MessageRenderer && typeof window.MessageRenderer.init === 'function') {
                         this._renderer = window.MessageRenderer.init(this);
                     }
+                    // 尝试初始化统一发送通道（若相关脚本已加载）
+                    try {
+                        if (window.MessageSendChannel && !window.MessageSendChannelInstance) {
+                            window.MessageSendChannel.init({
+                                debug: false,
+                                conversationResolver: () => this.currentConversationId,
+                                wsSend: (payload) => {
+                                    if (this.wsAdapter) return this.wsAdapter.send(payload);
+                                    if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+                                        try { this.websocket.send(JSON.stringify(payload)); return true; } catch(_){ return false; }
+                                    }
+                                    return false;
+                                },
+                                uploadFile: async (fileOrBlob) => {
+                                    if (!this.mediaHandler || !this.mediaHandler.uploadFile) throw new Error('uploadFile 未实现');
+                                    const meta = await this.mediaHandler.uploadFile(fileOrBlob);
+                                    return meta; // 期望 { url, mime_type, size }
+                                },
+                                onLocalEnqueue: (localMsg) => {
+                                    // 将乐观消息插入到 messagesManager 或本地回退
+                                    if (this.messagesManager && Array.isArray(this.messagesManager.messages)) {
+                                        this.messagesManager.messages.push(localMsg);
+                                        if (this.messagesManager.renderMessage) this.messagesManager.renderMessage(localMsg); else this.renderMessage(localMsg);
+                                    } else {
+                                        this.messages.push(localMsg);
+                                        this.renderMessage(localMsg);
+                                    }
+                                    this.scrollToBottom();
+                                },
+                                onLocalPatch: (tempId, patch) => {
+                                    const list = (this.messagesManager && this.messagesManager.messages) ? this.messagesManager.messages : this.messages;
+                                    const idx = list.findIndex(m => m.temp_id === tempId);
+                                    if (idx >= 0) {
+                                        list[idx] = { ...list[idx], ...patch };
+                                        if (this.messagesManager && this.messagesManager.renderMessages) this.messagesManager.renderMessages(); else this.renderMessages();
+                                    }
+                                },
+                                onFinalized: (tempId, serverMsg) => {
+                                    const list = (this.messagesManager && this.messagesManager.messages) ? this.messagesManager.messages : this.messages;
+                                    const idx = list.findIndex(m => m.temp_id === tempId);
+                                    if (idx >= 0) {
+                                        list[idx] = { ...list[idx], ...serverMsg, status: 'sent' };
+                                    } else {
+                                        list.push({ ...serverMsg, status: 'sent' });
+                                    }
+                                    if (this.messagesManager && this.messagesManager.renderMessages) this.messagesManager.renderMessages(); else this.renderMessages();
+                                }
+                            });
+                        }
+                    } catch(e) { console.warn('[MessageModule] 初始化发送通道失败', e); }
                 }, 0);
             }
 
@@ -170,42 +229,34 @@ class MessageModule {
                 }
             }
 
-            // 初始化 WebSocket 适配器
+            // 初始化 WebSocket 适配器（已抽象到 MessageWSHandler）
             _initWSAdapter(){
-                if (window.MessageWSAdapter) {
-                    this.wsAdapter = new window.MessageWSAdapter({ debug: false });
-                    // 兼容旧字段：暴露当前底层 socket（只读用途）
-                    Object.defineProperty(this, 'websocket', { get: ()=> this.wsAdapter?._ws });
-                    // 订阅所有消息
-                    this.wsAdapter.on('*any', (data)=>{
+                if (!window.MessageWSHandler) {
+                    console.warn('[MessageModule] MessageWSHandler 未加载，保持原有逻辑（等待后续脚本）');
+                    return; // 延迟到脚本加载后再初始化（可由外部再调用 _initWSAdapter）
+                }
+                this._wsHandler = window.MessageWSHandler.init({
+                    debug: false,
+                    onEvent: (evt)=> {
                         try {
                             if (window.WsEventRouter && typeof window.WsEventRouter.route === 'function') {
-                                window.WsEventRouter.route(this, data);
+                                window.WsEventRouter.route(this, evt.raw);
                             } else {
-                                this.handleWebSocketMessage(data); // 回退
+                                this.handleWebSocketMessage(evt.raw);
                             }
-                        } catch(e){ console.error('Ws route error', e); }
-                    });
-                    this.wsAdapter.on('*open', ()=> console.log('[MessageModule] WebSocket已连接')); 
-                    this.wsAdapter.on('*close', (info)=> console.log('[MessageModule] WebSocket已关闭', info));
-                    this.wsAdapter.on('*error', (err)=> console.warn('[MessageModule] WebSocket错误', err));
-                } else {
-                    console.warn('MessageWSAdapter 未加载，使用旧 initWebSocket 回退');
-                    this._legacyInitWebSocket();
-                }
+                        } catch(e){ console.error('[MessageModule] ws handler route error', e); }
+                    }
+                });
+                // 兼容旧字段 websocket / wsAdapter (只读) 以减少外部破坏性
+                Object.defineProperty(this, 'websocket', { get: ()=> (this._wsHandler && this._wsHandler._ws) || (this.wsAdapter?._ws) });
+                Object.defineProperty(this, 'wsAdapter', { get: ()=> ({ send: (d)=> this._wsHandler? this._wsHandler.send(d) : false }) });
             }
 
-            // 旧版回退（仅在适配器缺失时使用）
+            /**
+             * @deprecated _legacyInitWebSocket 已由 MessageWSHandler 替代，仅保留占位防止旧代码直接调用。
+             */
             _legacyInitWebSocket(){
-                if (this.websocket && this.websocket.readyState === WebSocket.OPEN) return;
-                const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-                const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
-                this.websocket = new WebSocket(wsUrl);
-                this.websocket.onopen = ()=> console.log('[legacy] WebSocket连接已建立');
-                this.websocket.onmessage = (event)=>{
-                    try { const data = JSON.parse(event.data); this.handleWebsocketDispatch(data); } catch(e){ console.error('legacy WS解析失败', e);} };
-                this.websocket.onclose = ()=>{ console.log('[legacy] WebSocket关闭，3s后重连'); setTimeout(()=> this._legacyInitWebSocket(), 3000); };
-                this.websocket.onerror = (err)=> console.error('[legacy] WebSocket错误', err);
+                console.warn('[MessageModule] _legacyInitWebSocket 已废弃，调用被忽略');
             }
 
             handleWebsocketDispatch(data){
@@ -339,48 +390,11 @@ class MessageModule {
 
             // 原有消息加载逻辑（降级使用）
             async _legacyLoadMessages(conversationId) {
-                if (this.messagesManager && this.messagesManager._loadingMessagesFor === conversationId) {
+                if (!window.LegacyLoaders) {
+                    console.warn('[MessageModule] LegacyLoaders 未加载，_legacyLoadMessages 跳过');
                     return;
                 }
-                
-                const container = document.getElementById('chatMessages');
-                if (container) {
-                    container.innerHTML = '';
-                    if (window.UIStates && window.UIStates.showLoading) {
-                        window.UIStates.showLoading(container, '正在加载消息...');
-                    } else if (window.LoadingStatesUI && typeof window.LoadingStatesUI.spinner === 'function') {
-                        container.appendChild(window.LoadingStatesUI.spinner('正在加载消息...'));
-                    }
-                }
-                
-                try {
-                    const response = await fetch(`/api/conversations/${conversationId}/messages`, {
-                        headers: window.AuthHelper ? window.AuthHelper.getHeaders() : {
-                            'Authorization': `Bearer ${window.getAuthToken ? window.getAuthToken() : ''}`
-                        }
-                    });
-                    const data = await response.json();
-                    
-                    if (data.success && data.data) {
-                        this.messages = data.data;
-                        this.renderMessages();
-                        return this.messages;
-                    } else {
-                        console.error('[MessageModule] 降级：获取消息失败:', data.error);
-                        if (container) {
-                            if (window.UIStates && window.UIStates.showError) {
-                                window.UIStates.showError(container, '加载消息失败', data.error || '请稍后重试');
-                            } else {
-                                container.textContent = data.error || '加载消息失败';
-                            }
-                        }
-                    }
-                } catch (error) {
-                    console.error('[MessageModule] 降级：网络错误:', error);
-                    if (container && window.UIStates && window.UIStates.showError) {
-                        window.UIStates.showError(container, '网络错误', '无法获取消息，请检查网络连接');
-                    }
-                }
+                return window.LegacyLoaders.loadMessages({ conversationId, messageModule: this });
             }
 
             // 处理新消息事件（来自管理器）
@@ -430,25 +444,11 @@ class MessageModule {
 
             // 原有发送消息逻辑（降级使用）
             _legacySendMessage(content) {
-                if (!this.currentConversationId) return;
-
-                const messageData = {
-                    type: 'message',
-                    conversation_id: this.currentConversationId,
-                    content: content,
-                    files: [],
-                    sender_type: 'agent',
-                    timestamp: Date.now()
-                };
-
-                const sent = this.wsAdapter 
-                    ? this.wsAdapter.send(messageData) 
-                    : (this.websocket && this.websocket.readyState === WebSocket.OPEN && 
-                       this.websocket.send(JSON.stringify(messageData)) === undefined);
-                
-                if (!sent) {
-                    console.error('[MessageModule] 降级：WebSocket发送失败');
+                if (!window.LegacySenders) {
+                    console.warn('[MessageModule] LegacySenders 未加载，_legacySendMessage 跳过');
+                    return;
                 }
+                window.LegacySenders.sendMessage({ messageModule: this, content });
             }
 
             // 显示店铺列表（委托给店铺管理器）
@@ -471,82 +471,42 @@ class MessageModule {
 
             // 原有店铺显示逻辑（降级使用）
             async _legacyShowShops() {
-                try {
-                    const shops = await fetchShops();
-                    const arr = Array.isArray(shops) ? shops : [];
-                    const filterFn = (typeof window.getActiveShops === 'function') ? window.getActiveShops : (a) => a;
-                    this.shops = filterFn(arr);
-                    this.renderShopsList();
-                } catch (error) {
-                    console.error('[MessageModule] 降级：获取店铺列表失败', error);
-                    this.shops = [];
-                    this.renderShopsList();
+                if (!window.LegacyLoaders) {
+                    console.warn('[MessageModule] LegacyLoaders 未加载，_legacyShowShops 跳过');
+                    return;
                 }
+                return window.LegacyLoaders.showShops({ messageModule: this });
             }
-
-            // 渲染店铺列表
+            /**
+             * Deprecated: renderShopsList 旧实现已移除，统一改为委托 shopsManager.renderShopsList()
+             * 若外部旧代码仍调用 messageModule.renderShopsList()，保持一个轻量兼容层。
+             */
             async renderShopsList() {
-                // 确保片段已注入（messages/page -> shops-list-view.html）
-                try {
-                    if (window.PartialsLoader && typeof window.PartialsLoader.loadPartials === 'function') {
-                        await window.PartialsLoader.loadPartials();
-                    }
-                } catch(_) {}
-
-                let container = document.getElementById('shopsListView');
-                if (!container) {
-                    // 延迟重试一次，兼容慢速片段注入
-                    await new Promise(r => setTimeout(r, 60));
-                    container = document.getElementById('shopsListView');
+                if (this.shopsManager && this.shopsManager.renderShopsList) {
+                    return this.shopsManager.renderShopsList();
                 }
-                if (!container) {
-                    console.warn('renderShopsList: shopsListView 未就绪，放弃本次渲染');
-                    return;
-                }
-                container.innerHTML = '';
-
-                if (this.shops.length === 0) {
-                    container.innerHTML = `
-                        <div class="empty-state">
-                            <div class="empty-icon">🏪</div>
-                            <h3>暂无可用店铺</h3>
-                            <p>只有审核通过的店铺才会在此显示；请在店铺通过审核后再来处理客服消息</p>
-                        </div>
-                    `;
-                    return;
-                }
-
-                const shopsGrid = document.createElement('div');
-                shopsGrid.className = 'shop-grid';
-
-                // 为每个店铺异步获取对话统计
-                for (const shop of this.shops) {
-                    const shopCard = await this.createShopCard(shop);
-                    shopsGrid.appendChild(shopCard);
-                }
-
-                container.appendChild(shopsGrid);
+                console.warn('[MessageModule] ShopsManager 不可用，renderShopsList 跳过');
             }
 
             // 创建单个店铺卡片（委托 UI 组件）
             async createShopCard(shop) {
-                let conversationCount = 0;
-                let unreadCount = 0;
-                // 优先使用统一数据同步管理器获取统计，避免重复 N 次对话列表请求
+                // 使用统一统计服务（优先）+ 兜底
+                let conversationCount = 0, unreadCount = 0;
                 try {
-                    if (window.unifiedDataSyncManager && typeof window.unifiedDataSyncManager.fetchShopStats === 'function') {
+                    if (window.ShopStatsService && typeof window.ShopStatsService.fetchShopStats === 'function') {
+                        const stats = await window.ShopStatsService.fetchShopStats(shop.id, false);
+                        conversationCount = stats.conversation_count || 0;
+                        unreadCount = stats.unread_count || 0;
+                    } else if (window.unifiedDataSyncManager && typeof window.unifiedDataSyncManager.fetchShopStats === 'function') {
                         const stats = await window.unifiedDataSyncManager.fetchShopStats(shop.id, true);
                         conversationCount = stats && stats.conversation_count ? stats.conversation_count : 0;
                         unreadCount = stats && stats.unread_count ? stats.unread_count : 0;
                     } else {
-                        // 兜底：使用原有 API 方式
                         conversationCount = await this.getShopConversationCount(shop.id);
                         unreadCount = await this.getShopUnreadCount(shop.id);
                     }
-                } catch (e) {
-                    console.warn('获取店铺统计失败，使用兜底为 0:', shop.id, e);
-                    conversationCount = conversationCount || 0;
-                    unreadCount = unreadCount || 0;
+                } catch(e){
+                    console.warn('[MessageModule] 店铺统计获取失败(使用0兜底):', shop.id, e);
                 }
                 const hasConversations = conversationCount > 0;
                 const onCardClick = async () => {
@@ -799,15 +759,6 @@ class MessageModule {
                 }
             }
 
-            // 兼容方法：渲染店铺列表（委托给店铺管理器）
-            async renderShopsList() {
-                if (this.shopsManager) {
-                    await this.shopsManager.renderShopsList();
-                } else {
-                    console.warn('[MessageModule] ShopsManager 不可用，跳过店铺列表渲染');
-                }
-            }
-
             // 兼容方法：加载店铺对话列表（委托给对话管理器）
             async loadConversationsForShop(shopId) {
                 if (this.conversationsManager) {
@@ -827,29 +778,11 @@ class MessageModule {
 
             // 原有对话加载逻辑（降级使用）
             async _legacyLoadConversationsForShop(shopId) {
-                if (this.conversationsManager && this.conversationsManager._loading && 
-                    this.conversationsManager._loadingShopId === shopId) {
+                if (!window.LegacyLoaders) {
+                    console.warn('[MessageModule] LegacyLoaders 未加载，_legacyLoadConversationsForShop 跳过');
                     return;
                 }
-                
-                try {
-                    const response = await fetch(`/api/conversations?shop_id=${shopId}`, {
-                        headers: window.AuthHelper ? window.AuthHelper.getHeaders() : {
-                            'Authorization': `Bearer ${window.getAuthToken ? window.getAuthToken() : ''}`
-                        }
-                    });
-                    const data = await response.json();
-                    
-                    if (data.success && data.data) {
-                        this.conversations = data.data;
-                        this.renderConversationsList();
-                        return this.conversations;
-                    } else {
-                        console.error('[MessageModule] 降级：获取对话列表失败:', data.error);
-                    }
-                } catch (error) {
-                    console.error('[MessageModule] 降级：网络错误:', error);
-                }
+                return window.LegacyLoaders.loadConversationsForShop({ shopId, messageModule: this });
             }
 
             // 兼容方法：渲染对话列表（委托给对话管理器）
@@ -863,38 +796,35 @@ class MessageModule {
 
             // 兼容方法：生成客户编号
             generateCustomerNumber(customerId) {
-                if (this.conversationsManager) {
-                    return this.conversationsManager.generateCustomerNumber(customerId);
-                }
-                
-                // 降级处理
-                if (window.CustomerNumbering && window.CustomerNumbering.generateCustomerNumber) {
-                    return window.CustomerNumbering.generateCustomerNumber(customerId);
-                }
-                
-                if (window.generateCustomerNumber && 
-                    typeof window.generateCustomerNumber === 'function') {
-                    return window.generateCustomerNumber(customerId);
-                }
-                
-                return `客户${customerId.replace('customer_', '').substring(0, 8)}`;
+                // 统一策略：优先骨架 CustomerNumbering
+                try {
+                    if (window.CustomerNumbering && typeof window.CustomerNumbering.generateCustomerNumber === 'function') {
+                        return window.CustomerNumbering.generateCustomerNumber(String(customerId));
+                    }
+                    if (this.conversationsManager && typeof this.conversationsManager.generateCustomerNumber === 'function') {
+                        return this.conversationsManager.generateCustomerNumber(customerId);
+                    }
+                    if (window.generateCustomerNumber && typeof window.generateCustomerNumber === 'function') {
+                        return window.generateCustomerNumber(customerId);
+                    }
+                } catch(e){ console.warn('[MessageModule] 生成客户编号异常，使用兜底', e); }
+                const raw = (String(customerId||'').replace('customer_','')); 
+                return `客户${raw.substring(0,8)}`;
             }
 
             // 兼容方法：获取店铺对话数量（委托给店铺管理器）
             async getShopConversationCount(shopId) {
+                // @deprecated: 已由 ShopStatsService 统一，请使用 ShopStatsService.fetchShopStats
                 if (this.shopsManager) {
                     return this.shopsManager.getShopConversationCount(shopId);
                 }
                 
                 // 降级实现
                 try {
-                    const response = await fetch(`/api/conversations?shop_id=${shopId}`, {
-                        headers: window.AuthHelper ? window.AuthHelper.getHeaders() : {
-                            'Authorization': `Bearer ${window.getAuthToken ? window.getAuthToken() : ''}`
-                        }
-                    });
-                    const data = await response.json();
-                    return (data.success && data.data) ? data.data.length : 0;
+                    if (!window.AuthFetch) throw new Error('AuthFetch 未加载');
+                    const resp = await window.AuthFetch.safeJsonFetch(`/api/conversations?shop_id=${shopId}`);
+                    const arr = resp.ok && Array.isArray(resp.data) ? resp.data : [];
+                    return arr.length;
                 } catch (error) {
                     console.error('[MessageModule] 降级：获取店铺对话数量失败:', error);
                     return 0;
@@ -903,20 +833,17 @@ class MessageModule {
 
             // 兼容方法：获取店铺未读数量（委托给店铺管理器）
             async getShopUnreadCount(shopId) {
+                // @deprecated: 已由 ShopStatsService 统一，请使用 ShopStatsService.fetchShopStats
                 if (this.shopsManager) {
                     return this.shopsManager.getShopUnreadCount(shopId);
                 }
                 
                 // 降级实现
                 try {
-                    const response = await fetch(`/api/conversations?shop_id=${shopId}`, {
-                        headers: window.AuthHelper ? window.AuthHelper.getHeaders() : {
-                            'Authorization': `Bearer ${window.getAuthToken ? window.getAuthToken() : ''}`
-                        }
-                    });
-                    const data = await response.json();
-                    if (data.success && data.data) {
-                        return data.data.reduce((sum, conv) => sum + (conv.unread_count || 0), 0);
+                    if (!window.AuthFetch) throw new Error('AuthFetch 未加载');
+                    const resp = await window.AuthFetch.safeJsonFetch(`/api/conversations?shop_id=${shopId}`);
+                    if (resp.ok && Array.isArray(resp.data)) {
+                        return resp.data.reduce((sum, conv) => sum + (conv.unread_count || 0), 0);
                     }
                     return 0;
                 } catch (error) {
@@ -945,6 +872,11 @@ class MessageModule {
                     // 降级：重新加载对话列表
                     this.loadConversationsForShop(this.currentShopId);
                 }
+            }
+
+            // Typing 指示（旧模块回退用）
+            handleTypingIndicator(evt){
+                try { if (window.ChatTypingIndicator) window.ChatTypingIndicator.showTyping(evt); } catch(_){ }
             }
         }
 

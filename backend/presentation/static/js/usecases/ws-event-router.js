@@ -33,7 +33,16 @@
 
   // 领域事件映射 (domain.event.*)
   const DOMAIN_EVENT_MAP = {
-    'message_appended': (ctx, payload) => ctx.handleDomainMessageAppended && ctx.handleDomainMessageAppended(payload),
+    'message_appended': (ctx, payload) => {
+      // 先交给通道做回流覆盖（若存在）
+      try {
+        if (window.MessageSendChannelInstance && typeof window.MessageSendChannelInstance.markServerMessage === 'function') {
+          window.MessageSendChannelInstance.markServerMessage(payload);
+        }
+      } catch(e){ console.warn('[WsEventRouter] sendChannel 回流覆盖失败', e); }
+      // 再委托到上下文管理器
+      ctx.handleDomainMessageAppended && ctx.handleDomainMessageAppended(payload);
+    },
     'message_updated' : (ctx, payload) => ctx.handleDomainMessageUpdated && ctx.handleDomainMessageUpdated(payload),
     'message_deleted' : (ctx, payload) => ctx.handleDomainMessageDeleted && ctx.handleDomainMessageDeleted(payload),
   };
@@ -77,6 +86,12 @@
         const hash = mid || (raw.conversation_id + '|' + (raw.content||'').slice(0,50) + '|' + (raw.timestamp||raw.sent_at||raw.created_at||''));
         if (hash && seen(hash)) return; // 忽略重复
         pushRecent(hash);
+        // 普通 message 事件（非领域包装）也尝试回流覆盖
+        try {
+          if (window.MessageSendChannelInstance && typeof window.MessageSendChannelInstance.markServerMessage === 'function') {
+            window.MessageSendChannelInstance.markServerMessage(raw);
+          }
+        } catch(e){ console.warn('[WsEventRouter] sendChannel 普通消息回流覆盖失败', e); }
       }
       try { handler(ctx, raw); } catch(e){ console.error('[WsEventRouter] 事件处理失败', type, e); }
     }

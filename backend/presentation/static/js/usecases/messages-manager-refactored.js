@@ -117,6 +117,14 @@
                 console.warn('[MessagesManagerRefactored] 当前对话ID为空');
                 return false;
             }
+
+            // 优先使用统一发送通道（若已初始化）
+            if (window.MessageSendChannelInstance && window.MessageSendChannelInstance.sendText) {
+                try {
+                    const tempId = window.MessageSendChannelInstance.sendText(content.trim());
+                    return !!tempId;
+                } catch(e){ console.warn('[MessagesManagerRefactored] 统一发送通道发送失败，回退旧逻辑', e); }
+            }
             
             const now = Date.now();
             const tempId = 'temp_' + (window.globalUtils ? window.globalUtils.generateId() : Math.random().toString(36).slice(2));
@@ -217,6 +225,16 @@
                 console.error('[MessagesManagerRefactored] 新消息数据为空');
                 return;
             }
+
+            // 若统一发送通道已存在并且消息包含 temp_id 或已通过回流覆盖，对应本地 pending 已在通道 finalize 中处理，这里尝试跳过重复合并
+            if (window.MessageSendChannelInstance && messageData.temp_id) {
+                const already = this.messages.find(m => m.temp_id && m.temp_id === messageData.temp_id && m.status === 'sent');
+                if (already) {
+                    if (this.options.debug) console.log('[MessagesManagerRefactored] 跳过重复回流合并 (sendChannel 已处理)', messageData.temp_id);
+                    this.options.onNewMessage(messageData); // 仍触发外部回调（如未读统计）
+                    return;
+                }
+            }
             
             // 检查是否属于当前对话
             if (this.currentConversationId && 
@@ -257,6 +275,8 @@
             
             // 触发回调
             this.options.onNewMessage(messageData);
+            // 未读同步（如果不是当前会话，会在 UnreadSync 内部 +1）
+            try { if (window.UnreadSync && typeof window.UnreadSync.onIncomingMessage === 'function') { window.UnreadSync.onIncomingMessage(messageData); } } catch(_){ }
         }
 
         /**

@@ -21,7 +21,12 @@ class UserProfileManager {
      */
     async init() {
         console.log('初始化用户档案管理');
-        await this.loadUserInfo();
+        // 若无 token，监听 session:ready 事件后再加载，避免无意义 401
+        if (!this.getAuthToken()) {
+            document.addEventListener('session:ready', () => this.loadUserInfo(), { once: true });
+        } else {
+            await this.loadUserInfo();
+        }
         this.setupEventListeners();
     }
 
@@ -49,8 +54,10 @@ class UserProfileManager {
             });
 
             if (response.ok) {
-                const data = await response.json();
-                this.currentUser = data.user || data;
+                const raw = await response.json();
+                // 兼容结构: { success, data: { user } } 或 { user } 或直接 user 对象
+                const userPayload = raw?.data?.user || raw?.user || raw?.data || raw;
+                this.currentUser = userPayload;
             } else {
                 // 使用模拟数据
                 this.currentUser = this.getMockUserData();
