@@ -39,13 +39,23 @@
          * 初始化各个管理器
          */
         initManagers() {
+            console.log('🔧 MessageModuleRefactored: 开始初始化管理器...');
+            
             // 初始化店铺管理器
             if (window.ShopsManagerRefactored) {
-                this.shopsManager = new window.ShopsManagerRefactored({
-                    onShopSelected: (shop, stats) => this.handleShopSelected(shop, stats),
-                    onShopsLoaded: (shops) => { this.shops = shops; },
-                    debug: false
-                });
+                try {
+                    console.log('📦 创建 ShopsManagerRefactored 实例');
+                    this.shopsManager = new window.ShopsManagerRefactored({
+                        onShopSelected: (shop, stats) => this.handleShopSelected(shop, stats),
+                        onShopsLoaded: (shops) => { this.shops = shops; },
+                        debug: false
+                    });
+                    console.log('✅ ShopsManagerRefactored 创建成功');
+                } catch (e) {
+                    console.error('❌ ShopsManagerRefactored 创建失败:', e);
+                }
+            } else {
+                console.warn('⚠️ window.ShopsManagerRefactored 不存在');
             }
 
             // 初始化对话管理器
@@ -223,14 +233,32 @@
          * 显示店铺列表
          */
         async showShops() {
-            if (this.shopsManager) {
-                await this.shopsManager.init();
-                await this.shopsManager.renderShopsList();
-                this.updateNavigationUI('客服消息', false);
-                this.showView('shopsListView');
-                return this.shopsManager.shops;
+            console.log('🏪 MessageModuleRefactored: 开始显示店铺列表...');
+            
+            if (!this.shopsManager) {
+                console.error('❌ shopsManager 未初始化');
+                throw new Error('店铺管理器未初始化');
             }
-            return [];
+            
+            try {
+                console.log('🔄 初始化店铺管理器...');
+                await this.shopsManager.init();
+                
+                console.log('🎨 渲染店铺列表...');
+                await this.shopsManager.renderShopsList();
+                
+                console.log('🧭 更新导航界面...');
+                this.updateNavigationUI('客服消息', false);
+                
+                console.log('👁️ 显示店铺列表视图...');
+                this.showView('shopsListView');
+                
+                console.log('✅ 店铺列表显示完成，店铺数量:', this.shopsManager.shops?.length || 0);
+                return this.shopsManager.shops || [];
+            } catch (error) {
+                console.error('❌ showShops 执行失败:', error);
+                throw error;
+            }
         }
 
         /**

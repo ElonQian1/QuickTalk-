@@ -42,30 +42,43 @@
             this.error = null;
             
             try {
-                if (this.options.debug) {
-                    console.log('[ShopsManagerRefactored] 开始加载店铺列表');
-                }
+                console.log('[ShopsManagerRefactored] 开始加载店铺列表');
 
                 const response = await fetch('/api/shops', {
                     headers: this.getAuthHeaders()
                 });
                 
+                if (response.status === 401) {
+                    console.warn('[ShopsManagerRefactored] 收到401未授权错误');
+                    this.error = '登录已过期，请重新登录';
+                    this.shops = [];
+                    
+                    // 尝试重新检查登录状态
+                    if (typeof window.checkLoginStatus === 'function') {
+                        setTimeout(() => window.checkLoginStatus(), 1000);
+                    }
+                    return this.shops;
+                }
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
                 const data = await response.json();
+                console.log('[ShopsManagerRefactored] API响应:', data);
                 
                 if (data.success && Array.isArray(data.data)) {
                     this.shops = this.filterActiveShops(data.data);
                     this.options.onShopsLoaded(this.shops);
                     
-                    if (this.options.debug) {
-                        console.log('[ShopsManagerRefactored] 店铺加载成功:', this.shops.length);
-                    }
+                    console.log('[ShopsManagerRefactored] 店铺加载成功，数量:', this.shops.length);
                 } else {
                     this.error = data.error || '获取店铺列表失败';
                     console.error('[ShopsManagerRefactored] 获取店铺失败:', this.error);
                     this.shops = [];
                 }
             } catch (error) {
-                this.error = '网络错误';
+                this.error = '网络错误: ' + error.message;
                 console.error('[ShopsManagerRefactored] 网络错误:', error);
                 this.shops = [];
             } finally {
@@ -168,31 +181,38 @@
          * 渲染店铺列表
          */
         async renderShopsList() {
+            console.log('[ShopsManagerRefactored] 开始渲染店铺列表');
+            
             if (this.shops.length === 0) {
+                console.log('[ShopsManagerRefactored] 店铺列表为空，先加载店铺');
                 await this.loadShops();
             }
             
             // 确保片段已加载
             try {
                 if (window.PartialsLoader && typeof window.PartialsLoader.loadPartials === 'function') {
+                    console.log('[ShopsManagerRefactored] 开始加载页面组件...');
                     await window.PartialsLoader.loadPartials();
+                    console.log('[ShopsManagerRefactored] 页面组件加载完成');
                 }
             } catch(e) {
-                console.warn('[ShopsManagerRefactored] 片段加载器不可用');
+                console.warn('[ShopsManagerRefactored] 片段加载器不可用:', e);
             }
 
             let container = document.getElementById('shopsListView');
             if (!container) {
-                // 延迟重试
-                await new Promise(r => setTimeout(r, 100));
+                console.log('[ShopsManagerRefactored] shopsListView 容器未找到，延迟重试...');
+                // 延迟重试，给组件加载更多时间
+                await new Promise(r => setTimeout(r, 500));
                 container = document.getElementById('shopsListView');
             }
             
             if (!container) {
-                console.warn('[ShopsManagerRefactored] shopsListView 容器未找到');
-                return;
+                console.error('[ShopsManagerRefactored] shopsListView 容器仍未找到，无法渲染店铺列表');
+                throw new Error('找不到店铺列表容器 #shopsListView');
             }
 
+            console.log('[ShopsManagerRefactored] 找到容器，开始渲染内容');
             container.innerHTML = '';
 
             if (this.loading) {

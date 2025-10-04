@@ -7,11 +7,32 @@
 
     // 加载对话列表（消息页面入口）
     window.loadConversations = async function() {
+        console.log('🔄 开始加载对话列表...');
+        
         // 初始化消息模块（如果还没有创建）
         if (!window.messageModule) {
-            if (typeof window.MessageModule === 'function') {
-                try { window.messageModule = new window.MessageModule(); }
-                catch(e){ console.error('初始化 MessageModule 失败:', e); }
+            // 优先尝试重构版本
+            if (typeof window.MessageModuleRefactored === 'function') {
+                try { 
+                    console.log('📦 创建 MessageModuleRefactored 实例');
+                    window.messageModule = new window.MessageModuleRefactored();
+                } catch(e){ 
+                    console.error('初始化 MessageModuleRefactored 失败:', e);
+                }
+            }
+            // 兜底：尝试原版
+            else if (typeof window.MessageModule === 'function') {
+                try { 
+                    console.log('📦 创建 MessageModule 实例');
+                    window.messageModule = new window.MessageModule();
+                } catch(e){ 
+                    console.error('初始化 MessageModule 失败:', e);
+                }
+            } else {
+                console.warn('⚠️ 没有找到可用的 MessageModule 类');
+                // 提供一个基本的兜底实现
+                await loadConversationsFallback();
+                return;
             }
         }
         
@@ -31,13 +52,76 @@
         try {
             // 确保片段加载（避免容器不存在）
             if (window.PartialsLoader && typeof window.PartialsLoader.loadPartials === 'function') {
+                console.log('🔄 加载页面片段...');
                 await window.PartialsLoader.loadPartials();
             }
-        } catch(_) {}
+        } catch(e) {
+            console.warn('片段加载失败:', e);
+        }
+        
         if (window.messageModule && typeof window.messageModule.showShops === 'function') {
-            try { await window.messageModule.showShops(); } catch(e){ console.warn('showShops 调用失败:', e); }
+            try { 
+                console.log('🏪 显示店铺列表...');
+                await window.messageModule.showShops(); 
+                console.log('✅ 对话列表加载完成');
+            } catch(e){ 
+                console.error('showShops 调用失败:', e);
+                await loadConversationsFallback();
+            }
+        } else {
+            console.warn('⚠️ messageModule.showShops 方法不可用，使用兜底方案');
+            await loadConversationsFallback();
         }
     };
+
+    // 兜底方案：直接显示简单的消息界面
+    async function loadConversationsFallback() {
+        console.log('🔄 使用兜底方案加载消息界面...');
+        const messagesSection = document.getElementById('messagesSection');
+        if (messagesSection) {
+            messagesSection.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-icon">💬</div>
+                    <div class="empty-title">消息中心</div>
+                    <div class="empty-desc">正在加载消息模块，请稍候...</div>
+                    <div class="retry-button" onclick="window.loadConversations()" style="margin-top: 15px; padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">重试</div>
+                </div>
+            `;
+        }
+        
+        // 尝试显示基本的错误信息
+        if (typeof showToast === 'function') {
+            showToast('消息模块加载中，请稍后重试', 'info');
+        }
+    }
+
+    // 调试工具：测试消息页面加载
+    window.debugLoadConversations = async function() {
+        console.log('🧪 调试工具：测试消息页面加载');
+        
+        console.log('1. 检查依赖模块...');
+        console.log('- MessageModuleRefactored:', typeof window.MessageModuleRefactored);
+        console.log('- ShopsManagerRefactored:', typeof window.ShopsManagerRefactored);
+        console.log('- PartialsLoader:', typeof window.PartialsLoader?.loadPartials);
+        
+        console.log('2. 检查容器...');
+        console.log('- shopsListView:', !!document.getElementById('shopsListView'));
+        console.log('- messagesPage:', !!document.getElementById('messagesPage'));
+        
+        console.log('3. 测试loadConversations...');
+        try {
+            await window.loadConversations();
+            console.log('✅ loadConversations 执行成功');
+        } catch (e) {
+            console.error('❌ loadConversations 执行失败:', e);
+        }
+        
+        console.log('4. 检查最终状态...');
+        console.log('- messageModule:', !!window.messageModule);
+        console.log('- shopsListView内容:', document.getElementById('shopsListView')?.innerHTML?.substring(0, 100) + '...');
+    };
+
+    console.log('🛠️ 消息调试工具已加载: window.debugLoadConversations()');
 
     // 获取对话列表（备用/模拟数据）
     window.fetchConversations = async function() {

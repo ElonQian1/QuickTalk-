@@ -33,6 +33,40 @@
     };
   }
 
+  // 调试工具：检查当前登录状态和token
+  window.debugAuthStatus = function() {
+    console.log('🔍 当前认证状态调试信息:');
+    console.log('localStorage.quicktalk_user:', localStorage.getItem('quicktalk_user'));
+    console.log('localStorage.authToken:', localStorage.getItem('authToken'));
+    console.log('localStorage.admin_token:', localStorage.getItem('admin_token'));
+    console.log('localStorage.qt_admin_token:', localStorage.getItem('qt_admin_token'));
+    
+    if (typeof getAuthToken === 'function') {
+      const token = getAuthToken();
+      console.log('getAuthToken()结果:', token ? `${token.substr(0, 20)}... (长度: ${token.length})` : '空');
+    }
+    
+    if (window.userData) {
+      console.log('window.userData:', window.userData);
+    }
+  };
+
+  // 调试工具：测试API调用
+  window.testShopsAPI = async function() {
+    console.log('🧪 测试店铺API调用...');
+    try {
+      const shops = await window.fetchShops(true); // 强制刷新
+      console.log('✅ API调用成功，返回店铺数量:', shops.length);
+      console.log('店铺列表:', shops);
+      return shops;
+    } catch (e) {
+      console.error('❌ API调用失败:', e);
+      return null;
+    }
+  };
+
+  console.log('🛠️ 调试工具已加载: window.debugAuthStatus(), window.testShopsAPI()');
+
   // 获取店铺列表
   window.fetchShops = async function fetchShops(options) {
     const TTL = (options && options.ttlMs) || 30000; // 30s 默认TTL
@@ -73,29 +107,117 @@
     try {
       console.log('🔄 正在获取店铺列表...');
 
+      // 增强的token获取逻辑，支持多种token格式
+      const getValidToken = () => {
+        // 尝试从不同来源获取token
+        const sources = [
+          () => {
+            if (typeof getAuthToken === 'function') {
+              return getAuthToken();
+            }
+            return '';
+          },
+          () => localStorage.getItem('authToken') || '',
+          () => localStorage.getItem('admin_token') || '',
+          () => localStorage.getItem('qt_admin_token') || '',
+          () => {
+            try {
+              const userData = localStorage.getItem('quicktalk_user');
+              if (userData) {
+                const parsed = JSON.parse(userData);
+                return parsed.token || parsed.session_id || '';
+              }
+            } catch (e) {
+              console.warn('解析用户数据失败:', e);
+            }
+            return '';
+          }
+        ];
+
+        for (const source of sources) {
+          const token = source();
+          if (token && token.length > 10) { // 基本长度检查
+            return token;
+          }
+        }
+        return '';
+      };
+
       // 等待会话（避免过早请求导致 401 返回空列表）
-      const waitForSession = async (retries = 10, interval = 150) => {
+      const waitForSession = async (retries = 15, interval = 200) => {
         for (let i = 0; i < retries; i++) {
-          const t = (typeof getAuthToken === 'function') ? getAuthToken() : '';
-          if (t) return t;
+          const t = getValidToken();
+          if (t) {
+            console.log(`🔐 获取到token (尝试 ${i + 1}/${retries}): ${t.substr(0, 10)}...`);
+            return t;
+          }
           await new Promise(r => setTimeout(r, interval));
         }
         return '';
       };
 
-      let authToken = (typeof getAuthToken === 'function') ? getAuthToken() : '';
+      let authToken = getValidToken();
       if (!authToken) {
+        console.log('🔄 第一次获取token失败，等待登录状态...');
         authToken = await waitForSession();
       }
 
       if (!authToken) {
-        console.warn('⚠️ 无可用会话 token，延迟返回空数组（未登录或登录尚未完成）');
+        console.warn('⚠️ 无可用会话 token，可能需要重新登录');
+        // 尝试触发登录状态检查
+        if (typeof window.checkLoginStatus === 'function') {
+          console.log('🔄 尝试重新检查登录状态...');
+          try {
+            const loginOk = await window.checkLoginStatus();
+            if (!loginOk) {
+              console.log('❌ 登录状态检查失败，用户需要重新登录');
+              return [];
+            }
+            // 重新获取token
+            authToken = getValidToken();
+          } catch (e) {
+            console.warn('登录状态检查出错:', e);
+          }
+        }
+        
+      if (!authToken) {
+        console.warn('⚠️ 最终无法获取有效token，尝试验证会话状态...');
+        
+        // 最后尝试：调用session验证API
+        try {
+          const sessionResponse = await fetch('/api/auth/session');
+          if (sessionResponse.ok) {
+            const sessionData = await sessionResponse.json();
+            console.log('🔍 会话验证结果:', sessionData);
+            
+            if (sessionData.success && sessionData.data && !sessionData.data.authenticated) {
+              console.log('❌ 会话已过期，需要重新登录');
+              if (typeof window.checkLoginStatus === 'function') {
+                window.checkLoginStatus();
+              }
+              return [];
+            }
+          }
+        } catch (e) {
+          console.warn('会话验证失败:', e);
+        }
+        
+        console.warn('⚠️ 无法建立有效会话，返回空数组');
         return [];
+      }
       }
 
       const apiUrl = '/api/shops';
-      const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}`, 'X-Session-Id': authToken };
-      console.log(`📡 调用API: ${apiUrl}`, { hasToken: !!authToken });
+      const headers = { 
+        'Content-Type': 'application/json', 
+        'Authorization': `Bearer ${authToken}`, 
+        'X-Session-Id': authToken 
+      };
+      console.log(`📡 调用API: ${apiUrl}`, { 
+        hasToken: !!authToken, 
+        tokenLength: authToken.length,
+        tokenPrefix: authToken.substr(0, 10) + '...'
+      });
 
       const response = await fetch(apiUrl, { headers });
       if (response.status === 401) {
@@ -105,8 +227,29 @@
           if (diag.ok) {
             const j = await diag.json();
             console.log('🩺 会话诊断:', j);
+            if (j.data && !j.data.authenticated) {
+              console.log('❌ 会话确认已过期，清理本地存储并重定向登录');
+              // 清理所有可能的token
+              localStorage.removeItem('quicktalk_user');
+              localStorage.removeItem('authToken');
+              localStorage.removeItem('admin_token');
+              localStorage.removeItem('qt_admin_token');
+              localStorage.removeItem('qt_admin_user');
+              
+              // 重定向到登录页面
+              setTimeout(() => {
+                window.location.href = '/mobile/login';
+              }, 1000);
+              
+              if (typeof showToast === 'function') {
+                showToast('登录已过期，正在跳转到登录页面...', 'warning');
+              }
+              return [];
+            }
           }
-        } catch(_){ }
+        } catch(e) { 
+          console.warn('会话诊断失败:', e);
+        }
         try { sessionStorage.removeItem(CACHE_KEY); } catch(_) {}
         if (typeof showToast === 'function') showToast('登录已过期或未登录，请重新登录', 'warning');
         return [];

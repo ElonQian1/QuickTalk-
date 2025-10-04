@@ -95,6 +95,7 @@
             const token = this.getAuthToken();
             return {
                 'Authorization': `Bearer ${token}`,
+                'X-Session-Id': token,  // 后端SessionExtractor需要这个头
                 'Content-Type': 'application/json'
             };
         }
