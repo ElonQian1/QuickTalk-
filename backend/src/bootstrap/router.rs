@@ -9,7 +9,7 @@ use crate::api;
 use crate::web;
 use crate::ws;
 use crate::api::admin::{admin_login, admin_register, get_account_stats, recover_super_admin, admin_logout, admin_change_password, admin_me, admin_update_profile};
-use crate::api::conversations::{get_conversations, get_messages, get_message_by_id, search_conversations, create_conversation, get_conversation_details, update_conversation_status, get_conversation_summary, send_message, update_message, delete_message};
+use crate::api::conversations::{get_conversations, get_messages, get_message_by_id, search_conversations, create_conversation, get_conversation_details, update_conversation_status, get_conversation_summary, send_message, update_message, delete_message, mark_conversation_read};
 use crate::api::events::replay_events;
 use crate::api::uploads::{upload_file, list_uploaded_files};
 use crate::api::employees::{
@@ -83,6 +83,7 @@ pub async fn build_app(db: SqlitePool) -> Router {
         .route("/api/conversations/:id/messages/:message_id", put(update_message).delete(delete_message))
         .route("/api/conversations/:id/status", put(update_conversation_status))
         .route("/api/conversations/:id/summary", get(get_conversation_summary))
+        .route("/api/conversations/:id/read", post(mark_conversation_read))
     .route("/api/events/replay", get(replay_events))
         .route("/api/workbench/summary", get(get_workbench_summary))
     // 兼容旧前端：用户信息与仪表盘
