@@ -8,7 +8,7 @@
 
     class MessagesManager {
         constructor(options = {}) {
-            this.messages = [];
+            this.messages = []; // 将被代理
             this.currentConversationId = null;
             this.currentCustomer = null;
             this.debug = options.debug || false;
@@ -44,10 +44,12 @@
                 this.showLoadingState();
 
                 const messages = await this.fetchMessages(conversationId);
-                this.messages = messages;
-                
-                this.renderMessages();
-                this.scrollToBottom();
+                // 写入集中状态仓库
+                if (window.MessageStateStore) {
+                    try { MessageStateStore.setMessages(conversationId, messages); } catch(_){ }
+                } else {
+                    this.messages = messages; // 回退
+                }
                 
                 return messages;
             } catch (error) {
@@ -159,90 +161,60 @@
          * 发送文本消息
          */
         async sendTextMessage(content) {
-            if (!content || !content.trim()) {
-                if (window.Notify) {
-                    window.Notify.warning('请输入消息内容');
-                }
-                return false;
+            // 新实现：统一委托 MessageSendChannel
+            if (!content || !content.trim()) { window.Notify && window.Notify.warning('请输入消息内容'); return false; }
+            if (!this.currentConversationId) { window.Notify && window.Notify.error('请先选择一个对话'); return false; }
+            if (window.MessageSendChannelInstance && window.MessageSendChannelInstance.sendText) {
+                const tempId = window.MessageSendChannelInstance.sendText(content.trim());
+                return !!tempId;
             }
-
-            if (!this.currentConversationId) {
-                if (window.Notify) {
-                    window.Notify.error('请先选择一个对话');
-                }
-                return false;
-            }
-
-            const messageData = {
-                type: 'message',
-                conversation_id: this.currentConversationId,
-                content: content.trim(),
-                files: [],
-                sender_type: 'agent',
-                timestamp: Date.now()
-            };
-
-            if (this.debug) {
-                console.log('[MessagesManager] 发送文本消息:', messageData);
-            }
-
-            return this.sendWebSocketMessage(messageData);
+            // 回退：旧逻辑（保持最小兼容，不再主动维护）
+            if (this.debug) console.warn('[MessagesManager] 统一发送通道未加载，使用降级发送路径');
+            const ok = this._deprecatedDirectSend(content.trim());
+            return ok;
         }
 
         /**
          * 发送文件消息
          */
         async sendFileMessage(fileInfo) {
-            if (!fileInfo || !fileInfo.url) {
-                if (window.Notify) {
-                    window.Notify.error('文件信息无效');
-                }
-                return false;
+            if (!fileInfo) { window.Notify && window.Notify.error('文件信息无效'); return false; }
+            if (!this.currentConversationId) { window.Notify && window.Notify.error('请先选择一个对话'); return false; }
+            if (window.MessageSendChannelInstance && window.MessageSendChannelInstance.sendFile) {
+                try { const tempId = await window.MessageSendChannelInstance.sendFile(fileInfo._rawFile || fileInfo.file || fileInfo); return !!tempId; } catch(e){ window.Notify && window.Notify.error('文件发送失败'); return false; }
             }
-
-            if (!this.currentConversationId) {
-                if (window.Notify) {
-                    window.Notify.error('请先选择一个对话');
-                }
-                return false;
-            }
-
-            const messageData = {
-                type: 'message',
-                conversation_id: this.currentConversationId,
-                content: '',
-                files: [fileInfo],
-                sender_type: 'agent',
-                timestamp: Date.now()
-            };
-
-            if (this.debug) {
-                console.log('[MessagesManager] 发送文件消息:', messageData);
-            }
-
-            return this.sendWebSocketMessage(messageData);
+            if (this.debug) console.warn('[MessagesManager] 统一发送通道未加载，文件走降级发送');
+            return this._deprecatedDirectSend('', fileInfo);
         }
 
         /**
          * 发送WebSocket消息
          */
         sendWebSocketMessage(messageData) {
-            // 优先使用WebSocket适配器
+            // @deprecated: 已由 MessageSendChannel 统一；此方法仅用于降级路径
             if (window.MessageWSAdapter && window.messageModule && window.messageModule.wsAdapter) {
-                return window.messageModule.wsAdapter.send(messageData);
+                try { return window.messageModule.wsAdapter.send(messageData); } catch(_){ }
             }
-
-            // 降级：直接使用WebSocket
-            if (window.messageModule && window.messageModule.websocket && 
-                window.messageModule.websocket.readyState === WebSocket.OPEN) {
-                window.messageModule.websocket.send(JSON.stringify(messageData));
-                return true;
+            if (window.messageModule && window.messageModule.websocket && window.messageModule.websocket.readyState === WebSocket.OPEN) {
+                try { window.messageModule.websocket.send(JSON.stringify(messageData)); return true; } catch(_){ }
             }
-
-            if (window.Notify) {
-                window.Notify.error('WebSocket连接不可用');
-            }
+            window.Notify && window.Notify.error('WebSocket连接不可用');
             return false;
+        }
+
+        /**
+         * @deprecated 旧直接发送逻辑（无回流去重、无队列重试），仅在统一发送通道缺失时兜底
+         */
+        _deprecatedDirectSend(content, fileInfo){
+            const payload = {
+                type: 'message',
+                conversation_id: this.currentConversationId,
+                content: content || '',
+                files: fileInfo ? [fileInfo] : [],
+                sender_type: 'agent',
+                timestamp: Date.now()
+            };
+            return this.sendWebSocketMessage(payload);
         }
 
         /**
@@ -261,16 +233,16 @@
             }
 
             // 只处理当前对话的消息渲染
-            if (this.currentConversationId && 
-                String(messageData.conversation_id) === String(this.currentConversationId)) {
-                
-                // 去重检查
-                if (!this.isDuplicateMessage(messageData)) {
-                    this.messages.push(messageData);
-                    this.renderMessage(messageData);
-                    this.scrollToBottom();
-                } else if (this.debug) {
-                    console.log('[MessagesManager] 跳过重复消息');
+            if (window.MessageStateStore && this.currentConversationId && String(messageData.conversation_id) === String(this.currentConversationId)) {
+                // 状态仓库 append (去重交由上游或后续可增强)
+                MessageStateStore.appendMessage(this.currentConversationId, messageData);
+            } else if (!window.MessageStateStore) {
+                if (this.currentConversationId && String(messageData.conversation_id) === String(this.currentConversationId)) {
+                    if (!this.isDuplicateMessage(messageData)) {
+                        this.messages.push(messageData);
+                        this.renderMessage(messageData);
+                        this.scrollToBottom();
+                    }
                 }
             }
 
@@ -293,14 +265,15 @@
             }
 
             // 更新内存中的消息
-            const index = this.messages.findIndex(m => m.id === messageData.id);
-            if (index >= 0) {
-                this.messages[index] = { ...this.messages[index], ...messageData };
-                
-                // 如果是当前对话，重新渲染
-                if (this.currentConversationId && 
-                    String(messageData.conversation_id) === String(this.currentConversationId)) {
-                    this.renderMessages();
+            if (window.MessageStateStore && this.currentConversationId) {
+                MessageStateStore.updateMessage(this.currentConversationId, messageData);
+            } else {
+                const index = this.messages.findIndex(m => m.id === messageData.id);
+                if (index >= 0) {
+                    this.messages[index] = { ...this.messages[index], ...messageData };
+                    if (this.currentConversationId && String(messageData.conversation_id) === String(this.currentConversationId)) {
+                        this.renderMessages();
+                    }
                 }
             }
 
@@ -325,14 +298,14 @@
             const { id, conversation_id } = payload;
             
             // 从内存中移除
-            const beforeCount = this.messages.length;
-            this.messages = this.messages.filter(m => m.id !== id);
-            
-            // 如果是当前对话且确实删除了消息，重新渲染
-            if (this.currentConversationId && 
-                String(conversation_id) === String(this.currentConversationId) &&
-                this.messages.length !== beforeCount) {
-                this.renderMessages();
+            if (window.MessageStateStore && this.currentConversationId) {
+                MessageStateStore.removeMessage(this.currentConversationId, id);
+            } else {
+                const beforeCount = this.messages.length;
+                this.messages = this.messages.filter(m => m.id !== id);
+                if (this.currentConversationId && String(conversation_id) === String(this.currentConversationId) && this.messages.length !== beforeCount) {
+                    this.renderMessages();
+                }
             }
 
             // 触发事件
@@ -406,6 +379,7 @@
          * 获取消息列表
          */
         getMessages() {
+            if (window.MessageStateStore && this.currentConversationId) return MessageStateStore.getMessages(this.currentConversationId).slice();
             return [...this.messages];
         }
 
@@ -413,7 +387,11 @@
          * 重置状态
          */
         reset() {
-            this.messages = [];
+            if (window.MessageStateStore) {
+                // 清空当前对话消息仅在切换时由上层 setMessages 决定，这里不强行改 store
+            } else {
+                this.messages = [];
+            }
             this.currentConversationId = null;
             this.currentCustomer = null;
             this._loadingMessagesFor = null;
@@ -432,6 +410,20 @@
 
     // 暴露到全局
     window.MessagesManager = MessagesManager;
+
+    // 属性代理：若 StateStore 存在，将 messages getter 指向 Store
+    try {
+        if (window.MessageStateStore && !Object.getOwnPropertyDescriptor(MessagesManager.prototype, 'messages')?.get) {
+            Object.defineProperty(MessagesManager.prototype, 'messages', {
+                configurable: true,
+                get(){
+                    if (window.MessageStateStore && this.currentConversationId) return MessageStateStore.getMessages(this.currentConversationId);
+                    return this._fallbackMessages || [];
+                },
+                set(v){ this._fallbackMessages = Array.isArray(v)? v: []; }
+            });
+        }
+    } catch(_){ }
     
     console.log('✅ 消息管理器已加载 (messages-manager.js)');
 })();

@@ -155,6 +155,7 @@ class BadgeUpdateCoordinator {
         this.updateQueue = [];
         this.isProcessing = false;
         this.navBadgeManager = null;
+        this._bindUnreadAggregator();
         
         // 监听自定义事件
         this.setupEventListeners();
@@ -234,21 +235,15 @@ class BadgeUpdateCoordinator {
      * 计算总未读数量
      */
     async calculateTotalUnreadCount() {
-        let totalUnread = 0;
-        
-        // 统计所有店铺的未读数量
-        const shopCards = document.querySelectorAll('.shop-card[data-shop-id]');
-        for (const card of shopCards) {
-            const shopId = card.getAttribute('data-shop-id');
-            if (shopId && !this.isTempId(shopId) && window.shopCardManager) {
-                const badge = window.shopCardManager.badges.get(shopId);
-                if (badge) {
-                    totalUnread += badge.count || 0;
-                }
-            }
+        if (window.unreadBadgeAggregator) {
+            return window.unreadBadgeAggregator.getTotals().total;
         }
-        
-        return totalUnread;
+        // 回退旧逻辑 (仅在 aggregator 不存在时)
+        let total = 0;
+        if (window.shopCardManager) {
+            window.shopCardManager.badges.forEach(b => { total += (b.count||0); });
+        }
+        return total;
     }
 
     /**
@@ -306,6 +301,15 @@ class BadgeUpdateCoordinator {
         console.log('⏸️ 红点更新协调器已禁用');
     }
 }
+
+BadgeUpdateCoordinator.prototype._bindUnreadAggregator = function(){
+    document.addEventListener('unread:update', (e)=>{
+        const detail = e.detail || {};
+        if (this.navBadgeManager) {
+            this.navBadgeManager.updateNavBadge('messages', detail.total || 0);
+        }
+    });
+};
 
 // 自动初始化协调器
 if (document.readyState === 'loading') {

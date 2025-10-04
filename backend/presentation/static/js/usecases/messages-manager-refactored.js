@@ -108,114 +108,24 @@
          * 发送文本消息
          */
         async sendTextMessage(content) {
-            if (!content || !content.trim()) {
-                console.warn('[MessagesManagerRefactored] 消息内容为空');
-                return false;
-            }
-            
-            if (!this.currentConversationId) {
-                console.warn('[MessagesManagerRefactored] 当前对话ID为空');
-                return false;
-            }
-
-            // 优先使用统一发送通道（若已初始化）
+            if (!content || !content.trim()) { console.warn('[MessagesManagerRefactored] 空消息'); return false; }
+            if (!this.currentConversationId) { console.warn('[MessagesManagerRefactored] 无当前对话'); return false; }
             if (window.MessageSendChannelInstance && window.MessageSendChannelInstance.sendText) {
-                try {
-                    const tempId = window.MessageSendChannelInstance.sendText(content.trim());
-                    return !!tempId;
-                } catch(e){ console.warn('[MessagesManagerRefactored] 统一发送通道发送失败，回退旧逻辑', e); }
+                try { return !!window.MessageSendChannelInstance.sendText(content.trim()); } catch(e){ console.warn('[MessagesManagerRefactored] sendChannel 发送失败', e); return false; }
             }
-            
-            const now = Date.now();
-            const tempId = 'temp_' + (window.globalUtils ? window.globalUtils.generateId() : Math.random().toString(36).slice(2));
-            const messageData = {
-                type: 'message',
-                conversation_id: this.currentConversationId,
-                content: content.trim(),
-                files: [],
-                sender_type: 'agent',
-                timestamp: now,
-                temp_id: tempId,
-                status: 'pending'
-            };
-
-            // 乐观插入
-            this.messages.push(messageData);
-            this.renderMessage(messageData);
-            this.scrollToBottom();
-            
-            // 启动超时检测（如未回流则标记失败允许重试）
-            this._armPendingTimeout(messageData);
-
-            try {
-                // 通过WebSocket发送
-                if (this.sendViaWebSocket(messageData)) {
-                    if (this.options.debug) console.log('[MessagesManagerRefactored] 消息已通过WebSocket发送 (WS 乐观)');
-                    return true; // 回流后会自动替换
-                }
-                // 降级：通过HTTP API发送（使用 safeRequest 优先）
-                const apiOk = await this.sendViaAPI(messageData);
-                if (!apiOk) this._markMessageFailed(tempId, '发送失败');
-                return apiOk;
-            } catch (error) {
-                console.error('[MessagesManagerRefactored] 发送消息异常:', error);
-                this._markMessageFailed(tempId, error?.message || '发送异常');
-                return false;
-            }
+            console.warn('[MessagesManagerRefactored] sendChannel 未加载，降级不再支持旧独立路径');
+            return false;
         }
 
         /**
          * 通过WebSocket发送消息
          */
-        sendViaWebSocket(messageData) {
-            // 优先使用注入的 wsSend
-            if (typeof this.options.wsSend === 'function') {
-                try { return !!this.options.wsSend(messageData); } catch(e){ console.warn('wsSend注入失败', e); }
-            }
-            // 回退：尝试全局精简协调器实例
-            const ref = window.MessageModuleRef || window.messageModule || window.MessageModule;
-            if (ref && ref.wsAdapter && typeof ref.wsAdapter.send === 'function') {
-                return ref.wsAdapter.send(messageData);
-            }
-            if (ref && ref.websocket && ref.websocket.readyState === WebSocket.OPEN) {
-                try { ref.websocket.send(JSON.stringify(messageData)); return true; } catch(_){}
-            }
-            return false;
-        }
+        sendViaWebSocket(){ console.warn('[MessagesManagerRefactored] sendViaWebSocket 已废弃，统一由 MessageSendChannel 处理'); return false; }
 
         /**
          * 通过API发送消息
          */
-        async sendViaAPI(messageData) {
-            // 优先使用 safeRequest（带重试能力）
-            if (window.safeRequest) {
-                try {
-                    const data = await window.safeRequest('/api/messages', {
-                        method: 'POST',
-                        body: JSON.stringify(messageData),
-                        retry: 1,
-                        retryDelay: 400,
-                        expectedStatus: 200,
-                        transform: (json)=> json,
-                        silent: true
-                    });
-                    if (data && (data.success || data.id)) {
-                        if (this.options.debug) console.log('[MessagesManagerRefactored] safeRequest API 发送成功');
-                        return true;
-                    }
-                    return false;
-                } catch (e) {
-                    if (this.options.debug) console.warn('[MessagesManagerRefactored] safeRequest 发送失败', e);
-                    return false;
-                }
-            }
-            // 回退 fetch
-            try {
-                const response = await fetch('/api/messages', { method: 'POST', headers: this.getAuthHeaders(), body: JSON.stringify(messageData) });
-                const data = await response.json();
-                return !!(data && data.success);
-            } catch(e){ return false; }
-        }
+        async sendViaAPI(){ console.warn('[MessagesManagerRefactored] sendViaAPI 已废弃，统一由 MessageSendChannel 处理'); return false; }
 
         /**
          * 处理新消息事件
@@ -396,42 +306,13 @@
         }
 
         // 启动 pending 超时
-        _armPendingTimeout(message){
-            const timeoutMs = 8000; // 8 秒未回流视为失败
-            setTimeout(()=>{
-                const idx = this.messages.findIndex(m => m.temp_id === message.temp_id && m.status === 'pending');
-                if (idx >= 0) {
-                    this.messages[idx].status = 'failed';
-                    this.renderMessages();
-                }
-            }, timeoutMs);
-        }
+        _armPendingTimeout(){ /* 已交由 MessageSendChannel 处理 ack/回流 逻辑（未来扩展） */ }
 
         // 标记失败
-        _markMessageFailed(tempId, reason){
-            const idx = this.messages.findIndex(m => m.temp_id === tempId);
-            if (idx >= 0) {
-                this.messages[idx].status = 'failed';
-                this.messages[idx].fail_reason = reason || '发送失败';
-                this.renderMessages();
-            }
-        }
+        _markMessageFailed(){ /* 失败状态交由发送通道回流 patch 处理 */ }
 
         // 重试发送
-        async _retrySend(message){
-            if (!message || !message.temp_id) return;
-            // 重置状态
-            message.status = 'pending';
-            this.renderMessages();
-            this.scrollToBottom();
-            // 重新发送（新时间戳）
-            message.timestamp = Date.now();
-            try {
-                if (this.sendViaWebSocket(message)) return; // 等回流
-                const ok = await this.sendViaAPI(message);
-                if (!ok) this._markMessageFailed(message.temp_id, '重试失败');
-            } catch(e){ this._markMessageFailed(message.temp_id, e?.message); }
-        }
+        async _retrySend(){ console.warn('[MessagesManagerRefactored] _retrySend 已废弃，统一使用 MessageSendChannel.retry'); }
 
         /**
          * 滚动到底部

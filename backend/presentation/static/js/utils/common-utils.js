@@ -312,3 +312,15 @@
     // TODO: 实现店铺管理模态框
   };
 })();
+
+// 如果全局配置中心存在，给出简单的提示（不打断已有加载顺序）
+(function(){
+  if (window.QT_CONFIG && !window.__QT_COMMON_UTILS_LOGGED) {
+    window.__QT_COMMON_UTILS_LOGGED = true;
+    if (window.QT_LOG) {
+      window.QT_LOG.debug('commonUtils', 'common-utils 已加载');
+    } else {
+      console.log('ℹ️[commonUtils] 已加载 (QT_LOG 未就绪)');
+    }
+  }
+})();

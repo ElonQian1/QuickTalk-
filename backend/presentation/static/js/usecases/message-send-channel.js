@@ -206,31 +206,89 @@
 
     _buildOutboundPayload(item){
       const base = {
-        type: 'message',
-        temp_id: item.tempId,
         conversation_id: item.conversation_id,
-        sender_type: 'agent'
+        sender_type: 'agent',
+        sender_id: 'admin',
+        message_type: 'text',
+        temp_id: item.tempId
       };
-      if (item.type === 'text') base.content = item.payload.content;
-      if (item.type === 'file') base.files = [{ ...(item.payload.fileMeta||{}) }];
-      if (item.type === 'voice') base.voice = { ...(item.payload.voiceMeta||{}) };
+      
+      if (item.type === 'text') {
+        base.content = item.payload.content;
+      }
+      if (item.type === 'file') {
+        base.content = item.payload.fileMeta?.name || '文件';
+        base.message_type = 'file';
+        base.files = [{ ...(item.payload.fileMeta||{}) }];
+      }
+      if (item.type === 'voice') {
+        base.content = '语音消息';
+        base.message_type = 'voice';
+        base.voice = { ...(item.payload.voiceMeta||{}) };
+      }
+      
       return base;
     }
 
     async _sendOutbound(payload){
-      // 优先使用注入 wsSend，可返回 boolean 或 Promise<boolean>
-      if (typeof this.opts.wsSend === 'function') {
-        try { return !!(await this.opts.wsSend(payload)); } catch(e){ return false; }
+      // 使用API发送而不是WebSocket，确保消息通过后端UseCase处理
+      try {
+        const response = await fetch(`/api/conversations/${payload.conversation_id}/messages`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this._getAuthToken()}`,
+            'X-Session-Id': this._getSessionId()
+          },
+          body: JSON.stringify({
+            conversation_id: payload.conversation_id,
+            content: payload.content || '',
+            sender_type: payload.sender_type || 'agent',
+            sender_id: payload.sender_id || 'admin',
+            message_type: payload.message_type || 'text',
+            temp_id: payload.temp_id
+          })
+        });
+
+        if (!response.ok) {
+          console.error('[MessageSendChannel] API发送失败:', response.status, response.statusText);
+          return false;
+        }
+
+        const result = await response.json();
+        if (!result.success) {
+          console.error('[MessageSendChannel] API返回失败:', result.message);
+          return false;
+        }
+
+        if (this.opts.debug) console.log('[MessageSendChannel] API发送成功:', result.data);
+        return true;
+      } catch (error) {
+        console.error('[MessageSendChannel] API发送异常:', error);
+        return false;
       }
-      // 回退全局 messageModule/wsAdapter
-      const ref = window.MessageModuleRef || window.messageModule || window.MessageModuleInstance || window.messageModuleInstance;
-      if (ref && ref.wsAdapter && typeof ref.wsAdapter.send === 'function') {
-        try { return !!ref.wsAdapter.send(payload); } catch(_){ return false; }
+    }
+
+    _getAuthToken() {
+      // 获取认证令牌
+      if (window.authHelper && typeof window.authHelper.getAuthToken === 'function') {
+        return window.authHelper.getAuthToken();
       }
-      if (ref && ref.websocket && ref.websocket.readyState === WebSocket.OPEN) {
-        try { ref.websocket.send(JSON.stringify(payload)); return true; } catch(_){ return false; }
+      // 回退到其他方式
+      return localStorage.getItem('quicktalk_token') || 
+             localStorage.getItem('authToken') || 
+             sessionStorage.getItem('quicktalk_token') || 
+             'dummy-token';
+    }
+
+    _getSessionId() {
+      // 获取会话ID
+      if (window.authHelper && typeof window.authHelper.getSessionId === 'function') {
+        return window.authHelper.getSessionId();
       }
-      return false;
+      return localStorage.getItem('quicktalk_user') || 
+             sessionStorage.getItem('quicktalk_user') || 
+             'admin-session';
     }
 
     _handleSendFailure(item, reason){

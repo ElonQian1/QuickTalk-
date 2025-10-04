@@ -19,12 +19,14 @@ if (window.__NavBadgeManagerLoaded) {
 class NavBadgeManager {
     constructor() {
         this.__version = '1.1.0';
-        this.isDebugMode = false;
+        this.isDebugMode = false; // 兼容旧逻辑
+        this.ns = 'navBadge';
         this.navBadges = new Map(); // 存储各个导航项的红点状态
         this.conversationListeners = new Map(); // 存储conversation-item事件监听器
         
         this.debug('导航红点管理器初始化完成');
         this.setupEventListeners();
+        this._subscribeUnreadAggregator();
     }
 
     /**
@@ -39,7 +41,9 @@ class NavBadgeManager {
      * 调试日志
      */
     debug(...args) {
-        if (this.isDebugMode) {
+        if (window.QT_LOG) {
+            window.QT_LOG.debug(this.ns, ...args);
+        } else if (this.isDebugMode) {
             console.log('🧭 NavBadgeManager:', ...args);
         }
     }
@@ -70,6 +74,15 @@ class NavBadgeManager {
         });
 
         this.debug('事件监听器设置完成');
+    }
+
+    _subscribeUnreadAggregator(){
+        document.addEventListener('unread:update', (e)=>{
+            const detail = e.detail || {};
+            const total = detail.total || 0;
+            this.updateNavBadge('messages', total);
+            this.debug('收到 unread:update 事件 -> messages =', total, 'reason=', detail.reason);
+        });
     }
 
     /**

@@ -22,3 +22,42 @@
 .loading-text { font-size: 13px; }
 
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ==========================================================
+	 竖向排列覆盖（消息页面）
+	 需求: “消息栏也要竖向排列” -> 将对话条目内容改为上下堆叠显示
+	 作用范围: 仅 #messagesPage 下，不影响其它复用对话组件的区域
+	 若后续需要在桌面端保持横向，可加媒体查询条件
+	 ========================================================== */
+#messagesPage .conversation-list .conversation-item {
+	flex-direction: column;          /* 主轴改为纵向 */
+	align-items: flex-start;         /* 左对齐内容 */
+	gap: 8px;                        /* 垂直间距 */
+}
+
+#messagesPage .conversation-item .conversation-avatar {
+	margin-right: 0;                 /* 去掉横向间距 */
+	margin-bottom: 4px;              /* 增加与文本间的垂直间距 */
+}
+
+#messagesPage .conversation-item .conversation-header {
+	width: 100%;
+	flex-wrap: wrap;                 /* 防止溢出 */
+}
+
+#messagesPage .conversation-item .last-message {
+	white-space: normal;             /* 允许换行 */
+	line-height: 1.4;
+	display: -webkit-box;            /* 可选：最多显示2行溢出省略 */
+		-webkit-line-clamp: 2;
+		line-clamp: 2; /* 兼容性提示 */
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+
+/* 小屏优化：缩小左右 padding 适应纵向结构 */
+@media (max-width: 480px) {
+	#messagesPage .conversation-list .conversation-item {
+		padding: 10px 12px;
+	}
+}
