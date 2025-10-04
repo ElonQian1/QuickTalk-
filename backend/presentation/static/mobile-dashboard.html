@@ -36,10 +36,14 @@
     <link rel="stylesheet" href="/static/css/payment-styles.css">
     <link rel="stylesheet" href="/static/css/settings-panel-styles.css">
     <link rel="stylesheet" href="/static/css/promotion-integration-styles.css">
+    <link rel="stylesheet" href="/static/css/promotion-modal-debug.css">
+    <link rel="stylesheet" href="/static/css/unread-badge-force.css">
     <link rel="stylesheet" href="/static/css/chat-interface-styles.css">
     <link rel="stylesheet" href="/static/css/state-styles.css">
     <link rel="stylesheet" href="/static/css/messages-list.css">
     <link rel="stylesheet" href="/static/css/shops-grid.css">
+    <!-- 新增：消息模块布局/长消息折叠/纵横布局支持 -->
+    <link rel="stylesheet" href="/static/css/layout-modes.css">
     
     <!-- UI 启动（usecases）：数据同步与店铺卡片管理器初始化 -->
     <!-- 移除重复引用，保留文末业务模块统一启动的 ui-bootstrap.js -->
@@ -90,6 +94,15 @@
     <script src="/static/js/core/constants.js"></script>
     <script src="/static/js/core/logger.js"></script>
     <script src="/static/js/core/event-bus.js"></script>
+    <!-- 新增 消息域核心 (事件总线/类型/状态/发送/渲染/typing) -->
+    <script src="/static/js/message/core/message-event-bus.js"></script>
+    <script src="/static/js/message/core/message-type-registry.js"></script>
+    <script src="/static/js/message/core/message-state-store.js"></script>
+    <script src="/static/js/message/core/message-sender.js"></script>
+    <script src="/static/js/message/ui/message-render-adapter.js"></script>
+    <script src="/static/js/message/ui/typing-indicator-adapter.js"></script>
+    <!-- 布局模式切换 (horizontal/vertical) -->
+    <script src="/static/js/ui/layout-toggle.js"></script>
     
     <!-- 2. 领域模型和服务 -->
     <script src="/static/js/domain/entities/conversation.js"></script>
@@ -209,6 +222,8 @@
     
     <!-- 消息页工具（usecases） -->
     <script src="/static/js/usecases/message-tools.js"></script>
+    <!-- 消息发送通道（usecases） - 统一消息发送逻辑 -->
+    <script src="/static/js/usecases/message-send-channel.js"></script>
     <!-- 对话基础动作（usecases） -->
     <script src="/static/js/usecases/conversation-actions.js"></script>
     <!-- 推广功能模块（usecases） -->
@@ -334,6 +349,10 @@
     <!-- 推广赚钱模态框（组件引入） -->
     <div data-include="/static/components/modals/promotion-modal.html"></div>
     <script src="/static/js/modals/promotion-modal.js"></script>
+    <script src="/static/js/debug/promotion-modal-debug.js"></script>
+    <script src="/static/js/debug/unread-badge-debug.js"></script>
+    <script src="/static/js/debug/message-send-debug.js"></script>
+    <script src="/static/js/fixes/unread-badge-fix.js"></script>
 
     <!-- 超级管理员面板模态框 -->
     <div data-include="/static/components/modals/admin-panel-modal.html"></div>
@@ -378,6 +397,14 @@
     <script src="/static/js/bootstrap/app-bootstrap.js"></script>
     <!-- 9.1 消息模块单一启动器（小步快跑：确保只实例化精简协调器） -->
     <script src="/static/js/bootstrap/messages-micro-bootstrap.js"></script>
+        <!-- 初始化消息渲染适配器（在核心加载后，可由 micro-bootstrap 或下列自执行逻辑兜底） -->
+        <script>
+            (function(){
+                if (window.MessageRenderAdapter && !window.__MESSAGE_RENDER_INIT__) {
+                    try { window.MessageRenderAdapter.init(); window.__MESSAGE_RENDER_INIT__ = true; } catch(e){ console.warn('MessageRenderAdapter init failed', e); }
+                }
+            })();
+        </script>
     
     <!-- 开发环境调试工具 -->
         <script src="/static/js/utils/module-debugger.js"></script>
