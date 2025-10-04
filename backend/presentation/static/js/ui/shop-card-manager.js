@@ -14,10 +14,14 @@ window.ModuleLoader = window.ModuleLoader || { defineClass: (name, fn) => fn() }
 class ShopCardManager {
     constructor() {
         this.badges = new Map(); // 存储每个店铺的红点组件
-        this.isDebugMode = false;
         this.dataSyncManager = null;
-        
-        // 绑定数据同步管理器
+        this.ns = 'shopCard';
+        // 兼容旧 isDebugMode 属性（与 QT_CONFIG 同步）
+        Object.defineProperty(this, 'isDebugMode', {
+            get: () => !!(window.QT_CONFIG && window.QT_CONFIG.debug && window.QT_CONFIG.debug.namespaces[this.ns]),
+            set: (v) => { if (window.QT_LOG) window.QT_LOG.setDebug(this.ns, !!v); }
+        });
+
         if (window.unifiedDataSyncManager) {
             this.dataSyncManager = window.unifiedDataSyncManager;
         } else if (window.dataSyncManager) {
@@ -33,7 +37,12 @@ class ShopCardManager {
      * 开启调试模式
      */
     enableDebug() {
-        this.isDebugMode = true;
+        if (window.QT_LOG) {
+            window.QT_LOG.setDebug(this.ns, true);
+        } else {
+            // 回退到旧逻辑
+            this.isDebugMode = true;
+        }
         return this;
     }
 
@@ -41,7 +50,9 @@ class ShopCardManager {
      * 调试日志
      */
     debug(...args) {
-        if (this.isDebugMode) {
+        if (window.QT_LOG) {
+            window.QT_LOG.debug(this.ns, ...args);
+        } else if (this.isDebugMode) { // 极端早期加载回退
             console.log('🏪 ShopCardManager:', ...args);
         }
     }
@@ -82,10 +93,15 @@ class ShopCardManager {
      * @returns {Promise<UnreadBadgeComponent>} 红点组件
      */
     async convertShopCard(shopCard, shopId) {
-        // 查找 shop-status 元素
-        const statusElement = shopCard.querySelector('.shop-status');
+        // 查找 / 兜底创建 shop-status 元素
+        let statusElement = shopCard.querySelector('.shop-status');
         if (!statusElement) {
-            throw new Error(`店铺 ${shopId} 未找到 shop-status 元素`);
+            // 新增：自动补充占位，避免抛错导致控制台刷屏
+            statusElement = document.createElement('div');
+            statusElement.className = 'shop-status placeholder';
+            statusElement.setAttribute('data-auto-created', 'true');
+            shopCard.appendChild(statusElement);
+            this.debug(`店铺 ${shopId} 缺少 .shop-status，已自动补充占位元素`);
         }
 
         // 检查是否已经转换过
@@ -112,8 +128,13 @@ class ShopCardManager {
             badgeContainer.appendChild(statusText);
         }
 
-        // 替换原有元素
-        statusElement.parentNode.replaceChild(badgeContainer, statusElement);
+        // 替换原有元素（若是 auto-created placeholder 也同样替换）
+        if (statusElement.parentNode) {
+            statusElement.parentNode.replaceChild(badgeContainer, statusElement);
+        } else {
+            // 极端情况：父节点不存在（已被其他脚本移除），直接 append
+            shopCard.appendChild(badgeContainer);
+        }
 
         // 创建红点组件
         const badge = new UnreadBadgeComponent({
@@ -346,8 +367,9 @@ class ShopCardManager {
      */
     static async quickInit(options = {}) {
         const manager = new ShopCardManager();
-        
-        if (options.debug) {
+
+        // 默认不启用 debug，除非明确传入或全局开启
+        if (options.debug || (window.QT_CONFIG && window.QT_CONFIG.debug.global)) {
             manager.enableDebug();
         }
 
@@ -363,7 +385,8 @@ class ShopCardManager {
             await manager.convertAllShopCards(options.selector);
             
             if (options.autoUpdate !== false) {
-                manager.startAutoUpdate(options.updateInterval);
+                const interval = options.updateInterval || (window.QT_CONFIG && window.QT_CONFIG.intervals && window.QT_CONFIG.intervals.shopCardAutoUpdate) || 30000;
+                manager.startAutoUpdate(interval);
             }
         }, options.delay || 2000);
 
