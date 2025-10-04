@@ -487,13 +487,20 @@
                     if (loginResult.token) {
                         localStorage.setItem('qt_admin_token', loginResult.token);
                         localStorage.setItem('admin_token', loginResult.token);
+                        // 标准化 token key 供各模块统一访问
+                        try { localStorage.setItem('authToken', loginResult.token); } catch(_) {}
                     }
 
                     localStorage.setItem('quicktalk_user', JSON.stringify(userData));
                     localStorage.setItem('qt_admin_user', JSON.stringify(userData));
-                    
+
+                    // 触发 session:ready 事件，供依赖会话的模块立即加载（shops/profile 等）
+                    try {
+                        window.dispatchEvent(new CustomEvent('session:ready', { detail: { token: loginResult.token, user: loginResult.user }}));
+                    } catch(e){ console.warn('dispatch session:ready 失败', e); }
+
                     showMessage('登录成功！正在跳转...', 'success');
-                    
+
                     // 延迟跳转，让用户看到成功消息
                     setTimeout(() => {
                         redirectToDashboard();

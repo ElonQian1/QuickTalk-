@@ -20,6 +20,12 @@ async fn replay_endpoint_returns_persisted_events() {
     // prepare app state
     let (sender,_) = broadcast::channel(10);
     let ws_connections = Arc::new(Mutex::new(HashMap::new()));
+    // 额外创建占位表满足新增 repo 需求
+    sqlx::query("CREATE TABLE admins (id TEXT PRIMARY KEY, role TEXT, username TEXT, email TEXT);").execute(&pool).await.unwrap();
+    sqlx::query("CREATE TABLE notification_settings (admin_id TEXT PRIMARY KEY, enable_sound INTEGER, enable_desktop INTEGER, enable_vibration INTEGER, created_at TEXT, updated_at TEXT);").execute(&pool).await.unwrap();
+    sqlx::query("CREATE TABLE shops (id TEXT PRIMARY KEY, name TEXT, domain TEXT, api_key TEXT, owner_id TEXT, status TEXT, created_at TEXT);").execute(&pool).await.unwrap();
+    use quicktalk_pure_rust::db::{admin_repository_sqlx::SqlxAdminRepository, notification_settings_repository_sqlx::NotificationSettingsRepositorySqlx, shop_repository_sqlx::ShopRepositorySqlx};
+    use quicktalk_pure_rust::application::shops::authz::ShopPermissionSqlx;
     let state = Arc::new(AppState {
         db: pool.clone(),
         ws_connections,
@@ -28,6 +34,10 @@ async fn replay_endpoint_returns_persisted_events() {
         message_repo: Arc::new(MessageRepositorySqlx { pool: pool.clone() }),
         message_read_repo: Arc::new(MessageReadRepositorySqlx { pool: pool.clone() }),
         event_publisher: Arc::new(EventBusWithDb::new(sender.clone(), pool.clone())),
+        admin_repo: Arc::new(SqlxAdminRepository { pool: pool.clone() }),
+        notification_repo: Arc::new(NotificationSettingsRepositorySqlx::new(pool.clone())),
+    shop_repo: Arc::new(ShopRepositorySqlx::new(pool.clone())),
+    shop_permission: Arc::new(ShopPermissionSqlx { pool: pool.clone() }),
     });
 
     // insert message row for enrichment

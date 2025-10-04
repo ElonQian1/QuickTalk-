@@ -48,7 +48,8 @@
 "ms-vscode.vscode-typescript-next",
 "bradlc.vscode-tailwindcss",
 "ms-vscode.vscode-json"
-]
+],
+"powershell.cwd": "🦀 后端"
 },
 "extensions": {
 "recommendations": [
