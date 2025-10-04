@@ -1,0 +1,15 @@
+/* deprecated: unread-badge-force.css
+ * 该文件已改为“安全空壳”，不再强制显示导航红点。
+ * 目的：防止无未读时仍出现假红点。
+ * 如果确需临时演示强制红点，请复制下面被注释的代码片段到浏览器控制台动态注入，不要在生产直接加载。
+ *
+ * 恢复临时强制显示（调试用）：
+ *   (function(){
+ *     const css = `#messagesBadge{display:flex!important;animation:pulse 2s infinite}`;
+ *     let el=document.getElementById('tmp-force-unread');
+ *     if(!el){el=document.createElement('style');el.id='tmp-force-unread';el.textContent=css;document.head.appendChild(el);}
+ *   })();
+ */
+
+/* 保留一个最小安全占位，避免 404：不做任何强制覆盖 */
+/* (空规则已移除，避免 lint 对空规则集警告) */

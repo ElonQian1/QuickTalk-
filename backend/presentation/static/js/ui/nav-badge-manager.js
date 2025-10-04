@@ -164,11 +164,16 @@ class NavBadgeManager {
         
         // 更新红点显示
         if (newCount > 0) {
+            // 正常显示红点
             badge.textContent = newCount > 99 ? '99+' : newCount.toString();
             badge.classList.remove('hidden');
+            badge.removeAttribute('data-zero');
             this.debug(`更新导航红点: ${navPage} -> ${newCount}`);
         } else {
+            // 归零：确保真正隐藏并清空文本，防止残留或 :empty 伪内容错误显示
+            badge.textContent = '';
             badge.classList.add('hidden');
+            badge.setAttribute('data-zero','true');
             this.debug(`隐藏导航红点: ${navPage}`);
         }
 

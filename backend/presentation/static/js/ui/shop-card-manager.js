@@ -295,6 +295,11 @@ class ShopCardManager {
      * @private
      */
     async _getShopUnreadCount(shopId) {
+        // 跳过占位店铺：temp-shop-* 不触发真实 API，避免产生 401 日志噪音
+        if (/^temp-shop-/.test(shopId)) {
+            this.debug && this.debug(`跳过占位店铺 ${shopId} 未读请求`);
+            return 0;
+        }
         // 优先使用数据同步管理器
         if (this.dataSyncManager && typeof this.dataSyncManager.forceRefreshShopStats === 'function') {
             try {

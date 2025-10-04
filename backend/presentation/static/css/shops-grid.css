@@ -120,6 +120,29 @@
   opacity: 0.5;
 }
 
+/* =============================
+   竖向排列覆盖
+   需求: 在包含 class="page-content" 的店铺页面中，店铺卡片按单列纵向排布
+   作用范围限定在 #shopsPage 下，避免影响其他使用 .shop-grid 的区域。
+   ============================= */
+#shopsPage .page-content .shop-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 4px 0 20px 0;
+}
+
+#shopsPage .page-content .shop-grid .shop-card {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* 小屏额外优化：去掉内部过度阴影间距，使纵向滚动更紧凑 */
+@media (max-width: 480px) {
+  #shopsPage .page-content .shop-grid { gap: 12px; }
+  #shopsPage .page-content .shop-grid .shop-card { padding: 12px 14px; }
+}
+
 .empty-state h3 {
   font-size: 16px;
   font-weight: 600;
@@ -135,4 +158,35 @@
 
 @media (max-width: 375px) { 
   .shop-grid { grid-template-columns: 1fr; } 
+}
+
+/* =============================================================
+   消息模块中的店铺入口视图 (#shopsListView)
+   需求: 在消息模块切换到店铺列表时保持网格横向排列（至少2列），
+         不受 shopsPage 单列样式与 375px 小屏单列媒体查询的影响。
+   说明:
+     - #shopsListView 与 #shopsPage 结构不同，不包含 .page-content 包裹，
+       因此前面的 #shopsPage .page-content .shop-grid 纵向规则不会命中。
+     - 真正导致单列的主要原因是末尾的 @media (max-width:375px) 将 .shop-grid
+       强制为 1fr；这里为消息模块单独覆盖，保留两列（或自适应）。
+     - 使用 repeat(auto-fill, minmax(160px, 1fr)) 以便在更宽屏幕自动增加列数。
+   风险控制: 覆盖选择器提高特异性 (#shopsListView .shop-grid)，不会影响其他页面。
+   ============================================================= */
+#shopsListView .shop-grid {
+  /* 根据用户最新需求：一个店铺占一整行（单列） */
+  display: flex !important;
+  flex-direction: column;
+  gap: 14px;
+  padding: 8px 0 20px 0;
+}
+
+#shopsListView .shop-grid .shop-card {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* 超小屏下保持间距一致性 */
+@media (max-width: 375px) {
+  #shopsListView .shop-grid { gap: 12px; }
+  #shopsListView .shop-grid .shop-card { padding: 12px 14px; }
 }

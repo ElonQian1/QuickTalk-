@@ -37,7 +37,29 @@
     <link rel="stylesheet" href="/static/css/settings-panel-styles.css">
     <link rel="stylesheet" href="/static/css/promotion-integration-styles.css">
     <link rel="stylesheet" href="/static/css/promotion-modal-debug.css">
-    <link rel="stylesheet" href="/static/css/unread-badge-force.css">
+        <!-- 移除强制未读红点样式 (unread-badge-force.css) 默认不加载，必要时通过 QT_CONFIG.features.forceUnreadFallback 动态注入 -->
+        <script>
+            (function(){
+                // 若真的需要临时强制红点（调试/演示），可在加载后手动设置：QT_CONFIG.features.forceUnreadFallback = true; window.__injectUnreadForce&&window.__injectUnreadForce();
+                window.__injectUnreadForce = function(){
+                    if (document.getElementById('unread-badge-force-css')) return;
+                    const need = window.QT_CONFIG && window.QT_CONFIG.features && window.QT_CONFIG.features.forceUnreadFallback;
+                    if(!need) { return; }
+                    const link = document.createElement('link');
+                    link.id = 'unread-badge-force-css';
+                    link.rel = 'stylesheet';
+                    link.href = '/static/css/unread-badge-force.css';
+                    document.head.appendChild(link);
+                    console.log('[unread-badge] 强制红点样式已注入');
+                };
+                // DOM 就绪后尝试注入（若配置开启）
+                if(document.readyState==='loading'){
+                    document.addEventListener('DOMContentLoaded', ()=>window.__injectUnreadForce());
+                } else {
+                    window.__injectUnreadForce();
+                }
+            })();
+        </script>
     <link rel="stylesheet" href="/static/css/chat-interface-styles.css">
     <link rel="stylesheet" href="/static/css/state-styles.css">
     <link rel="stylesheet" href="/static/css/messages-list.css">
@@ -352,7 +374,7 @@
     <script src="/static/js/debug/promotion-modal-debug.js"></script>
     <script src="/static/js/debug/unread-badge-debug.js"></script>
     <script src="/static/js/debug/message-send-debug.js"></script>
-    <script src="/static/js/fixes/unread-badge-fix.js"></script>
+    <!-- 移除 legacy 未读兜底脚本 unread-badge-fix.js：改由聚合器与服务端真实数据控制 -->
 
     <!-- 超级管理员面板模态框 -->
     <div data-include="/static/components/modals/admin-panel-modal.html"></div>
