@@ -9,17 +9,28 @@
     window.updateShopBadgeDisplay = function(shopCard, unreadCount) {
         if (!shopCard) return;
 
-        const unreadSpan = shopCard.querySelector('.unread-count');
-        if (unreadSpan) {
+        const unreadBadge = shopCard.querySelector('.shop-unread-badge') || shopCard.querySelector('.unread-count');
+        if (unreadBadge) {
             const count = Number(unreadCount || 0);
-            unreadSpan.setAttribute('data-unread', count);
+            unreadBadge.setAttribute('data-unread', count);
             
             if (count > 0) {
-                unreadSpan.style.display = 'inline';
-                unreadSpan.textContent = `(${count})`;
+                if (unreadBadge.classList.contains('shop-unread-badge')) {
+                    unreadBadge.style.display = 'flex';
+                    const numberEl = unreadBadge.querySelector('.unread-number');
+                    if (numberEl) numberEl.textContent = count;
+                } else {
+                    unreadBadge.style.display = 'inline';
+                    unreadBadge.textContent = `(${count})`;
+                }
             } else {
-                unreadSpan.style.display = 'none';
-                unreadSpan.textContent = '';
+                unreadBadge.style.display = 'none';
+                if (unreadBadge.classList.contains('shop-unread-badge')) {
+                    const numberEl = unreadBadge.querySelector('.unread-number');
+                    if (numberEl) numberEl.textContent = '0';
+                } else {
+                    unreadBadge.textContent = '';
+                }
             }
             
             console.log(`🔔 更新店铺未读数: ${shopCard.getAttribute('data-shop-id')}, 未读数: ${count}`);

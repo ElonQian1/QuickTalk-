@@ -1,54 +1,23 @@
 (function(){
   'use strict';
-  if (window.MessageWSEventsHandler) return;
+  if (window.MessageWSEventsHandler) return; // 幂等
   /**
-   * MessageWSEventsHandler - 仅负责解析并分发 WebSocket 收到的消息
-   * 目标: 精简 Orchestrator (message-module.js) 逻辑，使其只做依赖协调
-   * Orchestrator 需要注入: { onDomainAppend, onDomainUpdate, onDomainDelete, onLegacyMessage, refreshConversations }
+   * Deprecated Shim: MessageWSEventsHandler
+   * 已被 WsEventRouter 取代，仅保留兼容防止旧代码调用。
+   * 调用 create() 返回带 route(raw) 的对象，内部直接转发 WsEventRouter.route。
    */
-  class MessageWSEventsHandler {
-    constructor(opts){
-      this._o = Object.assign({ debug:false }, opts||{});
-    }
+  function warn(){ try { console.warn('[MessageWSEventsHandler] 已废弃，请使用 WsEventRouter 统一路由'); } catch(_){} }
+  class Shim {
+    constructor(o){ this._o = o||{}; warn(); }
     route(raw){
-      if (!raw || !raw.type){ return; }
-      const t = raw.type;
-      // 领域事件
-      if (t.startsWith('domain.event.')){
-        if (t.endsWith('message_appended')){
-            this._o.onDomainAppend && this._o.onDomainAppend(this._unwrap(raw));
-            return;
-        }
-        if (t.endsWith('message_updated')){
-            this._o.onDomainUpdate && this._o.onDomainUpdate(this._unwrap(raw));
-            return;
-        }
-        if (t.endsWith('message_deleted')){
-            this._o.onDomainDelete && this._o.onDomainDelete(this._unwrap(raw));
-            return;
-        }
+      if (window.WsEventRouter && typeof window.WsEventRouter.route === 'function'){
+        try { window.WsEventRouter.route(this._o.context || this._o.ctx || this._o.messageModule || window.messageModule, raw); } catch(e){ }
+      } else {
+        // 最小退化：透传到旧回调（若仍有人使用）
+        try { if (raw && raw.type && raw.type.startsWith('domain.event.') && this._o.onDomainAppend){ /* 不再细分, 交由 WsEventRouter */ } } catch(_){ }
       }
-      // 传统消息事件
-      if (t === 'message' || raw.msg_type === 'message'){
-        this._o.onLegacyMessage && this._o.onLegacyMessage(raw);
-        return;
-      }
-      if (t === 'typing'){
-        this._o.onTyping && this._o.onTyping(raw);
-        return;
-      }
-      if (t === 'conversation_update'){
-        this._o.refreshConversations && this._o.refreshConversations();
-        return;
-      }
-    }
-    _unwrap(evt){
-      if (!evt) return null;
-      if (evt.data && evt.data.message) return evt.data.message;
-      if (evt.data) return evt.data;
-      return evt;
     }
   }
-  window.MessageWSEventsHandler = { create: (o)=> new MessageWSEventsHandler(o) };
-  console.log('✅ message-ws-events-handler.js 已加载');
+  window.MessageWSEventsHandler = { create: (o)=> new Shim(o) };
+  console.log('⚠️ message-ws-events-handler.js 以废弃兼容模式加载 (Shim)');
 })();

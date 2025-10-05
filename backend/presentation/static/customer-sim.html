@@ -161,18 +161,53 @@ footer { text-align:center; font-size:11px; padding:18px 10px 26px; opacity:.55;
   }
 
   function handleWsMessage(msg){
+    log('收到WS消息: ' + JSON.stringify(msg).substring(0, 100) + '...');
+    
+    // 处理新格式的领域事件
+    if (msg.type === 'domain.event.message_appended') {
+      const message = msg.data?.message || msg.data;
+      if (message) {
+        log('收到领域事件消息: ' + (message.sender_type || 'unknown') + ' -> ' + (message.content || '').substring(0, 50));
+        renderMessage(message);
+        return;
+      }
+    }
+    
+    // 处理旧格式的消息
     if(msg.type === 'new_message' || msg.event === 'new_message'){
       renderMessage(msg.data || msg.message || msg);
-    } else {
-      log('WS事件: '+(msg.type||msg.event));
+      return;
     }
+    
+    // 处理系统消息
+    if (msg.type === 'system.welcome') {
+      log('系统欢迎消息: ' + (msg.data?.message || '已连接'));
+      return;
+    }
+    
+    // 处理其他事件类型
+    log('WS事件: ' + (msg.type || msg.event || 'unknown'));
   }
   function renderMessage(m){
     if(!m) return;
     const el = document.createElement('div');
-    el.className = 'msg '+(m.sender_type==='admin' ? 'admin':'');
-    el.innerHTML = `<div class="meta">${m.sender_type||m.sender} • ${m.created_at||''}</div>${(m.content||'').replace(/</g,'&lt;')}`;
-    messagesBox.appendChild(el); messagesBox.scrollTop = messagesBox.scrollHeight;
+    el.className = 'msg '+(m.sender_type==='agent' || m.sender_type==='admin' ? 'admin':'');
+    
+    // 格式化时间戳
+    const timeStr = m.timestamp || m.created_at || new Date().toISOString();
+    const displayTime = new Date(timeStr).toLocaleTimeString();
+    
+    // 格式化发送者
+    const senderType = m.sender_type || m.sender || 'unknown';
+    const senderLabel = senderType === 'agent' ? '客服' : 
+                       senderType === 'admin' ? '管理员' : 
+                       senderType === 'customer' ? '访客' : senderType;
+    
+    el.innerHTML = `<div class="meta">${senderLabel} • ${displayTime}</div>${(m.content||'').replace(/</g,'&lt;')}`;
+    messagesBox.appendChild(el); 
+    messagesBox.scrollTop = messagesBox.scrollHeight;
+    
+    log('渲染消息: ' + senderLabel + ' -> ' + (m.content || '').substring(0, 30));
   }
 
   async function sendVisitorMessage(){

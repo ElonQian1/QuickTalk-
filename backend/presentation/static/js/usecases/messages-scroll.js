@@ -32,6 +32,10 @@
     if (!mm || !mm.currentConversationId) return;
     state.loadingMessages = true;
     try {
+      // 记录锚点（即将 prepend 历史）
+      if (window.MediaScrollIntegration && window.MediaScrollIntegration.beforePrepend) {
+        window.MediaScrollIntegration.beforePrepend();
+      }
       if (typeof mm.loadMoreMessages === 'function') {
         await mm.loadMoreMessages(++state.lastMsgPage);
       } else if (typeof window.loadMoreMessages === 'function') {
@@ -39,6 +43,10 @@
       } else {
         // 无分页能力则禁用该胶水
         state.enabled = false;
+      }
+      // 应用滚动校正
+      if (window.MediaScrollIntegration && window.MediaScrollIntegration.afterPrepend) {
+        window.MediaScrollIntegration.afterPrepend();
       }
     } catch(err){ console.warn('loadMoreMessages error:', err); }
     finally { state.loadingMessages = false; }

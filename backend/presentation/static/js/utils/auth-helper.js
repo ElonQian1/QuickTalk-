@@ -142,6 +142,47 @@
       'Content-Type': 'application/json'
     };
   }
+
+  // 合并请求头（后者覆盖前者）
+  function mergeHeaders(base, extra){
+    const out = Object.assign({}, base||{});
+    if (extra){
+      Object.keys(extra).forEach(k=>{ out[k] = extra[k]; });
+    }
+    return out;
+  }
+
+  // 统一 fetch 包装：自动附加授权头 + 标准错误捕获
+  async function authorizedFetch(url, options){
+    const opts = Object.assign({ method:'GET' }, options||{});
+    const h = mergeHeaders(getAuthHeaders(), (opts.headers||{}));
+    opts.headers = h;
+    let resp;
+    try {
+      resp = await fetch(url, opts);
+    } catch(networkErr){
+      return { ok:false, status:0, data:null, error:'网络异常', raw: null, network:true };
+    }
+    return { ok: resp.ok, status: resp.status, raw: resp };
+  }
+
+  // 安全 JSON 拉取（附加解析与统一结构）
+  async function safeJson(url, options){
+    const r = await authorizedFetch(url, options);
+    if (!r.raw){ return r; }
+    let json = null;
+    try { json = await r.raw.json(); } catch(parseErr){
+      return Object.assign(r, { ok:false, data:null, error:'JSON解析失败' });
+    }
+    // 兼容后端统一格式 { success, data, error }
+    if (json && Object.prototype.hasOwnProperty.call(json,'success')){
+      if (json.success){
+        return Object.assign(r, { ok:true, data: json.data, error:null });
+      }
+      return Object.assign(r, { ok:false, data: json.data||null, error: json.error || '请求失败' });
+    }
+    return Object.assign(r, { ok: r.ok, data: json, error: r.ok? null : '请求失败' });
+  }
   
   // 调试工具：检查所有token来源
   function debugAuthStatus() {
@@ -184,6 +225,8 @@
     clearToken: clearAuthToken,
     isAuthenticated: isAuthenticated,
     getHeaders: getAuthHeaders,
+    authorizedFetch,
+    safeJson,
     debugStatus: debugAuthStatus
   };
   

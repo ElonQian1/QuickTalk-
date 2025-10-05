@@ -9,6 +9,18 @@ pub struct Conversation {
     pub status: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    // 新增字段：未读消息计数（仅在列表查询时填充）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[sqlx(default)]
+    pub unread_count: Option<i64>,
+    // 新增字段：最新消息内容
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[sqlx(default)]
+    pub last_message: Option<String>,
+    // 新增字段：最新消息时间
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[sqlx(default)]
+    pub last_message_time: Option<DateTime<Utc>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, sqlx::FromRow)]

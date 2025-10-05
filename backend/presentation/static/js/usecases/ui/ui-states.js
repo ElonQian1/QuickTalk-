@@ -1,120 +1,22 @@
 /**
- * UIStates - 统一 Loading / Empty / Error / Inline 状态占位骨架
- * 目的：去除散落在各模块的重复 DOM 逻辑，未来逐步替换
- * 特性：
- *  - 幂等：重复调用会先清空再渲染
- *  - 轻量：无框架依赖，仅原生 DOM
- *  - 可扩展：提供 registerRenderer 扩展自定义主题
- * 暂不做运行验证（结构优先）
+ * @deprecated Duplicate UIStates implementation removed.
+ * 该文件曾包含一份 UI 状态骨架实现，现在项目已统一使用 `utils/ui-states.js` 版本。
+ * 保留本文件仅做向后兼容：如果 utils 版已注册，则直接退出；若未加载则动态加载兜底简化版本。
+ * 后续可安全删除本文件（确认无外部直接 script 引用后）。
  */
 (function(){
   'use strict';
-  if (window.UIStates) return; // 避免重复注册
-
-  const DEFAULT_THEME = {
-    classPrefix: 'uistate',
-    icons: {
-      loading: '⏳',
-      empty: '📭',
-      error: '⚠️'
-    },
-    texts: {
-      loading: '加载中...',
-      empty: '暂无数据',
-      error: '发生错误'
-    }
+  if (window.UIStates) {
+    console.log('[ui-states(usecases)] 已存在全局 UIStates, 跳过重复注册');
+    return;
+  }
+  // 兜底最小占位，提示开发者加载顺序问题
+  window.UIStates = {
+    showLoading(c){ if (c) c.innerHTML = '<div style="padding:24px;text-align:center;color:#666;">加载中...</div>'; },
+    showEmpty(c){ if (c) c.innerHTML = '<div style="padding:32px;text-align:center;color:#888;">暂无数据</div>'; },
+    showError(c){ if (c) c.innerHTML = '<div style="padding:32px;text-align:center;color:#c00;">加载失败</div>'; },
+    clear(c){ if (c) c.innerHTML=''; },
+    show(type,c,opt){ if(!c) return; if(type==='loading') return this.showLoading(c,opt&&opt.text); if(type==='empty') return this.showEmpty(c,opt&&opt.text); if(type==='error') return this.showError(c,opt&&opt.text); }
   };
-
-  function ensureContainer(container){
-    if (!container) throw new Error('UIStates: container 为空');
-  }
-
-  function clear(container){
-    ensureContainer(container);
-    // 仅清除由 UIStates 生成的节点，保留其它内容（策略：包裹一个 root）
-    const existing = container.querySelector(':scope > .uistates-root');
-    if (existing) existing.remove();
-  }
-
-  function buildRoot(){
-    const root = document.createElement('div');
-    root.className = 'uistates-root';
-    root.style.display = 'flex';
-    root.style.flexDirection = 'column';
-    root.style.alignItems = 'center';
-    root.style.justifyContent = 'center';
-    root.style.padding = '24px 12px';
-    root.style.color = '#666';
-    root.style.fontSize = '14px';
-    root.style.lineHeight = '20px';
-    root.style.minHeight = '120px';
-    root.style.boxSizing = 'border-box';
-    return root;
-  }
-
-  function mount(container, node){
-    clear(container);
-    container.appendChild(node);
-  }
-
-  function renderState(container, type, message, detail){
-    const theme = UIStates._theme;
-    const root = buildRoot();
-
-    const icon = document.createElement('div');
-    icon.textContent = theme.icons[type] || '';
-    icon.style.fontSize = '28px';
-    icon.style.marginBottom = '8px';
-
-    const text = document.createElement('div');
-    text.textContent = message || theme.texts[type] || '';
-
-    root.appendChild(icon);
-    root.appendChild(text);
-
-    if (detail) {
-      const detailEl = document.createElement('div');
-      detailEl.textContent = detail;
-      detailEl.style.marginTop = '6px';
-      detailEl.style.fontSize = '12px';
-      detailEl.style.color = '#999';
-      root.appendChild(detailEl);
-    }
-
-    mount(container, root);
-  }
-
-  const UIStates = {
-    _theme: DEFAULT_THEME,
-    setTheme(theme={}){
-      this._theme = {
-        ...DEFAULT_THEME,
-        ...theme,
-        icons: { ...DEFAULT_THEME.icons, ...(theme.icons||{}) },
-        texts: { ...DEFAULT_THEME.texts, ...(theme.texts||{}) }
-      };
-    },
-    clear(container){ clear(container); },
-    showLoading(container, text){ renderState(container, 'loading', text); },
-    showEmpty(container, text){ renderState(container, 'empty', text); },
-    showError(container, text, detail){ renderState(container, 'error', text, detail); },
-
-    // 扩展渲染器: registerRenderer('customType', (container, options)=>{})
-    _custom: {},
-    registerRenderer(type, fn){
-      if (typeof fn === 'function') this._custom[type] = fn;
-    },
-    show(type, container, options){
-      if (this._custom[type]) return this._custom[type](container, options||{});
-      if (['loading','empty','error'].includes(type)) {
-        if (type === 'loading') return this.showLoading(container, options && options.text);
-        if (type === 'empty') return this.showEmpty(container, options && options.text);
-        if (type === 'error') return this.showError(container, options && options.text, options && options.detail);
-      }
-      console.warn('[UIStates] 未知的状态类型:', type);
-    }
-  };
-
-  window.UIStates = UIStates;
-  console.log('✅ ui-states.js 加载完成 (骨架)');
+  console.warn('[ui-states(usecases)] 使用兜底 UIStates，占位实现已注入，建议确保 utils/ui-states.js 先加载');
 })();

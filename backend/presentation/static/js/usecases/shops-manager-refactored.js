@@ -276,12 +276,13 @@
                 </div>
                 <div class="shop-name">
                     ${shop.name}
-                    <span class="unread-count" data-unread="${stats.unreadCount || 0}" 
-                          style="display: ${stats.unreadCount > 0 ? 'inline' : 'none'};">
-                        ${stats.unreadCount > 0 ? `(${stats.unreadCount})` : ''}
-                    </span>
                 </div>
                 <div class="shop-domain">${shop.domain || '未设置域名'}</div>
+                <div class="shop-unread-badge" data-unread="${stats.unreadCount || 0}" 
+                     style="display: ${stats.unreadCount > 0 ? 'flex' : 'none'};">
+                    <span class="unread-number">${stats.unreadCount || 0}</span>
+                    <span class="unread-label">未读</span>
+                </div>
             `;
             shopCard.addEventListener('click', onCardClick);
             

@@ -233,17 +233,29 @@
                 if (!window.unreadBadgeAggregator && msg && msg.shop_id) {
                     const shopId = msg.shop_id;
                     // 简单 DOM 直接自增 (不创建结构)
-                    const badge = document.querySelector(`.shop-card[data-shop-id="${shopId}"] .unread-count, .shop-card[data-shop-id="${shopId}"] .unread-badge`);
+                    const badge = document.querySelector(`.shop-card[data-shop-id="${shopId}"] .shop-unread-badge, .shop-card[data-shop-id="${shopId}"] .unread-count, .shop-card[data-shop-id="${shopId}"] .unread-badge`);
                     if (badge) {
-                        const cur = parseInt(badge.textContent) || parseInt(badge.getAttribute('data-unread')) || 0;
+                        const cur = parseInt(badge.querySelector('.unread-number')?.textContent) || parseInt(badge.textContent) || parseInt(badge.getAttribute('data-unread')) || 0;
                         const next = msg.sender_type === 'agent' ? cur : cur + 1; // 客户消息才自增
                         if (next !== cur) {
-                            badge.textContent = next;
-                            badge.setAttribute('data-unread', next);
+                            // 更新新的徽章结构
+                            if (badge.classList.contains('shop-unread-badge')) {
+                                const numberEl = badge.querySelector('.unread-number');
+                                if (numberEl) numberEl.textContent = next;
+                                badge.setAttribute('data-unread', next);
+                                badge.style.display = next > 0 ? 'flex' : 'none';
+                            } else {
+                                // 兼容旧结构
+                                badge.textContent = next;
+                                badge.setAttribute('data-unread', next);
+                            }
                         }
                         // 汇总 total
                         let total = 0;
-                        document.querySelectorAll('.shop-card .unread-count, .shop-card .unread-badge').forEach(el=>{ total += (parseInt(el.textContent)||parseInt(el.getAttribute('data-unread'))||0); });
+                        document.querySelectorAll('.shop-card .shop-unread-badge, .shop-card .unread-count, .shop-card .unread-badge').forEach(el=>{ 
+                            const count = parseInt(el.querySelector('.unread-number')?.textContent) || parseInt(el.textContent) || parseInt(el.getAttribute('data-unread')) || 0;
+                            total += count;
+                        });
                         document.dispatchEvent(new CustomEvent('unread:update', { detail: { total, reason: 'incoming-message-fallback' }}));
                     }
                 }

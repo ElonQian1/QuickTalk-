@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>推广模态框测试</title>
+    <link rel="stylesheet" href="/static/css/modal-styles.css">
+    <link rel="stylesheet" href="/static/css/promotion-integration-styles.css">
+    <style>
+        body { padding: 20px; font-family: Arial, sans-serif; }
+        .test-btn { 
+            background: #007bff; 
+            color: white; 
+            padding: 12px 24px; 
+            border: none; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            font-size: 16px;
+        }
+        .info { 
+            margin: 20px 0; 
+            padding: 10px; 
+            background: #f8f9fa; 
+            border-radius: 6px; 
+        }
+    </style>
+</head>
+<body>
+    <h1>推广模态框显示测试</h1>
+    
+    <div class="info">
+        <h3>测试说明:</h3>
+        <ul>
+            <li>点击下方按钮打开推广模态框</li>
+            <li>检查模态框是否完全显示（4个section都可见）</li>
+            <li>验证移动端滚动是否正常</li>
+            <li>确认所有内容都能访问到</li>
+        </ul>
+    </div>
+
+    <button class="test-btn" onclick="showPromotionModal()">🎁 打开推广模态框</button>
+
+    <!-- 引入推广模态框组件 -->
+    <div data-include="/static/components/modals/promotion-modal.html"></div>
+
+    <!-- 引入相关脚本 -->
+    <script>
+        // 简单的toast函数用于测试
+        function showToast(message, type) {
+            alert(type + ': ' + message);
+        }
+
+        // 模拟userData
+        window.userData = { username: 'testuser' };
+
+        // 包含组件加载逻辑
+        function loadComponents() {
+            const includes = document.querySelectorAll('[data-include]');
+            includes.forEach(async (element) => {
+                const file = element.getAttribute('data-include');
+                try {
+                    const response = await fetch(file);
+                    const content = await response.text();
+                    element.innerHTML = content;
+                } catch (error) {
+                    console.error('Failed to load component:', file, error);
+                }
+            });
+        }
+
+        // 页面加载完成后加载组件
+        document.addEventListener('DOMContentLoaded', loadComponents);
+    </script>
+    <script src="/static/js/modals/promotion-modal.js"></script>
+</body>
+</html>

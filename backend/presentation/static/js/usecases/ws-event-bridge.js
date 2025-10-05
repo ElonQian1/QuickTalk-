@@ -112,13 +112,20 @@
             if (!applied) {
               const card = document.querySelector(`.shop-card[data-shop-id="${shopId}"]`);
               if (card) {
-                const span = card.querySelector('.unread-count');
-                if (span) {
-                  const cur = parseInt(span.getAttribute('data-unread')) || 0;
+                const badge = card.querySelector('.shop-unread-badge') || card.querySelector('.unread-count');
+                if (badge) {
+                  const cur = parseInt(badge.getAttribute('data-unread')) || 0;
                   const next = cur + 1;
-                  span.setAttribute('data-unread', next);
-                  span.textContent = `(${next})`;
-                  span.style.display = 'inline';
+                  badge.setAttribute('data-unread', next);
+                  
+                  if (badge.classList.contains('shop-unread-badge')) {
+                    const numberEl = badge.querySelector('.unread-number');
+                    if (numberEl) numberEl.textContent = next;
+                    badge.style.display = 'flex';
+                  } else {
+                    badge.textContent = `(${next})`;
+                    badge.style.display = 'inline';
+                  }
                   applied = true;
                 }
               }
@@ -127,14 +134,22 @@
             if (!applied && typeof window.updateShopBadgeDisplay === 'function') {
               try {
                 const card = document.querySelector(`.shop-card[data-shop-id="${shopId}"]`);
-                if (card) window.updateShopBadgeDisplay(card, (card.querySelector('.unread-count')?.getAttribute('data-unread')||1));
+                if (card) {
+                  const badge = card.querySelector('.shop-unread-badge') || card.querySelector('.unread-count');
+                  const unreadCount = badge?.getAttribute('data-unread') || 1;
+                  window.updateShopBadgeDisplay(card, unreadCount);
+                }
               } catch(e){ console.warn('[ws-event-bridge] updateShopBadgeDisplay 调用失败', e); }
             }
             // 4. 触发聚合事件（供 nav-unread-aggregator/nav-badge-manager 汇总）
             try {
               const totalUnread = (function(){
                 // 汇总所有 .shop-card 上的 data-unread
-                let sum = 0; document.querySelectorAll('.shop-card .unread-count[data-unread]').forEach(el=>{ const v = parseInt(el.getAttribute('data-unread'))||0; sum += v; });
+                let sum = 0; 
+                document.querySelectorAll('.shop-card .shop-unread-badge[data-unread], .shop-card .unread-count[data-unread]').forEach(el=>{ 
+                  const v = parseInt(el.getAttribute('data-unread'))||0; 
+                  sum += v; 
+                });
                 return sum;
               })();
               document.dispatchEvent(new CustomEvent('unread:update', { detail:{ total: totalUnread, reason:'incoming-message', shopId, conversationId }}));

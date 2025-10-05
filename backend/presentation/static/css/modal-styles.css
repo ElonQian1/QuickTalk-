@@ -814,6 +814,8 @@
         position: sticky;
         top: 0;
         z-index: 1;
+        background: white;
+        border-bottom: 1px solid #e9ecef;
     }
 
     .modal-header h3 {
@@ -823,7 +825,29 @@
     .modal-body {
         flex: 1;
         overflow-y: auto;
+        padding: 16px;
         padding-bottom: 20px;
+        /* 确保内容可以滚动，不被截断 */
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* 推广模态框特殊样式 - 确保所有section都能显示 */
+    #promotionModal .modal-body {
+        min-height: 0; /* 允许flex子元素收缩 */
+    }
+
+    #promotionModal .promotion-content {
+        height: auto;
+        min-height: 100%;
+    }
+
+    #promotionModal .promotion-section {
+        margin-bottom: 20px;
+        padding: 16px;
+    }
+
+    #promotionModal .promotion-section:last-child {
+        margin-bottom: 0;
     }
 
     .modal-form {

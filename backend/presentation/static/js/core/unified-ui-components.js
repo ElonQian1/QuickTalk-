@@ -174,15 +174,25 @@
     el.setAttribute('data-conversation-id', conversation.id);
     if (conversation.shop_id) el.setAttribute('data-shop-id', conversation.shop_id);
 
+    // 使用规范化数据
+    var normalized = window.ConversationNormalizer ? 
+        window.ConversationNormalizer.normalize(conversation) : 
+        { lastMessageText: '', unreadCount: 0, customerName: '客户' };
+    
     var lastMessageTime = conversation.last_message_time ?
       new Date(conversation.last_message_time).toLocaleString() : '暂无消息';
+    
+    // 调试信息
+    el.__raw = conversation;
+    el.__normalized = normalized;
 
     if (window.ConversationUtils) {
+      var messageToShow = normalized.lastMessageText || conversation.last_message || conversation.last_message_content || '等待客户消息...';
       el.innerHTML = [
         window.ConversationUtils.generateAvatarHTML({
           customerId: conversation.customer_id,
           customerName: conversation.customer_name,
-          unreadCount: conversation.unread_count || 0
+          unreadCount: normalized.unreadCount || conversation.unread_count || 0
         }),
         '<div class="conversation-content">',
           '<div class="conversation-header">',
@@ -191,25 +201,36 @@
             '</span>',
             '<span class="message-time" data-conversation-id="', conversation.id ,'">', lastMessageTime, '</span>',
           '</div>',
-          '<div class="last-message" data-conversation-id="', conversation.id ,'">', (conversation.last_message || '等待客户消息...'), '</div>',
+          '<div class="last-message" data-conversation-id="', conversation.id ,'">', messageToShow, '</div>',
         '</div>'
       ].join('');
-      if (conversation.unread_count > 0) el.classList.add('has-unread');
+      if (normalized.unreadCount > 0 || conversation.unread_count > 0) el.classList.add('has-unread');
     } else {
-      var displayName = conversation.customer_name || String(conversation.customer_id || '客户');
+      var displayName = normalized.customerName || conversation.customer_name || String(conversation.customer_id || '客户');
       var avatarInitial = displayName.charAt(displayName.length - 3) || 'C';
+      var messageToShow = normalized.lastMessageText || conversation.last_message || conversation.last_message_content || '等待客户消息...';
       el.innerHTML = [
-        '<div class="conversation-avatar">', avatarInitial, '</div>',
+        '<div class="conversation-avatar">', avatarInitial, '<div class="avatar-meta-slot"></div></div>',
         '<div class="conversation-content">',
           '<div class="conversation-header">',
             '<span class="customer-name">', displayName ,'</span>',
             '<span class="message-time" data-conversation-id="', conversation.id ,'">', lastMessageTime, '</span>',
           '</div>',
-          '<div class="last-message" data-conversation-id="', conversation.id ,'">', (conversation.last_message || '等待客户消息...'), '</div>',
+          '<div class="last-message" data-conversation-id="', conversation.id ,'">', messageToShow, '</div>',
         '</div>',
-        (conversation.unread_count > 0 ? ('<div class="unread-badge" data-conversation-id="' + conversation.id + '">' + conversation.unread_count + '</div>') : '')
+        (normalized.unreadCount > 0 ? ('<div class="unread-badge" data-conversation-id="' + conversation.id + '">' + normalized.unreadCount + '</div>') : '')
       ].join('');
     }
+
+    // 确保 avatar-meta-slot 存在（即便使用 ConversationUtils 生成头像）
+    try {
+      var avatarEl = el.querySelector('.conversation-avatar');
+      if (avatarEl && !avatarEl.querySelector('.avatar-meta-slot')){
+        var meta = document.createElement('div');
+        meta.className = 'avatar-meta-slot';
+        avatarEl.appendChild(meta);
+      }
+    } catch(_){}
 
     if (window.DOMEnhancer) {
       try { window.DOMEnhancer.enhanceConversationItem(el, conversation); } catch(_e){}
@@ -223,6 +244,75 @@
   }
 
   var ConversationItemUI = { create: createConversationItem };
+
+  // ========= 增量更新能力 =========
+  function updateConversationItem(conversationOrId, patch){
+    var conv = (typeof conversationOrId === 'object') ? conversationOrId : (patch||{});
+    if (typeof conversationOrId !== 'object') conv.id = conversationOrId;
+    if (!conv.id) return;
+    if (window.ConversationNormalizer) conv = Object.assign({}, conv, window.ConversationNormalizer.normalize(conv));
+
+    var nodes = document.querySelectorAll('.conversation-item[data-conversation-id="' + conv.id + '"]');
+    nodes.forEach(function(el){
+      // 更新名称
+      if (conv.customerName){
+        var nameEl = el.querySelector('.customer-name');
+        if (nameEl && nameEl.textContent !== conv.customerName) nameEl.textContent = conv.customerName;
+      }
+      // 更新时间
+      if (conv.lastMessageTime){
+        var timeEl = el.querySelector('.message-time');
+        if (timeEl){
+          try { timeEl.textContent = new Date(conv.lastMessageTime).toLocaleString(); } catch(_){}
+        }
+      }
+      // 更新最后消息
+      if (conv.lastMessageText != null){
+        var msgEl = el.querySelector('.last-message');
+        if (msgEl){
+          msgEl.textContent = conv.lastMessageText || '';
+          // 长消息淡出遮罩逻辑
+          if ((conv.lastMessageText||'').length > 60){
+            msgEl.classList.add('fade-mask');
+          } else {
+            msgEl.classList.remove('fade-mask');
+          }
+        }
+      }
+      // 未读状态 & 数字
+      if (typeof conv.unreadCount === 'number'){
+        el.classList.toggle('has-unread', conv.unreadCount > 0);
+        var badge = el.querySelector('.unread-badge');
+        if (badge){
+          if (conv.unreadCount > 0){
+            badge.textContent = conv.unreadCount > 99 ? '99+' : String(conv.unreadCount);
+            badge.style.display = 'flex';
+          } else {
+            badge.style.display = 'none';
+          }
+        }
+        // avatar meta slot 作为降级显示
+        var avatarMeta = el.querySelector('.avatar-meta-slot');
+        if (avatarMeta){
+          if (conv.unreadCount > 0 && !el.querySelector('.unread-badge-component')){
+            avatarMeta.textContent = conv.unreadCount > 99 ? '99+' : String(conv.unreadCount);
+            avatarMeta.style.display = 'flex';
+          } else {
+            avatarMeta.textContent = '';
+            avatarMeta.style.display = 'none';
+          }
+        }
+        // 同步给 Adapter（若存在）
+        if (window.ConversationBadgeAdapter && typeof window.ConversationBadgeAdapter.update === 'function'){
+          window.ConversationBadgeAdapter.update(conv.id, conv.unreadCount);
+        }
+      }
+    });
+    // 广播更新事件
+    var evt; try { evt = new CustomEvent('conversation:item:updated', { detail: conv }); } catch(_){ evt = null; }
+    if (evt) document.dispatchEvent(evt);
+  }
+
 
   // ====== ShopCardUI 模块 ======
   function buildShopCard(shop, options){
@@ -242,11 +332,12 @@
       '</div>',
       '<div class="shop-name">',
         (shop.name || '未命名店铺'),
-        '<span class="unread-count" data-unread="', unread ,'" style="display:', (unread>0?'inline':'none') ,'">',
-          (unread>0 ? '(' + unread + ')' : ''),
-        '</span>',
       '</div>',
       '<div class="shop-domain">', (shop.domain || '未设置域名') ,'</div>',
+      '<div class="shop-unread-badge" data-unread="', unread ,'" style="display:', (unread>0?'flex':'none') ,'">',
+        '<span class="unread-number">', unread ,'</span>',
+        '<span class="unread-label">未读</span>',
+      '</div>',
       '<div class="shop-meta">',
         '<div class="shop-actions">', (options.actionsHTML || '') ,'</div>',
       '</div>',
@@ -287,6 +378,10 @@
     // 代理方法 - 对话项
     createConversationItem(conversation, options) {
       return this.ConversationItemUI.create(conversation, options);
+    }
+
+    updateConversationItem(conversationOrId, patch){
+      return updateConversationItem(conversationOrId, patch);
     }
 
     // 代理方法 - 店铺卡片

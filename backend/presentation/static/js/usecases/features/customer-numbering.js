@@ -9,65 +9,26 @@
  */
 (function(){
   'use strict';
-  if (window.CustomerNumbering) return;
-
-  const DEFAULT_OPTIONS = {
-    prefix: '客户',      // 显示前缀
-    padLength: 4,        // 数字填充长度
-    strategy: 'sequential-hash', // 生成策略
-    debug: false
-  };
-
-  class CustomerNumberingImpl {
-    constructor(){
-      this._opts = { ...DEFAULT_OPTIONS };
-      this._map = new Map(); // rawId -> code
-      this._counter = 1;     // 顺序分配基数 (仅某些策略使用)
-    }
-
-    init(options={}){
-      this._opts = { ...this._opts, ...options };
-      return this;
-    }
-
-    generateCustomerNumber(rawId){
-      if (!rawId) return this._opts.prefix + '???';
-      if (this._map.has(rawId)) return this._map.get(rawId);
-      const code = this._buildCode(rawId);
-      this._map.set(rawId, code);
-      return code;
-    }
-
-    _buildCode(rawId){
-      switch(this._opts.strategy){
-        case 'sequential':
-          return this._formatNumber(this._counter++);
-        case 'hash-short':
-          return this._formatHash(rawId, 4);
-        case 'sequential-hash':
-        default:
-          // 保持顺序+短 hash 混合, 避免纯顺序被推测
-            const seq = this._formatNumber(this._counter++);
-            const h = this._formatHash(rawId, 3);
-            return `${this._opts.prefix}${seq}${h}`;
-      }
-    }
-
-    _formatNumber(n){
-      const s = String(n);
-      if (s.length >= this._opts.padLength) return `${this._opts.prefix}${s}`;
-      return `${this._opts.prefix}${s.padStart(this._opts.padLength,'0')}`;
-    }
-
-    _formatHash(raw, len){
-      // 简易不可逆短 hash (非安全) - 仅展示
-      let h = 0;
-      for (let i=0;i<raw.length;i++){ h = (h*31 + raw.charCodeAt(i)) >>> 0; }
-      const base = h.toString(36);
-      return base.slice(0, len).toUpperCase();
-    }
+  // 该文件已被统一实现 (utils/customer-numbering.js) 取代。
+  // 保留一个极薄包装以兼容早期引用顺序，并在控制台给出提示，全部 API 直接委托。
+  if (window.CustomerNumbering && window.CustomerNumbering.__enhanced){
+    console.log('ℹ️ features/customer-numbering.js: 已检测到增强版 CustomerNumbering, 无需包装');
+    return;
   }
-
-  window.CustomerNumbering = new CustomerNumberingImpl();
-  console.log('✅ customer-numbering.js 加载完成 (骨架)');
+  function deferAccess(){
+    if (!window.CustomerNumbering || !window.CustomerNumbering.generateCustomerNumber){
+      console.warn('CustomerNumbering 增强版尚未加载，调用被延迟');
+      return null;
+    }
+    return window.CustomerNumbering;
+  }
+  const wrapper = {
+    init: (o)=> { const core=deferAccess(); return core? core.init(o) : wrapper; },
+    generateCustomerNumber: (id)=> { const core=deferAccess(); return core? core.generateCustomerNumber(id):'客户???'; },
+    // 兼容别名
+    generate: (id)=> wrapper.generateCustomerNumber(id),
+    getCustomerNumber: (id)=> { const core=deferAccess(); return core? (core.getCustomerNumber?core.getCustomerNumber(id):core.get(id)) : null; }
+  };
+  if (!window.CustomerNumbering) window.CustomerNumbering = wrapper; // 若稍后增强版加载，会覆盖并保留 API
+  console.log('⚠️ (Deprecated) features/customer-numbering.js 已加载，等待增强版接管');
 })();

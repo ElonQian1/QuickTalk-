@@ -33,15 +33,26 @@
 
 class MessageModule {
             constructor() {
-                // 初始化增强特性（幂等：若骨架未加载则安全跳过）
+                // Legacy 使用监控 (后续用于安全移除判断)
+                this._legacyUsage = {
+                    loadMessages: 0,
+                    sendMessage: 0,
+                    showShops: 0,
+                    loadConversationsForShop: 0,
+                    wsInlineHandler: 0
+                };
+                // 暴露调试接口（幂等）：window.__MessageLegacyUsage.get()
                 try {
-                    if (window.ShopStatsService && typeof window.ShopStatsService.init === 'function') {
-                        window.ShopStatsService.init({ ttlMs: 20000 });
+                    if (!window.__MessageLegacyUsage) {
+                        window.__MessageLegacyUsage = {
+                            get: ()=> ({ ...(this._legacyUsage||{}) }),
+                            print: ()=> { try { console.table(this._legacyUsage); } catch(_){ console.log('LegacyUsage', this._legacyUsage); } },
+                            reset: ()=> { Object.keys(this._legacyUsage).forEach(k=> this._legacyUsage[k]=0); }
+                        };
                     }
-                    if (window.CustomerNumbering && typeof window.CustomerNumbering.init === 'function') {
-                        window.CustomerNumbering.init({ prefix: '客户', strategy: 'sequential-hash', padLength: 4 });
-                    }
-                } catch(e){ log.warn('增强特性初始化失败', e); }
+                } catch(_){ }
+                // 增强特性初始化迁移至 message-boot.js (保留空位防重复调用)
+                try { if (window.__MessageBootInfo && window.__MessageBootInfo.get) { /* 已由 boot 处理 */ } } catch(_){ }
                 // 业务管理器
                 this.shopsManager = null;
                 this.conversationsManager = null;
@@ -67,8 +78,8 @@ class MessageModule {
                 // 初始化管理器
                 this.initManagers();
 
-                // 视图控制器 (延迟创建; 仅负责导航与 DOM 切换)
-                this._view = null;
+                // 导航/视图控制器 (重构后由 MessageNavigation 管理)
+                this._nav = null; // 延迟创建
                 
                 // 初始化 WebSocket 适配器
                 this._initWSAdapter();
@@ -87,59 +98,36 @@ class MessageModule {
                     }
                 } catch(_){ }
 
-                // 渲染委托初始化
-                setTimeout(() => {
-                    // 初始化滚动协调器（若存在）
-                    try {
-                        if (window.ScrollCoordinator && typeof window.ScrollCoordinator.init === 'function') {
-                            window.ScrollCoordinator.init({ getContainer: ()=> document.getElementById('chatMessages'), autoStick: true, stickThreshold: 80 });
-                        }
-                        // 媒体加载滚动校正集成尝试 (懒初始化)
-                        if (window.MediaScrollIntegration && typeof window.MediaScrollIntegration.ensureInit==='function') {
-                            window.MediaScrollIntegration.ensureInit();
-                        }
-                    } catch(e){ log.warn('ScrollCoordinator 初始化失败', e); }
-                    if (window.MessageRenderer && typeof window.MessageRenderer.init === 'function') {
-                        this._renderer = window.MessageRenderer.init(this);
-                    }
-                    // 事件驱动增量渲染适配器 (若已加载)
-                    try {
-                        if (window.MessageRenderAdapter && !this._renderAdapter) {
-                            this._renderAdapter = window.MessageRenderAdapter.init({ sender: this._sender });
-                        }
-                    } catch(e){ log.warn('MessageRenderAdapter 初始化失败', e); }
-                    // 新发送器初始化 (取代 MessageSendChannel - 渐进迁移)
-                    try {
-                        if (!this._sender && window.MessageSender) {
-                            this._sender = window.MessageSender.create({
-                                wsSend: (payload)=>{
-                                    if (this.wsAdapter) return this.wsAdapter.send(payload);
-                                    if (this.websocket && this.websocket.readyState === WebSocket.OPEN){
-                                        try { this.websocket.send(JSON.stringify(payload)); return true; } catch(_){ return false; }
-                                    }
-                                    return false;
-                                },
-                                conversationResolver: ()=> this.currentConversationId
-                            });
-                            // 监听发送事件以触发 UI 更新 (最小侵入)
-                            if (window.MessageEventBus){
-                                MessageEventBus.subscribe('send.enqueued', ({tempMessage})=>{
-                                    // 已由 StateStore appendMessage -> 只需渲染单条
-                                    this.renderMessage(tempMessage);
-                                    this._notifyNewMessageForScroll();
-                                });
-                                MessageEventBus.subscribe('send.ack', ({serverMessage})=>{
-                                    // 全量重渲染（后续可 diff 优化）
-                                    this.renderMessages();
-                                });
-                                MessageEventBus.subscribe('send.failed', ({tempMessage})=>{
-                                    this.renderMessages();
-                                    this.showToast('消息发送失败，可重试: '+ (tempMessage.content||'').slice(0,20), 'warn');
+                // 渲染 / 发送器 等初始化已迁移至 message-boot.js (延迟装配) 
+                // 保留兼容：如外部未加载 boot，可按需 fallback (轻量兜底)
+                setTimeout(()=>{
+                    if (!window.MessageBoot || !window.__MessageBootInfo){
+                        try {
+                            if (window.ScrollCoordinator && typeof window.ScrollCoordinator.init === 'function') {
+                                window.ScrollCoordinator.init({ getContainer: ()=> document.getElementById('chatMessages'), autoStick: true, stickThreshold: 80 });
+                            }
+                        } catch(_){ }
+                        try {
+                            if (window.MessageRenderer && typeof window.MessageRenderer.init === 'function' && !this._renderer){
+                                this._renderer = window.MessageRenderer.init(this);
+                            }
+                        } catch(_){ }
+                        try {
+                            if (!this._sender && window.MessageSender){
+                                this._sender = window.MessageSender.create({
+                                    wsSend: (payload)=>{
+                                        if (this.wsAdapter) return this.wsAdapter.send(payload);
+                                        if (this.websocket && this.websocket.readyState === WebSocket.OPEN){
+                                            try { this.websocket.send(JSON.stringify(payload)); return true; } catch(_){ return false; }
+                                        }
+                                        return false;
+                                    },
+                                    conversationResolver: ()=> this.currentConversationId
                                 });
                             }
-                        }
-                    } catch(e){ log.warn('初始化 MessageSender 失败', e); }
-                }, 0);
+                        } catch(_){ }
+                    }
+                },0);
             }
 
             /**
@@ -241,51 +229,88 @@ class MessageModule {
              * 更新导航UI
              */
             updateNavigationUI(title, showBackBtn = false) {
-                this._ensureViewController();
-                if (this._view) this._view.updateNavigationUI(title, showBackBtn);
+                this._ensureNavigation();
+                if (this._nav) this._nav.updateNavigationUI(title, showBackBtn);
             }
 
             /**
              * 更新聊天头部
              */
             updateChatHeader(conversation, customer) {
+                this._ensureNavigation();
+                if (this._nav) return this._nav.updateChatHeader(conversation, customer);
+                // 回退旧逻辑
                 if (window.ChatHeaderUI && typeof window.ChatHeaderUI.updateForConversation === 'function') {
-                    window.ChatHeaderUI.updateForConversation(conversation, { customerName: customer.name });
-                } else {
-                    const titleElement = document.getElementById('messagesTitle');
-                    if (titleElement) titleElement.textContent = customer.name;
+                    try { window.ChatHeaderUI.updateForConversation(conversation, { customerName: customer.name }); return; } catch(_){ }
                 }
+                const titleElement = document.getElementById('messagesTitle');
+                if (titleElement) titleElement.textContent = customer.name;
             }
 
             // 初始化 WebSocket 适配器（已抽象到 MessageWSHandler）
             _initWSAdapter(){
-                if (!window.MessageWSHandler) {
-                    log.warn('MessageWSHandler 未加载，保持原有逻辑（等待后续脚本）');
+                // 优先主处理器；缺席则使用 WSFallback
+                if (window.MessageWSHandler) {
+                    this._wsHandler = window.MessageWSHandler.init({
+                        debug: false,
+                        onEvent: (evt)=> {
+                            try {
+                                if (window.__WsEventsMetrics && window.__WsEventsMetrics.record){
+                                    window.__WsEventsMetrics.record(evt.raw, { path: 'router' });
+                                }
+                                if (window.WsEventRouter && typeof window.WsEventRouter.route === 'function') {
+                                    window.WsEventRouter.route(this, evt.raw); return; }
+                                // 仅保留最小回退 (legacy inline)
+                                if (window.__WsEventsMetrics && window.__WsEventsMetrics.record){
+                                    window.__WsEventsMetrics.record(evt.raw, { path: 'inline' });
+                                }
+                                this.handleWebSocketMessage(evt.raw);
+                            } catch(e){ log.error('ws handler route error', e); }
+                        }
+                    });
+                    Object.defineProperty(this, 'websocket', { get: ()=> (this._wsHandler && this._wsHandler._ws) || null });
+                    Object.defineProperty(this, 'wsAdapter', { get: ()=> ({ send: (d)=> this._wsHandler? this._wsHandler.send(d) : false }) });
                     return;
                 }
-                this._wsHandler = window.MessageWSHandler.init({
-                    debug: false,
-                    onEvent: (evt)=> {
+                // Fallback 分支
+                if (window.WSFallback && typeof window.WSFallback.ensureWS === 'function') {
+                    const routeEvent = (raw)=>{
                         try {
-                            // 优先统一事件路由器
-                            if (window.WsEventRouter && typeof window.WsEventRouter.route === 'function') {
-                                window.WsEventRouter.route(this, evt.raw);
-                                return;
+                            if (window.__WsEventsMetrics && window.__WsEventsMetrics.record){
+                                window.__WsEventsMetrics.record(raw, { path: 'router-fallback' });
                             }
-                            // 使用独立事件处理器 (解耦 Orchestrator)
-                            this._ensureWsEventsDelegate();
-                            if (this._wsEventsDelegate) {
-                                this._wsEventsDelegate.route(evt.raw);
-                            } else {
-                                // 最后回退旧逻辑
-                                this.handleWebSocketMessage(evt.raw);
+                            if (window.WsEventRouter && typeof window.WsEventRouter.route === 'function') { window.WsEventRouter.route(this, raw); return; }
+                            if (window.__WsEventsMetrics && window.__WsEventsMetrics.record){
+                                window.__WsEventsMetrics.record(raw, { path: 'inline' });
                             }
-                        } catch(e){ log.error('ws handler route error', e); }
-                    }
-                });
-                // 兼容旧字段 websocket / wsAdapter (只读) 以减少外部破坏性
-                Object.defineProperty(this, 'websocket', { get: ()=> (this._wsHandler && this._wsHandler._ws) || (this.wsAdapter?._ws) });
-                Object.defineProperty(this, 'wsAdapter', { get: ()=> ({ send: (d)=> this._wsHandler? this._wsHandler.send(d) : false }) });
+                            this.handleWebSocketMessage(raw);
+                        } catch(e){ log.error('fallback ws route error', e); }
+                    };
+                    const feedback = (lvl, msg)=>{ try { if (window.Feedback) Feedback.show(msg, lvl); } catch(_){ log.info(msg); } };
+                    this._wsFallback = window.WSFallback.ensureWS({
+                        urlBuilder: ()=> (window.WS_BASE_URL || (location.protocol === 'https:' ? `wss://${location.host}/ws` : `ws://${location.host}/ws`)),
+                        onEvent: routeEvent,
+                        onStatus: (s, meta)=>{
+                            // 简单状态提示（节流 + 去重）
+                            if (!this._lastWsStatus || this._lastWsStatus !== s){
+                                this._lastWsStatus = s;
+                                if (s === 'open') feedback('success','实时连接已建立');
+                                else if (s === 'reconnecting') feedback('warn','实时连接已断开，正在重连...');
+                                else if (s === 'degraded') feedback('warn','实时连接不稳定 (degraded)');
+                                else if (s === 'closed' && !meta?.manual) feedback('error','实时连接已关闭');
+                            }
+                        },
+                        onDegraded: ()=>{},
+                        heartbeatSec: 25,
+                        maxBackoff: 15000
+                    });
+                    // 兼容旧字段
+                    Object.defineProperty(this, 'websocket', { get: ()=> null });
+                    Object.defineProperty(this, 'wsAdapter', { get: ()=> ({ send: (d)=> this._wsFallback? this._wsFallback.send(d) : false }) });
+                    log.warn('已使用 WSFallback 作为临时 WebSocket 管理器');
+                } else {
+                    log.error('没有可用的 WebSocket 处理器 (MessageWSHandler 与 WSFallback 均缺失)');
+                }
             }
 
             /**
@@ -309,6 +334,9 @@ class MessageModule {
              */
             handleWebSocketMessage(data) {
                 if (!data || !data.type) return;
+                try { if (window.__WsEventsMetrics && window.__WsEventsMetrics.record){ window.__WsEventsMetrics.record(data, { path: 'inline' }); } } catch(_){ }
+                // 统计 inline handler 仍被触发频率
+                try { if (this._legacyUsage) this._legacyUsage.wsInlineHandler++; } catch(_){ }
                 const t = data.type;
                 if (t === 'message' || data.msg_type === 'message') return this.handleLegacyNewMessage(data);
                 if (t === 'typing') return (this.handleTypingIndicator && this.handleTypingIndicator(data));
@@ -323,18 +351,8 @@ class MessageModule {
                 }
             }
 
-            /** 保障独立事件处理器存在 (懒加载) */
-            _ensureWsEventsDelegate(){
-                if (this._wsEventsDelegate || !window.MessageWSEventsHandler) return;
-                this._wsEventsDelegate = window.MessageWSEventsHandler.create({
-                    onDomainAppend: (msg)=> this.handleDomainMessageAppended(msg),
-                    onDomainUpdate: (msg)=> this.handleDomainMessageUpdated(msg),
-                    onDomainDelete: (msg)=> this.handleDomainMessageDeleted(msg),
-                    onLegacyMessage: (raw)=> this.handleLegacyNewMessage(raw),
-                    onTyping: (raw)=> this.handleTypingIndicator && this.handleTypingIndicator(raw),
-                    refreshConversations: ()=> { if (this.currentShopId && this.conversationsManager) this.conversationsManager.loadConversationsForShop(this.currentShopId); }
-                });
-            }
+            // _ensureWsEventsDelegate 已合并进 WsEventRouter 统一路径 (2025-10) — 保留占位以防外部调用
+            _ensureWsEventsDelegate(){ /* deprecated noop */ }
 
             // 处理消息追加（委托给消息管理器）
             handleDomainMessageAppended(message) {
@@ -428,6 +446,7 @@ class MessageModule {
                     log.warn('LegacyLoaders 未加载，_legacyLoadMessages 跳过');
                     return;
                 }
+                try { if (this._legacyUsage) this._legacyUsage.loadMessages++; } catch(_){ }
                 return window.LegacyLoaders.loadMessages({ conversationId, messageModule: this });
             }
 
@@ -481,6 +500,7 @@ class MessageModule {
                     log.warn('LegacySenders 未加载，_legacySendMessage 跳过');
                     return;
                 }
+                try { if (this._legacyUsage) this._legacyUsage.sendMessage++; } catch(_){ }
                 window.LegacySenders.sendMessage({ messageModule: this, content });
             }
 
@@ -508,6 +528,7 @@ class MessageModule {
                     log.warn('LegacyLoaders 未加载，_legacyShowShops 跳过');
                     return;
                 }
+                try { if (this._legacyUsage) this._legacyUsage.showShops++; } catch(_){ }
                 return window.LegacyLoaders.showShops({ messageModule: this });
             }
             /**
@@ -523,24 +544,7 @@ class MessageModule {
 
             // 创建单个店铺卡片（委托 UI 组件）
             async createShopCard(shop) {
-                // 使用统一统计服务（优先）+ 兜底
-                let conversationCount = 0, unreadCount = 0;
-                try {
-                    if (window.ShopStatsService && typeof window.ShopStatsService.fetchShopStats === 'function') {
-                        const stats = await window.ShopStatsService.fetchShopStats(shop.id, false);
-                        conversationCount = stats.conversation_count || 0;
-                        unreadCount = stats.unread_count || 0;
-                    } else if (window.unifiedDataSyncManager && typeof window.unifiedDataSyncManager.fetchShopStats === 'function') {
-                        const stats = await window.unifiedDataSyncManager.fetchShopStats(shop.id, true);
-                        conversationCount = stats && stats.conversation_count ? stats.conversation_count : 0;
-                        unreadCount = stats && stats.unread_count ? stats.unread_count : 0;
-                    } else {
-                        conversationCount = await this.getShopConversationCount(shop.id);
-                        unreadCount = await this.getShopUnreadCount(shop.id);
-                    }
-                } catch(e){
-                    log.warn('店铺统计获取失败 使用0兜底 id='+shop.id, e);
-                }
+                const { conversationCount, unreadCount } = await this._fetchShopStatsSafe(shop.id);
                 const hasConversations = conversationCount > 0;
                 const onCardClick = async () => {
                     if (hasConversations) {
@@ -630,15 +634,25 @@ class MessageModule {
 
             // 渲染消息（委托给渲染器）
             renderMessages() {
+                // 优先使用外部渲染器
                 if (this._renderer && this._renderer.renderMessages) {
-                    return this._renderer.renderMessages();
+                    const r = this._renderer.renderMessages();
+                    this._notifyNewMessageForScroll();
+                    return r;
                 }
-                // 降级：简单实现
-                const container = document.getElementById('chatMessages');
-                if (!container) return;
-                container.innerHTML = '';
-                (this.messages || []).forEach(m => this.renderMessage(m));
-                this._notifyNewMessageForScroll();
+                // Fallback: 最小安全逻辑（保持旧体验）
+                try {
+                    const container = document.getElementById('chatMessages');
+                    if (!container) return;
+                    container.innerHTML = '';
+                    (this.messages || []).forEach(m => {
+                        const div = document.createElement('div');
+                        div.className = 'chat-message';
+                        div.textContent = (m.content || '').slice(0, 200);
+                        container.appendChild(div);
+                    });
+                    this._notifyNewMessageForScroll();
+                } catch(e){ log.warn('fallback renderMessages error', e); }
             }
 
             // 渲染单条消息（委托给渲染器）
@@ -646,20 +660,23 @@ class MessageModule {
                 if (this._renderer && this._renderer.renderMessage) {
                     return this._renderer.renderMessage(message);
                 }
-                // 降级：最小实现
-                const container = document.getElementById('chatMessages');
-                if (!container) return;
-                const div = document.createElement('div');
-                div.className = 'chat-message';
-                div.textContent = (message.content || '').slice(0, 200);
-                container.appendChild(div);
+                // Fallback: 最小单条渲染
+                try {
+                    const container = document.getElementById('chatMessages');
+                    if (!container) return;
+                    const div = document.createElement('div');
+                    div.className = 'chat-message';
+                    div.textContent = (message.content || '').slice(0, 200);
+                    container.appendChild(div);
+                } catch(e){ log.warn('fallback renderMessage error', e); }
             }
 
             // (重复 sendMessage 定义已移除，统一使用前方兼容实现)
 
             // 辅助方法
             scrollToBottom() {
-                if (window.ScrollCoordinator) {
+                // 统一委托 ScrollCoordinator, 若缺席则回退
+                if (window.ScrollCoordinator && typeof window.ScrollCoordinator.scrollToEnd === 'function') {
                     return window.ScrollCoordinator.scrollToEnd(true);
                 }
                 const container = document.getElementById('chatMessages');
@@ -675,33 +692,22 @@ class MessageModule {
 
             // 显示指定视图
             showView(viewId) {
-                this._ensureViewController();
-                if (this._view) this._view.showView(viewId); else {
-                    // 回退: 极简显示
-                    const el = document.getElementById(viewId);
-                    if (el) el.style.display='block';
-                }
+                this._ensureNavigation();
+                if (this._nav) return this._nav.showView(viewId);
+                const el = document.getElementById(viewId); if (el) el.style.display='block';
             }
 
             // 返回上一级
             goBack() {
-                this._ensureViewController();
-                if (this._view) {
-                    const chatView = document.getElementById('chatView');
-                    const convView = document.getElementById('conversationsListView');
-                    this._view.goBack({
-                        inChat: !!(chatView && chatView.style.display==='block'),
-                        inConversations: !!(convView && convView.style.display==='block')
-                    });
-                }
+                this._ensureNavigation();
+                if (this._nav) return this._nav.goBack();
             }
 
-            _ensureViewController(){
-                if (this._view || !window.MessageViewController) return;
-                this._view = window.MessageViewController.create({
-                    onBack: ()=> this.goBack(),
-                    onLeaveShop: ()=> { this.currentShopId = null; }
-                });
+            _ensureNavigation(){
+                if (this._nav) return;
+                if (window.MessageNavigation && typeof window.MessageNavigation.create === 'function') {
+                    try { this._nav = window.MessageNavigation.create(this); } catch(_){ }
+                }
             }
 
 
@@ -780,7 +786,11 @@ class MessageModule {
              * 保留此方法仅做向后兼容，内部已委托到 Notify 或 window.showToast
              */
             showToast(message, type = 'info') {
+                // 新统一入口: Feedback.show 内部已适配 Notify/Toast/showToast 并做重复抑制
                 try {
+                    if (window.Feedback && typeof window.Feedback.show === 'function') {
+                        return window.Feedback.show(message, type);
+                    }
                     if (window.Notify && typeof window.Notify.show === 'function') {
                         return window.Notify.show(message, type);
                     }
@@ -788,7 +798,7 @@ class MessageModule {
                         return window.showToast(message, type);
                     }
                 } catch(e){ /* 忽略通知异常 */ }
-                log.info(`[Toast ${type}] ${message}`);
+                log.info(`[ToastFallback ${type}] ${message}`);
             }
 
             // 兼容方法：加载店铺对话列表（委托给对话管理器）
@@ -814,6 +824,7 @@ class MessageModule {
                     log.warn('LegacyLoaders 未加载，_legacyLoadConversationsForShop 跳过');
                     return;
                 }
+                try { if (this._legacyUsage) this._legacyUsage.loadConversationsForShop++; } catch(_){ }
                 return window.LegacyLoaders.loadConversationsForShop({ shopId, messageModule: this });
             }
 
@@ -828,60 +839,28 @@ class MessageModule {
 
             // 兼容方法：生成客户编号
             generateCustomerNumber(customerId) {
-                // 统一策略：优先骨架 CustomerNumbering
                 try {
                     if (window.CustomerNumbering && typeof window.CustomerNumbering.generateCustomerNumber === 'function') {
-                        return window.CustomerNumbering.generateCustomerNumber(String(customerId));
+                        return window.CustomerNumbering.generateCustomerNumber(customerId);
                     }
-                    if (this.conversationsManager && typeof this.conversationsManager.generateCustomerNumber === 'function') {
-                        return this.conversationsManager.generateCustomerNumber(customerId);
-                    }
-                    if (window.generateCustomerNumber && typeof window.generateCustomerNumber === 'function') {
-                        return window.generateCustomerNumber(customerId);
-                    }
-                } catch(e){ log.warn('生成客户编号异常，使用兜底', e); }
-                const raw = (String(customerId||'').replace('customer_','')); 
-                return `客户${raw.substring(0,8)}`;
+                } catch(e){ log.warn('CustomerNumbering 调用异常', e); }
+                // 最终兜底
+                const raw = String(customerId||'').replace('customer_','');
+                return '客户'+ raw.substring(0,8 || 3);
             }
 
             // 兼容方法：获取店铺对话数量（委托给店铺管理器）
             async getShopConversationCount(shopId) {
-                // @deprecated: 已由 ShopStatsService 统一，请使用 ShopStatsService.fetchShopStats
-                if (this.shopsManager) {
-                    return this.shopsManager.getShopConversationCount(shopId);
-                }
-                
-                // 降级实现
-                try {
-                    if (!window.AuthFetch) throw new Error('AuthFetch 未加载');
-                    const resp = await window.AuthFetch.safeJsonFetch(`/api/conversations?shop_id=${shopId}`);
-                    const arr = resp.ok && Array.isArray(resp.data) ? resp.data : [];
-                    return arr.length;
-                } catch (error) {
-                    log.error('降级：获取店铺对话数量失败', error);
-                    return 0;
-                }
+                log.warn('[deprecated] getShopConversationCount 请改用 _fetchShopStatsSafe');
+                const stats = await this._fetchShopStatsSafe(shopId);
+                return stats.conversationCount;
             }
 
             // 兼容方法：获取店铺未读数量（委托给店铺管理器）
             async getShopUnreadCount(shopId) {
-                // @deprecated: 已由 ShopStatsService 统一，请使用 ShopStatsService.fetchShopStats
-                if (this.shopsManager) {
-                    return this.shopsManager.getShopUnreadCount(shopId);
-                }
-                
-                // 降级实现
-                try {
-                    if (!window.AuthFetch) throw new Error('AuthFetch 未加载');
-                    const resp = await window.AuthFetch.safeJsonFetch(`/api/conversations?shop_id=${shopId}`);
-                    if (resp.ok && Array.isArray(resp.data)) {
-                        return resp.data.reduce((sum, conv) => sum + (conv.unread_count || 0), 0);
-                    }
-                    return 0;
-                } catch (error) {
-                    log.error('降级：获取店铺未读数量失败', error);
-                    return 0;
-                }
+                log.warn('[deprecated] getShopUnreadCount 请改用 _fetchShopStatsSafe');
+                const stats = await this._fetchShopStatsSafe(shopId);
+                return stats.unreadCount;
             }
 
             // 兼容方法：分页加载更多消息
@@ -913,11 +892,55 @@ class MessageModule {
 
             // 滚动协调器通知封装
             _notifyNewMessageForScroll(){
-                if (window.ScrollCoordinator && typeof window.ScrollCoordinator.notifyNewMessage === 'function') {
-                    window.ScrollCoordinator.notifyNewMessage();
-                } else {
-                    this.scrollToBottom();
+                try {
+                    if (window.ScrollCoordinator && typeof window.ScrollCoordinator.notifyNewMessage === 'function') {
+                        window.ScrollCoordinator.notifyNewMessage();
+                        return;
+                    }
+                } catch(_){}
+                // 回退
+                this.scrollToBottom();
+            }
+
+            // 统一店铺统计获取（集中入口）
+            async _fetchShopStatsSafe(shopId){
+                const result = { conversationCount:0, unreadCount:0 };
+                if (!shopId){ return result; }
+                try {
+                    if (window.ShopStatsService && typeof window.ShopStatsService.fetchShopStats === 'function'){
+                        const stats = await window.ShopStatsService.fetchShopStats(shopId, false);
+                        result.conversationCount = stats.conversation_count || 0;
+                        result.unreadCount = stats.unread_count || 0;
+                        return result;
+                    }
+                    // 次级来源（旧同步管理器）
+                    if (window.unifiedDataSyncManager && typeof window.unifiedDataSyncManager.fetchShopStats === 'function'){
+                        const stats = await window.unifiedDataSyncManager.fetchShopStats(shopId, true);
+                        result.conversationCount = (stats && stats.conversation_count) || 0;
+                        result.unreadCount = (stats && stats.unread_count) || 0;
+                        return result;
+                    }
+                    // 兜底：直接 API (一次性，不建议常用)
+                    if (window.AuthFetch && typeof window.AuthFetch.safeJsonFetch === 'function'){
+                        const resp = await window.AuthFetch.safeJsonFetch(`/api/conversations?shop_id=${shopId}`);
+                        if (resp.ok && Array.isArray(resp.data)){
+                            result.conversationCount = resp.data.length;
+                            result.unreadCount = resp.data.reduce((sum,c)=> sum + (c.unread_count||0),0);
+                        }
+                        return result;
+                    }
+                    // 最终再兜底 fetch (可能无鉴权头)
+                    const r = await fetch(`/api/conversations?shop_id=${shopId}`);
+                    try {
+                        const j = await r.json();
+                        const arr = Array.isArray(j)? j : (j.data||[]);
+                        result.conversationCount = arr.length;
+                        result.unreadCount = arr.reduce((s,c)=> s + (c.unread_count||0),0);
+                    } catch(_){}
+                } catch(err){
+                    log.warn('获取店铺统计失败 (统一入口)', err);
                 }
+                return result;
             }
         }
 

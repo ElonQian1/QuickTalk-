@@ -44,8 +44,8 @@
 				cm.renderConversationsList();
 				this._updateStats(cm);
 				this._log('清零未读', currentId);
-				// 预留：调用后端 mark-read API (待后端提供)
-				// this._callMarkReadAPI(currentId).catch(()=>{});
+				// 调用后端 mark-read API
+				this._callMarkReadAPI(currentId).catch(()=>{});
 			}
 		}
 

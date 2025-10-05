@@ -15,6 +15,21 @@
         }
 
         /**
+         * 内部统一获取鉴权请求头，优先使用 AuthHelper
+         */
+        _authHeaders(extra){
+            try {
+                if (window.AuthHelper && typeof window.AuthHelper.getHeaders === 'function') {
+                    const base = window.AuthHelper.getHeaders();
+                    return Object.assign({}, base, extra||{});
+                }
+            } catch(_){ }
+            const token = (window.getAuthToken ? window.getAuthToken() : '');
+            const fallback = token ? { 'Authorization': `Bearer ${token}`, 'Content-Type':'application/json' } : { 'Content-Type':'application/json' };
+            return Object.assign({}, fallback, extra||{});
+        }
+
+        /**
          * 加载并显示店铺列表
          */
         async loadAndShowShops() {
@@ -47,19 +62,18 @@
             if (typeof window.fetchShops === 'function') {
                 return await window.fetchShops();
             }
-            
-            // 降级：直接API调用
-            const response = await fetch('/api/shops', {
-                headers: window.AuthHelper ? window.AuthHelper.getHeaders() : {
-                    'Authorization': `Bearer ${window.getAuthToken ? window.getAuthToken() : ''}`
+            // 统一授权 + JSON 解析
+            try {
+                if (window.AuthHelper && window.AuthHelper.safeJson){
+                    const r = await window.AuthHelper.safeJson('/api/shops');
+                    if (r.ok) return Array.isArray(r.data) ? r.data : [];
+                    throw new Error(r.error || '获取店铺数据失败');
                 }
-            });
-            
-            const data = await response.json();
-            if (data.success && data.data) {
-                return Array.isArray(data.data) ? data.data : [];
-            }
-            
+            } catch(e){ throw e; }
+            // 最终兜底：保持原逻辑
+            const resp = await fetch('/api/shops', { headers: this._authHeaders() });
+            const data = await resp.json();
+            if (data.success && data.data) return Array.isArray(data.data)? data.data: [];
             throw new Error(data.error || '获取店铺数据失败');
         }
 
@@ -130,19 +144,18 @@
          * 渲染空状态
          */
         renderEmptyState(container) {
-            if (window.UIStates && window.UIStates.showEmpty) {
-                window.UIStates.showEmpty(container, '暂无可用店铺', '只有审核通过的店铺才会在此显示');
-                return;
-            }
-
-            // 降级实现
-            container.innerHTML = `
-                <div class="empty-state">
-                    <div class="empty-icon">🏪</div>
-                    <h3>暂无可用店铺</h3>
-                    <p>只有审核通过的店铺才会在此显示；请在店铺通过审核后再来处理客服消息</p>
-                </div>
-            `;
+            // 优先使用统一 EmptyState 组件
+            try {
+                if (window.EmptyState && typeof window.EmptyState.shops === 'function') {
+                    window.EmptyState.shops(container); return;
+                }
+                if (window.UIStates && window.UIStates.showEmpty) {
+                    window.UIStates.showEmpty(container, '暂无可用店铺', '只有审核通过的店铺才会在此显示');
+                    return;
+                }
+            } catch(_){}
+            // 最终降级（保留原 HTML 以兼容旧样式）
+            container.innerHTML = '<div class="empty-state"><div class="empty-icon">🏪</div><h3>暂无可用店铺</h3><p>只有审核通过的店铺才会在此显示；请在店铺通过审核后再来处理客服消息</p></div>';
         }
 
         /**
@@ -213,18 +226,15 @@
          */
         async getShopConversationCount(shopId) {
             try {
-                const response = await fetch(`/api/conversations?shop_id=${shopId}`, {
-                    headers: window.AuthHelper ? window.AuthHelper.getHeaders() : {
-                        'Authorization': `Bearer ${window.getAuthToken ? window.getAuthToken() : ''}`
-                    }
-                });
-
+                if (window.AuthHelper && window.AuthHelper.safeJson){
+                    const r = await window.AuthHelper.safeJson(`/api/conversations?shop_id=${shopId}`);
+                    if (r.ok && Array.isArray(r.data)) return r.data.length;
+                    return 0;
+                }
+                const response = await fetch(`/api/conversations?shop_id=${shopId}`, { headers: this._authHeaders() });
                 const data = await response.json();
                 return (data.success && data.data) ? data.data.length : 0;
-            } catch (error) {
-                console.error('[ShopsManager] 获取店铺对话数量失败:', error);
-                return 0;
-            }
+            } catch (error) { console.error('[ShopsManager] 获取店铺对话数量失败:', error); return 0; }
         }
 
         /**
@@ -232,21 +242,16 @@
          */
         async getShopUnreadCount(shopId) {
             try {
-                const response = await fetch(`/api/conversations?shop_id=${shopId}`, {
-                    headers: window.AuthHelper ? window.AuthHelper.getHeaders() : {
-                        'Authorization': `Bearer ${window.getAuthToken ? window.getAuthToken() : ''}`
-                    }
-                });
-
-                const data = await response.json();
-                if (data.success && data.data) {
-                    return data.data.reduce((sum, conv) => sum + (conv.unread_count || 0), 0);
+                if (window.AuthHelper && window.AuthHelper.safeJson){
+                    const r = await window.AuthHelper.safeJson(`/api/conversations?shop_id=${shopId}`);
+                    if (r.ok && Array.isArray(r.data)) return r.data.reduce((sum, conv)=> sum + (conv.unread_count||0), 0);
+                    return 0;
                 }
+                const response = await fetch(`/api/conversations?shop_id=${shopId}`, { headers: this._authHeaders() });
+                const data = await response.json();
+                if (data.success && data.data) return data.data.reduce((sum, conv) => sum + (conv.unread_count || 0), 0);
                 return 0;
-            } catch (error) {
-                console.error('[ShopsManager] 获取店铺未读数量失败:', error);
-                return 0;
-            }
+            } catch (error) { console.error('[ShopsManager] 获取店铺未读数量失败:', error); return 0; }
         }
 
         /**

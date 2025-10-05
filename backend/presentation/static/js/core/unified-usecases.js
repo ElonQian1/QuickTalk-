@@ -28,22 +28,58 @@
       const params = new URLSearchParams();
       if (window.currentShopId) params.set('shop_id', window.currentShopId);
       params.set('days', '7');
-      const token = typeof window.getAuthToken === 'function' ? window.getAuthToken() : '';
-      const res = await fetch(`/api/workbench/summary?${params.toString()}`, {
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
-      });
+      
+      // 使用增强的认证头获取
+      const headers = typeof window.getAuthHeaders === 'function' 
+        ? window.getAuthHeaders() 
+        : {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${typeof window.getAuthToken === 'function' ? window.getAuthToken() : ''}`,
+            'X-Session-Id': typeof window.getAuthToken === 'function' ? window.getAuthToken() : ''
+          };
+      
+      console.log('🔄 加载工作台数据...', { hasToken: !!headers.Authorization });
+      
+      const res = await fetch(`/api/workbench/summary?${params.toString()}`, { headers });
+      
+      if (res.status === 401) {
+        console.warn('⚠️ 工作台数据加载：收到401未授权错误');
+        // 尝试重新检查登录状态
+        if (typeof window.checkLoginStatus === 'function') {
+          setTimeout(() => window.checkLoginStatus(), 1000);
+        }
+        throw new Error('登录已过期，请重新登录');
+      }
+      
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      }
+      
       const data = await res.json();
-      if (!data.success) throw new Error(data.error || '加载失败');
+      console.log('📊 工作台数据加载成功:', data);
+      
+      if (!data.success) {
+        throw new Error(data.error || '加载失败');
+      }
+      
       renderWorkbenchImpl(data.data);
     } catch(err){
-      console.error('加载工作台失败:', err);
+      console.error('❌ 加载工作台失败:', err);
       container.innerHTML = `
         <div class="empty-state">
           <div class="empty-icon">❌</div>
           <div class="empty-title">加载失败</div>
-          <div class="empty-desc">无法加载工作台数据，请稍后重试</div>
+          <div class="empty-desc">${err.message || '无法加载工作台数据，请稍后重试'}</div>
+          <button onclick="window.UnifiedUsecases?.loadPageData('workbench')" style="margin-top: 12px; padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">重试</button>
         </div>
       `;
+      
+      // 如果是认证错误，显示友好提示
+      if (err.message.includes('登录') || err.message.includes('401')) {
+        if (typeof showToast === 'function') {
+          showToast('登录已过期，请重新登录', 'warning');
+        }
+      }
     }
   }
 

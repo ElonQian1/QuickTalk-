@@ -65,6 +65,55 @@
   font-weight: 600;
 }
 
+/* 新的右侧未读消息徽章 */
+.shop-card .shop-unread-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: linear-gradient(135deg, #ff6b6b, #e74c3c);
+  color: white;
+  border-radius: 12px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  box-shadow: 0 2px 4px rgba(231, 76, 60, 0.3);
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  min-width: 45px;
+  justify-content: center;
+  animation: unread-pulse 2s infinite;
+}
+
+.shop-card .shop-unread-badge .unread-number {
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.shop-card .shop-unread-badge .unread-label {
+  font-size: 9px;
+  opacity: 0.9;
+}
+
+@keyframes unread-pulse {
+  0%, 70%, 100% {
+    transform: scale(1);
+    box-shadow: 0 2px 4px rgba(231, 76, 60, 0.3);
+  }
+  35% {
+    transform: scale(1.05);
+    box-shadow: 0 3px 8px rgba(231, 76, 60, 0.5);
+  }
+}
+
+/* 鼠标悬停效果 */
+.shop-card:hover .shop-unread-badge {
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(231, 76, 60, 0.4);
+  transition: all 0.2s ease;
+}
+
 .shop-card .shop-domain { 
   font-size: 12px; 
   color: #6c757d; 

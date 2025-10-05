@@ -63,7 +63,10 @@
     _shouldCountMessage(msg){
       // 忽略自己发送的已读消息，示例逻辑: sender_type === 'agent' 不计入 (以客服端视角)
       if (!msg) return false;
-      if (msg.sender_type === 'agent') return false;
+      if (window.MessageNormalizer && window.MessageNormalizer.ensureMessageShape) {
+        window.MessageNormalizer.ensureMessageShape(msg);
+      }
+      if (msg.sender_type === 'agent') return false; // 统一标准化后判断
       return true;
     }
 

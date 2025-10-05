@@ -125,6 +125,59 @@
     }
 }
 
+/* 移动端推广模态框优化 */
+@media (max-width: 480px) {
+    .promotion-section {
+        margin-bottom: 16px;
+        padding: 16px;
+        border-radius: 6px;
+    }
+
+    .promotion-section h4 {
+        font-size: 15px;
+        margin-bottom: 12px;
+    }
+
+    .reward-item {
+        padding: 10px;
+        gap: 10px;
+    }
+
+    .reward-item strong {
+        font-size: 13px;
+    }
+
+    .reward-item p {
+        font-size: 12px;
+    }
+
+    .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    .stat-item {
+        padding: 12px;
+    }
+
+    .stat-number {
+        font-size: 16px;
+    }
+
+    .stat-label {
+        font-size: 11px;
+    }
+
+    .share-buttons {
+        gap: 8px;
+    }
+
+    .share-btn {
+        padding: 10px;
+        font-size: 13px;
+    }
+}
+
 /* 集成代码样式 */
 .integration-info {
     display: flex;

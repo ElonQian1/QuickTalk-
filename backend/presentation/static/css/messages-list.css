@@ -13,7 +13,19 @@
 .conversation-content { flex: 1; min-width: 0; }
 .conversation-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .customer-name { font-size: 14px; font-weight: 700; color: #2c3e50; }
-.last-message { font-size: 13px; color: #6c757d; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.last-message { font-size: 13px; color: #6c757d; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; position: relative; }
+
+/* 长消息淡出遮罩（单行省略时） */
+.last-message.fade-mask { mask-image: linear-gradient(90deg, #000 70%, rgba(0,0,0,0)); -webkit-mask-image: linear-gradient(90deg, #000 70%, rgba(0,0,0,0)); }
+
+/* 多行场景（竖向布局时），通过 line-clamp + 背景渐变实现更柔和的收尾 */
+#messagesPage .conversation-item .last-message.fade-mask { position: relative; }
+#messagesPage .conversation-item .last-message.fade-mask:after { content: ''; position: absolute; right: 0; top: 0; bottom: 0; width: 40px; background: linear-gradient(90deg, rgba(255,255,255,0), #fff); }
+
+/* avatar 二级信息插槽（在线点或未读数降级显示） */
+.conversation-avatar { position: relative; display:flex; align-items:center; justify-content:center; }
+.conversation-avatar .avatar-meta-slot { position:absolute; bottom:-4px; right:-4px; min-width:16px; height:16px; padding:0 4px; background:#ff4d4f; color:#fff; font-size:10px; line-height:16px; border-radius:12px; display:none; align-items:center; justify-content:center; font-weight:600; box-shadow:0 0 0 2px #fff; }
+.conversation-item.has-unread .conversation-avatar .avatar-meta-slot { display:flex; }
 
 .unread-badge { position: absolute; top: 10px; right: 12px; background: #dc3545; color: #fff; border-radius: 10px; min-width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; padding: 0 6px; }
 
@@ -54,6 +66,16 @@
 	-webkit-box-orient: vertical;
 	overflow: hidden;
 }
+
+/* 布局模式切换：horizontal 模式（默认）与 vertical 模式 */
+body.layout-vertical .conversation-item { flex-direction: column; align-items: flex-start; }
+body.layout-vertical .conversation-item .conversation-avatar { margin-right:0; margin-bottom:4px; }
+body.layout-vertical .conversation-item .last-message { white-space: normal; }
+
+/* 布局模式切换控制按钮（放置在 header 内） */
+.layout-toggle-group { display:flex; gap:6px; margin-left:auto; }
+.layout-toggle-btn { background:#fff; border:1px solid #d0d7de; padding:4px 10px; border-radius:14px; font-size:12px; cursor:pointer; color:#444; transition:all .15s; }
+.layout-toggle-btn.active, .layout-toggle-btn:hover { background:#667eea; border-color:#667eea; color:#fff; }
 
 /* 小屏优化：缩小左右 padding 适应纵向结构 */
 @media (max-width: 480px) {

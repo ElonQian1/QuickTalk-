@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>统一已读管理器测试</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 8px; }
+        .test-button { padding: 8px 16px; margin: 5px; background: #007aff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .test-button:hover { background: #005bb5; }
+        .log-area { background: #f5f5f5; padding: 10px; margin: 10px 0; border-radius: 4px; font-family: monospace; font-size: 12px; height: 200px; overflow-y: auto; }
+        .status { padding: 5px 10px; margin: 5px 0; border-radius: 4px; }
+        .status.success { background: #d4edda; color: #155724; }
+        .status.error { background: #f8d7da; color: #721c24; }
+        .status.info { background: #d1ecf1; color: #0c5460; }
+    </style>
+</head>
+<body>
+    <h1>🧪 统一已读管理器测试页面</h1>
+    
+    <div class="test-section">
+        <h2>📋 系统状态</h2>
+        <div id="systemStatus"></div>
+        <button class="test-button" onclick="checkSystemStatus()">检查系统状态</button>
+    </div>
+
+    <div class="test-section">
+        <h2>🔧 基础功能测试</h2>
+        <button class="test-button" onclick="testMarkSingle()">测试单个对话标记</button>
+        <button class="test-button" onclick="testMarkMultiple()">测试批量标记</button>
+        <button class="test-button" onclick="testAutoMark()">测试自动标记</button>
+        <button class="test-button" onclick="enableDebug()">启用调试模式</button>
+    </div>
+
+    <div class="test-section">
+        <h2>📡 API连接测试</h2>
+        <button class="test-button" onclick="testApiConnection()">测试API连接</button>
+        <button class="test-button" onclick="testSessionId()">测试会话ID</button>
+    </div>
+
+    <div class="test-section">
+        <h2>📝 测试日志</h2>
+        <button class="test-button" onclick="clearLog()">清空日志</button>
+        <div id="logArea" class="log-area"></div>
+    </div>
+
+    <script src="/js/core/unified-read-manager.js"></script>
+    <script>
+        function log(message, type = 'info') {
+            const logArea = document.getElementById('logArea');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = `status ${type}`;
+            logEntry.innerHTML = `[${timestamp}] ${message}`;
+            logArea.appendChild(logEntry);
+            logArea.scrollTop = logArea.scrollHeight;
+            console.log(`[${type.toUpperCase()}]`, message);
+        }
+
+        function checkSystemStatus() {
+            const statusDiv = document.getElementById('systemStatus');
+            let html = '';
+
+            // 检查统一管理器
+            if (window.UnifiedReadManager) {
+                html += '<div class="status success">✅ UnifiedReadManager 已加载</div>';
+                html += `<div class="status info">📍 API端点: ${window.UnifiedReadManager.apiEndpoint}</div>`;
+            } else {
+                html += '<div class="status error">❌ UnifiedReadManager 未加载</div>';
+            }
+
+            // 检查快捷方法
+            if (window.markConversationAsRead) {
+                html += '<div class="status success">✅ 全局快捷方法可用</div>';
+            } else {
+                html += '<div class="status error">❌ 全局快捷方法不可用</div>';
+            }
+
+            // 检查会话ID
+            const sessionId = localStorage.getItem('sessionId') || sessionStorage.getItem('sessionId');
+            if (sessionId) {
+                html += `<div class="status success">✅ 会话ID存在: ${sessionId.substring(0, 10)}...</div>`;
+            } else {
+                html += '<div class="status error">❌ 会话ID不存在</div>';
+            }
+
+            statusDiv.innerHTML = html;
+            log('系统状态检查完成');
+        }
+
+        async function testMarkSingle() {
+            const testId = 'test_conv_' + Date.now();
+            log(`开始测试单个对话标记: ${testId}`);
+            
+            try {
+                const success = await window.markConversationAsRead(testId);
+                if (success) {
+                    log(`✅ 单个对话标记成功: ${testId}`, 'success');
+                } else {
+                    log(`❌ 单个对话标记失败: ${testId}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ 单个对话标记异常: ${error.message}`, 'error');
+            }
+        }
+
+        async function testMarkMultiple() {
+            const testIds = [
+                'test_conv_1_' + Date.now(),
+                'test_conv_2_' + Date.now(),
+                'test_conv_3_' + Date.now()
+            ];
+            
+            log(`开始测试批量标记: ${testIds.length} 个对话`);
+            
+            try {
+                const results = await window.UnifiedReadManager.markMultipleAsRead(testIds);
+                log(`✅ 批量标记完成 - 成功: ${results.success.length}, 失败: ${results.failed.length}`, 'success');
+                log(`成功的对话: ${results.success.join(', ')}`);
+                if (results.failed.length > 0) {
+                    log(`失败的对话: ${results.failed.join(', ')}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ 批量标记异常: ${error.message}`, 'error');
+            }
+        }
+
+        async function testAutoMark() {
+            const testId = 'auto_test_' + Date.now();
+            log(`开始测试自动标记: ${testId}`);
+            
+            // 模拟对话选择事件
+            document.dispatchEvent(new CustomEvent('conversation:selected', {
+                detail: { id: testId }
+            }));
+            
+            log('✅ 自动标记事件已触发（1秒后生效）', 'info');
+        }
+
+        function enableDebug() {
+            window.UnifiedReadManager.enableDebug();
+            log('✅ 调试模式已启用', 'success');
+        }
+
+        async function testApiConnection() {
+            log('开始测试API连接...');
+            
+            try {
+                const response = await fetch('/api/health');
+                if (response.ok) {
+                    const data = await response.json();
+                    log('✅ API连接正常', 'success');
+                    log(`服务器响应: ${JSON.stringify(data)}`);
+                } else {
+                    log(`❌ API连接失败: ${response.status} ${response.statusText}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ API连接异常: ${error.message}`, 'error');
+            }
+        }
+
+        function testSessionId() {
+            const sessionId = localStorage.getItem('sessionId') || sessionStorage.getItem('sessionId');
+            
+            if (!sessionId) {
+                // 创建测试会话ID
+                const testSessionId = 'test_session_' + Date.now();
+                localStorage.setItem('sessionId', testSessionId);
+                log(`✅ 创建测试会话ID: ${testSessionId}`, 'success');
+            } else {
+                log(`✅ 现有会话ID: ${sessionId}`, 'info');
+            }
+        }
+
+        function clearLog() {
+            document.getElementById('logArea').innerHTML = '';
+            log('日志已清空');
+        }
+
+        // 监听已读事件
+        document.addEventListener('conversation:read', (event) => {
+            log(`🔔 收到已读事件: ${event.detail.conversationId} (自动: ${event.detail.auto})`, 'info');
+        });
+
+        // 页面加载时检查系统状态
+        window.addEventListener('load', () => {
+            setTimeout(checkSystemStatus, 100);
+            log('测试页面已加载');
+        });
+    </script>
+</body>
+</html>

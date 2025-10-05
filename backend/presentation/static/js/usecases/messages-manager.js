@@ -23,6 +23,16 @@
         }
 
         /**
+         * 统一鉴权头，优先 AuthHelper
+         */
+        _authHeaders(extra){
+            try { if (window.AuthHelper && typeof window.AuthHelper.getHeaders === 'function') { return Object.assign({}, window.AuthHelper.getHeaders(), extra||{}); } } catch(_){ }
+            const token = (window.getAuthToken ? window.getAuthToken() : '');
+            const base = token ? { 'Authorization': `Bearer ${token}`, 'Content-Type':'application/json' } : { 'Content-Type':'application/json' };
+            return Object.assign({}, base, extra||{});
+        }
+
+        /**
          * 为指定对话加载消息
          */
         async loadMessages(conversationId, customer = null) {
@@ -40,8 +50,15 @@
                     console.log('[MessagesManager] 加载消息:', conversationId);
                 }
 
-                // 显示加载状态
-                this.showLoadingState();
+                // 显示加载状态 (StatusView 优先)
+                try {
+                    const container = document.getElementById('chatMessages');
+                    if (container && window.StatusView) {
+                        StatusView.loading(container, '正在加载消息...');
+                    } else {
+                        this.showLoadingState(); // 回退
+                    }
+                } catch(_){ this.showLoadingState(); }
 
                 const messages = await this.fetchMessages(conversationId);
                 // 写入集中状态仓库
@@ -50,11 +67,21 @@
                 } else {
                     this.messages = messages; // 回退
                 }
+                // 清除状态视图
+                try { const c = document.getElementById('chatMessages'); if (c && window.StatusView) StatusView.clear(c); } catch(_){ }
                 
                 return messages;
             } catch (error) {
                 console.error('[MessagesManager] 加载消息失败:', error);
-                this.showErrorState(error);
+                // 错误态 (StatusView 优先)
+                try {
+                    const container = document.getElementById('chatMessages');
+                    if (container && window.StatusView) {
+                        StatusView.error(container, '加载消息失败', error.message || '请稍后重试', { label: '重试', onClick: ()=> this.loadMessages(conversationId, customer) });
+                    } else {
+                        this.showErrorState(error); // 回退
+                    }
+                } catch(_){ this.showErrorState(error); }
                 throw error;
             } finally {
                 if (this._loadingMessagesFor === conversationId) {
@@ -67,24 +94,21 @@
          * 获取消息数据
          */
         async fetchMessages(conversationId) {
-            const response = await fetch(`/api/conversations/${conversationId}/messages`, {
-                headers: window.AuthHelper ? window.AuthHelper.getHeaders() : {
-                    'Authorization': `Bearer ${window.getAuthToken ? window.getAuthToken() : ''}`
-                }
-            });
-
-            const data = await response.json();
-            if (data.success && data.data) {
-                return Array.isArray(data.data) ? data.data : [];
+            if (window.AuthHelper && window.AuthHelper.safeJson){
+                const r = await window.AuthHelper.safeJson(`/api/conversations/${conversationId}/messages`);
+                if (r.ok && Array.isArray(r.data)) return r.data;
+                throw new Error(r.error || '获取消息数据失败');
             }
-
+            const response = await fetch(`/api/conversations/${conversationId}/messages`, { headers: this._authHeaders() });
+            const data = await response.json();
+            if (data.success && data.data) return Array.isArray(data.data)? data.data: [];
             throw new Error(data.error || '获取消息数据失败');
         }
 
         /**
          * 显示加载状态
          */
-        showLoadingState() {
+        showLoadingState() { // 回退兼容
             const container = document.getElementById('chatMessages');
             if (!container) return;
 
@@ -101,21 +125,25 @@
         /**
          * 显示错误状态
          */
-        showErrorState(error) {
+        showErrorState(error) { // 回退兼容
             const container = document.getElementById('chatMessages');
             if (!container) return;
 
             container.innerHTML = '';
-            
-            if (window.UIStates && window.UIStates.showError) {
-                window.UIStates.showError(container, '加载消息失败', error.message || '请稍后重试');
-            } else if (window.ErrorStatesUI && 
-                       typeof window.ErrorStatesUI.errorBlock === 'function') {
-                container.appendChild(window.ErrorStatesUI.errorBlock(
-                    '加载消息失败', error.message || '请稍后重试'));
-            } else {
-                container.textContent = error.message || '加载消息失败';
-            }
+            // 统一 EmptyState.error 优先
+            try {
+                if (window.EmptyState && typeof window.EmptyState.error === 'function') {
+                    window.EmptyState.error(container, '加载消息失败', error.message || '请稍后重试');
+                    return;
+                }
+                if (window.UIStates && window.UIStates.showError) {
+                    window.UIStates.showError(container, '加载消息失败', error.message || '请稍后重试'); return;
+                }
+                if (window.ErrorStatesUI && typeof window.ErrorStatesUI.errorBlock === 'function') {
+                    container.appendChild(window.ErrorStatesUI.errorBlock('加载消息失败', error.message || '请稍后重试')); return;
+                }
+            } catch(_){}
+            container.textContent = error.message || '加载消息失败';
         }
 
         /**
@@ -132,7 +160,14 @@
             if (!container) return;
 
             container.innerHTML = '';
-            this.messages.forEach(message => this.renderMessage(message));
+            const list = (window.MessageStateStore && this.currentConversationId) ? (MessageStateStore.getMessages(this.currentConversationId) || []) : this.messages;
+            if (!list || list.length === 0){
+                try { if (window.StatusView) { StatusView.empty(container, 'messages'); return; } } catch(_){ }
+                try { if (window.EmptyState && typeof window.EmptyState.messages === 'function') { window.EmptyState.messages(container); return; } } catch(_){ }
+                container.innerHTML = '<div class="empty-state"><div class="empty-icon">📭</div><h3>暂无消息</h3><p>开始发送第一条消息吧</p></div>';
+                return;
+            }
+            list.forEach(message => this.renderMessage(message));
             this.scrollToBottom();
         }
 

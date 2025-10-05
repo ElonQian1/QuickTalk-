@@ -20,6 +20,20 @@
         }
 
         /**
+         * 内部统一获取鉴权请求头，优先 AuthHelper，避免重复 token 逻辑
+         */
+        _authHeaders(extra){
+            try {
+                if (window.AuthHelper && typeof window.AuthHelper.getHeaders === 'function') {
+                    return Object.assign({}, window.AuthHelper.getHeaders(), extra||{});
+                }
+            } catch(_){ }
+            const token = (window.getAuthToken ? window.getAuthToken() : '');
+            const base = token ? { 'Authorization': `Bearer ${token}`, 'Content-Type':'application/json' } : { 'Content-Type':'application/json' };
+            return Object.assign({}, base, extra||{});
+        }
+
+        /**
          * 为指定店铺加载对话列表
          */
         async loadConversationsForShop(shopId) {
@@ -37,23 +51,37 @@
                     console.log('[ConversationsManager] 加载店铺对话:', shopId);
                 }
 
-                // 显示骨架屏
-                this.showLoadingSkeleton();
+                // 显示加载状态 (StatusView 优先)
+                try {
+                    const container = document.getElementById('conversationsListView');
+                    if (container && window.StatusView) {
+                        StatusView.loading(container, '正在加载对话...');
+                    } else {
+                        this.showLoadingSkeleton(); // 回退
+                    }
+                } catch(_){ this.showLoadingSkeleton(); }
 
                 const conversations = await this.fetchConversations(shopId);
                 this.conversations = conversations;
-                
+
+                // 渲染列表前清除状态视图
+                try { const c = document.getElementById('conversationsListView'); if (c && window.StatusView) StatusView.clear(c); } catch(_){ }
                 await this.renderConversationsList();
                 
                 return conversations;
             } catch (error) {
                 console.error('[ConversationsManager] 加载对话失败:', error);
                 this.conversations = [];
-                await this.renderConversationsList();
-                
-                if (window.Notify) {
-                    window.Notify.error('加载对话列表失败', error.message);
-                }
+                // 错误状态提示 (StatusView 优先)
+                try {
+                    const container = document.getElementById('conversationsListView');
+                    if (container && window.StatusView) {
+                        StatusView.error(container, '加载对话失败', error.message || '请稍后重试', { label: '重试', onClick: ()=> this.loadConversationsForShop(shopId) });
+                    } else {
+                        await this.renderConversationsList();
+                    }
+                } catch(_){ await this.renderConversationsList(); }
+                if (window.Notify) { window.Notify.error('加载对话列表失败', error.message); }
                 
                 throw error;
             } finally {
@@ -66,24 +94,21 @@
          * 获取对话数据
          */
         async fetchConversations(shopId) {
-            const response = await fetch(`/api/conversations?shop_id=${shopId}`, {
-                headers: window.AuthHelper ? window.AuthHelper.getHeaders() : {
-                    'Authorization': `Bearer ${window.getAuthToken ? window.getAuthToken() : ''}`
-                }
-            });
-
-            const data = await response.json();
-            if (data.success && data.data) {
-                return Array.isArray(data.data) ? data.data : [];
+            if (window.AuthHelper && window.AuthHelper.safeJson){
+                const r = await window.AuthHelper.safeJson(`/api/conversations?shop_id=${shopId}`);
+                if (r.ok && Array.isArray(r.data)) return r.data;
+                throw new Error(r.error || '获取对话数据失败');
             }
-
+            const response = await fetch(`/api/conversations?shop_id=${shopId}`, { headers: this._authHeaders() });
+            const data = await response.json();
+            if (data.success && data.data) return Array.isArray(data.data)? data.data: [];
             throw new Error(data.error || '获取对话数据失败');
         }
 
         /**
          * 显示加载骨架屏
          */
-        showLoadingSkeleton() {
+        showLoadingSkeleton() { // 保留回退兼容
             try {
                 const container = document.getElementById('conversationsListView');
                 if (container && window.SkeletonListUI && 
@@ -109,7 +134,9 @@
             container.innerHTML = '';
 
             if (this.conversations.length === 0) {
-                this.renderEmptyState(container);
+                // StatusView 空态优先
+                try { if (window.StatusView) { StatusView.empty(container, 'conversations'); return; } } catch(_){ }
+                this.renderEmptyState(container); // 回退
                 return;
             }
 
@@ -131,28 +158,23 @@
          * 渲染空状态
          */
         renderEmptyState(container) {
-            // 优先使用UI组件
-            if (window.EmptyStatesUI && typeof window.EmptyStatesUI.conversations === 'function') {
-                container.appendChild(window.EmptyStatesUI.conversations());
-                return;
-            }
-
-            // 尝试使用模板
-            const template = document.getElementById('emptyConversationsTemplate');
-            if (template && template.content) {
-                const node = template.content.firstElementChild.cloneNode(true);
-                container.appendChild(node);
-                return;
-            }
-
-            // 降级实现
-            container.innerHTML = `
-                <div class="empty-state">
-                    <div class="empty-icon">💬</div>
-                    <h3>暂无对话</h3>
-                    <p>等待客户发起对话</p>
-                </div>
-            `;
+            // 统一 EmptyState 优先
+            try {
+                if (window.EmptyState && typeof window.EmptyState.conversations === 'function') {
+                    window.EmptyState.conversations(container); return;
+                }
+                if (window.EmptyStatesUI && typeof window.EmptyStatesUI.conversations === 'function') {
+                    container.appendChild(window.EmptyStatesUI.conversations());
+                    return;
+                }
+                const template = document.getElementById('emptyConversationsTemplate');
+                if (template && template.content) {
+                    const node = template.content.firstElementChild.cloneNode(true);
+                    container.appendChild(node); return;
+                }
+            } catch(_){}
+            // 最终降级
+            container.innerHTML = '<div class="empty-state"><div class="empty-icon">💬</div><h3>暂无对话</h3><p>等待客户发起对话</p></div>';
         }
 
         /**
@@ -248,19 +270,12 @@
          * 生成客户编号
          */
         generateCustomerNumber(customerId) {
-            // 优先使用模块化系统
-            if (window.CustomerNumbering && window.CustomerNumbering.generateCustomerNumber) {
-                return window.CustomerNumbering.generateCustomerNumber(customerId);
-            }
-            
-            // 降级处理
-            if (window.generateCustomerNumber && 
-                typeof window.generateCustomerNumber === 'function') {
-                return window.generateCustomerNumber(customerId);
-            }
-            
-            // 最终降级
-            return `客户${customerId.replace('customer_', '').substring(0, 8)}`;
+            try {
+                if (window.CustomerNumbering && window.CustomerNumbering.generateCustomerNumber) {
+                    return window.CustomerNumbering.generateCustomerNumber(customerId);
+                }
+            } catch(_){ }
+            return '客户' + customerId.replace('customer_','').substring(0,8);
         }
 
         /**
