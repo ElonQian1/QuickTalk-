@@ -1,0 +1,700 @@
+/*
+ * responsive-messages.css
+ * 响应式消息界面样式 - 支持移动端到桌面端的完整适配
+ * 
+ * 设计原则:
+ * - Mobile First: 从移动端开始设计，逐步增强
+ * - 统一体验: 确保所有设备上的一致性
+ * - 性能优化: 合理使用媒体查询，避免重复样式
+ */
+
+/* ==================== 基础消息容器 ==================== */
+.messages-layout {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.messages-view {
+  display: none;
+  height: 100%;
+  flex-direction: column;
+}
+
+.messages-view.active {
+  display: flex;
+}
+
+/* ==================== 移动端样式 (默认) ==================== */
+/* 聊天视图根容器 */
+.chat-view-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #f8f9fa;
+}
+
+/* 聊天头部 */
+.chat-header {
+  background: #fff;
+  border-bottom: 1px solid #e9ecef;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.chat-header .back-btn {
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: #007bff;
+  padding: 8px;
+  margin: -8px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.chat-header .customer-info {
+  flex: 1;
+}
+
+.chat-header .customer-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #212529;
+  margin: 0;
+}
+
+.chat-header .shop-name {
+  font-size: 13px;
+  color: #6c757d;
+  margin: 2px 0 0 0;
+}
+
+/* ==================== 消息列表容器 ==================== */
+.chat-messages-container {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 8px 12px 20px;
+  background: #f8f9fa;
+}
+
+#chatMessages {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: min-content;
+}
+
+/* ==================== 消息气泡样式 ==================== */
+.chat-message {
+  display: flex;
+  margin-bottom: 8px;
+  align-items: flex-end;
+  gap: 8px;
+  animation: messageSlideIn 0.2s ease-out;
+}
+
+@keyframes messageSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 客户消息（左侧） */
+.chat-message.message-customer {
+  flex-direction: row;
+  justify-content: flex-start;
+}
+
+.chat-message.message-customer .message-content {
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 18px 18px 18px 4px;
+  color: #212529;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* 客服消息（右侧） */
+.chat-message.message-agent,
+.chat-message.message-admin {
+  flex-direction: row-reverse;
+  justify-content: flex-start;
+}
+
+.chat-message.message-agent .message-content,
+.chat-message.message-admin .message-content {
+  background: #007bff;
+  border-radius: 18px 18px 4px 18px;
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(0, 123, 255, 0.3);
+}
+
+/* 消息内容通用样式 */
+.message-content {
+  max-width: var(--message-bubble-max-width, 70%);
+  padding: 10px 14px;
+  font-size: 14px;
+  line-height: 1.4;
+  word-wrap: break-word;
+  position: relative;
+}
+
+/* 消息时间 */
+.message-time {
+  font-size: 11px;
+  color: #6c757d;
+  margin-top: 4px;
+  text-align: center;
+  opacity: 0.8;
+}
+
+.message-agent .message-time,
+.message-admin .message-time {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* ==================== 富媒体消息样式 ==================== */
+/* 图片消息 */
+.message-image {
+  max-width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.message-image img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.message-image img:active {
+  transform: scale(0.98);
+}
+
+.image-caption {
+  padding: 8px 0 4px;
+  font-size: 13px;
+  color: inherit;
+}
+
+/* 文件消息 */
+.message-file {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+  min-width: 200px;
+}
+
+.file-icon {
+  font-size: 20px;
+  opacity: 0.8;
+}
+
+.file-info {
+  flex: 1;
+}
+
+.file-name {
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.file-size {
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.file-download {
+  font-size: 12px;
+  color: inherit;
+  text-decoration: none;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* 音频消息 */
+.message-audio audio {
+  width: 200px;
+  height: 32px;
+}
+
+.audio-info {
+  font-size: 12px;
+  margin-top: 4px;
+  opacity: 0.8;
+}
+
+/* 视频消息 */
+.message-video video {
+  max-width: 100%;
+  border-radius: 8px;
+}
+
+/* ==================== 输入区域样式 ==================== */
+.chat-input-container {
+  background: #fff;
+  border-top: 1px solid #e9ecef;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+}
+
+.mobile-chat-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 2px 0;
+}
+
+.mobile-chat-tools button {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 20px;
+  padding: 6px 12px;
+  font-size: 13px;
+  color: #495057;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mobile-chat-tools button:active {
+  background: #e9ecef;
+  transform: scale(0.95);
+}
+
+.mobile-chat-text-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.mobile-chat-textarea,
+#chatInput {
+  flex: 1;
+  resize: none;
+  border: 1px solid #dee2e6;
+  border-radius: 20px;
+  padding: 10px 14px;
+  font-size: 14px;
+  line-height: 1.4;
+  background: #fff;
+  min-height: 40px;
+  max-height: 120px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.mobile-chat-textarea:focus,
+#chatInput:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.15);
+}
+
+.mobile-chat-send-btn {
+  background: #007bff;
+  color: #fff;
+  border: none;
+  border-radius: 20px;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 60px;
+}
+
+.mobile-chat-send-btn:active {
+  background: #0056b3;
+  transform: scale(0.95);
+}
+
+.mobile-chat-send-btn:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ==================== 浮动按钮 ==================== */
+.mobile-unread-float {
+  position: fixed;
+  right: 16px;
+  bottom: 100px;
+  z-index: 30;
+  background: #007bff;
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.4);
+  display: none;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.3s ease;
+}
+
+.mobile-unread-float.show {
+  display: flex;
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.mobile-unread-float:active {
+  transform: scale(0.95);
+}
+
+/* ==================== 状态指示器 ==================== */
+.typing-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  margin: 8px 0;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 16px;
+  font-size: 13px;
+  color: #6c757d;
+  animation: fadeIn 0.3s ease;
+}
+
+.typing-indicator .dots {
+  display: flex;
+  gap: 2px;
+}
+
+.typing-indicator .dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #6c757d;
+  animation: bounce 1.4s infinite ease-in-out both;
+}
+
+.typing-indicator .dot:nth-child(1) { animation-delay: -0.32s; }
+.typing-indicator .dot:nth-child(2) { animation-delay: -0.16s; }
+
+@keyframes bounce {
+  0%, 80%, 100% {
+    transform: scale(0);
+  }
+  40% {
+    transform: scale(1);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ==================== 加载状态 ==================== */
+.message-sending {
+  opacity: 0.6;
+  position: relative;
+}
+
+.message-sending::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: -20px;
+  width: 12px;
+  height: 12px;
+  border: 2px solid #007bff;
+  border-top: 2px solid transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.message-failed {
+  position: relative;
+}
+
+.message-failed::after {
+  content: '⚠️';
+  position: absolute;
+  top: 50%;
+  right: -20px;
+  transform: translateY(-50%);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+/* ==================== 平板适配 (md: 768px+) ==================== */
+@media (min-width: 768px) {
+  :root {
+    --message-bubble-max-width: 65%;
+  }
+
+  .messages-layout {
+    flex-direction: row;
+  }
+  
+  .messages-sidebar {
+    width: 320px;
+    border-right: 1px solid #e9ecef;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+  }
+  
+  .messages-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  /* 隐藏移动端视图 */
+  .mobile-views {
+    display: none !important;
+  }
+  
+  /* 显示桌面端布局 */
+  .chat-view-content {
+    display: flex !important;
+  }
+  
+  /* 调整聊天头部 */
+  .chat-header {
+    padding: 16px 24px;
+    min-height: 64px;
+  }
+  
+  .chat-header .back-btn {
+    display: none; /* 桌面端不需要返回按钮 */
+  }
+  
+  /* 调整消息容器 */
+  .chat-messages-container {
+    padding: 16px 24px 24px;
+  }
+  
+  /* 调整输入区域 */
+  .chat-input-container {
+    padding: 16px 24px;
+  }
+  
+  .mobile-chat-tools {
+    gap: 12px;
+    padding: 4px 0;
+  }
+  
+  .mobile-chat-textarea,
+  #chatInput {
+    min-height: 44px;
+    max-height: 100px;
+  }
+  
+  /* 浮动按钮位置调整 */
+  .mobile-unread-float {
+    right: 24px;
+    bottom: 120px;
+  }
+}
+
+/* ==================== 桌面适配 (lg: 992px+) ==================== */
+@media (min-width: 992px) {
+  :root {
+    --message-bubble-max-width: 55%;
+  }
+  
+  .messages-sidebar {
+    width: 360px;
+  }
+  
+  .chat-header {
+    padding: 20px 32px;
+    min-height: 72px;
+  }
+  
+  .chat-messages-container {
+    padding: 20px 32px 32px;
+  }
+  
+  .chat-input-container {
+    padding: 20px 32px;
+  }
+  
+  .mobile-chat-tools {
+    gap: 16px;
+  }
+  
+  .mobile-chat-textarea,
+  #chatInput {
+    min-height: 48px;
+    padding: 12px 16px;
+    font-size: 15px;
+  }
+  
+  .mobile-chat-send-btn {
+    padding: 12px 20px;
+    font-size: 15px;
+  }
+}
+
+/* ==================== 大桌面适配 (xl: 1200px+) ==================== */
+@media (min-width: 1200px) {
+  :root {
+    --message-bubble-max-width: 50%;
+  }
+  
+  .messages-layout {
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  
+  .messages-sidebar {
+    width: 400px;
+  }
+  
+  .chat-messages-container {
+    padding: 24px 40px 40px;
+  }
+  
+  .chat-input-container {
+    padding: 24px 40px;
+  }
+}
+
+/* ==================== 暗黑模式适配 ==================== */
+@media (prefers-color-scheme: dark) {
+  .chat-view-content {
+    background: #1a1a1a;
+  }
+
+  .chat-header {
+    background: #2d2d2d;
+    border-bottom-color: #404040;
+  }
+
+  .chat-header .customer-name {
+    color: #fff;
+  }
+
+  .chat-header .shop-name {
+    color: #a0a0a0;
+  }
+
+  .chat-messages-container {
+    background: #1a1a1a;
+  }
+
+  .chat-message.message-customer .message-content {
+    background: #2d2d2d;
+    border-color: #404040;
+    color: #fff;
+  }
+
+  .message-time {
+    color: #a0a0a0;
+  }
+
+  .chat-input-container {
+    background: #2d2d2d;
+    border-top-color: #404040;
+  }
+
+  .mobile-chat-tools button {
+    background: #404040;
+    border-color: #555;
+    color: #ccc;
+  }
+
+  .mobile-chat-textarea,
+  #chatInput {
+    background: #404040;
+    border-color: #555;
+    color: #fff;
+  }
+
+  .mobile-chat-textarea:focus,
+  #chatInput:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.3);
+  }
+
+  .typing-indicator {
+    background: rgba(255, 255, 255, 0.1);
+    color: #a0a0a0;
+  }
+
+  .typing-indicator .dot {
+    background: #a0a0a0;
+  }
+}
+
+/* ==================== 横屏适配 ==================== */
+@media (max-width: 768px) and (orientation: landscape) {
+  .chat-input-container {
+    padding: 6px 12px;
+  }
+
+  .mobile-chat-tools {
+    gap: 6px;
+  }
+
+  .mobile-chat-tools button {
+    padding: 5px 10px;
+    font-size: 12px;
+  }
+
+  .mobile-chat-textarea,
+  #chatInput {
+    min-height: 36px;
+    max-height: 60px;
+  }
+
+  .mobile-chat-send-btn {
+    padding: 8px 14px;
+  }
+}
+
+/* ==================== 安全区域适配 ==================== */
+@supports (padding: env(safe-area-inset-bottom)) {
+  @media (max-width: 768px) {
+    .chat-input-container {
+      padding-bottom: max(8px, env(safe-area-inset-bottom));
+    }
+  }
+}

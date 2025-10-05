@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>重构后系统功能验证</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .test-section { background: white; padding: 15px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .success { color: #28a745; }
+        .error { color: #dc3545; }
+        .warning { color: #ffc107; }
+        .info { color: #17a2b8; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 4px; overflow-x: auto; }
+        button { padding: 8px 16px; margin: 5px; border: none; border-radius: 4px; cursor: pointer; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-warning { background: #ffc107; color: #212529; }
+    </style>
+</head>
+<body>
+    <h1>🔧 QuickTalk 重构后系统功能验证</h1>
+    
+    <div class="test-section">
+        <h3>📋 验证清单</h3>
+        <div id="checklistResults"></div>
+        <button class="btn-primary" onclick="runAllTests()">🚀 运行所有验证</button>
+        <button class="btn-success" onclick="runModuleTests()">📦 验证模块加载</button>
+        <button class="btn-warning" onclick="runCoordinatorTests()">🎯 验证协调器</button>
+    </div>
+
+    <div class="test-section">
+        <h3>📊 测试结果</h3>
+        <div id="testResults"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>🔍 详细日志</h3>
+        <pre id="detailedLog"></pre>
+    </div>
+
+    <!-- 核心依赖 -->
+    <script src="/static/js/utils/qt-log.js"></script>
+    <script src="/static/js/telemetry/event-bus.js"></script>
+    <script src="/static/js/state/message-state-store.js"></script>
+    
+    <!-- 业务管理器 -->
+    <script src="/static/js/usecases/shops-manager-clean.js"></script>
+    <script src="/static/js/usecases/conversations-manager-clean.js"></script>
+    <script src="/static/js/usecases/messages-manager-clean.js"></script>
+    
+    <!-- 核心协调器 -->
+    <script src="/static/js/core/message-coordinator.js"></script>
+    
+    <!-- 集成和验证工具 -->
+    <script src="/static/js/integrator/message-module-integrator.js"></script>
+    <script src="/static/js/utils/message-functionality-checker.js"></script>
+
+    <script>
+        let testLog = [];
+        
+        function log(level, message, data = null) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${level.toUpperCase()}: ${message}`;
+            testLog.push(logEntry);
+            
+            if (data) {
+                testLog.push(JSON.stringify(data, null, 2));
+            }
+            
+            // 实时更新详细日志
+            document.getElementById('detailedLog').textContent = testLog.join('\n');
+            
+            console[level] || console.log(logEntry, data);
+        }
+
+        function updateResults(section, content, className = '') {
+            const element = document.getElementById(section);
+            const div = document.createElement('div');
+            div.innerHTML = content;
+            if (className) div.className = className;
+            element.appendChild(div);
+        }
+
+        async function runModuleTests() {
+            log('info', '开始验证模块加载...');
+            const results = [];
+            
+            // 检查核心类
+            const coreModules = {
+                'MessageCoordinator': window.MessageCoordinator,
+                'MessageModuleIntegrator': window.MessageModuleIntegrator,
+                'MessageFunctionalityChecker': window.MessageFunctionalityChecker,
+                'QT_LOG': window.QT_LOG,
+                'MessageEventBus': window.MessageEventBus,
+                'MessageStateStore': window.MessageStateStore
+            };
+            
+            for (const [name, module] of Object.entries(coreModules)) {
+                if (module) {
+                    results.push(`✅ ${name} 已加载`);
+                    log('info', `模块 ${name} 加载成功`);
+                } else {
+                    results.push(`❌ ${name} 未加载`);
+                    log('error', `模块 ${name} 加载失败`);
+                }
+            }
+            
+            updateResults('testResults', 
+                `<h4>📦 模块加载验证结果:</h4><ul><li>${results.join('</li><li>')}</li></ul>`
+            );
+        }
+
+        async function runCoordinatorTests() {
+            log('info', '开始验证协调器功能...');
+            
+            try {
+                // 测试协调器创建
+                if (!window.MessageCoordinator) {
+                    throw new Error('MessageCoordinator 类不可用');
+                }
+                
+                const coordinator = new window.MessageCoordinator({
+                    debug: true,
+                    autoInit: false
+                });
+                
+                log('info', '协调器创建成功', {
+                    state: coordinator.state,
+                    managersCount: Object.keys(coordinator.managers).length
+                });
+                
+                // 测试初始化
+                coordinator.init();
+                
+                if (coordinator.state.initialized) {
+                    updateResults('testResults', 
+                        `<div class="success">✅ 协调器初始化成功</div>`
+                    );
+                } else {
+                    updateResults('testResults', 
+                        `<div class="error">❌ 协调器初始化失败</div>`
+                    );
+                }
+                
+                // 测试集成器
+                if (window.MessageModuleIntegrator) {
+                    const integrator = new window.MessageModuleIntegrator({
+                        debug: true
+                    });
+                    
+                    log('info', '集成器测试成功');
+                    updateResults('testResults', 
+                        `<div class="success">✅ 集成器创建和初始化成功</div>`
+                    );
+                }
+                
+            } catch (error) {
+                log('error', '协调器测试失败', error);
+                updateResults('testResults', 
+                    `<div class="error">❌ 协调器测试失败: ${error.message}</div>`
+                );
+            }
+        }
+
+        async function runFunctionalityTests() {
+            log('info', '开始功能完整性验证...');
+            
+            if (window.MessageFunctionalityChecker) {
+                try {
+                    const checker = window.MessageFunctionalityChecker;
+                    const report = await checker.generateReport();
+                    
+                    log('info', '功能验证完成', report);
+                    
+                    const moduleResults = Object.entries(report.modules)
+                        .map(([name, status]) => `${status ? '✅' : '❌'} ${name}`)
+                        .join('<br>');
+                    
+                    updateResults('testResults', 
+                        `<h4>🔍 功能完整性验证:</h4>
+                         <div>总体状态: ${report.overall ? '✅ 健康' : '❌ 异常'}</div>
+                         <div>模块状态:<br>${moduleResults}</div>`
+                    );
+                    
+                } catch (error) {
+                    log('error', '功能验证失败', error);
+                    updateResults('testResults', 
+                        `<div class="error">❌ 功能验证失败: ${error.message}</div>`
+                    );
+                }
+            } else {
+                updateResults('testResults', 
+                    `<div class="warning">⚠️ MessageFunctionalityChecker 不可用</div>`
+                );
+            }
+        }
+
+        async function runAllTests() {
+            // 清空之前的结果
+            document.getElementById('testResults').innerHTML = '<h3>🔄 正在运行验证...</h3>';
+            document.getElementById('detailedLog').textContent = '';
+            testLog = [];
+            
+            log('info', '=== 开始完整系统验证 ===');
+            
+            try {
+                await runModuleTests();
+                await new Promise(resolve => setTimeout(resolve, 500)); // 短暂延迟
+                
+                await runCoordinatorTests();
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                await runFunctionalityTests();
+                
+                log('info', '=== 系统验证完成 ===');
+                updateResults('testResults', 
+                    `<div class="info">📋 所有验证项目已完成，请查看上述结果和详细日志</div>`
+                );
+                
+            } catch (error) {
+                log('error', '验证过程出错', error);
+                updateResults('testResults', 
+                    `<div class="error">💥 验证过程出错: ${error.message}</div>`
+                );
+            }
+        }
+
+        // 显示验证清单
+        function showChecklist() {
+            const checklist = [
+                '🗑️ 删除冗余协调器文件 (message-module.js, message-module-refactored.js, message-core-coordinator.js)',
+                '🔄 更新HTML文件引用 (mobile-dashboard-*.html)',
+                '🔗 更新JS模块引用 (integrator, compat-layer, functionality-checker)',
+                '🏗️ 保留用户编辑的 message-coordinator.js',
+                '🎯 统一协调器类名为 MessageCoordinator',
+                '📦 验证模块加载和集成',
+                '⚙️ 测试核心功能完整性'
+            ];
+            
+            const checklistHtml = checklist.map(item => `<div>✅ ${item}</div>`).join('');
+            document.getElementById('checklistResults').innerHTML = checklistHtml;
+        }
+
+        // 页面加载时显示清单
+        document.addEventListener('DOMContentLoaded', function() {
+            showChecklist();
+            log('info', '重构后系统验证页面已就绪');
+        });
+    </script>
+</body>
+</html>

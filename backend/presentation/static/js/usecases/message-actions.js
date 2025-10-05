@@ -23,8 +23,17 @@
           if (key === 'copy'){
             var txt = findMessageText(pressTarget);
             if (txt){
-              navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(txt) : null;
-              if (window.showToast) window.showToast('已复制');
+              // 使用统一剪贴板工具
+              if (window.UnifiedClipboard) {
+                window.UnifiedClipboard.copyText(txt, {
+                  successMessage: '✅ 消息已复制',
+                  errorMessage: '❌ 复制失败'
+                });
+              } else {
+                // 降级兼容实现
+                navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(txt) : null;
+                if (window.showToast) window.showToast('已复制');
+              }
             }
           } else if (key === 'delete'){
             if (window.showToast) window.showToast('删除功能待实现');

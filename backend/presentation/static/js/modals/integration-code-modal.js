@@ -141,14 +141,24 @@
   function copyIntegrationCode() {
     const textarea = document.getElementById('integration-code');
     if (!textarea) return;
-    textarea.select();
-    textarea.setSelectionRange(0, 99999);
-    try {
-      document.execCommand('copy');
-      if (typeof showSuccess==='function') showSuccess('集成代码已复制到剪贴板');
-    } catch (error) {
-      console.error('复制失败:', error);
-      if (typeof showError==='function') showError('复制失败，请手动复制');
+    
+    // 使用统一剪贴板工具
+    if (window.UnifiedClipboard) {
+      window.UnifiedClipboard.copyFromElement(textarea, {
+        successMessage: '✅ 集成代码已复制到剪贴板',
+        errorMessage: '❌ 复制失败，请手动复制'
+      });
+    } else {
+      // 降级兼容实现
+      textarea.select();
+      textarea.setSelectionRange(0, 99999);
+      try {
+        document.execCommand('copy');
+        if (typeof showSuccess==='function') showSuccess('集成代码已复制到剪贴板');
+      } catch (error) {
+        console.error('复制失败:', error);
+        if (typeof showError==='function') showError('复制失败，请手动复制');
+      }
     }
   }
 
@@ -156,15 +166,25 @@
   function copyCode() {
     const codeTextarea = document.getElementById('generated-code');
     if (!codeTextarea) return;
-    try {
-      codeTextarea.select();
-      document.execCommand('copy');
-      if (typeof showSuccess==='function') showSuccess('代码已复制到剪贴板');
-      else if (typeof showToast==='function') showToast('代码已复制到剪贴板', 'success');
-    } catch (e) {
-      console.error('复制失败:', e);
-      if (typeof showError==='function') showError('复制失败，请手动复制');
-      else if (typeof showToast==='function') showToast('复制失败，请手动复制', 'error');
+    
+    // 使用统一剪贴板工具
+    if (window.UnifiedClipboard) {
+      window.UnifiedClipboard.copyFromElement(codeTextarea, {
+        successMessage: '✅ 代码已复制到剪贴板',
+        errorMessage: '❌ 复制失败，请手动复制'
+      });
+    } else {
+      // 降级兼容实现
+      try {
+        codeTextarea.select();
+        document.execCommand('copy');
+        if (typeof showSuccess==='function') showSuccess('代码已复制到剪贴板');
+        else if (typeof showToast==='function') showToast('代码已复制到剪贴板', 'success');
+      } catch (e) {
+        console.error('复制失败:', e);
+        if (typeof showError==='function') showError('复制失败，请手动复制');
+        else if (typeof showToast==='function') showToast('复制失败，请手动复制', 'error');
+      }
     }
   }
 

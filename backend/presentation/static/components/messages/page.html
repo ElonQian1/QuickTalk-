@@ -1,14 +1,31 @@
 <!-- component: messages/page -->
 <div class="page" id="messagesPage">
-  <div data-include="/static/components/messages/header.html"></div>
+  <!-- 移动端消息头部 -->
+  <div data-include="/static/components/messages/header.html" class="d-md-none"></div>
+  
   <div class="page-content">
-    <!-- 店铺列表视图 -->
-    <div data-include="/static/components/messages/shops-list-view.html"></div>
-
-    <!-- 店铺对话列表视图 -->
-    <div data-include="/static/components/messages/conversations-list-view.html"></div>
-
-    <!-- 聊天对话视图 -->
-    <div data-include="/static/components/messages/chat-view.html"></div>
+    <div class="messages-layout">
+      <!-- 消息侧边栏（包含店铺列表和对话列表） -->
+      <div class="messages-sidebar d-md-flex d-none">
+        <!-- 店铺列表视图 -->
+        <div data-include="/static/components/messages/shops-list-view.html"></div>
+        
+        <!-- 店铺对话列表视图 -->
+        <div data-include="/static/components/messages/conversations-list-view.html"></div>
+      </div>
+      
+      <!-- 主聊天区域 -->
+      <div class="messages-main">
+        <!-- 移动端视图（全屏显示） -->
+        <div class="mobile-views d-md-none">
+          <div data-include="/static/components/messages/shops-list-view.html" class="messages-view active" id="shopsListView"></div>
+          <div data-include="/static/components/messages/conversations-list-view.html" class="messages-view" id="conversationsListView"></div>
+          <div data-include="/static/components/messages/chat-view.html" class="messages-view" id="chatView"></div>
+        </div>
+        
+        <!-- 桌面端聊天视图 -->
+        <div data-include="/static/components/messages/chat-view.html" class="d-md-flex d-none"></div>
+      </div>
+    </div>
   </div>
 </div>

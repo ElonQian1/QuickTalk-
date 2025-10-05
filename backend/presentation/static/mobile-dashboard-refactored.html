@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>QuickTalk 移动端管理后台 (重构版)</title>
+    
+    <!-- ==================== 核心样式模块 ==================== -->
+    <!-- 基础样式（按优先级排序） -->
+    <link rel="stylesheet" href="/static/css/reset.css">
+    <link rel="stylesheet" href="/static/css/variables.css">
+    <link rel="stylesheet" href="/static/css/responsive-layout.css">
+    
+    <!-- 核心功能样式 -->
+    <link rel="stylesheet" href="/static/css/responsive-messages.css">
+    <link rel="stylesheet" href="/static/css/chat-input-enhanced.css">
+    <link rel="stylesheet" href="/static/css/conversation-avatar.css">
+    
+    <!-- UI组件样式 -->
+    <link rel="stylesheet" href="/static/css/toast.css">
+    <link rel="stylesheet" href="/static/css/modal-styles.css">
+    <link rel="stylesheet" href="/static/css/button-styles.css">
+    <link rel="stylesheet" href="/static/css/form-styles.css">
+    
+    <!-- 布局样式 -->
+    <link rel="stylesheet" href="/static/css/top-bar.css">
+    <link rel="stylesheet" href="/static/css/bottom-nav.css">
+    <link rel="stylesheet" href="/static/css/mobile-layout.css">
+    
+    <!-- 功能模块样式 -->
+    <link rel="stylesheet" href="/static/css/shop-card-styles.css">
+    <link rel="stylesheet" href="/static/css/messages-list.css">
+    <link rel="stylesheet" href="/static/css/state-styles.css">
+
+    <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+</head>
+<body>
+    <div class="app-container">
+        <!-- 桌面端侧边导航栏 -->
+        <div data-include="/static/components/sidebar-nav.html"></div>
+        
+        <!-- 移动端顶部状态栏 -->
+        <div data-include="/static/components/top-bar.html" class="d-md-none"></div>
+
+        <!-- 主内容区域 -->
+        <div class="main-content">
+            <div data-include="/static/components/main-content.html"></div>
+        </div>
+
+        <!-- 移动端底部导航栏 -->
+        <div data-include="/static/components/bottom-nav.html" class="d-md-none"></div>
+    </div>
+
+    <!-- ==================== 重构后的轻量化JavaScript模块 ==================== -->
+    
+    <!-- 1. 基础设施层 (Core Infrastructure) -->
+    <script src="/static/js/core/module-registry.js"></script>
+    <script src="/static/js/core/constants.js"></script>
+    <script src="/static/js/core/logger.js"></script>
+    <script src="/static/js/core/event-bus.js"></script>
+    <script src="/static/js/core/responsive-view-manager.js"></script>
+    
+    <!-- 2. 工具库层 (Utilities) -->
+    <script src="/static/js/utils/global-utils.js"></script>
+    <script src="/static/js/utils/auth-helper.js"></script>
+    <script src="/static/js/utils/http-utils.js"></script>
+    <script src="/static/js/utils/loading-utils.js"></script>
+    <script src="/static/js/utils/notify-utils.js"></script>
+    <script src="/static/js/utils/modal-utils.js"></script>
+    <script src="/static/js/utils/partials-loader.js"></script>
+    
+    <!-- 3. 领域模型层 (Domain Models) -->
+    <script src="/static/js/domain/entities/conversation.js"></script>
+    <script src="/static/js/domain/entities/message.js"></script>
+    <script src="/static/js/domain/entities/shop.js"></script>
+    <script src="/static/js/domain/services/session-service.js"></script>
+    
+    <!-- 4. 消息核心模块 (Message Core) -->
+    <script src="/static/js/core/base-manager.js"></script>
+    <script src="/static/js/message/core/message-event-bus.js"></script>
+    <script src="/static/js/message/core/message-state-store.js"></script>
+    <script src="/static/js/message/core/message-sender.js"></script>
+    <script src="/static/js/message/ui/message-render-adapter.js"></script>
+    
+    <!-- 5. 业务管理器 (Business Managers) -->
+    <script src="/static/js/usecases/shops-manager-clean.js"></script>
+    <script src="/static/js/usecases/conversations-manager-clean.js"></script>
+    <script src="/static/js/usecases/messages-manager-clean.js"></script>
+    <script src="/static/js/usecases/media-handler.js"></script>
+    
+    <!-- 6. WebSocket基础设施 (WebSocket Infrastructure) -->
+    <script src="/static/js/websocket/websocket-base.js"></script>
+    <script src="/static/js/websocket/simple-websocket-adapter.js"></script>
+    <script src="/static/js/websocket/ws-event-router.js"></script>
+    <script src="/static/js/websocket/message-send-channel.js"></script>
+    
+    <!-- 7. 重构后的轻量化核心模块 (New Lightweight Core) -->
+    <script src="/static/js/core/message-coordinator.js"></script>
+    <script src="/static/js/compat/message-legacy-compat-layer.js"></script>
+    <script src="/static/js/integrator/message-module-integrator.js"></script>
+    
+    <!-- 8. UI组件层 (UI Components) -->
+    <script src="/static/js/ui/toast.js"></script>
+    <script src="/static/js/ui/empty-states.js"></script>
+    <script src="/static/js/ui/loading-states.js"></script>
+    <script src="/static/js/ui/message-bubble.js"></script>
+    <script src="/static/js/ui/bottom-nav.js"></script>
+    
+    <!-- 9. 移动端适配器 (Mobile Adapters) -->
+    <script src="/static/js/mobile/mobile-bootstrap.js"></script>
+    <script src="/static/js/mobile/message-view-mobile-adapter.js"></script>
+    <script src="/static/js/mobile/conversations-mobile-adapter.js"></script>
+    <script src="/static/js/mobile/shops-mobile-adapter.js"></script>
+    
+    <!-- 10. 开发和验证工具 (Development Tools) -->
+    <script src="/static/js/utils/message-functionality-checker.js"></script>
+    <script src="/static/js/utils/message-functionality-enhancer.js"></script>
+    <script src="/static/js/utils/module-dependency-analyzer.js"></script>
+    
+    <!-- 11. 应用启动器 (App Bootstrap) -->
+    <script src="/static/js/bootstrap/app-bootstrap.js"></script>
+    <script src="/static/js/bootstrap/messages-micro-bootstrap.js"></script>
+    
+    <!-- 12. 模态框和表单 (Modals & Forms) -->
+    <div data-include="/static/components/modals/modal-overlay.html"></div>
+    <div data-include="/static/components/modals/shop-management-modal.html"></div>
+    <div data-include="/static/components/modals/create-shop-modal.html"></div>
+    <div data-include="/static/components/modals/edit-shop-modal.html"></div>
+    <div data-include="/static/components/modals/integration-code-modal.html"></div>
+    
+    <!-- 模态框脚本 -->
+    <script src="/static/js/modals/create-shop-modal.js"></script>
+    <script src="/static/js/modals/edit-shop-modal.js"></script>
+    <script src="/static/js/modals/integration-code-modal.js"></script>
+    
+    <!-- 13. 用例模块 (Essential Use Cases) -->
+    <script src="/static/js/usecases/shop-actions.js"></script>
+    <script src="/static/js/usecases/conversation-actions.js"></script>
+    <script src="/static/js/usecases/page-navigation.js"></script>
+    <script src="/static/js/usecases/auth-session.js"></script>
+    
+    <!-- 应用初始化脚本 -->
+    <script>
+        console.log('🚀 QuickTalk Mobile Dashboard (重构版) 正在启动...');
+        
+        // 等待所有模块加载完成后初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('📱 DOM加载完成，开始初始化模块...');
+            
+            // 检查关键模块是否已加载
+            const requiredModules = [
+                'MessageModuleIntegrator',
+                'MessageCoreCoordinator', 
+                'SimpleWebSocketAdapter',
+                'MessageLegacyCompatLayer'
+            ];
+            
+            const missingModules = requiredModules.filter(module => !window[module]);
+            
+            if (missingModules.length > 0) {
+                console.error('❌ 缺少关键模块:', missingModules);
+                return;
+            }
+            
+            console.log('✅ 所有关键模块已加载');
+            
+            // 集成器会自动初始化所有模块
+            // 这里只需要等待初始化完成的事件
+            if (window.MessageIntegratorInstance) {
+                const checkInitialization = () => {
+                    const status = window.MessageIntegratorInstance.getInitializationStatus();
+                    if (status.initialized) {
+                        console.log('🎉 消息模块集成器初始化完成!');
+                        console.log('📊 模块状态:', window.MessageIntegratorInstance.getModuleStatus());
+                        
+                        // 运行功能完整性检查
+                        if (window.MessageFunctionalityChecker) {
+                            setTimeout(() => {
+                                const checker = new window.MessageFunctionalityChecker();
+                                checker.runCheck().then(results => {
+                                    console.log('✅ 功能完整性检查完成，评分:', results.overall.score + '/100');
+                                });
+                            }, 1000);
+                        }
+                        
+                    } else {
+                        console.log('⏳ 等待模块初始化...');
+                        setTimeout(checkInitialization, 200);
+                    }
+                };
+                
+                checkInitialization();
+            }
+            
+            // 启用增强功能
+            if (window.MessageFunctionalityEnhancer) {
+                window.MessageFunctionalityEnhancer.init({
+                    autoFocus: true,
+                    keyboardShortcuts: true,
+                    fileDropZone: true,
+                    debug: false
+                });
+                console.log('✨ 消息功能增强器已启用');
+            }
+        });
+        
+        // 全局错误处理
+        window.addEventListener('error', (event) => {
+            console.error('🚨 全局错误:', event.error);
+        });
+        
+        window.addEventListener('unhandledrejection', (event) => {
+            console.error('🚨 未处理的Promise拒绝:', event.reason);
+        });
+    </script>
+</body>
+</html>

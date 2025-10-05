@@ -1,0 +1,380 @@
+/*
+ * responsive-layout.css
+ * 统一响应式布局框架 - Mobile First 设计
+ * 
+ * 断点设计:
+ * - xs: 0-575px (超小屏幕/手机竖屏)
+ * - sm: 576px-767px (手机横屏/小平板)
+ * - md: 768px-991px (平板)
+ * - lg: 992px-1199px (小桌面)
+ * - xl: 1200px+ (大桌面)
+ */
+
+/* ==================== CSS 变量定义 ==================== */
+:root {
+  /* 断点变量 */
+  --breakpoint-sm: 576px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 992px;
+  --breakpoint-xl: 1200px;
+  
+  /* 布局变量 */
+  --container-max-width: 1200px;
+  --sidebar-width: 280px;
+  --header-height: 60px;
+  --bottom-nav-height: 60px;
+  
+  /* 间距变量 */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  
+  /* 组件尺寸 */
+  --message-bubble-max-width: 70%;
+  --chat-input-height: 48px;
+  --shop-card-min-height: 120px;
+}
+
+/* ==================== 基础布局容器 ==================== */
+/* Mobile First: 默认移动端布局 */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.main-content {
+  flex: 1;
+  overflow: hidden;
+  background: #f8f9fa;
+  position: relative;
+}
+
+/* 页面容器 */
+.page {
+  display: none;
+  height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.page.active {
+  display: flex;
+  flex-direction: column;
+}
+
+.page-content {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+/* ==================== 响应式网格系统 ==================== */
+.container {
+  width: 100%;
+  padding-left: var(--spacing-md);
+  padding-right: var(--spacing-md);
+  margin: 0 auto;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  margin-left: calc(-1 * var(--spacing-sm));
+  margin-right: calc(-1 * var(--spacing-sm));
+}
+
+.col {
+  flex: 1;
+  padding-left: var(--spacing-sm);
+  padding-right: var(--spacing-sm);
+}
+
+/* ==================== 消息布局 ==================== */
+/* 移动端：垂直堆叠视图 */
+.messages-layout {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.messages-view {
+  display: none;
+  height: 100%;
+  flex-direction: column;
+}
+
+.messages-view.active {
+  display: flex;
+}
+
+/* 店铺列表视图 */
+.shops-list-view {
+  padding: var(--spacing-md);
+}
+
+/* 对话列表视图 */
+.conversations-list-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.conversations-header {
+  padding: var(--spacing-md);
+  background: #fff;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.conversations-list {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 聊天视图 */
+.chat-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.chat-header {
+  background: #fff;
+  border-bottom: 1px solid #e9ecef;
+  padding: var(--spacing-md);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  min-height: var(--header-height);
+}
+
+.chat-messages-container {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: var(--spacing-md);
+}
+
+.chat-input-container {
+  background: #fff;
+  border-top: 1px solid #e9ecef;
+  padding: var(--spacing-md);
+}
+
+/* ==================== 小屏幕优化 (sm: 576px+) ==================== */
+@media (min-width: 576px) {
+  .container {
+    max-width: 540px;
+  }
+  
+  .shops-list-view {
+    padding: var(--spacing-lg);
+  }
+  
+  .chat-messages-container {
+    padding: var(--spacing-lg);
+  }
+  
+  /* 消息气泡宽度调整 */
+  :root {
+    --message-bubble-max-width: 75%;
+  }
+}
+
+/* ==================== 平板布局 (md: 768px+) ==================== */
+@media (min-width: 768px) {
+  .container {
+    max-width: 720px;
+  }
+  
+  /* 开始支持侧边栏布局 */
+  .app-container {
+    flex-direction: row;
+  }
+  
+  /* 隐藏移动端底部导航 */
+  .bottom-nav {
+    display: none;
+  }
+  
+  /* 添加侧边导航 */
+  .sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    width: 80px;
+    background: #fff;
+    border-right: 1px solid #e9ecef;
+    z-index: 10;
+  }
+  
+  .main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  /* 顶部导航在平板上调整 */
+  .top-bar {
+    height: var(--header-height);
+    background: #fff;
+    border-bottom: 1px solid #e9ecef;
+    display: flex;
+    align-items: center;
+    padding: 0 var(--spacing-lg);
+  }
+  
+  /* 消息布局：两栏模式 */
+  .messages-layout {
+    flex-direction: row;
+  }
+  
+  .messages-sidebar {
+    width: 320px;
+    border-right: 1px solid #e9ecef;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+  }
+  
+  .messages-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  /* 在平板上同时显示列表和聊天 */
+  .shops-list-view,
+  .conversations-list-view {
+    display: block !important;
+    height: 100%;
+  }
+  
+  .chat-view {
+    display: flex !important;
+  }
+}
+
+/* ==================== 桌面布局 (lg: 992px+) ==================== */
+@media (min-width: 992px) {
+  .container {
+    max-width: 960px;
+  }
+  
+  /* 侧边栏展开 */
+  .sidebar-nav {
+    width: var(--sidebar-width);
+  }
+  
+  /* 三栏布局 */
+  .messages-layout {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 0;
+  }
+  
+  /* 消息气泡进一步缩小 */
+  :root {
+    --message-bubble-max-width: 60%;
+  }
+  
+  /* 聊天输入区域优化 */
+  .chat-input-container {
+    padding: var(--spacing-lg);
+  }
+  
+  /* 店铺网格布局 */
+  .shops-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: var(--spacing-lg);
+  }
+}
+
+/* ==================== 大桌面布局 (xl: 1200px+) ==================== */
+@media (min-width: 1200px) {
+  .container {
+    max-width: var(--container-max-width);
+  }
+  
+  /* 四栏布局（可选：店铺 | 对话 | 聊天 | 详情） */
+  .messages-layout {
+    grid-template-columns: 280px 320px 1fr;
+  }
+  
+  /* 显示更多信息 */
+  .chat-messages-container {
+    padding: var(--spacing-xl);
+  }
+  
+  /* 消息气泡再次缩小 */
+  :root {
+    --message-bubble-max-width: 50%;
+  }
+  
+  /* 店铺网格更密集 */
+  .shops-grid {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: var(--spacing-xl);
+  }
+}
+
+/* ==================== 视图切换动画 ==================== */
+.messages-view {
+  transition: transform 0.3s ease-in-out;
+}
+
+/* 移动端的视图切换 */
+@media (max-width: 767px) {
+  .messages-view.slide-left {
+    transform: translateX(-100%);
+  }
+  
+  .messages-view.slide-right {
+    transform: translateX(100%);
+  }
+}
+
+/* ==================== 工具类 ==================== */
+.d-none { display: none !important; }
+.d-block { display: block !important; }
+.d-flex { display: flex !important; }
+
+/* 响应式显示 */
+.d-sm-none { display: none !important; }
+@media (min-width: 576px) {
+  .d-sm-block { display: block !important; }
+  .d-sm-flex { display: flex !important; }
+  .d-sm-none { display: none !important; }
+}
+
+.d-md-none { display: none !important; }
+@media (min-width: 768px) {
+  .d-md-block { display: block !important; }
+  .d-md-flex { display: flex !important; }
+  .d-md-none { display: none !important; }
+}
+
+.d-lg-none { display: none !important; }
+@media (min-width: 992px) {
+  .d-lg-block { display: block !important; }
+  .d-lg-flex { display: flex !important; }
+  .d-lg-none { display: none !important; }
+}
+
+/* ==================== 打印样式 ==================== */
+@media print {
+  .sidebar-nav,
+  .bottom-nav,
+  .chat-input-container {
+    display: none !important;
+  }
+  
+  .main-content {
+    height: auto !important;
+    overflow: visible !important;
+  }
+}

@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>客服管理后台 - 极速优化版</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- 自定义样式 -->
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/mobile.css">
+</head>
+<body class="bg-light">
+    <div id="app">
+        <!-- 顶部导航栏 -->
+        <div data-include="/static/components/navbar.html"></div>
+        
+        <!-- 主要内容区域 -->
+        <main class="container-fluid">
+            <div class="row h-100">
+                <!-- 桌面端侧边栏 -->
+                <div data-include="/static/components/sidebar.html" class="d-none d-md-block col-md-3 col-lg-2"></div>
+                
+                <!-- 主要内容 -->
+                <div class="col-12 col-md-9 col-lg-10">
+                    <div data-include="/static/components/main-content.html"></div>
+                </div>
+            </div>
+        </main>
+        
+        <!-- 移动端底部导航栏 -->
+        <div data-include="/static/components/bottom-nav.html" class="d-md-none"></div>
+    </div>
+
+    <!-- ==================== 极速优化JavaScript架构 ==================== -->
+    
+    <!-- 🏗️ 基础设施层 (Infrastructure) - 12个文件 -->
+    <script src="/static/js/websocket/websocket-base.js"></script>  <!-- WebSocket基础类 -->
+    <script src="/static/js/ui/ui-base.js"></script>               <!-- UI基础类 -->
+    <script src="/static/js/utils/utils-base.js"></script>         <!-- 工具基础类 -->
+    <script src="/static/js/core/unified-utils.js"></script>       <!-- 统一工具函数库 -->
+    <script src="/static/js/core/unified-clipboard.js"></script>   <!-- 统一剪贴板工具 -->
+    <script src="/static/js/core/api-client.js"></script>          <!-- 统一API客户端 -->
+    <script src="/static/js/core/template-renderer.js"></script>   <!-- 统一模板渲染器 -->
+    <script src="/static/js/core/unified-logger.js"></script>      <!-- 统一日志管理器 -->
+    <script src="/static/js/core/websocket-manager.js"></script>   <!-- 统一WebSocket管理器 -->
+    <script src="/static/js/core/base-manager.js"></script>        <!-- 业务管理基础类 -->
+    <script src="/static/js/core/state-coordinator.js"></script>   <!-- 状态协调器 -->
+    <script src="/static/js/core/event-bus.js"></script>           <!-- 事件总线 -->
+    
+    <!-- 📦 核心模块层 (Core) - 4个文件 -->
+    <script src="/static/js/websocket/simple-websocket-adapter.js"></script>  <!-- WebSocket连接 -->
+    <script src="/static/js/websocket/ws-event-router.js"></script>          <!-- 事件路由 -->
+    <script src="/static/js/websocket/message-send-channel.js"></script>     <!-- 消息发送 -->
+    <script src="/static/js/core/message-coordinator.js"></script>           <!-- 消息协调器 -->
+    
+    <!-- 🎨 UI组件层 (Components) - 3个文件 -->
+    <script src="/static/js/ui/toast-optimized.js"></script>         <!-- 轻通知 -->
+    <script src="/static/js/ui/loading-states-optimized.js"></script> <!-- 加载态 -->
+    <script src="/static/js/ui/empty-states-optimized.js"></script>  <!-- 空状态 -->
+    
+    <!-- 💼 业务逻辑层 (Business) - 3个文件 -->
+    <script src="/static/js/usecases/shops-manager-clean.js"></script>       <!-- 店铺管理 (优化版) -->
+    <script src="/static/js/usecases/conversations-manager-clean.js"></script> <!-- 对话管理 (优化版) -->
+    <script src="/static/js/usecases/messages-manager-clean.js"></script>    <!-- 消息管理 (优化版) -->
+    
+    <!-- 📱 移动端适配层 (Mobile) - 2个文件 -->
+    <script src="/static/js/mobile/mobile-bootstrap.js"></script>      <!-- 移动端初始化 -->
+    <script src="/static/js/utils/partials-loader.js"></script>        <!-- 组件加载器 -->
+    
+    <!-- 🚀 应用启动器 (Bootstrap) - 1个文件 -->
+    <script>
+        // 极速启动脚本 - 代替多个小文件
+        (function() {
+            'use strict';
+            
+            console.log('🚀 极速优化版客服系统启动中...');
+            
+            // 等待DOM加载完成
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initApp);
+            } else {
+                initApp();
+            }
+            
+            function initApp() {
+                console.log('📱 检测设备类型...');
+                
+                // 设备检测
+                const isMobile = window.innerWidth <= 768;
+                document.body.classList.toggle('mobile-device', isMobile);
+                
+                // 初始化基础设施
+                console.log('🏗️ 初始化基础设施...');
+                initInfrastructure();
+                
+                // 初始化业务模块
+                console.log('💼 初始化业务模块...');
+                initBusinessModules();
+                
+                // 初始化UI组件
+                console.log('🎨 初始化UI组件...');
+                initUIComponents();
+                
+                console.log('✅ 系统启动完成！共加载 18 个模块文件');
+            }
+            
+            function initInfrastructure() {
+                // WebSocket连接初始化
+                if (window.SimpleWebSocketAdapter) {
+                    window.wsAdapter = new SimpleWebSocketAdapter({
+                        debug: false,
+                        maxReconnectAttempts: 10
+                    });
+                    window.wsAdapter.connect();
+                }
+                
+                // 事件路由初始化
+                if (window.WsEventRouter && window.MessageCoordinator) {
+                    window.eventRouter = new WsEventRouter(window.MessageCoordinator, {
+                        debug: false
+                    });
+                }
+                
+                // 消息发送通道初始化
+                if (window.MessageSendChannel) {
+                    window.MessageSendChannel.init({
+                        debug: false,
+                        maxRetries: 3
+                    });
+                }
+            }
+            
+            function initBusinessModules() {
+                // 业务管理器按需初始化
+                if (window.ShopsManager) {
+                    window.shopsManager = new ShopsManager();
+                }
+                
+                if (window.ConversationsManager) {
+                    window.conversationsManager = new ConversationsManager();
+                }
+                
+                if (window.MessagesManager) {
+                    window.messagesManager = new MessagesManager();
+                }
+            }
+            
+            function initUIComponents() {
+                // UI组件已自动初始化为全局单例
+                console.log('UI组件统计:', {
+                    toast: !!window.Toast,
+                    loading: !!window.LoadingStatesUI,
+                    empty: !!window.EmptyStatesUI
+                });
+            }
+            
+            // 全局错误处理
+            window.addEventListener('error', function(event) {
+                console.error('全局错误:', event.error);
+                if (window.Toast) {
+                    window.Toast.error('系统出现错误，请刷新页面重试');
+                }
+            });
+            
+            // 网络状态监控
+            if ('navigator' in window && 'onLine' in navigator) {
+                function updateOnlineStatus() {
+                    const isOnline = navigator.onLine;
+                    document.body.classList.toggle('offline', !isOnline);
+                    
+                    if (window.Toast) {
+                        if (isOnline) {
+                            window.Toast.success('网络连接已恢复');
+                        } else {
+                            window.Toast.warning('网络连接已断开');
+                        }
+                    }
+                }
+                
+                window.addEventListener('online', updateOnlineStatus);
+                window.addEventListener('offline', updateOnlineStatus);
+            }
+            
+        })();
+    </script>
+
+    <!-- Bootstrap JavaScript (延迟加载) -->
+    <script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

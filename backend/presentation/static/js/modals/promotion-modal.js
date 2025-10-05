@@ -26,31 +26,52 @@ function hidePromotionModal() {
 
 function copyPromotionLink() {
   const linkInput = document.getElementById('promotionLink');
-  linkInput.select();
-  linkInput.setSelectionRange(0, 99999);
-  try {
-    document.execCommand('copy');
-    showToast('推广链接已复制到剪贴板！', 'success');
-  } catch (err) {
-    navigator.clipboard.writeText(linkInput.value).then(() => {
-      showToast('推广链接已复制到剪贴板！', 'success');
-    }).catch(() => {
-      showToast('复制失败，请手动复制链接', 'error');
+  if (!linkInput) return;
+  
+  // 使用统一剪贴板工具
+  if (window.UnifiedClipboard) {
+    window.UnifiedClipboard.copyFromElement(linkInput, {
+      successMessage: '✅ 推广链接已复制到剪贴板！',
+      errorMessage: '❌ 复制失败，请手动复制链接'
     });
+  } else {
+    // 降级兼容实现
+    linkInput.select();
+    linkInput.setSelectionRange(0, 99999);
+    try {
+      document.execCommand('copy');
+      showToast('推广链接已复制到剪贴板！', 'success');
+    } catch (err) {
+      navigator.clipboard.writeText(linkInput.value).then(() => {
+        showToast('推广链接已复制到剪贴板！', 'success');
+      }).catch(() => {
+        showToast('复制失败，请手动复制链接', 'error');
+      });
+    }
   }
 }
 
 function shareToWeChat() {
   const link = document.getElementById('promotionLink').value;
   const message = `🎁 邀请您免费体验我们的客服系统！通过我的专属链接注册，我们都能获得优惠哦！\n\n点击链接：${link}`;
+  
   if (navigator.share) {
     navigator.share({ title: '邀请您体验客服系统', text: message, url: link });
   } else {
-    navigator.clipboard.writeText(message).then(() => {
-      showToast('分享内容已复制，请在微信中粘贴分享！', 'success');
-    }).catch(() => {
-      showToast('复制失败，请手动复制', 'error');
-    });
+    // 使用统一剪贴板工具
+    if (window.UnifiedClipboard) {
+      window.UnifiedClipboard.copyText(message, {
+        successMessage: '✅ 分享内容已复制，请在微信中粘贴分享！',
+        errorMessage: '❌ 复制失败，请手动复制'
+      });
+    } else {
+      // 降级兼容实现
+      navigator.clipboard.writeText(message).then(() => {
+        showToast('分享内容已复制，请在微信中粘贴分享！', 'success');
+      }).catch(() => {
+        showToast('复制失败，请手动复制', 'error');
+      });
+    }
   }
 }
 

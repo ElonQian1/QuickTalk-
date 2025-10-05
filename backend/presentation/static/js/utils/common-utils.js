@@ -4,9 +4,21 @@
 // 提供：formatTime(date), showToast(message, type), fetchShops(), openConversation(id), createNewShop()
 
 (function(){
-  // 时间格式化
+  // 时间格式化 - 使用 UnifiedUtils 统一实现
   window.formatTime = function formatTime(date) {
     if (!date) return '未知';
+    
+    // 使用统一工具库进行相对时间格式化
+    if (window.UnifiedUtils) {
+      try {
+        const timestamp = (date instanceof Date) ? date.getTime() : new Date(date).getTime();
+        return window.UnifiedUtils.formatRelativeTime(timestamp);
+      } catch (error) {
+        return '未知';
+      }
+    }
+    
+    // 降级兼容实现
     const dateObj = (date instanceof Date) ? date : new Date(date);
     const now = new Date();
     const diff = now - dateObj;

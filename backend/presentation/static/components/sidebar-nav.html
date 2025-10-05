@@ -1,0 +1,176 @@
+<!-- component: sidebar-nav (桌面端侧边导航) -->
+<nav class="sidebar-nav d-md-flex d-none">
+  <div class="nav-header">
+    <div class="logo">
+      <span class="logo-icon">💬</span>
+      <span class="logo-text d-lg-block d-none">QuickTalk</span>
+    </div>
+  </div>
+  
+  <div class="nav-menu">
+    <a href="#" class="nav-item active" data-page="messagesPage">
+      <span class="nav-icon">💬</span>
+      <span class="nav-text d-lg-block d-none">消息</span>
+      <span class="nav-badge" id="messagesNavBadge" style="display: none;"></span>
+    </a>
+    
+    <a href="#" class="nav-item" data-page="shopsPage">
+      <span class="nav-icon">🏪</span>
+      <span class="nav-text d-lg-block d-none">店铺</span>
+      <span class="nav-badge" id="shopsNavBadge" style="display: none;"></span>
+    </a>
+    
+    <a href="#" class="nav-item" data-page="workbenchPage">
+      <span class="nav-icon">📊</span>
+      <span class="nav-text d-lg-block d-none">工作台</span>
+    </a>
+    
+    <a href="#" class="nav-item" data-page="profilePage">
+      <span class="nav-icon">👤</span>
+      <span class="nav-text d-lg-block d-none">个人</span>
+    </a>
+  </div>
+  
+  <div class="nav-footer">
+    <div class="connection-status" id="connectionStatus">
+      <span class="status-dot"></span>
+      <span class="status-text d-lg-block d-none">在线</span>
+    </div>
+  </div>
+</nav>
+
+<style>
+.sidebar-nav {
+  background: #fff;
+  border-right: 1px solid #e9ecef;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 0;
+  transition: width 0.3s ease;
+}
+
+.nav-header {
+  padding: 0 16px 24px;
+  border-bottom: 1px solid #f0f0f0;
+  margin-bottom: 16px;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.logo-icon {
+  font-size: 24px;
+}
+
+.logo-text {
+  font-size: 18px;
+}
+
+.nav-menu {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 8px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  text-decoration: none;
+  color: #6c757d;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.nav-item:hover {
+  background: #f8f9fa;
+  color: #2c3e50;
+}
+
+.nav-item.active {
+  background: #e3f2fd;
+  color: #1976d2;
+  font-weight: 500;
+}
+
+.nav-icon {
+  font-size: 20px;
+  width: 20px;
+  text-align: center;
+}
+
+.nav-text {
+  font-size: 14px;
+}
+
+.nav-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: #dc3545;
+  color: #fff;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  min-width: 16px;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.nav-footer {
+  padding: 16px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.connection-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #6c757d;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #28a745;
+}
+
+.status-dot.offline {
+  background: #dc3545;
+}
+
+.status-dot.connecting {
+  background: #ffc107;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* 移动端隐藏 */
+@media (max-width: 767px) {
+  .sidebar-nav {
+    display: none !important;
+  }
+}
+
+/* 大屏幕展开文字 */
+@media (min-width: 992px) {
+  .sidebar-nav {
+    width: 280px;
+  }
+}
+</style>

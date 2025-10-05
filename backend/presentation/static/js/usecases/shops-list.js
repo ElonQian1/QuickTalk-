@@ -11,25 +11,21 @@
         
         // 初始化消息模块（如果还没有创建）
         if (!window.messageModule) {
-            // 优先尝试重构版本
-            if (typeof window.MessageModuleRefactored === 'function') {
-                try { 
-                    console.log('📦 创建 MessageModuleRefactored 实例');
-                    window.messageModule = new window.MessageModuleRefactored();
-                } catch(e){ 
-                    console.error('初始化 MessageModuleRefactored 失败:', e);
-                }
+            // 优先使用集成器创建
+            if (window.MessageIntegratorInstance) {
+                console.log('📦 使用 MessageIntegratorInstance');
+                window.messageModule = window.MessageIntegratorInstance.modules?.coordinator;
             }
-            // 兜底：尝试原版
-            else if (typeof window.MessageModule === 'function') {
+            // 直接尝试协调器
+            else if (typeof window.MessageCoordinator === 'function') {
                 try { 
-                    console.log('📦 创建 MessageModule 实例');
-                    window.messageModule = new window.MessageModule();
+                    console.log('📦 创建 MessageCoordinator 实例');
+                    window.messageModule = new window.MessageCoordinator();
                 } catch(e){ 
-                    console.error('初始化 MessageModule 失败:', e);
+                    console.error('初始化 MessageCoordinator 失败:', e);
                 }
             } else {
-                console.warn('⚠️ 没有找到可用的 MessageModule 类');
+                console.warn('⚠️ 没有找到可用的 MessageCoordinator 类');
                 // 提供一个基本的兜底实现
                 await loadConversationsFallback();
                 return;
@@ -100,8 +96,8 @@
         console.log('🧪 调试工具：测试消息页面加载');
         
         console.log('1. 检查依赖模块...');
-        console.log('- MessageModuleRefactored:', typeof window.MessageModuleRefactored);
-        console.log('- ShopsManagerRefactored:', typeof window.ShopsManagerRefactored);
+        console.log('- MessageCoordinator:', typeof window.MessageCoordinator);
+        console.log('- ShopsManager:', typeof window.ShopsManager);
         console.log('- PartialsLoader:', typeof window.PartialsLoader?.loadPartials);
         
         console.log('2. 检查容器...');

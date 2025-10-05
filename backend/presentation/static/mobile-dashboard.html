@@ -9,11 +9,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>QuickTalk 移动端管理后台</title>
+    <t    <script src="/static/js/usecases/shops-manager-clean.js"></script>
+    <!-- 统一已读状态管理器 - conversations-manager-clean.js 依赖 -->
+    <script src="/static/js/managers/read-state-manager.js"></script>
+    <script src="/static/js/usecases/conversations-manager-clean.js"></script>
+    <script src="/static/js/usecases/messages-manager-clean.js"></script>QuickTalk 移动端管理后台</title>
     
     <!-- 全局基础样式（优先级最高，放在最前） -->
     <link rel="stylesheet" href="/static/css/reset.css">
     <link rel="stylesheet" href="/static/css/variables.css">
+    <!-- 新的响应式布局框架 -->
+    <link rel="stylesheet" href="/static/css/responsive-layout.css">
     
     <!-- 对话头像和红点样式模块 -->
     <link rel="stylesheet" href="/static/css/conversation-avatar.css">
@@ -26,6 +32,7 @@
     <!-- 移动端样式模块化引入 -->
     <link rel="stylesheet" href="/static/css/top-bar.css">
     <link rel="stylesheet" href="/static/css/mobile-layout.css">
+    <link rel="stylesheet" href="/static/css/responsive-messages.css">
     <link rel="stylesheet" href="/static/css/bottom-nav.css">
     <link rel="stylesheet" href="/static/css/shop-card-styles.css">
     <link rel="stylesheet" href="/static/css/home.css">
@@ -96,16 +103,19 @@
     <!-- 最小登录态拦截（外链） -->
     <script src="/static/js/login-guard.js"></script>
     <div class="app-container">
-        <!-- 顶部状态栏 (组件外提) -->
-        <div data-include="/static/components/top-bar.html"></div>
+        <!-- 桌面端侧边导航栏 -->
+        <div data-include="/static/components/sidebar-nav.html"></div>
+        
+        <!-- 移动端顶部状态栏 -->
+        <div data-include="/static/components/top-bar.html" class="d-md-none"></div>
 
         <!-- 主内容区域 -->
         <div class="main-content">
             <div data-include="/static/components/main-content.html"></div>
         </div>
 
-        <!-- 底部导航栏 (组件外提) -->
-        <div data-include="/static/components/bottom-nav.html"></div>
+        <!-- 移动端底部导航栏 -->
+        <div data-include="/static/components/bottom-nav.html" class="d-md-none"></div>
     </div>
 
     <!-- 引入模块化JS文件 (必须在主脚本之前加载) -->
@@ -118,6 +128,8 @@
     <script src="/static/js/core/constants.js"></script>
     <script src="/static/js/core/logger.js"></script>
     <script src="/static/js/core/event-bus.js"></script>
+    <!-- 响应式视图管理器 -->
+    <script src="/static/js/core/responsive-view-manager.js"></script>
     <!-- 新增 消息域核心 (事件总线/类型/状态/发送/渲染/typing) -->
     <script src="/static/js/message/core/message-event-bus.js"></script>
     <script src="/static/js/message/core/message-type-registry.js"></script>
@@ -250,7 +262,9 @@
     <!-- 消息页工具（usecases） -->
     <script src="/static/js/usecases/message-tools.js"></script>
     <!-- 消息发送通道（usecases） - 统一消息发送逻辑 -->
-    <script src="/static/js/usecases/message-send-channel.js"></script>
+    <!-- WebSocket基础设施 -->
+    <script src="/static/js/websocket/websocket-base.js"></script>
+    <script src="/static/js/websocket/message-send-channel.js"></script>
     <script>
         // 初始化发送通道（若尚未初始化的场景，添加 UI 回调）
         (function(){
@@ -324,11 +338,11 @@
     <script src="/static/js/usecases/app-init.js"></script>
     
     <!-- 重构版业务管理器模块（usecases） - 拆分后的独立模块 -->
-    <script src="/static/js/usecases/shops-manager-refactored.js"></script>
-    <!-- 统一已读状态管理器 - conversations-manager-refactored.js 依赖 -->
+    <script src="/static/js/usecases/shops-manager.js"></script>
+    <!-- 统一已读状态管理器 - conversations-manager.js 依赖 -->
     <script src="/static/js/core/unified-read-manager.js"></script>
-    <script src="/static/js/usecases/conversations-manager-refactored.js"></script>
-    <script src="/static/js/usecases/messages-manager-refactored.js"></script>
+    <script src="/static/js/usecases/conversations-manager.js"></script>
+    <script src="/static/js/usecases/messages-manager.js"></script>
     <script src="/static/js/usecases/media-handler.js"></script>
 
     <!-- 原版管理器（已暂停加载以避免重复实例化；保留文件以备回滚） -->
@@ -345,9 +359,9 @@
     <!-- WebSocket 适配器（usecases） - 连接管理、重连、事件订阅 -->
     <script src="/static/js/usecases/message-ws-adapter.js"></script>
     <!-- WebSocket 事件路由（usecases） -->
-    <script src="/static/js/usecases/ws-event-router.js"></script>
+    <script src="/static/js/websocket/ws-event-router.js"></script>
     <!-- 重构版消息模块（精简协调器） -->
-    <script src="/static/js/usecases/message-module-refactored.js"></script>
+    <script src="/static/js/core/message-coordinator.js"></script>
     <!-- 原版消息模块（暂时移除避免与精简版双实例冲突，保留文件以便回滚） -->
     <!-- <script src="/static/js/usecases/message-module.js"></script> -->
     <!-- 消息视图切换胶水（usecases） -->
@@ -464,6 +478,13 @@
     <script src="/static/js/bootstrap/app-bootstrap.js"></script>
     <!-- 9.1 消息模块单一启动器（小步快跑：确保只实例化精简协调器） -->
     <script src="/static/js/bootstrap/messages-micro-bootstrap.js"></script>
+    
+    <!-- 移动端适配器模块（渐进增强） -->
+    <script src="/static/js/mobile/mobile-bootstrap.js"></script>
+    <script src="/static/js/mobile/message-view-mobile-adapter.js"></script>
+    <script src="/static/js/mobile/conversations-mobile-adapter.js"></script>
+    <script src="/static/js/mobile/shops-mobile-adapter.js"></script>
+    <script src="/static/js/mobile/shops-mobile-crud.js"></script>
         <!-- 初始化消息渲染适配器（在核心加载后，可由 micro-bootstrap 或下列自执行逻辑兜底） -->
         <script>
             (function(){
