@@ -41,6 +41,9 @@ class MessageModule {
                     loadConversationsForShop: 0,
                     wsInlineHandler: 0
                 };
+                
+                // legacy 兼容层
+                this._legacyCompat = null;
                 // 暴露调试接口（幂等）：window.__MessageLegacyUsage.get()
                 try {
                     if (!window.__MessageLegacyUsage) {
@@ -329,26 +332,12 @@ class MessageModule {
             }
 
             /**
-             * @deprecated handleWebSocketMessage 旧内联处理逻辑 (保留回退)
+             * @deprecated handleWebSocketMessage 旧内联处理逻辑（委托调用）
              * 拆分后请使用独立模块 message-ws-events-handler.js
              */
             handleWebSocketMessage(data) {
-                if (!data || !data.type) return;
-                try { if (window.__WsEventsMetrics && window.__WsEventsMetrics.record){ window.__WsEventsMetrics.record(data, { path: 'inline' }); } } catch(_){ }
-                // 统计 inline handler 仍被触发频率
-                try { if (this._legacyUsage) this._legacyUsage.wsInlineHandler++; } catch(_){ }
-                const t = data.type;
-                if (t === 'message' || data.msg_type === 'message') return this.handleLegacyNewMessage(data);
-                if (t === 'typing') return (this.handleTypingIndicator && this.handleTypingIndicator(data));
-                if (t === 'conversation_update') {
-                    if (this.currentShopId && this.conversationsManager) this.conversationsManager.loadConversationsForShop(this.currentShopId);
-                    return;
-                }
-                if (t && t.startsWith('domain.event.')) {
-                    if (t.endsWith('message_appended')) return this.handleDomainMessageAppended((data.data && data.data.message)||data.data||data);
-                    if (t.endsWith('message_updated')) return this.handleDomainMessageUpdated((data.data && data.data.message)||data.data||data);
-                    if (t.endsWith('message_deleted')) return this.handleDomainMessageDeleted((data.data && data.data.message)||data.data||data);
-                }
+                if (!this._legacyCompat) this._ensureLegacyCompat();
+                return this._legacyCompat.handleWebSocketMessage(data);
             }
 
             // _ensureWsEventsDelegate 已合并进 WsEventRouter 统一路径 (2025-10) — 保留占位以防外部调用
@@ -440,14 +429,21 @@ class MessageModule {
                 this.updateConversationPreview(messageData);
             }
 
-            // 原有消息加载逻辑（降级使用）
-            async _legacyLoadMessages(conversationId) {
-                if (!window.LegacyLoaders) {
-                    log.warn('LegacyLoaders 未加载，_legacyLoadMessages 跳过');
-                    return;
+            /**
+             * 确保 legacy 兼容层已加载
+             */
+            _ensureLegacyCompat() {
+                if (window.MessageLegacyCompat && !this._legacyCompat) {
+                    this._legacyCompat = window.MessageLegacyCompat.create(this);
                 }
-                try { if (this._legacyUsage) this._legacyUsage.loadMessages++; } catch(_){ }
-                return window.LegacyLoaders.loadMessages({ conversationId, messageModule: this });
+            }
+
+            /**
+             * @deprecated 原有消息加载逻辑（委托调用）
+             */
+            async _legacyLoadMessages(conversationId) {
+                if (!this._legacyCompat) this._ensureLegacyCompat();
+                return this._legacyCompat.loadMessages(conversationId);
             }
 
             // 处理新消息事件（来自管理器）
@@ -494,14 +490,12 @@ class MessageModule {
                 if (input){ input.value=''; input.focus(); }
             }
 
-            // 原有发送消息逻辑（降级使用）
+            /**
+             * @deprecated 原有发送消息逻辑（委托调用）
+             */
             _legacySendMessage(content) {
-                if (!window.LegacySenders) {
-                    log.warn('LegacySenders 未加载，_legacySendMessage 跳过');
-                    return;
-                }
-                try { if (this._legacyUsage) this._legacyUsage.sendMessage++; } catch(_){ }
-                window.LegacySenders.sendMessage({ messageModule: this, content });
+                if (!this._legacyCompat) this._ensureLegacyCompat();
+                return this._legacyCompat.sendMessage(content);
             }
 
             // 显示店铺列表（委托给店铺管理器）
@@ -522,14 +516,12 @@ class MessageModule {
                 return this._legacyShowShops();
             }
 
-            // 原有店铺显示逻辑（降级使用）
+            /**
+             * @deprecated 原有店铺显示逻辑（委托调用）
+             */
             async _legacyShowShops() {
-                if (!window.LegacyLoaders) {
-                    log.warn('LegacyLoaders 未加载，_legacyShowShops 跳过');
-                    return;
-                }
-                try { if (this._legacyUsage) this._legacyUsage.showShops++; } catch(_){ }
-                return window.LegacyLoaders.showShops({ messageModule: this });
+                if (!this._legacyCompat) this._ensureLegacyCompat();
+                return this._legacyCompat.showShops();
             }
             /**
              * Deprecated: renderShopsList 旧实现已移除，统一改为委托 shopsManager.renderShopsList()
@@ -818,14 +810,12 @@ class MessageModule {
                 return this._legacyLoadConversationsForShop(shopId);
             }
 
-            // 原有对话加载逻辑（降级使用）
+            /**
+             * @deprecated 原有对话加载逻辑（委托调用）
+             */
             async _legacyLoadConversationsForShop(shopId) {
-                if (!window.LegacyLoaders) {
-                    log.warn('LegacyLoaders 未加载，_legacyLoadConversationsForShop 跳过');
-                    return;
-                }
-                try { if (this._legacyUsage) this._legacyUsage.loadConversationsForShop++; } catch(_){ }
-                return window.LegacyLoaders.loadConversationsForShop({ shopId, messageModule: this });
+                if (!this._legacyCompat) this._ensureLegacyCompat();
+                return this._legacyCompat.loadConversationsForShop(shopId);
             }
 
             // 兼容方法：渲染对话列表（委托给对话管理器）
