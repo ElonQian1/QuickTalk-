@@ -43,7 +43,7 @@
         let score = 0;
         if (r.flags && r.flags.includes('lowUsage')){ reasons.push('lowUsage'); score += 25; }
         if (r.flags && r.flags.includes('stale')){ reasons.push('stale'); score += (r.flags.includes('lowUsage')? 15 : 20); }
-        items.push({ kind:'key', target:r.key, reasons, flags:r.flags.slice(), score, meta:{ count:r.count, ageMs:r.ageMs } });
+  items.push({ kind:'key', target:r.key, reasons, flags:r.flags.slice(), score, meta:{ count:r.count, ageMs:r.ageMs }, rawFactors:{ lowUsage: r.flags.includes('lowUsage')?1:0, stale: r.flags.includes('stale')?1:0, fragmentedPrefix:0, issue:0 } });
       });
       stats.unused = unusedData.unused.length;
     }
@@ -54,7 +54,7 @@
         const ph = window.exportTextPrefixHeat({ depth:1, topKeyN:3 });
         (ph.items||[]).forEach(p => {
           if (p.keyCount <= 2 && p.totalCount <= minPrefixTotal){
-            items.push({ kind:'prefix', target:p.prefix, reasons:['fragmentedPrefix'], flags:['prefixSmall'], score:15, meta:{ keyCount:p.keyCount, totalCount:p.totalCount } });
+            items.push({ kind:'prefix', target:p.prefix, reasons:['fragmentedPrefix'], flags:['prefixSmall'], score:15, meta:{ keyCount:p.keyCount, totalCount:p.totalCount }, rawFactors:{ fragmentedPrefix:1, lowUsage:0, stale:0, issue:0 } });
             stats.prefixSmall++;
           }
         });
@@ -67,7 +67,7 @@
         const issues = window.validateStateTextsSchema({ silent:true }) || [];
         issues.forEach(issue => {
           let score = 10; const reasons=[issue.type];
-            items.push({ kind:'issue', target: issue.key || issue.prefix || 'n/a', reasons, flags:[issue.type], score, meta: issue });
+            items.push({ kind:'issue', target: issue.key || issue.prefix || 'n/a', reasons, flags:[issue.type], score, meta: issue, rawFactors:{ issue:1, fragmentedPrefix:0, lowUsage:0, stale:0 } });
         });
         stats.issues = issues.length;
       } catch(_){ }
@@ -77,13 +77,16 @@
     const merged = new Map();
     for (const it of items){
       const id = it.kind + ':' + it.target;
-      if (!merged.has(id)) { merged.set(id, { kind:it.kind, target:it.target, reasons:new Set(), flags:new Set(), score:0, meta:{} }); }
+      if (!merged.has(id)) { merged.set(id, { kind:it.kind, target:it.target, reasons:new Set(), flags:new Set(), score:0, meta:{}, rawFactors:{ lowUsage:0, stale:0, fragmentedPrefix:0, issue:0 } }); }
       const slot = merged.get(id);
       it.reasons.forEach(r=>slot.reasons.add(r));
       it.flags.forEach(f=>slot.flags.add(f));
       slot.score += it.score;
       // 合并 meta 简单策略：首个+补充
       slot.meta = Object.assign({}, it.meta, slot.meta);
+      if (it.rawFactors){
+        Object.keys(slot.rawFactors).forEach(k=>{ slot.rawFactors[k] += (it.rawFactors[k]||0); });
+      }
     }
     let final = Array.from(merged.values()).map(v => ({
       kind: v.kind,
@@ -91,7 +94,8 @@
       reasons: Array.from(v.reasons),
       flags: Array.from(v.flags),
       score: v.score,
-      meta: v.meta
+      meta: v.meta,
+      rawFactors: v.rawFactors
     }));
 
     // 排序：score desc -> reasons 多 -> target
