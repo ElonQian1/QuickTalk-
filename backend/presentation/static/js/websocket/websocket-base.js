@@ -14,6 +14,7 @@
  */
 (function() {
     'use strict';
+    const T = (k,f)=> (typeof window.getText==='function') ? window.getText(k,f) : ((window.StateTexts && window.StateTexts[k]) || f || k);
 
     // WebSocket连接状态枚举
     const WS_STATE = {
@@ -44,6 +45,19 @@
                 reconnectInterval: 1000,
                 maxReconnectInterval: 30000,
                 heartbeatInterval: 25000,
+                enableAutoHeartbeat: false,
+                enableAdaptiveHeartbeat: false, // 新增：基于质量评分自适应调节心跳
+                adaptiveHeartbeatMap: { // Level -> interval(ms)
+                    Excellent: 40000,
+                    Good: 30000,
+                    Fair: 25000,
+                    Poor: 18000,
+                    Critical: 12000
+                },
+                adaptiveMinChangeDelta: 2000, // 少于该差值不调整
+                adaptiveCooldown: 30000, // 调整冷却期
+                heartbeatPayloadBuilder: () => ({ type:'heartbeat', clientSentAt: Date.now() }),
+                heartbeatLossThreshold: 3,
                 messageTimeout: 10000,
                 ...options
             };
@@ -70,6 +84,18 @@
 
             // 事件监听器注册表
             this.eventListeners = new Map();
+            // 诊断标记
+            this._diag = { emitted:0 };
+
+            // 自适应心跳内部状态
+            this._adaptive = {
+                lastAppliedLevel: null,
+                lastAdjustAt: 0,
+                qualityHandler: null
+            };
+            if (this.options.enableAdaptiveHeartbeat) {
+                this._bindAdaptiveHeartbeat();
+            }
         }
 
         /**
@@ -100,7 +126,7 @@
                         try {
                             listener(data);
                         } catch (error) {
-                            this.log('error', '事件监听器执行失败:', error);
+                            this.log('error', T('EVENT_LISTENER_FAIL','事件监听器执行失败'), error);
                         }
                     });
                 },
@@ -154,9 +180,10 @@
                     document.dispatchEvent(new CustomEvent(`ws:${eventName}`, {
                         detail: data
                     }));
+                    this._diag.emitted++;
                 }
             } catch (error) {
-                this.log('error', '事件发布失败:', eventName, error);
+                this.log('error', T('EVENT_EMIT_FAIL','事件发布失败'), eventName, error);
             }
         }
 
@@ -198,34 +225,121 @@
             const oldState = this.state.connectionState;
             this.state.connectionState = newState;
             this.state.lastError = error;
-            
             if (newState === WS_STATE.CONNECTED) {
                 this.state.lastConnectedTime = Date.now();
                 this.state.reconnectAttempts = 0;
+                try { window.__WsMetrics && window.__WsMetrics.record('RECONNECT_SUCCESS'); } catch(_){}
+                try { window.recordWsEventCategory && window.recordWsEventCategory('reconnectSuccess'); } catch(_){}
             }
-            
             if (oldState !== newState) {
-                this.log('info', `连接状态变更: ${oldState} -> ${newState}`);
-                this.emit('connectionStateChanged', {
-                    oldState,
-                    newState,
-                    error,
-                    timestamp: Date.now()
-                });
+                this.log('info', `${T('NETWORK_STATE_CHANGE','连接状态变更')}: ${oldState} -> ${newState}`);
+                this.emit('connectionStateChanged', { oldState, newState, error, timestamp: Date.now() });
+                if (newState === WS_STATE.CONNECTING){ this.emit('connecting', { timestamp: Date.now() }); try { window.recordWsEventCategory && window.recordWsEventCategory('reconnectAttempt'); } catch(_){} }
+                if (newState === WS_STATE.CONNECTED){ this.emit('open', { timestamp: Date.now() }); try { window.recordWsEventCategory && window.recordWsEventCategory('open'); } catch(_){} try { window.recordWsEventRateEvent && window.recordWsEventRateEvent(); } catch(_){} if (this.options.enableAutoHeartbeat) { this._startHeartbeatLoop(); } }
+                if (newState === WS_STATE.RECONNECTING){ this.emit('reconnecting', { attempts: this.state.reconnectAttempts }); try { window.recordWsEventCategory && window.recordWsEventCategory('reconnectAttempt'); } catch(_){} }
+                if (newState === WS_STATE.FAILED){ this.emit('failed', { error, attempts: this.state.reconnectAttempts }); try { window.recordWsEventCategory && window.recordWsEventCategory('reconnectFail'); } catch(_){} }
+                if (newState === WS_STATE.CLOSING){ this.emit('closing', {}); }
+                if (newState === WS_STATE.DISCONNECTED){ this.emit('close', { reason: error || 'disconnected' }); try { window.recordWsEventCategory && window.recordWsEventCategory('close'); } catch(_){} }
+            }
+        }
+
+        /**
+         * 启动自动心跳循环
+         */
+        _startHeartbeatLoop(){
+            this._stopHeartbeatLoop();
+            const send = () => {
+                if (this.state.connectionState !== WS_STATE.CONNECTED) return;
+                try {
+                    const payload = this.options.heartbeatPayloadBuilder();
+                    const sentAt = Date.now();
+                    payload.clientSentAt = sentAt;
+                    if (this.ws && this.ws.readyState === 1) {
+                        this.ws.send(JSON.stringify(payload));
+                        this.emit('heartbeatSent', payload);
+                        this._pendingHeartbeat = { sentAt, payload };
+                        try { window.recordWsHeartbeatSent && window.recordWsHeartbeatSent(sentAt); } catch(_){}
+                        try { window.recordWsEventRateEvent && window.recordWsEventRateEvent(); } catch(_){ }
+                        setTimeout(()=>{
+                            if (this._pendingHeartbeat && Date.now() - this._pendingHeartbeat.sentAt > this.options.heartbeatInterval * 1.5) {
+                                this.emit('heartbeatLost', { since: this._pendingHeartbeat.sentAt });
+                            }
+                        }, this.options.heartbeatInterval * 1.6);
+                    }
+                } catch(err){ this.log('error', T('HEARTBEAT_SEND_FAIL','发送心跳失败'), err); }
+                this.timers.heartbeat = setTimeout(send, this.options.heartbeatInterval);
+            };
+            send();
+        }
+
+        _stopHeartbeatLoop(){
+            if (this.timers.heartbeat) { clearTimeout(this.timers.heartbeat); this.timers.heartbeat = null; }
+            this._pendingHeartbeat = null;
+        }
+
+        /**
+         * 绑定质量评分事件以自适应心跳
+         */
+        _bindAdaptiveHeartbeat(){
+            if (this._adaptive.qualityHandler) return; // 防重复
+            const handler = (e)=>{
+                try {
+                    const detail = e.detail; if(!detail) return;
+                    this._maybeAdjustHeartbeat(detail.newLevel);
+                } catch(err){ this.log('error', T('ADAPTIVE_HANDLER_FAIL','adaptiveHeartbeat处理失败'), err); }
+            };
+            document.addEventListener('ws:qualityChanged', handler);
+            this._adaptive.qualityHandler = handler;
+        }
+
+        _maybeAdjustHeartbeat(level){
+            if (!this.options.enableAdaptiveHeartbeat) return;
+            const map = this.options.adaptiveHeartbeatMap || {};
+            const target = map[level];
+            if (!target) return;
+            const now = Date.now();
+            if (now - this._adaptive.lastAdjustAt < this.options.adaptiveCooldown) return; // 冷却期
+            const current = this.options.heartbeatInterval;
+            if (Math.abs(current - target) < (this.options.adaptiveMinChangeDelta||0)) return; // 变化太小
+                this.log('info', `${T('ADAPTIVE_HEARTBEAT','自适应心跳')}: ${current}ms -> ${target}ms (level=${level})`);
+            this.options.heartbeatInterval = target;
+            this._adaptive.lastAdjustAt = now;
+            this._adaptive.lastAppliedLevel = level;
+            try { window.__WsMetrics && window.__WsMetrics.record('HEARTBEAT_ADJUST', { level, interval: target }); } catch(_){ }
+            // 若正在运行自动心跳循环，则重启以应用新间隔
+            if (this.options.enableAutoHeartbeat && this.state.connectionState === WS_STATE.CONNECTED) {
+                this._startHeartbeatLoop();
+            }
+            this.emit('adaptiveHeartbeatChanged', { level, interval: target, timestamp: now });
+        }
+
+        /**
+         * 外部可在 onMessage 中调用 confirmHeartbeat(message) 来确认心跳 RTT
+         */
+        confirmHeartbeat(msg){
+            if (!msg) return;
+            const t = msg.type || msg.message_type;
+            if (t === 'heartbeat' && this._pendingHeartbeat) {
+                try { const clientSentAt = msg.clientSentAt || (msg.payload && msg.payload.clientSentAt); window.recordWsHeartbeatAck && window.recordWsHeartbeatAck(clientSentAt); } catch(_){}
+                try { window.maybeSampleHeartbeatTrend && window.maybeSampleHeartbeatTrend(); } catch(_){}
+                try { window.recordWsEventRateEvent && window.recordWsEventRateEvent(); } catch(_){}
+                this._pendingHeartbeat = null;
             }
         }
 
         /**
          * 统一的重连逻辑
          */
-        scheduleReconnect(reason = '未知原因') {
+    scheduleReconnect(reason = T('RECONNECT_UNKNOWN_REASON','未知原因')) {
             if (this.state.reconnectAttempts >= this.options.maxReconnectAttempts) {
-                this.log('error', '达到最大重连次数，停止重连');
+                this.log('error', T('RECONNECT_LIMIT_REACHED','达到最大重连次数，停止重连'));
                 this.updateConnectionState(WS_STATE.FAILED, '重连次数超限');
+                try { window.__WsMetrics && window.__WsMetrics.record('RECONNECT_FAIL', { limit: true }); } catch(_){ }
                 return;
             }
 
             this.state.reconnectAttempts++;
+            try { window.__WsMetrics && window.__WsMetrics.record('RECONNECT_ATTEMPT', { attempt: this.state.reconnectAttempts, reason }); } catch(_){ }
             
             // 指数退避算法
             const delay = Math.min(
@@ -233,7 +347,7 @@
                 this.options.maxReconnectInterval
             );
 
-            this.log('info', `${delay}ms后进行第${this.state.reconnectAttempts}次重连 (原因: ${reason})`);
+            this.log('info', `${delay}ms${T('RECONNECT_IN_SUFFIX','后进行第')}${this.state.reconnectAttempts}${T('RECONNECT_ATTEMPT_SUFFIX','次重连')} (原因: ${reason})`);
             
             this.updateConnectionState(WS_STATE.RECONNECTING);
             
@@ -314,9 +428,15 @@
         destroy() {
             this.clearTimers();
             this.clearEventListeners();
+            this._stopHeartbeatLoop();
+            if (this._adaptive && this._adaptive.qualityHandler) {
+                document.removeEventListener('ws:qualityChanged', this._adaptive.qualityHandler);
+                this._adaptive.qualityHandler = null;
+            }
             this.state = null;
             this.options = null;
-            this.log('info', '实例已销毁');
+            this.log('info', T('WS_INSTANCE_DESTROYED','实例已销毁'));
+            try { window.__WsMetrics && window.__WsMetrics.record('DISCONNECT'); } catch(_){ }
         }
     }
 

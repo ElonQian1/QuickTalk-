@@ -27,7 +27,7 @@
               if (window.UnifiedClipboard) {
                 window.UnifiedClipboard.copyText(txt, {
                   successMessage: '✅ 消息已复制',
-                  errorMessage: '❌ 复制失败'
+                  errorMessage: (window.StateTexts && window.StateTexts.ACTION_COPY_FAIL) || '❌ 复制失败'
                 });
               } else {
                 // 降级兼容实现

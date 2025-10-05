@@ -5,9 +5,12 @@
 (function() {
     'use strict';
 
+    // 示例性文本助手（局部）。后续批量替换阶段可统一抽离或直接依赖全局 getText。
+    const T = (k, fb) => (typeof window.getText === 'function') ? window.getText(k, fb) : (((window.StateTexts && window.StateTexts[k]) || fb || k));
+
     // 加载对话列表（消息页面入口）
     window.loadConversations = async function() {
-        console.log('🔄 开始加载对话列表...');
+    console.log('🔄 开始加载对话列表...');
         
         // 初始化消息模块（如果还没有创建）
         if (!window.messageModule) {
@@ -37,7 +40,8 @@
         const titleElement = document.getElementById('messagesTitle');
         
         if (titleElement) {
-            titleElement.textContent = '客服消息';
+            // 示例替换：使用 T 访问
+            titleElement.textContent = T('LOADING_MESSAGES','客服消息');
         }
         
         if (backBtn) {
@@ -48,7 +52,7 @@
         try {
             // 确保片段加载（避免容器不存在）
             if (window.PartialsLoader && typeof window.PartialsLoader.loadPartials === 'function') {
-                console.log('🔄 加载页面片段...');
+                console.log(T('LOADING_GENERIC','正在加载...') + ' 页面片段...');
                 await window.PartialsLoader.loadPartials();
             }
         } catch(e) {
@@ -61,7 +65,7 @@
                 await window.messageModule.showShops(); 
                 console.log('✅ 对话列表加载完成');
             } catch(e){ 
-                console.error('showShops 调用失败:', e);
+                console.error(T('ERROR_GENERIC','加载失败') + ' showShops 调用失败:', e);
                 await loadConversationsFallback();
             }
         } else {
@@ -72,22 +76,22 @@
 
     // 兜底方案：直接显示简单的消息界面
     async function loadConversationsFallback() {
-        console.log('🔄 使用兜底方案加载消息界面...');
+    console.log('🔄 使用兜底方案加载消息界面...');
         const messagesSection = document.getElementById('messagesSection');
         if (messagesSection) {
             messagesSection.innerHTML = `
                 <div class="empty-state">
                     <div class="empty-icon">💬</div>
                     <div class="empty-title">消息中心</div>
-                    <div class="empty-desc">正在加载消息模块，请稍候...</div>
-                    <div class="retry-button" onclick="window.loadConversations()" style="margin-top: 15px; padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">重试</div>
+                    <div class="empty-desc">${T('LOADING_MESSAGES','正在加载消息...')}</div>
+                    <div class="retry-button" onclick="window.loadConversations()" style="margin-top: 15px; padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">${T('RETRY','重试')}</div>
                 </div>
             `;
         }
         
         // 尝试显示基本的错误信息
         if (typeof showToast === 'function') {
-            showToast('消息模块加载中，请稍后重试', 'info');
+            showToast(T('LOADING_MESSAGES','正在加载消息...') + ' 请稍后重试', 'info');
         }
     }
 
@@ -127,7 +131,7 @@
                 return await response.json();
             }
         } catch (error) {
-            console.error('获取对话列表API调用失败:', error);
+            console.error('获取对话列表' + ((window.StateTexts && window.StateTexts.API_GENERIC_FAIL) || 'API调用失败') + ':', error);
         }
         
         // 返回模拟数据
@@ -168,12 +172,18 @@
         const container = document.getElementById('shopsList');
         if (!container) return;
 
-        container.innerHTML = `
-            <div class="loading-state">
-                <div class="loading-spinner"></div>
-                <div class="loading-text">正在加载店铺...</div>
-            </div>
-        `;
+        // 使用 UnifiedLoading inline 方式
+        if (window.UnifiedLoading) {
+            container.innerHTML = '';
+            window.UnifiedLoading.show({ scope:'inline', target: container, text: T('LOADING_SHOPS','正在加载店铺...') });
+        } else {
+            container.innerHTML = `
+                <div class="loading-state">
+                    <div class="loading-spinner"></div>
+                    <div class="loading-text">${T('LOADING_SHOPS','正在加载店铺...')}</div>
+                </div>
+            `; // fallback legacy
+        }
         
         try {
             console.log('🔄 开始加载店铺列表');
@@ -194,13 +204,17 @@
             }
             
             if (window.shopsData.length === 0) {
-                container.innerHTML = `
-                    <div class="empty-state">
-                        <div class="empty-icon">🏪</div>
-                        <div class="empty-title">暂无店铺</div>
-                        <div class="empty-desc">添加您的第一个店铺开始使用客服系统</div>
-                    </div>
-                `;
+            if (window.UnifiedState) {
+                window.UnifiedState.use('shops', container, { message: T('EMPTY_ADD_FIRST_SHOP','添加您的第一个店铺开始使用客服系统') });
+                } else {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon">🏪</div>
+                            <div class="empty-title">${T('EMPTY_SHOPS','暂无可用店铺')}</div>
+                            <div class="empty-desc">${T('EMPTY_ADD_FIRST_SHOP_DESC','创建后即可开始接入客服消息')}</div>
+                        </div>
+                    `; // fallback
+                }
             } else {
                 const shopsHTML = window.shopsData.map(shop => {
                     const effStatus = getEffectiveStatus(shop);
@@ -243,14 +257,18 @@
                 `;
             }
         } catch (error) {
-            console.error('❌ 加载店铺列表失败:', error);
-            container.innerHTML = `
-                <div class="empty-state">
-                    <div class="empty-icon">❌</div>
-                    <div class="empty-title">加载失败</div>
-                    <div class="empty-desc">无法加载店铺列表，请稍后重试</div>
-                </div>
-            `;
+            console.error('❌ ' + (T('ERROR_GENERIC','加载失败') + ' 店铺列表:'), error);
+            if (window.UnifiedState) {
+                window.UnifiedState.show({ type:'error', target: container, message: T('ERROR_LOAD_SHOPS','无法加载店铺列表，请稍后重试'), retry: ()=> window.loadShops() });
+            } else {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">❌</div>
+                        <div class="empty-title">${T('ERROR_GENERIC','加载失败')}</div>
+                        <div class="empty-desc">${T('ERROR_LOAD_SHOPS','无法加载店铺列表，请稍后重试')}</div>
+                    </div>
+                `; // fallback
+            }
         }
     };
 

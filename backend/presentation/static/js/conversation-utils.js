@@ -60,7 +60,7 @@ window.ConversationUtils = {
      */
     generateSummary(messages, maxLength = 50) {
         if (!messages || messages.length === 0) {
-            return '暂无消息';
+            return (window.Formatters && window.Formatters.placeholders.lastMessage) || '暂无消息';
         }
         
         const lastMessage = messages[messages.length - 1];

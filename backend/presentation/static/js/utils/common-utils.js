@@ -37,11 +37,15 @@
     }
   };
 
-  // 显示提示信息（简单实现，可被其他 showToast 覆盖）
+  // 显示提示信息：已由 unified-notification.js 统一管理，这里仅作为兜底（防止加载顺序问题）
   if (typeof window.showToast === 'undefined') {
     window.showToast = function showToast(message, type = 'info') {
-      console.log(`[${type.toUpperCase()}] ${message}`);
-      // 可在此处添加UI提示逻辑
+      // 延迟尝试升级为统一通知
+      if (window.UnifiedNotification && typeof window.UnifiedNotification.notify === 'function') {
+        window.UnifiedNotification.notify(type || 'info', message);
+        return;
+      }
+      console.log(`[ToastFallback:${type}] ${message}`);
     };
   }
 
@@ -72,7 +76,7 @@
       console.log('店铺列表:', shops);
       return shops;
     } catch (e) {
-      console.error('❌ API调用失败:', e);
+  console.error('❌ ' + ((window.StateTexts && window.StateTexts.API_GENERIC_FAIL) || 'API调用失败') + ':', e);
       return null;
     }
   };
@@ -289,7 +293,7 @@
       console.log('✅ 成功获取并缓存店铺数据:', data.length);
       return data;
     } catch (error) {
-      console.error('❌ 获取店铺列表API调用失败:', error);
+  console.error('❌ 获取店铺列表' + ((window.StateTexts && window.StateTexts.API_GENERIC_FAIL) || 'API调用失败') + ':', error);
       return [];
     }
   };

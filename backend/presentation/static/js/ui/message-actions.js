@@ -41,7 +41,7 @@
     var panel = wrap.querySelector('.panel');
     panel.innerHTML = '';
     (options && options.items || [
-      { key: 'copy', label: '复制文本' },
+  { key: 'copy', label: '复制文本' },
       { key: 'delete', label: '删除(占位)' },
       { key: 'forward', label: '转发(占位)' }
     ]).forEach(function(it){

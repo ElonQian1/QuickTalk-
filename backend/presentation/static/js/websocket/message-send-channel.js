@@ -35,6 +35,25 @@
             this.log('info', '消息发送通道初始化完成');
         }
 
+        // 错误码映射（第一阶段：基础推断，后续可由后端 error_code 增强）
+        _mapSendError(err){
+            const raw = (err && err.message) ? String(err.message) : '';
+            const T = (k,f)=> (typeof window.getText==='function') ? window.getText(k,f) : ((window.StateTexts && window.StateTexts[k]) || f || k);
+            // 规则顺序：特征匹配 -> 默认
+            if (/未建立连接|not connected|WebSocket.*closed/i.test(raw)) return { code:'NOT_CONNECTED', key:'MESSAGE_NOT_CONNECTED', text: T('MESSAGE_NOT_CONNECTED','尚未建立连接') };
+            if (/timeout|超时/i.test(raw)) return { code:'TIMEOUT', key:'MESSAGE_TIMEOUT', text: T('MESSAGE_TIMEOUT','发送超时') };
+            if (/429|rate limit|频繁/i.test(raw)) return { code:'RATE_LIMIT', key:'MESSAGE_RATE_LIMIT', text: T('MESSAGE_RATE_LIMIT','发送过于频繁，请稍后再试') };
+            if (/payload|content|不合法|invalid/i.test(raw)) return { code:'PAYLOAD_INVALID', key:'MESSAGE_PAYLOAD_INVALID', text: T('MESSAGE_PAYLOAD_INVALID','消息内容不合法') };
+            if (/5\d{2}|服务器|server error/i.test(raw)) return { code:'SERVER_ERROR', key:'MESSAGE_SERVER_ERROR', text: T('MESSAGE_SERVER_ERROR','服务器处理失败') };
+            return { code:'UNKNOWN', key:'MESSAGE_SEND_FINAL_FAIL', text: T('MESSAGE_SEND_FINAL_FAIL','消息发送失败') };
+        }
+
+        // 调试辅助：外部可快速模拟查看映射。
+        static debugMapError(sample){
+            const ch = window.MessageSendChannelInstance || new MessageSendChannel({debug:true});
+            return ch._mapSendError(new Error(sample));
+        }
+
         /**
          * 单例初始化
          */
@@ -308,7 +327,8 @@
             });
 
             if (!response.ok) {
-                throw new Error(`文件上传失败: ${response.statusText}`);
+                const base = (typeof window.getText==='function') ? window.getText('UPLOAD_FILE_FAIL','文件上传失败') : ((window.StateTexts && window.StateTexts.UPLOAD_FILE_FAIL) || '文件上传失败');
+                throw new Error(base + ': ' + response.statusText);
             }
 
             return response.json();
@@ -327,7 +347,8 @@
             });
 
             if (!response.ok) {
-                throw new Error(`音频上传失败: ${response.statusText}`);
+                const base = (typeof window.getText==='function') ? window.getText('UPLOAD_AUDIO_FAIL','音频上传失败') : ((window.StateTexts && window.StateTexts.UPLOAD_AUDIO_FAIL) || '音频上传失败');
+                throw new Error(base + ': ' + response.statusText);
             }
 
             return response.json();
@@ -346,7 +367,11 @@
             });
 
             if (!response.ok) {
-                throw new Error(`发送失败: ${response.statusText}`);
+                const err = new Error(`发送失败: ${response.statusText}`);
+                // 根据状态码附加潜在分类标签用于 _mapSendError 进一步匹配
+                if (response.status >=500) err._server = true;
+                if (response.status === 429) err._rate = true;
+                throw err;
             }
 
             return response.json();
@@ -356,26 +381,31 @@
          * 处理发送错误
          */
         _handleSendError(queueItem, error) {
-            queueItem.error = error.message;
+            const mapped = this._mapSendError(error);
+            queueItem.error = mapped.text + (error && error.message ? (' | ' + error.message) : '');
+            queueItem.errorCode = mapped.code;
+            queueItem.errorKey = mapped.key;
             queueItem.retryCount++;
 
+            // 派发统一错误事件（便于 UI 监听聚合）
+            try { this.emit('message:sendError', { queueId: queueItem.queueId, code: mapped.code, key: mapped.key, raw: error?.message }); } catch(_){}
+
             if (queueItem.retryCount <= this.options.maxRetries) {
-                // 重试
                 queueItem.status = 'pending';
                 const delay = this.options.baseRetryDelayMs * Math.pow(2, queueItem.retryCount - 1);
-                
-                this.log('warn', `消息发送失败，${delay}ms后重试 (${queueItem.retryCount}/${this.options.maxRetries}):`, error.message);
-                
+                const retryTip = (typeof window.getText==='function') ? window.getText('MESSAGE_SEND_RETRYING','消息发送失败，正在重试') : ((window.StateTexts && window.StateTexts.MESSAGE_SEND_RETRYING) || '消息发送失败，正在重试');
+                this.log('warn', `${retryTip} (${mapped.code})，${delay}ms 后重试 (${queueItem.retryCount}/${this.options.maxRetries}) :`, error.message);
                 this.delayCall('_processQueue', delay);
             } else {
-                // 失败
                 queueItem.status = 'failed';
-                this.log('error', '消息发送最终失败:', queueItem.queueId, error.message);
-                
+                const finalTip = (typeof window.getText==='function') ? window.getText('MESSAGE_SEND_FINAL_FAIL','消息发送失败') : ((window.StateTexts && window.StateTexts.MESSAGE_SEND_FINAL_FAIL) || '消息发送失败');
+                this.log('error', `${finalTip} (${mapped.code}) :`, error.message);
                 this.emit('message:failed', {
                     queueId: queueItem.queueId,
                     draft: queueItem.draft,
-                    error: error.message
+                    error: queueItem.error,
+                    code: mapped.code,
+                    key: mapped.key
                 });
             }
         }

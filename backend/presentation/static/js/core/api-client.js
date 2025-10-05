@@ -183,7 +183,7 @@
                         this.log('error', '请求超时:', endpoint);
                         error.message = '请求超时';
                     } else if (error.status === 401 || error.status === 403) {
-                        this.log('warn', '认证失败:', error.message);
+                        this.log('warn', ((window.StateTexts && window.StateTexts.AUTH_FAIL) || '认证失败') + ':', error.message);
                         this.handleAuthError();
                         throw error; // 认证错误不重试
                     } else if (attempt < this.retryCount) {
@@ -192,7 +192,7 @@
                         continue;
                     }
 
-                    this.log('error', '请求最终失败:', error.message);
+                    this.log('error', ((window.StateTexts && window.StateTexts.API_GENERIC_FAIL) || '请求最终失败') + ':', error.message);
                     throw error;
                 }
             }

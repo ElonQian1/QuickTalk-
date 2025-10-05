@@ -14,7 +14,8 @@
     if (conversation.shop_id) el.setAttribute('data-shop-id', conversation.shop_id);
 
     var lastMessageTime = conversation.last_message_time ?
-      new Date(conversation.last_message_time).toLocaleString() : '暂无消息';
+      (window.Formatters ? window.Formatters.lastMessageTime(conversation.last_message_time) : new Date(conversation.last_message_time).toLocaleString()) :
+      ((window.Formatters && window.Formatters.placeholders.lastMessage) || '暂无消息');
 
     if (window.ConversationUtils) {
       el.innerHTML = [
@@ -30,7 +31,7 @@
             '</span>',
             '<span class="message-time" data-conversation-id="', conversation.id ,'">', lastMessageTime, '</span>',
           '</div>',
-          '<div class="last-message" data-conversation-id="', conversation.id ,'">', (conversation.last_message || '等待客户消息...'), '</div>',
+          '<div class="last-message" data-conversation-id="', conversation.id ,'">', (conversation.last_message || (window.Formatters ? window.Formatters.placeholders.waitingCustomer : '等待客户消息...')), '</div>',
         '</div>'
       ].join('');
       if (conversation.unread_count > 0) el.classList.add('has-unread');
@@ -44,7 +45,7 @@
             '<span class="customer-name">', displayName ,'</span>',
             '<span class="message-time" data-conversation-id="', conversation.id ,'">', lastMessageTime, '</span>',
           '</div>',
-          '<div class="last-message" data-conversation-id="', conversation.id ,'">', (conversation.last_message || '等待客户消息...'), '</div>',
+          '<div class="last-message" data-conversation-id="', conversation.id ,'">', (conversation.last_message || (window.Formatters ? window.Formatters.placeholders.waitingCustomer : '等待客户消息...')), '</div>',
         '</div>',
         (conversation.unread_count > 0 ? ('<div class="unread-badge" data-conversation-id="' + conversation.id + '">' + conversation.unread_count + '</div>') : '')
       ].join('');

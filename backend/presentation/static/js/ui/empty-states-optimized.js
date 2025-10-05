@@ -1,11 +1,10 @@
 /**
- * EmptyStates - 空状态组件
- * 继承自UIBase，专注于各种空状态的显示和管理
- * 
- * 优化内容：
- * - 移除重复的DOM创建代码
- * - 使用UIBase提供的统一接口
- * - 增强空状态的功能和可定制性
+ * @deprecated EmptyStates (empty-states-optimized.js) 已被 UnifiedState 体系取代。
+ * 保留仅用于尚未迁移的旧调用；新的代码请使用 UnifiedState.use('<preset>') 或 UnifiedState.show({...})。
+ * 若适配层 unified-state-adapter.js 已加载，本文件方法会被覆盖。
+ */
+/**
+ * EmptyStates - (Legacy) 空状态组件
  */
 (function(){
     'use strict';
@@ -17,7 +16,13 @@
                 ...options
             });
 
-            // 注入样式
+            // 注入样式（若 UnifiedState 已注入其样式，可跳过以减少重复）
+            if (document.getElementById('unified-state-styles')) {
+                this.log('info','检测到 UnifiedState 样式，跳过 legacy 空态样式注入');
+            } else {
+                // 仍需注入旧样式
+                // 注入样式
+            }
             this._injectEmptyStateStyles();
             
             this.log('info', 'EmptyStates组件初始化完成');
@@ -120,41 +125,17 @@
          * 构建空状态组件
          */
         build(icon, title, desc, actions = []) {
-            const elements = this.createElements({
-                wrapper: {
-                    tag: 'div',
-                    className: 'empty-state'
-                },
-                icon: {
-                    tag: 'div',
-                    className: 'empty-icon',
-                    textContent: icon
-                },
-                title: {
-                    tag: 'div',
-                    className: 'empty-title',
-                    textContent: title
-                },
-                desc: {
-                    tag: 'div',
-                    className: 'empty-desc',
-                    textContent: desc
-                }
-            });
-
-            elements.wrapper.appendChild(elements.icon);
-            elements.wrapper.appendChild(elements.title);
-            if (desc) {
-                elements.wrapper.appendChild(elements.desc);
+            // 委托 UnifiedState 渲染以避免重复模板
+            if (window.UnifiedState) {
+                const container = document.createElement('div');
+                window.UnifiedState.show({ type:'empty', target: container, icon, title, message: desc, action: actions[0]? { text: actions[0].text, onClick: actions[0].onClick }: undefined });
+                return container.firstChild || container;
             }
-
-            // 添加操作按钮
-            if (actions.length > 0) {
-                const actionsContainer = this._createActionsContainer(actions);
-                elements.wrapper.appendChild(actionsContainer);
-            }
-
-            return elements.wrapper;
+            // fallback 原始最小版本
+            const div = document.createElement('div');
+            div.className='empty-state';
+            div.textContent = title || '';
+            return div;
         }
 
         /**
@@ -188,111 +169,19 @@
         /**
          * 预定义的空状态
          */
-        conversations(actions = []) {
-            return this.build(
-                '💬', 
-                '暂无对话', 
-                '等待客户发起对话',
-                actions
-            );
-        }
-
-        shops(actions = []) {
-            const defaultActions = [
-                {
-                    text: '刷新页面',
-                    onClick: () => window.location.reload()
-                }
-            ];
-            
-            return this.build(
-                '🏪', 
-                '暂无可用店铺', 
-                '只有审核通过的店铺才会在此显示；请在店铺通过审核后再来处理客服消息',
-                actions.length > 0 ? actions : defaultActions
-            );
-        }
-
-        messages(actions = []) {
-            return this.build(
-                '📭', 
-                '暂无消息', 
-                '当前对话还没有消息记录',
-                actions
-            );
-        }
-
-        search(keyword = '', actions = []) {
-            const defaultActions = [
-                {
-                    text: '清除搜索',
-                    onClick: () => {
-                        const searchInput = document.querySelector('input[type="search"], .search-input');
-                        if (searchInput) {
-                            searchInput.value = '';
-                            searchInput.dispatchEvent(new Event('input'));
-                        }
-                    }
-                }
-            ];
-
-            return this.build(
-                '🔍', 
-                '未找到匹配结果', 
-                keyword ? `没有找到包含"${keyword}"的内容` : '试试其他搜索关键词',
-                actions.length > 0 ? actions : defaultActions
-            );
-        }
-
-        workbench(actions = []) {
-            return this.build(
-                '📊', 
-                '暂无数据', 
-                '当前统计周期内没有数据',
-                actions
-            );
-        }
-
-        network(actions = []) {
-            const defaultActions = [
-                {
-                    text: '重试',
-                    primary: true,
-                    onClick: () => window.location.reload()
-                }
-            ];
-
-            return this.build(
-                '🌐', 
-                '网络连接异常', 
-                '请检查网络连接后重试',
-                actions.length > 0 ? actions : defaultActions
-            );
-        }
-
-        error(message = '发生未知错误', actions = []) {
-            const defaultActions = [
-                {
-                    text: '刷新页面',
-                    primary: true,
-                    onClick: () => window.location.reload()
-                }
-            ];
-
-            return this.build(
-                '⚠️', 
-                '出现错误', 
-                message,
-                actions.length > 0 ? actions : defaultActions
-            );
-        }
+    _t(k,f){ return (typeof window.getText==='function') ? window.getText(k,f) : ((window.StateTexts && window.StateTexts[k]) || f || k); }
+    conversations(actions = []) { return this.build('💬', this._t('EMPTY_CONVERSATIONS','暂无对话'), '等待客户发起对话', actions); }
+    shops(actions = []) { return this.build('🏪', this._t('EMPTY_SHOPS','暂无可用店铺'), this._t('EMPTY_ADD_FIRST_SHOP_DESC','只有审核通过的店铺才会在此显示；请在店铺通过审核后再来处理客服消息'), actions); }
+    messages(actions = []) { return this.build('📭', this._t('EMPTY_MESSAGES','暂无消息'), '当前对话还没有消息记录', actions); }
+    search(keyword = '', actions = []) { return this.build('🔍', '未找到匹配结果', keyword ? `没有找到包含"${keyword}"的内容` : '试试其他搜索关键词', actions); }
+    workbench(actions = []) { return this.build('📊', (this._t('EMPTY_WORKBENCH', this._t('EMPTY_GENERIC','暂无数据'))), '当前统计周期内没有数据', actions); }
+    network(actions = []) { return this.build('🌐', this._t('NETWORK_ERROR_TITLE','网络连接异常'), this._t('NETWORK_ERROR_DESC','请检查网络连接后重试'), actions); }
+    error(message = (this._t('ERROR_GENERIC','加载失败')), actions = []) { return this.build('⚠️', this._t('ERROR_GENERIC','加载失败'), message, actions); }
 
         /**
          * 通用空状态
          */
-        generic(icon = '📋', title = '暂无内容', desc = '', actions = []) {
-            return this.build(icon, title, desc, actions);
-        }
+    generic(icon = '📋', title = this._t('EMPTY_GENERIC','暂无数据'), desc = '', actions = []) { return this.build(icon, title, desc, actions); }
 
         /**
          * 紧凑版空状态
@@ -306,13 +195,7 @@
         /**
          * 带加载提示的空状态
          */
-        loading(text = '正在加载...') {
-            return this.build(
-                '⏳', 
-                text, 
-                '请稍等片刻'
-            );
-        }
+    loading(text = this._t('LOADING_GENERIC','正在加载...')) { return this.build('⏳', text, ''); }
 
         /**
          * 替换元素内容为空状态

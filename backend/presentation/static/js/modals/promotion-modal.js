@@ -32,7 +32,7 @@ function copyPromotionLink() {
   if (window.UnifiedClipboard) {
     window.UnifiedClipboard.copyFromElement(linkInput, {
       successMessage: '✅ 推广链接已复制到剪贴板！',
-      errorMessage: '❌ 复制失败，请手动复制链接'
+      errorMessage: (window.StateTexts && window.StateTexts.ACTION_COPY_LINK_FAIL) || '❌ 复制失败，请手动复制链接'
     });
   } else {
     // 降级兼容实现
@@ -45,7 +45,7 @@ function copyPromotionLink() {
       navigator.clipboard.writeText(linkInput.value).then(() => {
         showToast('推广链接已复制到剪贴板！', 'success');
       }).catch(() => {
-        showToast('复制失败，请手动复制链接', 'error');
+  showToast((window.StateTexts && window.StateTexts.ACTION_COPY_LINK_FAIL) || '复制失败，请手动复制链接', 'error');
       });
     }
   }
@@ -62,14 +62,14 @@ function shareToWeChat() {
     if (window.UnifiedClipboard) {
       window.UnifiedClipboard.copyText(message, {
         successMessage: '✅ 分享内容已复制，请在微信中粘贴分享！',
-        errorMessage: '❌ 复制失败，请手动复制'
+        errorMessage: (window.StateTexts && window.StateTexts.ACTION_COPY_FAIL) || '❌ 复制失败，请手动复制'
       });
     } else {
       // 降级兼容实现
       navigator.clipboard.writeText(message).then(() => {
         showToast('分享内容已复制，请在微信中粘贴分享！', 'success');
       }).catch(() => {
-        showToast('复制失败，请手动复制', 'error');
+  showToast((window.StateTexts && window.StateTexts.ACTION_COPY_FAIL) || '复制失败，请手动复制', 'error');
       });
     }
   }

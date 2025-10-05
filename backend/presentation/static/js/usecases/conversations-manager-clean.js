@@ -10,6 +10,14 @@
 (function() {
     'use strict';
 
+    // 本地文本助手：统一访问文案，兼容全局 getText 渐进迁移
+    function T(key, fallback) {
+        if (typeof window !== 'undefined' && typeof window.getText === 'function') {
+            return window.getText(key, fallback || key);
+        }
+        return (window.StateTexts && window.StateTexts[key]) || fallback || key;
+    }
+
     class ConversationsManager extends BaseManager {
         constructor(options = {}) {
             super('ConversationsManager', {
@@ -205,11 +213,13 @@
                     
                     return true;
                 } else {
-                    throw new Error(data.message || '标记已读失败');
+                    const failMsg = data.message || T('MARK_READ_FAIL', '标记已读失败');
+                    throw new Error(failMsg);
                 }
 
             } catch (error) {
-                this.log('error', '标记已读失败:', error.message);
+                const txt = T('MARK_READ_FAIL', '标记已读失败');
+                this.log('error', txt + ':', error.message);
                 return false;
             }
         }

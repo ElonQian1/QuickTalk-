@@ -377,7 +377,7 @@ class UnifiedWebSocketManager {
                 break;
                 
             case 'auth_failed':
-                this._log('error', '认证失败:', data.message);
+                this._log('error', ((window.StateTexts && window.StateTexts.AUTH_FAIL) || '认证失败') + ':', data.message);
                 this.isAuthenticated = false;
                 if (this.authTimer) {
                     clearTimeout(this.authTimer);

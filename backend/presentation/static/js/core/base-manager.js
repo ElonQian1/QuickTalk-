@@ -177,7 +177,7 @@
                     if (apiResult.success) {
                         data = apiResult.data;
                     } else {
-                        const error = apiResult.error || apiResult.message || 'API调用失败';
+                        const error = apiResult.error || apiResult.message || ((window.StateTexts && window.StateTexts.API_GENERIC_FAIL) || 'API调用失败');
                         this.state.error = error;
                         this.log('error', 'API返回错误:', error);
                         if (errorCallback) errorCallback(error);
@@ -204,7 +204,7 @@
 
             } catch (error) {
                 // APIClient已经处理了认证错误等情况
-                const errorMessage = error.message || 'API调用失败';
+                const errorMessage = error.message || ((window.StateTexts && window.StateTexts.API_GENERIC_FAIL) || 'API调用失败');
                 this.state.error = errorMessage;
                 this.log('error', 'API调用错误:', errorMessage);
                 if (errorCallback) errorCallback(errorMessage);
@@ -342,36 +342,52 @@
          * 生成加载状态UI (使用TemplateRenderer)
          */
         createLoadingUI(message = '正在加载...') {
-            // 优先使用专用LoadingStatesUI
-            if (window.LoadingStatesUI && typeof window.LoadingStatesUI.spinner === 'function') {
-                return window.LoadingStatesUI.spinner(message);
+            // 统一改用 UnifiedLoading 以避免重复 spinner DOM
+            if (window.UnifiedLoading) {
+                // 创建一个容器元素并挂载 inline load (不直接替换调用方结构)
+                const wrapper = document.createElement('span');
+                const key = 'inline-temp-' + Date.now() + '-' + Math.random().toString(36).slice(2,7);
+                // 先占位，稍后 show inline 替换 wrapper 内容
+                setTimeout(() => {
+                    // 使用 wrapper 自身作为 target
+                    window.UnifiedLoading.show({ scope: 'inline', key, target: wrapper, text: message });
+                }, 0);
+                return wrapper;
             }
-            
-            // 使用TemplateRenderer统一渲染
+            // 回退：仍保留 TemplateRenderer 或旧实现
             if (window.TemplateRenderer) {
                 return window.TemplateRenderer.createStateUI('loading', { message });
             }
-            
-            // 回退到原生DOM操作
             const div = document.createElement('div');
             div.className = 'loading-state';
-            div.innerHTML = `
-                <div class="loading-spinner"></div>
-                <div class="loading-message">${message}</div>
-            `;
+            div.innerHTML = `<div class="loading-spinner"></div><div class="loading-message">${message}</div>`;
             return div;
         }
 
         /**
-         * 生成错误状态UI (使用TemplateRenderer)
+         * 生成错误状态UI (统一迁移至 UnifiedState)
          */
         createErrorUI(message = '加载失败', retryCallback = null) {
-            // 优先使用专用EmptyStatesUI
+            // 首选：UnifiedState (新统一实现)
+            if (window.UnifiedState && typeof window.UnifiedState.show === 'function') {
+                const container = document.createElement('div');
+                const key = 'bm-error-' + Date.now() + '-' + Math.random().toString(36).slice(2,6);
+                window.UnifiedState.show({
+                    type: 'error',
+                    key,
+                    target: container,
+                    message,
+                    retry: retryCallback || undefined
+                });
+                return container.firstChild || container; // 返回实际状态节点
+            }
+
+            // 次选：旧 EmptyStatesUI (兼容层或旧组件)
             if (window.EmptyStatesUI && typeof window.EmptyStatesUI.error === 'function') {
                 return window.EmptyStatesUI.error(message, retryCallback);
             }
-            
-            // 使用TemplateRenderer统一渲染
+
+            // 再次：TemplateRenderer 模板化渲染
             if (window.TemplateRenderer) {
                 return window.TemplateRenderer.createStateUI('error', {
                     message,
@@ -379,27 +395,45 @@
                     retryCallback
                 });
             }
-            
-            // 回退到原生DOM操作
+
+            // 最后：原生 DOM 回退
             const div = document.createElement('div');
             div.className = 'error-state';
             div.innerHTML = `
                 <div class="error-message">${message}</div>
-                ${retryCallback ? '<button class="retry-btn" onclick="' + retryCallback + '">重试</button>' : ''}
+                ${retryCallback ? '<button class="retry-btn">重试</button>' : ''}
             `;
+            if (retryCallback) {
+                const btn = div.querySelector('.retry-btn');
+                if (btn) btn.addEventListener('click', e => { try { retryCallback(e); } catch(err){ console.error(err); } });
+            }
             return div;
         }
 
         /**
-         * 生成空状态UI (使用TemplateRenderer)
+         * 生成空状态UI (统一迁移至 UnifiedState)
          */
         createEmptyUI(message = '暂无数据', actionText = '', actionCallback = null) {
-            // 优先使用专用EmptyStatesUI
+            // 首选：UnifiedState (新统一实现)
+            if (window.UnifiedState && typeof window.UnifiedState.show === 'function') {
+                const container = document.createElement('div');
+                const key = 'bm-empty-' + Date.now() + '-' + Math.random().toString(36).slice(2,6);
+                window.UnifiedState.show({
+                    type: 'empty',
+                    key,
+                    target: container,
+                    message,
+                    action: (actionText && actionCallback) ? { text: actionText, onClick: actionCallback } : undefined
+                });
+                return container.firstChild || container;
+            }
+
+            // 次选：旧 EmptyStatesUI
             if (window.EmptyStatesUI && typeof window.EmptyStatesUI.empty === 'function') {
                 return window.EmptyStatesUI.empty(message, actionText, actionCallback);
             }
-            
-            // 使用TemplateRenderer统一渲染
+
+            // 再次：TemplateRenderer
             if (window.TemplateRenderer) {
                 return window.TemplateRenderer.createStateUI('empty', {
                     message,
@@ -408,14 +442,18 @@
                     actionCallback
                 });
             }
-            
-            // 回退到原生DOM操作
+
+            // 最后：原生 DOM 回退
             const div = document.createElement('div');
             div.className = 'empty-state';
             div.innerHTML = `
                 <div class="empty-message">${message}</div>
-                ${actionText && actionCallback ? `<button onclick="${actionCallback}">${actionText}</button>` : ''}
+                ${actionText && actionCallback ? `<button class="empty-action-btn">${actionText}</button>` : ''}
             `;
+            if (actionText && actionCallback) {
+                const btn = div.querySelector('.empty-action-btn');
+                if (btn) btn.addEventListener('click', e => { try { actionCallback(e); } catch(err){ console.error(err); } });
+            }
             return div;
         }
 

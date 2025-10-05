@@ -23,8 +23,8 @@ class UnifiedClipboard {
         this.config = {
             // 默认成功消息
             successMessage: '✅ 已复制到剪贴板',
-            // 默认失败消息
-            errorMessage: '❌ 复制失败，请手动复制',
+            // 默认失败消息（使用统一常量 + 回退）
+            errorMessage: (window.StateTexts && window.StateTexts.ACTION_COPY_FAIL) || '❌ 复制失败，请手动复制',
             // 视觉反馈持续时间
             feedbackDuration: 2000,
             // 是否显示控制台日志
@@ -53,7 +53,7 @@ class UnifiedClipboard {
      */
     async copyText(text, options = {}) {
         if (!text) {
-            this._logError('复制内容为空');
+            this._logError('复制内容为空'); // 空内容不走常量，属内部开发提示
             return false;
         }
 
@@ -73,7 +73,7 @@ class UnifiedClipboard {
             }
             
             // 都不支持
-            this._handleError(new Error('浏览器不支持复制功能'), config);
+            this._handleError(new Error((window.StateTexts && window.StateTexts.ACTION_COPY_FAIL) || '浏览器不支持复制功能'), config);
             return false;
             
         } catch (error) {

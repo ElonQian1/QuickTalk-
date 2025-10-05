@@ -146,7 +146,7 @@
     if (window.UnifiedClipboard) {
       window.UnifiedClipboard.copyFromElement(textarea, {
         successMessage: '✅ 集成代码已复制到剪贴板',
-        errorMessage: '❌ 复制失败，请手动复制'
+        errorMessage: (window.StateTexts && window.StateTexts.ACTION_COPY_FAIL) || '❌ 复制失败，请手动复制'
       });
     } else {
       // 降级兼容实现
@@ -157,7 +157,7 @@
         if (typeof showSuccess==='function') showSuccess('集成代码已复制到剪贴板');
       } catch (error) {
         console.error('复制失败:', error);
-        if (typeof showError==='function') showError('复制失败，请手动复制');
+  if (typeof showError==='function') showError((window.StateTexts && window.StateTexts.ACTION_COPY_FAIL) || '复制失败，请手动复制');
       }
     }
   }
@@ -171,7 +171,7 @@
     if (window.UnifiedClipboard) {
       window.UnifiedClipboard.copyFromElement(codeTextarea, {
         successMessage: '✅ 代码已复制到剪贴板',
-        errorMessage: '❌ 复制失败，请手动复制'
+        errorMessage: (window.StateTexts && window.StateTexts.ACTION_COPY_FAIL) || '❌ 复制失败，请手动复制'
       });
     } else {
       // 降级兼容实现
@@ -182,8 +182,8 @@
         else if (typeof showToast==='function') showToast('代码已复制到剪贴板', 'success');
       } catch (e) {
         console.error('复制失败:', e);
-        if (typeof showError==='function') showError('复制失败，请手动复制');
-        else if (typeof showToast==='function') showToast('复制失败，请手动复制', 'error');
+  if (typeof showError==='function') showError((window.StateTexts && window.StateTexts.ACTION_COPY_FAIL) || '复制失败，请手动复制');
+  else if (typeof showToast==='function') showToast((window.StateTexts && window.StateTexts.ACTION_COPY_FAIL) || '复制失败，请手动复制', 'error');
       }
     }
   }
@@ -231,11 +231,11 @@
         if (typeof showSuccess==='function') showSuccess('API密钥已更新');
         await loadIntegrationData(window.currentShopId);
       } else {
-        if (typeof showError==='function') showError('生成API密钥失败');
+        if (typeof showError==='function') showError((window.StateTexts && window.StateTexts.GENERATE_KEY_FAIL) || '生成API密钥失败');
       }
     } catch (error) {
       console.error('生成API密钥失败:', error);
-      if (typeof showError==='function') showError('网络错误，请重试');
+      if (typeof showError==='function') showError((window.StateTexts && window.StateTexts.API_NETWORK_FAIL) || '网络错误，请重试');
     } finally {
       if (typeof hideLoading==='function') hideLoading();
     }

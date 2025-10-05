@@ -102,66 +102,43 @@ class TemplateRenderer {
      * 替代各manager中重复的状态UI代码
      */
     createStateUI(type, options = {}) {
-        const stateConfigs = {
-            loading: {
-                template: `
-                    <div class="state-ui loading-state">
-                        <div class="loading-spinner"></div>
-                        <div class="loading-message">{{message}}</div>
-                    </div>
-                `,
-                defaultData: { message: '加载中...' }
-            },
-            
-            error: {
-                template: `
-                    <div class="state-ui error-state">
-                        <div class="error-icon">❌</div>
-                        <div class="error-message">{{message}}</div>
-                        {{#if showRetry}}
-                        <button class="retry-btn" onclick="{{retryCallback}}">重试</button>
-                        {{/if}}
-                    </div>
-                `,
-                defaultData: { message: '加载失败' }
-            },
-            
-            empty: {
-                template: `
-                    <div class="state-ui empty-state">
-                        <div class="empty-icon">📭</div>
-                        <div class="empty-message">{{message}}</div>
-                        {{#if showAction}}
-                        <button class="action-btn" onclick="{{actionCallback}}">{{actionText}}</button>
-                        {{/if}}
-                    </div>
-                `,
-                defaultData: { message: '暂无数据' }
-            },
-            
-            success: {
-                template: `
-                    <div class="state-ui success-state">
-                        <div class="success-icon">✅</div>
-                        <div class="success-message">{{message}}</div>
-                    </div>
-                `,
-                defaultData: { message: '操作成功' }
-            }
-        };
-
-        const config = stateConfigs[type];
-        if (!config) {
-            console.error(`[TemplateRenderer] 未知状态类型: ${type}`);
-            return this.createElement('div', { textContent: '状态错误' });
+        // 新策略：将 empty/error/loading 三类委托给 UnifiedState / UnifiedLoading，success 保留简单模板
+        const unifiedCapable = (window.UnifiedState && typeof window.UnifiedState.show === 'function');
+        const loadingCapable = (window.UnifiedLoading && typeof window.UnifiedLoading.show === 'function');
+        if (!this._deprecatedStateNotified) {
+            console.warn('[Deprecation] TemplateRenderer.createStateUI 正在退役，empty/error/loading 将由 UnifiedState / UnifiedLoading 接管');
+            this._deprecatedStateNotified = true;
         }
-
-        const data = { ...config.defaultData, ...options };
-        const html = this.renderTemplate(config.template, data);
-        
-        const container = this.createElement('div');
-        container.innerHTML = html;
-        return container.firstElementChild;
+        if (type === 'loading') {
+            if (loadingCapable) {
+                const wrap = this.createElement('span');
+                setTimeout(()=> window.UnifiedLoading.show({ scope:'inline', target: wrap, text: options.message || '加载中...' }),0);
+                return wrap;
+            }
+        }
+        if ((type === 'empty' || type === 'error') && unifiedCapable) {
+            const wrap = this.createElement('div');
+            const key = 'tmpl-' + type + '-' + Date.now() + '-' + Math.random().toString(36).slice(2,6);
+            const cfg = { type, key, target: wrap, message: options.message };
+            if (type === 'error' && options.showRetry && options.retryCallback) cfg.retry = options.retryCallback;
+            if (type === 'empty' && options.showAction && options.actionText && options.actionCallback) {
+                cfg.action = { text: options.actionText, onClick: options.actionCallback };
+            }
+            window.UnifiedState.show(cfg);
+            return wrap.firstChild || wrap;
+        }
+        if (type === 'success') {
+            const template = `
+                <div class="state-ui success-state">
+                    <div class="success-icon">✅</div>
+                    <div class="success-message">${options.message || '操作成功'}</div>
+                </div>`;
+            const container = this.createElement('div');
+            container.innerHTML = template;
+            return container.firstElementChild;
+        }
+        // 未知或无能力时回退到最小 div
+        return this.createElement('div', { textContent: options.message || '状态' });
     }
 
     /**

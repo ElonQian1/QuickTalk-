@@ -11,6 +11,14 @@
 (function() {
     'use strict';
 
+    // 本地文本助手：兼容全局 getText 渐进替换阶段，统一获取文案
+    function T(key, fallback) {
+        if (typeof window !== 'undefined' && typeof window.getText === 'function') {
+            return window.getText(key, fallback || key);
+        }
+        return (window.StateTexts && window.StateTexts[key]) || fallback || key;
+    }
+
     class MessagesManager extends BaseManager {
         constructor(options = {}) {
             super('MessagesManager', {
@@ -200,11 +208,13 @@
 
                     return message;
                 } else {
-                    throw new Error(data.message || '消息发送失败');
+                    const failMsg = data.message || T('SEND_MESSAGE_FAIL', '消息发送失败');
+                    throw new Error(failMsg);
                 }
 
             } catch (error) {
-                this.log('error', '发送消息失败:', error.message);
+                const txt = T('SEND_MESSAGE_FAIL', '发送消息失败');
+                this.log('error', txt + ':', error.message);
                 this.emit('message:send_error', { error: error.message, messageData });
                 throw error;
             }

@@ -10,6 +10,14 @@
 (function() {
     'use strict';
 
+    // 本地文本访问助手：统一获取文案，兼容尚未完全迁移阶段
+    function T(key, fallback) {
+        if (typeof window !== 'undefined' && typeof window.getText === 'function') {
+            return window.getText(key, fallback || key);
+        }
+        return (window.StateTexts && window.StateTexts[key]) || fallback || key;
+    }
+
     class ShopsManager extends BaseManager {
         constructor(options = {}) {
             super('ShopsManager', {
@@ -152,11 +160,13 @@
                     this.log('debug', '店铺统计获取成功:', data.data);
                     return data.data;
                 } else {
-                    throw new Error(data.message || '获取统计失败');
+                    const failMsg = data.message || T('FETCH_STATS_FAIL', '获取统计失败');
+                    throw new Error(failMsg);
                 }
 
             } catch (error) {
-                this.log('error', '获取店铺统计失败:', error.message);
+                const txt = T('FETCH_STATS_FAIL', '获取统计失败');
+                this.log('error', txt + ':', error.message);
                 return null;
             }
         }
@@ -181,7 +191,8 @@
                 return data.success ? (data.data.count || 0) : 0;
 
             } catch (error) {
-                this.log('error', '获取未读数失败:', error.message);
+                const txt = T('FETCH_UNREAD_FAIL', '获取未读数失败');
+                this.log('error', txt + ':', error.message);
                 return 0;
             }
         }
