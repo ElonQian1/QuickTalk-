@@ -1,10 +1,24 @@
+/**
+ * temporary-modal.js — 通用临时模态工具（已废弃）
+ * 
+ * ⚠️ 此文件已被 UnifiedModalSystem 替代
+ * @deprecated 请使用 unified-modal-system.js
+ * @see /static/js/core/unified-modal-system.js
+ * 
+ * 功能已整合到统一系统：
+ * - showModal(title, content) → UnifiedModalSystem.alert(title, content)
+ */
+
 "use strict";
 
-// temporary-modal.js — 通用临时模态工具（从 mobile-dashboard.html 抽取）
-// 提供：showModal(title, content)
-// 注意：保持与原内联实现一致，使用 closeModal 关闭；点击背景可关闭。
-
 (function(){
+  // 如果统一系统已加载，则直接使用
+  if (window.UnifiedModalSystem) {
+    console.log('🔄 temporary-modal.js 已被 UnifiedModalSystem 替代');
+    return;
+  }
+
+  // 降级实现（兼容旧代码）
   window.showModal = function showModal(title, content) {
     // 创建临时模态框
     const modalId = 'temp-modal-' + Date.now();
@@ -34,4 +48,6 @@
       });
     }
   };
+
+  console.log('⚠️ temporary-modal.js 降级模式已加载，建议升级到 UnifiedModalSystem');
 })();

@@ -1,5 +1,6 @@
-/*
- * UnifiedNotification - 统一通知/Toast/提示系统 (最小可用版本 v0.1)
+/**
+ * UnifiedNotification - 统一通知/Toast/提示系统（继承UIBase）
+ * 已重构：使用UIBase统一DOM操作和样式注入
  * 目标:
  *  - 统一 showToast / showSuccess / showError 等分散实现
  *  - 提供多类型: success | error | warning | info
@@ -31,27 +32,25 @@
     info: { cls: 'unotif-info', icon: 'ℹ' },
   };
 
-  class UnifiedNotification {
+  class UnifiedNotification extends UIBase {
     constructor(options = {}) {
+      super('UnifiedNotification', {
+        debug: false,
+        ...options
+      });
+
       this.options = Object.assign({}, DEFAULT_OPTIONS, options);
       this.queue = [];
       this.active = new Set();
       this.totalCreated = 0;
-      this._injectStyles();
+      
+      this._injectNotificationStyles();
       this.container = this._ensureContainer();
-      this._log('info', 'UnifiedNotification 初始化完成');
+      this.log('info', 'UnifiedNotification 初始化完成');
     }
 
-    _log(level, ...args) {
-      if (!this.options.debug) return;
-      try { console[level]('[UnifiedNotification]', ...args); } catch(_) { /* ignore */ }
-    }
-
-    _injectStyles() {
-      if (document.getElementById('unified-notification-styles')) return;
-      const style = document.createElement('style');
-      style.id = 'unified-notification-styles';
-      style.textContent = `
+    _injectNotificationStyles() {
+      const styles = `
         #${DEFAULT_OPTIONS.containerId} {
           position: fixed;
           inset: auto 0 20px 0;
@@ -85,19 +84,16 @@
         .unotif-item[data-merge-count]::after { content: attr(data-merge-count); position: absolute; top: -6px; right: -6px; background: #ef4444; color:#fff; font-size:11px; padding:0 5px; border-radius:12px; box-shadow:0 0 0 2px rgba(0,0,0,.25); }
         @media (prefers-reduced-motion: reduce) { .unotif-item { transition: none; } }
       `;
-      document.head.appendChild(style);
+      this.injectCSS(styles, 'unified-notification-styles');
     }
 
     _ensureContainer() {
-      let el = document.getElementById(this.options.containerId);
-      if (!el) {
-        el = document.createElement('div');
-        el.id = this.options.containerId;
-        el.setAttribute('role','region');
-        el.setAttribute('aria-label','通知');
-        document.body.appendChild(el);
-      }
-      return el;
+      return this.ensureContainer(this.options.containerId, {
+        attributes: {
+          'role': 'region',
+          'aria-label': '通知'
+        }
+      });
     }
 
     notify(type, message, opts = {}) {
@@ -135,25 +131,33 @@
 
     _createItem(config) {
       const meta = TYPE_META[config.type];
-      const div = document.createElement('div');
-      div.className = `unotif-item ${meta.cls}`;
-      div.dataset.type = config.type;
-      div.dataset.message = config.message;
-      div.setAttribute('role','alert');
-      div.setAttribute('aria-live', config.type === 'error' ? 'assertive' : 'polite');
+      const div = this.createElement('div', {
+        className: `unotif-item ${meta.cls}`,
+        attributes: {
+          'data-type': config.type,
+          'data-message': config.message,
+          'role': 'alert',
+          'aria-live': config.type === 'error' ? 'assertive' : 'polite'
+        }
+      });
 
-      const iconSpan = document.createElement('span');
-      iconSpan.className = 'unotif-icon';
-      iconSpan.textContent = meta.icon;
+      const iconSpan = this.createElement('span', {
+        className: 'unotif-icon',
+        textContent: meta.icon
+      });
 
-      const contentDiv = document.createElement('div');
-      contentDiv.className = 'unotif-content';
-      contentDiv.textContent = config.message;
+      const contentDiv = this.createElement('div', {
+        className: 'unotif-content',
+        textContent: config.message
+      });
 
-      const closeBtn = document.createElement('button');
-      closeBtn.className = 'unotif-close';
-      closeBtn.type = 'button';
-      closeBtn.setAttribute('aria-label','关闭');
+      const closeBtn = this.createElement('button', {
+        className: 'unotif-close',
+        attributes: {
+          'type': 'button',
+          'aria-label': '关闭'
+        }
+      });
       closeBtn.innerHTML = '&#215;';
       closeBtn.addEventListener('click', () => this._hideItem(div));
 

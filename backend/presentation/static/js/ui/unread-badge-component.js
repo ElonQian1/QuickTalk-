@@ -7,8 +7,9 @@
  * @date 2025-09-29
  */
 
-class UnreadBadgeComponent {
+class UnreadBadgeComponent extends UIBase {
     constructor(options = {}) {
+        super();
         this.options = {
             // 默认配置
             size: 'medium', // 'small', 'medium', 'large'
@@ -66,10 +67,13 @@ class UnreadBadgeComponent {
         }
 
         // 创建新的红点元素
-        this.element = document.createElement('div');
-        this.element.className = this._generateClasses();
-        this.element.setAttribute('data-component', 'unread-badge');
-        this.element.setAttribute('data-count', '0');
+        this.element = this.createElement('div', {
+            className: this._generateClasses(),
+            attributes: {
+                'data-component': 'unread-badge',
+                'data-count': '0'
+            }
+        });
 
         // 添加点击事件（如果启用）
         if (this.options.clickable) {
@@ -283,9 +287,11 @@ const injectUnreadBadgeCSS = () => {
         return; // 已注入
     }
 
-    const style = document.createElement('style');
-    style.id = 'unread-badge-component-styles';
-    style.textContent = `
+    // 创建临时UIBase实例来使用createElement
+    const tempUIBase = new UIBase();
+    const style = tempUIBase.createElement('style', {
+        attributes: { id: 'unread-badge-component-styles' },
+        textContent: `
         /* 未读消息红点组件样式 */
         .unread-badge-component {
             background: #ff4757;
@@ -391,7 +397,27 @@ const injectUnreadBadgeCSS = () => {
             background: #ff3742;
             transform: scale(1.1);
         }
-    `;
+        /* 未读消息红点组件样式 */
+        .unread-badge-component {
+            background: #ff4757;
+            color: white;
+            border-radius: 50%;
+            min-width: 16px;
+            height: 16px;
+            font-size: 12px;
+            line-height: 16px;
+            text-align: center;
+            position: absolute;
+            z-index: 10;
+            font-family: Arial, sans-serif;
+            font-weight: bold;
+            pointer-events: auto;
+            box-sizing: border-box;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }`
+    });
 
     document.head.appendChild(style);
 };

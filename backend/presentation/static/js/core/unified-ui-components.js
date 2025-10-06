@@ -13,6 +13,44 @@
 (function(){
   'use strict';
 
+  // UIHelper - 提供标准化的DOM操作方法
+  const UIHelper = {
+    createElement(tag, options = {}) {
+      const element = document.createElement(tag);
+      
+      // 设置className
+      if (options.className) {
+        element.className = options.className;
+      }
+      
+      // 设置属性
+      if (options.attributes) {
+        Object.entries(options.attributes).forEach(([key, value]) => {
+          element.setAttribute(key, value);
+        });
+      }
+      
+      // 设置样式
+      if (options.styles) {
+        Object.entries(options.styles).forEach(([key, value]) => {
+          element.style[key] = value;
+        });
+      }
+      
+      // 设置文本内容
+      if (options.textContent !== undefined) {
+        element.textContent = options.textContent;
+      }
+      
+      // 设置HTML内容
+      if (options.innerHTML !== undefined) {
+        element.innerHTML = options.innerHTML;
+      }
+      
+      return element;
+    }
+  };
+
   // ====== MessageMediaUI 模块 ======
   function getFileIcon(mimeType){
     if (!mimeType) return '📁';
@@ -35,24 +73,45 @@
   }
 
   function openImageModal(imageSrc){
-    var modal = document.createElement('div');
-    modal.style.cssText = [
-      'position:fixed', 'top:0', 'left:0', 'width:100%', 'height:100%',
-      'background:rgba(0,0,0,0.9)', 'display:flex', 'align-items:center',
-      'justify-content:center', 'z-index:1000'
-    ].join(';');
+    const modal = UIHelper.createElement('div', {
+      styles: {
+        position: 'fixed',
+        top: '0',
+        left: '0',
+        width: '100%',
+        height: '100%',
+        background: 'rgba(0,0,0,0.9)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: '1000'
+      }
+    });
 
-    var img = document.createElement('img');
-    img.src = imageSrc;
-    img.style.cssText = 'max-width:90%;max-height:90%;object-fit:contain;';
+    const img = UIHelper.createElement('img', {
+      attributes: { src: imageSrc },
+      styles: {
+        maxWidth: '90%',
+        maxHeight: '90%',
+        objectFit: 'contain'
+      }
+    });
 
-    var closeBtn = document.createElement('button');
-    closeBtn.textContent = '×';
-    closeBtn.style.cssText = [
-      'position:absolute', 'top:20px', 'right:20px', 'background:rgba(255,255,255,0.8)',
-      'border:none', 'border-radius:50%', 'width:40px', 'height:40px',
-      'font-size:24px', 'cursor:pointer'
-    ].join(';');
+    const closeBtn = UIHelper.createElement('button', {
+      textContent: '×',
+      styles: {
+        position: 'absolute',
+        top: '20px',
+        right: '20px',
+        background: 'rgba(255,255,255,0.8)',
+        border: 'none',
+        borderRadius: '50%',
+        width: '40px',
+        height: '40px',
+        fontSize: '24px',
+        cursor: 'pointer'
+      }
+    });
 
     closeBtn.onclick = function(){ if (modal.parentNode) modal.parentNode.removeChild(modal); };
     modal.onclick = function(e){ if (e.target === modal && modal.parentNode) modal.parentNode.removeChild(modal); };
@@ -63,7 +122,7 @@
   }
 
   function createMediaElement(file){
-    var mediaDiv = document.createElement('div');
+    const mediaDiv = UIHelper.createElement('div');
 
     if (!file || !file.url || file.url === 'undefined') {
       console.error('文件URL无效:', file);
@@ -73,9 +132,12 @@
 
     if (file.type && file.type.startsWith && file.type.startsWith('image/')) {
       mediaDiv.className = 'message-media';
-      var img = document.createElement('img');
-      img.src = file.url;
-      img.alt = file.name || '图片';
+      const img = UIHelper.createElement('img', {
+        attributes: {
+          src: file.url,
+          alt: file.name || '图片'
+        }
+      });
       img.onclick = function(){ openImageModal(file.url); };
       img.onerror = function(){ console.error('图片加载失败:', file.url); img.alt = '图片加载失败'; };
       mediaDiv.appendChild(img);
@@ -84,21 +146,29 @@
 
     if (file.type && file.type.startsWith && file.type.startsWith('audio/')) {
       mediaDiv.className = 'message-audio';
-      var audio = document.createElement('audio');
-      audio.controls = true;
-      audio.src = file.url;
-      audio.preload = 'metadata';
+      const audio = UIHelper.createElement('audio', {
+        attributes: {
+          controls: 'true',
+          src: file.url,
+          preload: 'metadata'
+        }
+      });
       mediaDiv.appendChild(audio);
       return mediaDiv;
     }
 
     if (file.type && file.type.startsWith && file.type.startsWith('video/')) {
       mediaDiv.className = 'message-media';
-      var video = document.createElement('video');
-      video.controls = true;
-      video.src = file.url;
-      video.style.maxWidth = '100%';
-      video.style.borderRadius = '8px';
+      const video = UIHelper.createElement('video', {
+        attributes: {
+          controls: 'true',
+          src: file.url
+        },
+        styles: {
+          maxWidth: '100%',
+          borderRadius: '8px'
+        }
+      });
       mediaDiv.appendChild(video);
       return mediaDiv;
     }
@@ -169,10 +239,13 @@
   // ====== ConversationItemUI 模块 ======
   function createConversationItem(conversation, options){
     options = options || {};
-    var el = document.createElement('div');
-    el.className = 'conversation-item';
-    el.setAttribute('data-conversation-id', conversation.id);
-    if (conversation.shop_id) el.setAttribute('data-shop-id', conversation.shop_id);
+    const el = UIHelper.createElement('div', {
+      className: 'conversation-item',
+      attributes: {
+        'data-conversation-id': conversation.id,
+        ...(conversation.shop_id && { 'data-shop-id': conversation.shop_id })
+      }
+    });
 
     // 使用规范化数据
     var normalized = window.ConversationNormalizer ? 
@@ -226,8 +299,9 @@
     try {
       var avatarEl = el.querySelector('.conversation-avatar');
       if (avatarEl && !avatarEl.querySelector('.avatar-meta-slot')){
-        var meta = document.createElement('div');
-        meta.className = 'avatar-meta-slot';
+        const meta = UIHelper.createElement('div', {
+          className: 'avatar-meta-slot'
+        });
         avatarEl.appendChild(meta);
       }
     } catch(_){}
@@ -322,9 +396,12 @@
     var effStatus = (shop.approvalStatus || shop.status || 'pending');
     var isInactive = (effStatus === 'inactive') || (!hasConversations);
 
-    var card = document.createElement('div');
-    card.className = 'shop-card ' + (isInactive ? 'shop-card-inactive' : '');
-    card.setAttribute('data-shop-id', shop.id);
+    const card = UIHelper.createElement('div', {
+      className: 'shop-card ' + (isInactive ? 'shop-card-inactive' : ''),
+      attributes: {
+        'data-shop-id': shop.id
+      }
+    });
 
     card.innerHTML = [
       '<div class="shop-header">',

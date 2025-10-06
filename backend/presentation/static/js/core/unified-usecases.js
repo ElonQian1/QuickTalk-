@@ -29,14 +29,14 @@
       if (window.currentShopId) params.set('shop_id', window.currentShopId);
       params.set('days', '7');
       
-      // 使用增强的认证头获取
-      const headers = typeof window.getAuthHeaders === 'function' 
-        ? window.getAuthHeaders() 
-        : {
+      // 使用统一认证系统
+      const headers = window.AuthHelper ? window.AuthHelper.getHeaders() :
+        (typeof window.getAuthHeaders === 'function' ? window.getAuthHeaders() : 
+        {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${typeof window.getAuthToken === 'function' ? window.getAuthToken() : ''}`,
             'X-Session-Id': typeof window.getAuthToken === 'function' ? window.getAuthToken() : ''
-          };
+        });
       
       console.log('🔄 加载工作台数据...', { hasToken: !!headers.Authorization });
       
@@ -227,7 +227,10 @@
 
   async function showUserInfoImpl(){
     const getUserData = typeof window.getUserData === 'function' ? window.getUserData : () => ({});
-    const getAuthToken = typeof window.getAuthToken === 'function' ? window.getAuthToken : () => '';
+    const getAuthToken = window.AuthHelper ? () => window.AuthHelper.getToken() :
+                        (typeof window.getAuthToken === 'function' ? window.getAuthToken : () => '');
+    const getAuthHeaders = () => window.AuthHelper ? window.AuthHelper.getHeaders() :
+                               { 'Authorization': `Bearer ${getAuthToken()}`, 'X-Session-Id': getAuthToken() };
     const showModal = typeof window.showModal === 'function' ? window.showModal : null;
     const showToast = typeof window.showToast === 'function' ? window.showToast : (msg) => alert(msg);
 
@@ -236,10 +239,10 @@
     const u = getUserData() || {};
     let email = '-';
     try {
-      const token = getAuthToken();
-      let res = await fetch('/api/admin/me', { headers: token ? { 'Authorization': `Bearer ${token}`, 'X-Session-Id': token } : {} });
+      const headers = getAuthHeaders();
+      let res = await fetch('/api/admin/me', { headers });
       if (res.status === 404) {
-        res = await fetch('/api/auth/me', { headers: token ? { 'Authorization': `Bearer ${token}`, 'X-Session-Id': token } : {} });
+        res = await fetch('/api/auth/me', { headers });
       }
       if (res.ok) {
         try {
@@ -247,7 +250,7 @@
           if (data && data.success && data.data) email = data.data.email || '-';
         } catch(_){}
       } else if (u.id) {
-        const res2 = await fetch(`/api/users/${u.id}`, { headers: token ? { 'Authorization': `Bearer ${token}`, 'X-Session-Id': token } : {} });
+        const res2 = await fetch(`/api/users/${u.id}`, { headers });
         if (res2.ok) {
           try { const d2 = await res2.json(); if (d2 && d2.success && d2.data) email = d2.data.email || '-'; } catch(_){}
         }
@@ -321,7 +324,10 @@
   }
 
   async function changePasswordImpl(){
-    const getAuthToken = typeof window.getAuthToken === 'function' ? window.getAuthToken : () => '';
+    const getAuthToken = window.AuthHelper ? () => window.AuthHelper.getToken() :
+                        (typeof window.getAuthToken === 'function' ? window.getAuthToken : () => '');
+    const getAuthHeaders = () => window.AuthHelper ? window.AuthHelper.getHeaders() :
+                               { 'Authorization': `Bearer ${getAuthToken()}`, 'X-Session-Id': getAuthToken() };
     const showToast = typeof window.showToast === 'function' ? window.showToast : (msg) => alert(msg);
     const closeModal = typeof window.closeModal === 'function' ? window.closeModal : () => {};
 
@@ -459,7 +465,14 @@
   }
 
   // ========== 内置实现：超级管理员功能 ========== //
-  function getToken(){ return (typeof window.getAuthToken === 'function') ? window.getAuthToken() : ''; }
+  function getToken(){ 
+    return window.AuthHelper ? window.AuthHelper.getToken() :
+           (typeof window.getAuthToken === 'function' ? window.getAuthToken() : ''); 
+  }
+  function getHeaders(){ 
+    return window.AuthHelper ? window.AuthHelper.getHeaders() :
+           { 'Authorization': `Bearer ${getToken()}`, 'X-Session-Id': getToken() }; 
+  }
   function toast(msg, type){ return (typeof window.showToast === 'function') ? window.showToast(msg, type) : alert(msg); }
 
   function showAdminPanelImpl(){

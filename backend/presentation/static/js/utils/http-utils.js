@@ -1,9 +1,20 @@
-// http-utils.js — HTTP 相关工具
-// 提供：getAuthToken, safeJson
-
+/**
+ * http-utils.js - HTTP工具函数集合
+ * 
+ * 🔄 已重构：保持核心工具函数，与 APIClient 协同工作
+ * - 认证token获取逻辑
+ * - JSON安全解析
+ * - 与 APIClient 无缝集成
+ * 
+ * @version 2.0 - 重构版本
+ */
 (function(){
   'use strict';
 
+  /**
+   * 统一的认证token获取函数
+   * 被 APIClient 和其他模块复用
+   */
   window.getAuthToken = function getAuthToken() {
     try {
       // 优先从用户数据中获取token
@@ -36,7 +47,48 @@
     return '';
   };
 
+  /**
+   * 安全的JSON解析函数
+   */
   window.safeJson = async function safeJson(resp) {
-    try { return await resp.json(); } catch (_) { return null; }
+    try { 
+      return await resp.json(); 
+    } catch (_) { 
+      return null; 
+    }
   };
+
+  /**
+   * 快速HTTP请求函数（委托给APIClient）
+   */
+  window.quickFetch = function quickFetch(url, options = {}) {
+    // 如果 APIClient 可用，委托给它
+    if (window.APIClient) {
+      const client = new window.APIClient({ debug: false });
+      return client.request(url, options);
+    }
+    
+    // 降级处理：使用原生fetch
+    const headers = {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json'
+    };
+    
+    const token = window.getAuthToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    
+    return fetch(url, {
+      ...options,
+      headers: { ...headers, ...options.headers }
+    }).then(async (response) => {
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      return await window.safeJson(response) || await response.text();
+    });
+  };
+
+  console.log('🔧 http-utils.js 已重构 - 与 APIClient 协同工作');
 })();

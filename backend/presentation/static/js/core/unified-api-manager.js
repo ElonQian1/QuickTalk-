@@ -308,9 +308,9 @@
             if (forceRefresh) {
                 globalApiManager.clearCache('/api/shops');
             }
-            return globalApiManager.request('/api/shops', {
-                headers: { 'Authorization': localStorage.getItem('authToken') || '' }
-            });
+            const headers = window.AuthHelper ? window.AuthHelper.getHeaders() : 
+                          { 'Authorization': localStorage.getItem('authToken') || '' };
+            return globalApiManager.request('/api/shops', { headers });
         },
 
         /**
@@ -321,9 +321,9 @@
             if (forceRefresh) {
                 globalApiManager.clearCache(url);
             }
-            return globalApiManager.request(url, {
-                headers: { 'Authorization': localStorage.getItem('authToken') || '' }
-            });
+            const headers = window.AuthHelper ? window.AuthHelper.getHeaders() : 
+                          { 'Authorization': localStorage.getItem('authToken') || '' };
+            return globalApiManager.request(url, { headers });
         },
 
         /**
@@ -334,21 +334,23 @@
             if (forceRefresh) {
                 globalApiManager.clearCache(url);
             }
-            return globalApiManager.request(url, {
-                headers: { 'Authorization': localStorage.getItem('authToken') || '' }
-            });
+            const headers = window.AuthHelper ? window.AuthHelper.getHeaders() : 
+                          { 'Authorization': localStorage.getItem('authToken') || '' };
+            return globalApiManager.request(url, { headers });
         },
 
         /**
          * 发送消息（不缓存）
          */
         async sendMessage(data) {
+            const headers = window.AuthHelper ? window.AuthHelper.getHeaders() : 
+                          { 
+                              'Authorization': localStorage.getItem('authToken') || '',
+                              'Content-Type': 'application/json'
+                          };
             return globalApiManager.request('/api/send', {
                 method: 'POST',
-                headers: { 
-                    'Authorization': localStorage.getItem('authToken') || '',
-                    'Content-Type': 'application/json'
-                },
+                headers,
                 body: JSON.stringify(data)
             });
         },
@@ -357,11 +359,11 @@
          * 批量获取店铺统计（实验性）
          */
         async getBatchShopStats(shopIds) {
+            const headers = window.AuthHelper ? window.AuthHelper.getHeaders() : 
+                          { 'Authorization': localStorage.getItem('authToken') || '' };
             const requests = shopIds.map(id => ({
                 url: `/api/shops/${id}/stats`,
-                options: {
-                    headers: { 'Authorization': localStorage.getItem('authToken') || '' }
-                }
+                options: { headers }
             }));
             return globalApiManager.batchRequest(requests);
         }

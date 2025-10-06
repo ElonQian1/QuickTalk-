@@ -61,6 +61,13 @@
         }
 
         /**
+         * 生成唯一ID (统一模式)
+         */
+        generateId(prefix = 'ui') {
+            return `${prefix}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        }
+
+        /**
          * 创建DOM元素 (统一模式)
          */
         createElement(tag, options = {}) {
@@ -176,13 +183,13 @@
         /**
          * 查找或创建容器
          */
-        ensureContainer(containerId, containerStyles = {}) {
+        ensureContainer(containerId, options = {}) {
             let container = document.getElementById(containerId);
             
             if (!container) {
                 container = this.createElement('div', {
                     id: containerId,
-                    styles: containerStyles
+                    ...options
                 });
                 
                 const parent = document.querySelector(this.options.containerSelector);
@@ -334,6 +341,12 @@
     // 暴露到全局
     window.UIBase = UIBase;
     window.createUIComponent = createUIComponent;
+
+    // 注册到模块系统
+    if (window.registerModule) {
+        window.registerModule('UIBase', UIBase);
+        window.registerModule('createUIComponent', createUIComponent);
+    }
 
     console.log('✅ UI基础类已加载 (UIBase)');
 

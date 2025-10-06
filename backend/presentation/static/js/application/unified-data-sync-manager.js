@@ -7,10 +7,19 @@
  * @date 2025-10-03
  */
 
-class UnifiedDataSyncManager {
+class UnifiedDataSyncManager extends UIBase {
     constructor(dependencies = {}) {
+        super();
         this.eventBus = dependencies.eventBus || window.eventBus;
-        this.logger = dependencies.logger || window.logger;
+        
+        // 使用统一日志系统
+        this.logger = window.Loggers?.StateCoordinator || {
+            debug: (...args) => console.log('[UnifiedDataSyncManager]', ...args),
+            info: (...args) => console.info('[UnifiedDataSyncManager]', ...args),
+            warn: (...args) => console.warn('[UnifiedDataSyncManager]', ...args),
+            error: (...args) => console.error('[UnifiedDataSyncManager]', ...args)
+        };
+        
         this.sessionManager = dependencies.sessionManager || window.unifiedSessionManager;
         
         // 缓存管理
@@ -83,12 +92,30 @@ class UnifiedDataSyncManager {
     }
 
     /**
-     * 获取认证token
+     * 获取认证token - 委托给统一认证系统
      */
     getAuthToken() {
+        if (window.AuthHelper && window.AuthHelper.getToken) {
+            return window.AuthHelper.getToken();
+        }
+        // 降级处理
         return window.getAuthToken ? window.getAuthToken() : 
                localStorage.getItem('auth_token') || 
                sessionStorage.getItem('auth_token') || '';
+    }
+
+    /**
+     * 获取认证头 - 委托给统一认证系统
+     */
+    getAuthHeaders() {
+        if (window.AuthHelper && window.AuthHelper.getHeaders) {
+            return window.AuthHelper.getHeaders();
+        }
+        // 降级处理
+        return {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.getAuthToken()}`
+        };
     }
 
     /**
@@ -113,8 +140,7 @@ class UnifiedDataSyncManager {
             const defaultOptions = {
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${this.getAuthToken()}`,
+                    ...this.getAuthHeaders(),
                     'X-Request-ID': requestId
                 },
                 timeout: window.APP_CONSTANTS?.API.TIMEOUT || 10000
@@ -392,8 +418,9 @@ class UnifiedDataSyncManager {
             // 更新状态文字
             let textEl = statusElement.querySelector('.shop-status-text');
             if (!textEl) {
-                textEl = document.createElement('span');
-                textEl.className = 'shop-status-text';
+                textEl = this.createElement('span', {
+                    className: 'shop-status-text'
+                });
                 statusElement.prepend(textEl);
             }
             

@@ -1,5 +1,6 @@
-/*
- * UnifiedLoading - 统一加载状态管理 (最小版本 v0.1)
+/**
+ * UnifiedLoading - 统一加载状态管理（继承UIBase）
+ * 已重构：使用UIBase统一DOM操作和样式注入
  * 目标：统一 global 与 inline 加载；支持 key+引用计数；wrap 包装异步；超时自动清理；与通知系统协作
  */
 (function(){
@@ -14,65 +15,166 @@
     debug: false
   };
 
-  function logDebug(enabled, ...args){ if (enabled) console.log('[UnifiedLoading]', ...args); }
+  class UnifiedLoading extends UIBase {
+    constructor(options = {}) {
+      super('UnifiedLoading', {
+        debug: false,
+        ...options
+      });
 
-  class UnifiedLoading {
-    constructor(options={}) {
       this.opts = Object.assign({}, DEFAULTS, options);
       this.entries = new Map(); // key -> entry
       this.totalCreated = 0;
-      this._injectStyles();
+      
+      this._injectLoadingStyles();
       this.overlayContainer = this._ensureOverlayContainer();
       this.globalContainer = this._ensureGlobalContainer();
-      logDebug(this.opts.debug, 'Initialized');
+      
+      this.log('info', 'UnifiedLoading初始化完成');
     }
 
-    _injectStyles(){
-      if (document.getElementById('unified-loading-styles')) return;
-      const style = document.createElement('style');
-      style.id = 'unified-loading-styles';
-      style.textContent = `
-        #${DEFAULTS.globalContainerId} { position: fixed; inset:0; pointer-events:none; z-index:${DEFAULTS.zIndex}; display:flex; flex-direction:column; align-items:center; gap:12px; padding-top:120px; }
-        #${DEFAULTS.overlayContainerId} { position: fixed; inset:0; z-index:${DEFAULTS.zIndex + 1}; pointer-events:none; }
-        .uload-global { background:rgba(17,25,40,.55); backdrop-filter: blur(6px); border:1px solid rgba(255,255,255,.1); color:#fff; padding:14px 18px; border-radius:14px; display:flex; align-items:center; gap:10px; box-shadow:0 6px 20px -6px rgba(0,0,0,.4); opacity:0; transform:translateY(6px) scale(.96); transition:all ${DEFAULTS.animationMs}ms ease; font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Helvetica Neue,Arial; }
-        .uload-global.show { opacity:1; transform:translateY(0) scale(1); }
-        .uload-inline { display:inline-flex; align-items:center; gap:6px; font:13px/1.3 system-ui,-apple-system,Segoe UI,Roboto,Helvetica Neue,Arial; color:#555; }
-        .uload-spinner { width:20px; height:20px; border:3px solid rgba(255,255,255,.25); border-top:3px solid #38bdf8; border-radius:50%; animation:uload-spin 1s linear infinite; flex-shrink:0; }
-        .uload-inline .uload-spinner { width:16px; height:16px; border:2px solid #d1d5db; border-top:2px solid #3b82f6; }
-        .uload-text { white-space:nowrap; }
-        @keyframes uload-spin { 0%{transform:rotate(0deg);} 100%{transform:rotate(360deg);} }
-        .uload-hide { opacity:0!important; transform:translateY(-4px) scale(.94)!important; }
-        .uload-overlay { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.38); backdrop-filter:blur(4px); pointer-events:auto; opacity:0; transition:opacity ${DEFAULTS.animationMs}ms ease; }
-        .uload-overlay.show { opacity:1; }
-        .uload-overlay-box { background:rgba(17,25,40,.68); padding:16px 22px; border-radius:16px; display:flex; align-items:center; gap:12px; color:#fff; border:1px solid rgba(255,255,255,.12); box-shadow:0 8px 26px -8px rgba(0,0,0,.45); font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Helvetica Neue,Arial; }
-        .uload-skeleton { display:flex; flex-direction:column; gap:10px; animation:uload-skel-pulse 1.4s ease-in-out infinite; width:100%; }
-        .uload-skel-avatar { width:42px; height:42px; border-radius:50%; background:linear-gradient(90deg,#e5e7eb,#f1f5f9,#e5e7eb); background-size:200% 100%; animation:uload-skel-shine 2s linear infinite; }
-        .uload-skel-line { height:14px; border-radius:7px; background:linear-gradient(90deg,#e5e7eb,#f1f5f9,#e5e7eb); background-size:200% 100%; animation:uload-skel-shine 2s linear infinite; }
-        .uload-skel-line.short { width:60%; }
-        @keyframes uload-skel-pulse { 0%,100% { opacity:1 } 50% { opacity:.55 } }
-        @keyframes uload-skel-shine { 0% { background-position:0 0 } 100% { background-position:200% 0 } }
+    _injectLoadingStyles() {
+      const styles = `
+        #${DEFAULTS.globalContainerId} { 
+          position: fixed; 
+          inset:0; 
+          pointer-events:none; 
+          z-index:${DEFAULTS.zIndex}; 
+          display:flex; 
+          flex-direction:column; 
+          align-items:center; 
+          gap:12px; 
+          padding-top:120px; 
+        }
+        #${DEFAULTS.overlayContainerId} { 
+          position: fixed; 
+          inset:0; 
+          z-index:${DEFAULTS.zIndex + 1}; 
+          pointer-events:none; 
+        }
+        .uload-global { 
+          background:rgba(17,25,40,.55); 
+          backdrop-filter: blur(6px); 
+          border:1px solid rgba(255,255,255,.1); 
+          color:#fff; 
+          padding:14px 18px; 
+          border-radius:14px; 
+          display:flex; 
+          align-items:center; 
+          gap:10px; 
+          box-shadow:0 6px 20px -6px rgba(0,0,0,.4); 
+          opacity:0; 
+          transform:translateY(6px) scale(.96); 
+          transition:all ${DEFAULTS.animationMs}ms ease; 
+          font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Helvetica Neue,Arial; 
+        }
+        .uload-global.show { 
+          opacity:1; 
+          transform:translateY(0) scale(1); 
+        }
+        .uload-inline { 
+          display:inline-flex; 
+          align-items:center; 
+          gap:6px; 
+          font:13px/1.3 system-ui,-apple-system,Segoe UI,Roboto,Helvetica Neue,Arial; 
+          color:#555; 
+        }
+        .uload-spinner { 
+          width:20px; 
+          height:20px; 
+          border:3px solid rgba(255,255,255,.25); 
+          border-top:3px solid #38bdf8; 
+          border-radius:50%; 
+          animation:uload-spin 1s linear infinite; 
+          flex-shrink:0; 
+        }
+        .uload-inline .uload-spinner { 
+          width:16px; 
+          height:16px; 
+          border:2px solid #d1d5db; 
+          border-top:2px solid #3b82f6; 
+        }
+        .uload-text { 
+          white-space:nowrap; 
+        }
+        @keyframes uload-spin { 
+          0%{transform:rotate(0deg);} 
+          100%{transform:rotate(360deg);} 
+        }
+        .uload-hide { 
+          opacity:0!important; 
+          transform:translateY(-4px) scale(.94)!important; 
+        }
+        .uload-overlay { 
+          position:absolute; 
+          inset:0; 
+          display:flex; 
+          align-items:center; 
+          justify-content:center; 
+          background:rgba(0,0,0,.38); 
+          backdrop-filter:blur(4px); 
+          pointer-events:auto; 
+          opacity:0; 
+          transition:opacity ${DEFAULTS.animationMs}ms ease; 
+        }
+        .uload-overlay.show { 
+          opacity:1; 
+        }
+        .uload-overlay-box { 
+          background:rgba(17,25,40,.68); 
+          padding:16px 22px; 
+          border-radius:16px; 
+          display:flex; 
+          align-items:center; 
+          gap:12px; 
+          color:#fff; 
+          border:1px solid rgba(255,255,255,.12); 
+          box-shadow:0 8px 26px -8px rgba(0,0,0,.45); 
+          font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Helvetica Neue,Arial; 
+        }
+        .uload-skeleton { 
+          display:flex; 
+          flex-direction:column; 
+          gap:10px; 
+          animation:uload-skel-pulse 1.4s ease-in-out infinite; 
+          width:100%; 
+        }
+        .uload-skel-avatar { 
+          width:42px; 
+          height:42px; 
+          border-radius:50%; 
+          background:linear-gradient(90deg,#e5e7eb,#f1f5f9,#e5e7eb); 
+          background-size:200% 100%; 
+          animation:uload-skel-shine 2s linear infinite; 
+        }
+        .uload-skel-line { 
+          height:14px; 
+          border-radius:7px; 
+          background:linear-gradient(90deg,#e5e7eb,#f1f5f9,#e5e7eb); 
+          background-size:200% 100%; 
+          animation:uload-skel-shine 2s linear infinite; 
+        }
+        .uload-skel-line.short { 
+          width:60%; 
+        }
+        @keyframes uload-skel-pulse { 
+          0%,100% { opacity:1 } 
+          50% { opacity:.55 } 
+        }
+        @keyframes uload-skel-shine { 
+          0% { background-position:0 0 } 
+          100% { background-position:200% 0 } 
+        }
       `;
-      document.head.appendChild(style);
+      this.injectCSS(styles, 'unified-loading-styles');
     }
 
-    _ensureGlobalContainer(){
-      let c = document.getElementById(this.opts.globalContainerId);
-      if (!c){
-        c = document.createElement('div');
-        c.id = this.opts.globalContainerId;
-        document.body.appendChild(c);
-      }
-      return c;
+    _ensureGlobalContainer() {
+      return this.ensureContainer(this.opts.globalContainerId);
     }
 
-    _ensureOverlayContainer(){
-      let c = document.getElementById(this.opts.overlayContainerId || DEFAULTS.overlayContainerId);
-      if (!c){
-        c = document.createElement('div');
-        c.id = this.opts.overlayContainerId || DEFAULTS.overlayContainerId;
-        document.body.appendChild(c);
-      }
-      return c;
+    _ensureOverlayContainer() {
+      return this.ensureContainer(this.opts.overlayContainerId || DEFAULTS.overlayContainerId);
     }
 
     _resolveTarget(target){
@@ -159,45 +261,54 @@
       return { key: cfg.key, element, scope: cfg.scope };
     }
 
-    _createGlobalElement(text, key){
-      const wrap = document.createElement('div');
-      wrap.className = 'uload-global';
-      wrap.dataset.key = key;
+    _createGlobalElement(text, key) {
+      const wrap = this.createElement('div', {
+        className: 'uload-global',
+        attributes: { 'data-key': key }
+      });
       wrap.innerHTML = `<div class="uload-spinner"></div><div class="uload-text">${text}</div>`;
       return wrap;
     }
 
-    _createInlineElement(text, key){
-      const wrap = document.createElement('span');
-      wrap.className = 'uload-inline';
-      wrap.dataset.key = key;
+    _createInlineElement(text, key) {
+      const wrap = this.createElement('span', {
+        className: 'uload-inline',
+        attributes: { 'data-key': key }
+      });
       wrap.innerHTML = `<span class="uload-spinner"></span><span class="uload-text">${text}</span>`;
       return wrap;
     }
 
-    _createOverlayElement(text, key){
-      const overlay = document.createElement('div');
-      overlay.className = 'uload-overlay';
-      overlay.dataset.key = key;
+    _createOverlayElement(text, key) {
+      const overlay = this.createElement('div', {
+        className: 'uload-overlay',
+        attributes: { 'data-key': key }
+      });
       overlay.innerHTML = `<div class="uload-overlay-box"><div class='uload-spinner'></div><div class='uload-text'>${text}</div></div>`;
       return overlay;
     }
 
-    _createSkeletonElement(cfg){
+    _createSkeletonElement(cfg) {
       const { key, lines = (cfg.lines||3), showAvatar = cfg.showAvatar } = cfg;
-      const wrap = document.createElement('div');
-      wrap.className = 'uload-skeleton';
-      if (key) wrap.dataset.key = key;
-      if (showAvatar){
-        const av = document.createElement('div');
-        av.className = 'uload-skel-avatar';
+      const wrap = this.createElement('div', {
+        className: 'uload-skeleton',
+        attributes: key ? { 'data-key': key } : {}
+      });
+      
+      if (showAvatar) {
+        const av = this.createElement('div', {
+          className: 'uload-skel-avatar'
+        });
         wrap.appendChild(av);
       }
-      for (let i=0;i<lines;i++){
-        const line = document.createElement('div');
-        line.className = 'uload-skel-line' + (i===lines-1? ' short':'' );
+      
+      for (let i = 0; i < lines; i++) {
+        const line = this.createElement('div', {
+          className: 'uload-skel-line' + (i === lines - 1 ? ' short' : '')
+        });
         wrap.appendChild(line);
       }
+      
       return wrap;
     }
 

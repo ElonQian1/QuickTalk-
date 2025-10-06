@@ -1,18 +1,24 @@
 /**
  * ModuleLoader 兼容性桥接
- * 为了向后兼容旧的模块加载系统
+ * 为了向后兼容旧的模块加载系统，桥接到 ModuleRegistry
+ * 
+ * @deprecated 推荐直接使用 ModuleRegistry
+ * @version 2.0 - 优化桥接实现
  */
 
 // 创建 ModuleLoader 兼容接口
 window.ModuleLoader = {
-    // 模拟已加载的模块列表
-    loadedModules: new Set(),
-    
     /**
-     * 标记模块已加载
+     * 标记模块已加载 (兼容方法)
      */
     markLoaded(moduleName) {
-        this.loadedModules.add(moduleName);
+        // 如果 ModuleRegistry 存在，什么都不做（让 registry 管理）
+        if (window.ModuleRegistry) {
+            console.log(`📦 ModuleLoader (兼容): ${moduleName} - 委托给 ModuleRegistry`);
+            return true;
+        }
+        
+        // 降级处理
         console.log(`📦 ModuleLoader (兼容): 模块已标记为加载 - ${moduleName}`);
         return true;
     },
@@ -21,16 +27,15 @@ window.ModuleLoader = {
      * 检查模块是否已加载
      */
     isLoaded(moduleName) {
-        // 先检查新模块系统
+        // 委托给 ModuleRegistry
         if (window.ModuleRegistry) {
             const newModuleName = this.convertToNewModuleName(moduleName);
-            if (window.ModuleRegistry.isRegistered(newModuleName)) {
-                return true;
-            }
+            return window.ModuleRegistry.isReady(newModuleName) || 
+                   window.ModuleRegistry.isRegistered(newModuleName);
         }
         
-        // 检查旧标记系统
-        return this.loadedModules.has(moduleName);
+        // 降级：检查全局对象是否存在
+        return window[moduleName] !== undefined;
     },
     
     /**
@@ -54,9 +59,17 @@ window.ModuleLoader = {
      */
     defineClass(className, factory) {
         try {
+            // 委托给 ModuleRegistry
+            if (window.ModuleRegistry && window.registerModule) {
+                const instance = factory();
+                window.registerModule(className, instance);
+                return instance;
+            }
+            
+            // 降级处理
             const instance = factory();
             window[className] = instance;
-            this.markLoaded(className.toLowerCase().replace(/([A-Z])/g, '-$1').substring(1));
+            console.log(`📦 ModuleLoader (兼容): 类已定义 - ${className}`);
             return instance;
         } catch (error) {
             console.error(`ModuleLoader (兼容): 定义类失败 - ${className}`, error);
@@ -69,6 +82,15 @@ window.ModuleLoader = {
      */
     waitForModule(moduleName, timeout = 5000) {
         return new Promise((resolve, reject) => {
+            // 委托给 ModuleRegistry
+            if (window.ModuleRegistry && window.waitForModules) {
+                const newModuleName = this.convertToNewModuleName(moduleName);
+                return window.waitForModules(newModuleName)
+                    .then(() => resolve(true))
+                    .catch(reject);
+            }
+            
+            // 降级处理：简单轮询
             if (this.isLoaded(moduleName)) {
                 resolve(true);
                 return;
@@ -95,15 +117,27 @@ window.ModuleLoader = {
      * 获取所有已加载模块
      */
     getLoadedModules() {
-        const modules = Array.from(this.loadedModules);
+        let modules = [];
         
-        // 添加新模块系统中的模块
+        // 从新模块系统获取模块列表
         if (window.ModuleRegistry) {
-            const newModules = window.ModuleRegistry.getRegisteredModules();
-            modules.push(...newModules);
+            modules = window.ModuleRegistry.getRegisteredModules();
         }
         
-        return [...new Set(modules)]; // 去重
+        return modules;
+    },
+    
+    /**
+     * 清理缓存 (兼容方法)
+     */
+    clearCache() {
+        if (window.ModuleRegistry) {
+            console.log('📦 ModuleLoader (兼容): 清理缓存 - 委托给 ModuleRegistry');
+            // ModuleRegistry 有自己的清理方法
+            return;
+        }
+        
+        console.log('📦 ModuleLoader (兼容): 缓存已清理');
     }
 };
 

@@ -19,6 +19,14 @@
             this.retryCount = options.retryCount || 2;
             this.debug = options.debug || false;
 
+            // 使用统一日志系统
+            this.logger = window.Loggers?.APIClient || {
+                debug: (...args) => this._fallbackLog('debug', ...args),
+                info: (...args) => this._fallbackLog('info', ...args),
+                warn: (...args) => this._fallbackLog('warn', ...args),
+                error: (...args) => this._fallbackLog('error', ...args)
+            };
+
             // 默认请求头
             this.defaultHeaders = {
                 'Content-Type': 'application/json',
@@ -29,13 +37,13 @@
             this.sessionId = null;
             this.authToken = null;
 
-            this.log('info', 'APIClient初始化完成');
+            this.logger.info('APIClient初始化完成');
         }
 
         /**
-         * 日志输出
+         * 降级日志输出
          */
-        log(level, message, data = null) {
+        _fallbackLog(level, message, data = null) {
             if (!this.debug && level === 'debug') return;
 
             const prefix = `[APIClient]`;
@@ -54,6 +62,13 @@
                 default:
                     console.log(`${prefix} ${timestamp} ℹ️`, message, data);
             }
+        }
+
+        /**
+         * 统一日志记录 (使用 UnifiedLogger)
+         */
+        log(level, message, data = null) {
+            this.logger[level](message, data);
         }
 
         /**
@@ -366,6 +381,12 @@
     // 暴露到全局
     window.APIClient = APIClient;
     window.apiClient = defaultAPIClient;
+
+    // 注册到模块系统
+    if (window.registerModule) {
+        window.registerModule('APIClient', APIClient);
+        window.registerModule('apiClient', defaultAPIClient);
+    }
 
     console.log('✅ 统一API客户端已加载 (消除重复fetch代码)');
 

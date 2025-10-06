@@ -2,64 +2,59 @@
  * 统一模板渲染器 - 消除DOM创建和渲染重复代码
  * 
  * 设计目标:
- * 1. 统一DOM元素创建模式，避免重复的createElement代码
- * 2. 提供模板渲染功能，统一处理innerHTML和插值
- * 3. 统一状态UI生成（加载、错误、空状态）
- * 4. 提供样式应用和属性设置的标准方法
+ * 1. 基于 UIBase 构建，避免重复的 createElement 实现
+ * 2. 专注于模板渲染功能，统一处理innerHTML和插值
+ * 3. 提供高级渲染特性（条件渲染、循环等）
+ * 4. 与 UIBase 协同工作，形成完整的UI渲染体系
  * 
- * 这个渲染器将替代各文件中的重复DOM操作：
- * - ui-base.js 的 createElement
- * - utils-base.js 的 createElement  
- * - base-manager.js 的状态UI创建
- * - 各manager中的innerHTML设置模式
+ * @version 2.0 - 重构为基于 UIBase 的专用渲染器
  */
 
-class TemplateRenderer {
+class TemplateRenderer extends UIBase {
     constructor() {
-        this.name = 'TemplateRenderer';
-        this.cache = new Map(); // 模板缓存
-        this.elementsRegistry = new Map(); // 元素注册表
-    }
-
-    /**
-     * 统一DOM元素创建方法
-     * 整合所有createElement重复实现
-     */
-    createElement(tag, options = {}) {
-        const element = document.createElement(tag);
-        
-        // 设置基本属性
-        this._applyBasicAttributes(element, options);
-        
-        // 设置样式
-        this._applyStyles(element, options.styles);
-        
-        // 设置HTML属性
-        this._applyAttributes(element, options.attributes);
-        
-        // 注册元素(如果提供ID)
-        if (options.id) {
-            this.elementsRegistry.set(options.id, element);
-        }
-        
-        return element;
-    }
-
-    /**
-     * 批量创建DOM元素
-     * 统一的批量创建模式
-     */
-    createElements(elementConfigs) {
-        const elements = {};
-        
-        Object.entries(elementConfigs).forEach(([key, config]) => {
-            elements[key] = this.createElement(config.tag, {
-                id: key,
-                ...config
-            });
+        super('TemplateRenderer', {
+            debug: false,
+            autoAttach: false // 渲染器不需要自动挂载
         });
         
-        return elements;
+        this.cache = new Map(); // 模板缓存
+        this.templates = new Map(); // 注册的模板
+        this.directives = new Map(); // 自定义指令
+        
+        this._initializeBuiltinDirectives();
+    }
+
+    /**
+     * 初始化内置指令
+     */
+    _initializeBuiltinDirectives() {
+        // if 条件指令
+        this.directives.set('if', (element, value, data) => {
+            const condition = this._evaluateExpression(value, data);
+            element.style.display = condition ? '' : 'none';
+            return condition;
+        });
+        
+        // for 循环指令
+        this.directives.set('for', (element, value, data) => {
+            const [itemName, arrayName] = value.split(' in ').map(s => s.trim());
+            const array = this._evaluateExpression(arrayName, data);
+            
+            if (!Array.isArray(array)) return false;
+            
+            const template = element.innerHTML;
+            element.innerHTML = '';
+            
+            array.forEach((item, index) => {
+                const itemData = { ...data, [itemName]: item, $index: index };
+                const itemElement = this.createElement('div', {
+                    innerHTML: this._interpolateVariables(template, itemData)
+                });
+                element.appendChild(itemElement);
+            });
+            
+            return true;
+        });
     }
 
     /**
@@ -304,30 +299,6 @@ class TemplateRenderer {
     }
 
     /**
-     * 应用样式
-     */
-    _applyStyles(element, styles) {
-        if (!styles) return;
-        
-        if (typeof styles === 'string') {
-            element.style.cssText = styles;
-        } else if (typeof styles === 'object') {
-            Object.assign(element.style, styles);
-        }
-    }
-
-    /**
-     * 应用HTML属性
-     */
-    _applyAttributes(element, attributes) {
-        if (!attributes) return;
-        
-        Object.entries(attributes).forEach(([key, value]) => {
-            element.setAttribute(key, value);
-        });
-    }
-
-    /**
      * 变量插值
      */
     _interpolateVariables(template, data) {
@@ -394,15 +365,37 @@ class TemplateRenderer {
     }
 
     /**
+     * 清空缓存
+     */
+    clearCache() {
+        this.cache.clear();
+        this.log('debug', '模板缓存已清空');
+    }
+
+    /**
      * 销毁渲染器
      */
     destroy() {
         this.cache.clear();
-        this.elementsRegistry.clear();
+        this.templates.clear();
+        this.directives.clear();
+        super.destroy(); // 调用 UIBase 的销毁方法
     }
 }
 
-// 导出单例
-window.TemplateRenderer = new TemplateRenderer();
+// 注册到模块系统
+if (window.registerModule) {
+    window.registerModule('TemplateRenderer', TemplateRenderer, ['UIBase']);
+}
+
+// 创建全局单例
+window.TemplateRenderer = window.getModule ? window.getModule('TemplateRenderer') : new TemplateRenderer();
+
+// 为 UnifiedLogger 创建专用日志器
+if (window.Loggers) {
+    window.Loggers.TemplateRenderer = window.UnifiedLogger.createModuleLogger('TemplateRenderer');
+}
+
+console.log('🎨 统一模板渲染器已加载 (基于 UIBase)');
 
 export default TemplateRenderer;

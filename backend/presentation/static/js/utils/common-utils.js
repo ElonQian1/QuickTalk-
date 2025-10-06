@@ -1,51 +1,50 @@
 "use strict";
 
-// common-utils.js — 通用工具函数（从 mobile-dashboard.html 抽取）
-// 提供：formatTime(date), showToast(message, type), fetchShops(), openConversation(id), createNewShop()
+/**
+ * common-utils.js - 重构为 UnifiedUtils 适配器
+ * 
+ * 🔄 已重构：保持API兼容性，委托核心功能给 UnifiedUtils
+ * - 移除重复实现
+ * - 提供向下兼容的接口
+ * - 统一行为模式
+ * 
+ * @deprecated 推荐直接使用 UnifiedUtils
+ * @version 2.0 - 适配器版本
+ */
 
 (function(){
-  // 时间格式化 - 使用 UnifiedUtils 统一实现
+  // 委托给 UnifiedUtils 的时间格式化
   window.formatTime = function formatTime(date) {
-    if (!date) return '未知';
-    
-    // 使用统一工具库进行相对时间格式化
-    if (window.UnifiedUtils) {
+    if (window.UnifiedUtils && window.UnifiedUtils.formatRelativeTime) {
       try {
         const timestamp = (date instanceof Date) ? date.getTime() : new Date(date).getTime();
         return window.UnifiedUtils.formatRelativeTime(timestamp);
       } catch (error) {
+        console.warn('formatTime降级处理:', error);
         return '未知';
       }
     }
     
-    // 降级兼容实现
-    const dateObj = (date instanceof Date) ? date : new Date(date);
-    const now = new Date();
-    const diff = now - dateObj;
-    const minutes = Math.floor(diff / (1000 * 60));
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    
-    if (minutes < 1) {
-      return '刚刚';
-    } else if (minutes < 60) {
-      return `${minutes}分钟前`;
-    } else if (hours < 24) {
-      return `${hours}小时前`;
-    } else {
-      return `${days}天前`;
+    // 极简降级实现
+    try {
+      const dateObj = (date instanceof Date) ? date : new Date(date);
+      return dateObj.toLocaleString();
+    } catch (error) {
+      return '未知';
     }
   };
 
-  // 显示提示信息：已由 unified-notification.js 统一管理，这里仅作为兜底（防止加载顺序问题）
+  // 委托给统一通知系统的 showToast
   if (typeof window.showToast === 'undefined') {
     window.showToast = function showToast(message, type = 'info') {
-      // 延迟尝试升级为统一通知
-      if (window.UnifiedNotification && typeof window.UnifiedNotification.notify === 'function') {
-        window.UnifiedNotification.notify(type || 'info', message);
+      if (window.UnifiedNotification && window.UnifiedNotification.notify) {
+        window.UnifiedNotification.notify(type, message);
         return;
       }
-      console.log(`[ToastFallback:${type}] ${message}`);
+      
+      // 降级到控制台输出
+      const icon = type === 'error' ? '❌' : type === 'success' ? '✅' : 'ℹ️';
+      console.log(`${icon} [Toast] ${message}`);
     };
   }
 
@@ -123,40 +122,16 @@
     try {
       console.log('🔄 正在获取店铺列表...');
 
-      // 增强的token获取逻辑，支持多种token格式
+      // 委托给统一认证系统获取token
       const getValidToken = () => {
-        // 尝试从不同来源获取token
-        const sources = [
-          () => {
-            if (typeof getAuthToken === 'function') {
-              return getAuthToken();
-            }
-            return '';
-          },
-          () => localStorage.getItem('authToken') || '',
-          () => localStorage.getItem('admin_token') || '',
-          () => localStorage.getItem('qt_admin_token') || '',
-          () => {
-            try {
-              const userData = localStorage.getItem('quicktalk_user');
-              if (userData) {
-                const parsed = JSON.parse(userData);
-                return parsed.token || parsed.session_id || '';
-              }
-            } catch (e) {
-              console.warn('解析用户数据失败:', e);
-            }
-            return '';
-          }
-        ];
-
-        for (const source of sources) {
-          const token = source();
-          if (token && token.length > 10) { // 基本长度检查
-            return token;
-          }
+        if (window.AuthHelper && window.AuthHelper.getToken) {
+          return window.AuthHelper.getToken();
         }
-        return '';
+        // 降级处理
+        if (typeof getAuthToken === 'function') {
+          return getAuthToken();
+        }
+        return localStorage.getItem('authToken') || '';
       };
 
       // 等待会话（避免过早请求导致 401 返回空列表）
