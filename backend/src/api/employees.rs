@@ -1,6 +1,5 @@
 use axum::{
     extract::{State, Query, Path},
-    http::StatusCode,
     response::Json,
 };
 use sqlx::Row;
@@ -10,7 +9,8 @@ use tracing::{info, warn};
 use uuid::Uuid;
 use chrono::Utc;
 
-use crate::types::ApiResponse;
+use crate::api::errors::{ApiResult, ApiError, success, success_empty};
+use crate::api::input_validators::InputValidators;
 use crate::types::dto::common::{EmployeeInvitation, User};
 use crate::types::dto::employees::{AddEmployeeRequest, UpdateEmployeeRequest, InviteEmployeeRequest};
 use crate::types::Employee;
@@ -21,7 +21,7 @@ use crate::bootstrap::app_state::AppState;
 pub async fn get_employees(
     State(state): State<Arc<AppState>>,
     Path(shop_id): Path<String>,
-) -> Result<Json<ApiResponse<Vec<Employee>>>, StatusCode> {
+) -> ApiResult<Vec<Employee>> {
     match sqlx::query("SELECT * FROM employees WHERE shop_id = ?")
         .bind(&shop_id)
         .fetch_all(&state.db)
@@ -30,27 +30,14 @@ pub async fn get_employees(
         Ok(rows) => {
             let employees: Vec<Employee> = rows
                 .iter()
-                .map(|row| Employee {
-                    id: row.get("id"),
-                    shop_id: row.get("shop_id"),
-                    name: row.get("name"),
-                    email: row.get("email"),
-                    role: row.get("role"),
-                    status: row.get("status"),
-                    created_at: row.get("created_at"),
-                })
+                .map(|row| super::data_mappers::row_to_employee(row))
                 .collect();
                 
             info!("Retrieved {} employees for shop {}", employees.len(), shop_id);
-            Ok(Json(ApiResponse {
-                success: true,
-                data: Some(employees),
-                message: "Employees retrieved successfully".to_string(),
-            }))
+            success(employees, "Employees retrieved successfully")
         }
         Err(e) => {
-            warn!("Failed to get employees: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
+            Err(super::errors::db_helpers::handle_employee_list_error(e))
         }
     }
 }
@@ -59,7 +46,7 @@ pub async fn add_employee(
     State(state): State<Arc<AppState>>,
     Path(shop_id): Path<String>,
     Json(payload): Json<AddEmployeeRequest>,
-) -> Result<Json<ApiResponse<()>>, StatusCode> {
+) -> ApiResult<()> {
     let employee_id = Uuid::new_v4().to_string();
     // 统一从 email 提取本地部分作为显示名，便于与管理员用户名匹配（/api/shops 中有 e.name = admin_username 的匹配规则）
     let display_name = payload
@@ -82,11 +69,10 @@ pub async fn add_employee(
     {
         Ok(_) => {
             info!("Employee {} added to shop {}", payload.email, shop_id);
-            Ok(Json(ApiResponse { success: true, data: Some(()), message: "Employee added successfully".into() }))
+            success_empty("Employee added successfully")
         }
         Err(e) => {
-            warn!("Failed to add employee: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
+            Err(super::errors::db_helpers::handle_employee_add_error(e))
         }
     }
 }
@@ -94,7 +80,7 @@ pub async fn add_employee(
 pub async fn remove_employee(
     State(state): State<Arc<AppState>>,
     Path((shop_id, employee_id)): Path<(String, String)>,
-) -> Result<Json<ApiResponse<()>>, StatusCode> {
+) -> ApiResult<()> {
     match sqlx::query("DELETE FROM employees WHERE id = ? AND shop_id = ?")
         .bind(&employee_id)
         .bind(&shop_id)
@@ -104,18 +90,13 @@ pub async fn remove_employee(
         Ok(result) => {
             if result.rows_affected() > 0 {
                 info!("Employee {} removed from shop {}", employee_id, shop_id);
-                Ok(Json(ApiResponse {
-                    success: true,
-                    data: Some(()),
-                    message: "Employee removed successfully".to_string(),
-                }))
+                success_empty("Employee removed successfully")
             } else {
-                Err(StatusCode::NOT_FOUND)
+                Err(ApiError::NotFound("Employee not found".to_string()))
             }
         }
         Err(e) => {
-            warn!("Failed to remove employee: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
+            Err(super::errors::db_helpers::handle_employee_remove_error(e))
         }
     }
 }
@@ -124,7 +105,7 @@ pub async fn update_employee_role(
     State(state): State<Arc<AppState>>,
     Path((shop_id, employee_id)): Path<(String, String)>,
     Json(payload): Json<UpdateEmployeeRequest>,
-) -> Result<Json<ApiResponse<()>>, StatusCode> {
+) -> ApiResult<()> {
     match sqlx::query("UPDATE employees SET role = ? WHERE id = ? AND shop_id = ?")
         .bind(&payload.role)
         .bind(&employee_id)
@@ -135,18 +116,13 @@ pub async fn update_employee_role(
         Ok(result) => {
             if result.rows_affected() > 0 {
                 info!("Employee {} role updated in shop {}", employee_id, shop_id);
-                Ok(Json(ApiResponse {
-                    success: true,
-                    data: Some(()),
-                    message: "Employee role updated successfully".to_string(),
-                }))
+                success_empty("Employee role updated successfully")
             } else {
-                Err(StatusCode::NOT_FOUND)
+                Err(ApiError::NotFound("Employee not found".to_string()))
             }
         }
         Err(e) => {
-            warn!("Failed to update employee role: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
+            Err(super::errors::db_helpers::handle_employee_role_update_error(e))
         }
     }
 }
@@ -157,17 +133,11 @@ pub async fn update_employee_role(
 pub async fn search_users(
     State(state): State<Arc<AppState>>,
     Query(params): Query<HashMap<String, String>>,
-) -> Result<Json<ApiResponse<Vec<User>>>, StatusCode> {
+) -> ApiResult<Vec<User>> {
     let keyword = params.get("q").unwrap_or(&String::new()).clone();
     let exclude_shop_id = params.get("exclude_shop_id");
 
-    if keyword.len() < 2 {
-        return Ok(Json(ApiResponse {
-            success: true,
-            data: Some(vec![]),
-            message: "Search keyword too short".to_string(),
-        }));
-    }
+    InputValidators::validate_search_keyword(&keyword)?;
 
     let mut query = String::from("SELECT * FROM users WHERE (username LIKE ? OR email LIKE ? OR name LIKE ?) AND role != 'super_admin' AND role != 'admin' AND status = 'active'");
     let mut binds = vec![
@@ -206,15 +176,10 @@ pub async fn search_users(
                 })
                 .collect();
 
-            Ok(Json(ApiResponse {
-                success: true,
-                data: Some(users),
-                message: "Users retrieved successfully".to_string(),
-            }))
+            success(users, "Users retrieved successfully")
         }
         Err(e) => {
-            warn!("Failed to search users: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
+            Err(super::errors::db_helpers::handle_user_search_error(e))
         }
     }
 }
@@ -223,7 +188,7 @@ pub async fn search_users(
 pub async fn get_user_profile(
     State(state): State<Arc<AppState>>,
     Path(user_id): Path<String>,
-) -> Result<Json<ApiResponse<User>>, StatusCode> {
+) -> ApiResult<User> {
     match sqlx::query("SELECT * FROM users WHERE id = ? AND status = 'active'")
         .bind(&user_id)
         .fetch_one(&state.db)
@@ -242,15 +207,11 @@ pub async fn get_user_profile(
                 created_at: row.get("created_at"),
             };
 
-            Ok(Json(ApiResponse {
-                success: true,
-                data: Some(user),
-                message: "User profile retrieved successfully".to_string(),
-            }))
+            success(user, "User profile retrieved successfully")
         }
         Err(_) => {
             warn!("Failed to get user profile for user_id: {}", user_id);
-            Err(StatusCode::NOT_FOUND)
+            Err(ApiError::not_found("User not found"))
         }
     }
 }
@@ -260,7 +221,7 @@ pub async fn invite_employee(
     State(state): State<Arc<AppState>>,
     Path(shop_id): Path<String>,
     Json(payload): Json<InviteEmployeeRequest>,
-) -> Result<Json<ApiResponse<EmployeeInvitation>>, StatusCode> {
+) -> ApiResult<EmployeeInvitation> {
     // 生成邀请令牌
     let invitation_id = Uuid::new_v4().to_string();
     let token = Uuid::new_v4().to_string();
@@ -271,7 +232,7 @@ pub async fn invite_employee(
         .bind(&payload.email)
         .fetch_optional(&state.db)
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .map_err(|e| super::errors::db_helpers::handle_fetch_error(e, "invitee user"))?
         .map(|row| row.get::<String, _>("id"));
 
     // 检查是否已经是员工或有待处理的邀请
@@ -281,11 +242,11 @@ pub async fn invite_employee(
             .bind(uid)
             .fetch_one(&state.db)
             .await
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            .map_err(|e| super::errors::db_helpers::handle_fetch_error(e, "existing employee"))?;
         
         let count: i64 = existing.get("count");
         if count > 0 {
-            return Err(StatusCode::CONFLICT); // 已经是员工或有待处理邀请
+            return Err(ApiError::bad_request("User is already an employee or has pending invitation"));
         }
     }
 
@@ -324,15 +285,10 @@ pub async fn invite_employee(
             
             // TODO: 发送邀请邮件
             
-            Ok(Json(ApiResponse {
-                success: true,
-                data: Some(invitation),
-                message: "Employee invitation sent successfully".to_string(),
-            }))
+            success(invitation, "Employee invitation sent successfully")
         }
         Err(e) => {
-            warn!("Failed to create employee invitation: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
+            Err(super::errors::db_helpers::handle_employee_invitation_error(e))
         }
     }
 }
@@ -341,7 +297,7 @@ pub async fn invite_employee(
 pub async fn get_employee_invitations(
     State(state): State<Arc<AppState>>,
     Path(shop_id): Path<String>,
-) -> Result<Json<ApiResponse<Vec<EmployeeInvitation>>>, StatusCode> {
+) -> ApiResult<Vec<EmployeeInvitation>> {
     match sqlx::query("SELECT * FROM employee_invitations WHERE shop_id = ? ORDER BY created_at DESC")
         .bind(&shop_id)
         .fetch_all(&state.db)
@@ -366,15 +322,10 @@ pub async fn get_employee_invitations(
                 })
                 .collect();
 
-            Ok(Json(ApiResponse {
-                success: true,
-                data: Some(invitations),
-                message: "Employee invitations retrieved successfully".to_string(),
-            }))
+            success(invitations, "Employee invitations retrieved successfully")
         }
         Err(e) => {
-            warn!("Failed to get employee invitations: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
+            Err(super::errors::db_helpers::handle_employee_invitation_error(e))
         }
     }
 }
@@ -383,7 +334,7 @@ pub async fn get_employee_invitations(
 pub async fn accept_invitation(
     State(state): State<Arc<AppState>>,
     Path(token): Path<String>,
-) -> Result<Json<ApiResponse<Employee>>, StatusCode> {
+) -> ApiResult<Employee> {
     // 查找邀请
     let invitation = match sqlx::query("SELECT * FROM employee_invitations WHERE token = ? AND status = 'pending' AND expires_at > ?")
         .bind(&token)
@@ -405,14 +356,14 @@ pub async fn accept_invitation(
             created_at: row.get("created_at"),
             responded_at: row.try_get("responded_at").ok(),
         },
-        Err(_) => return Err(StatusCode::NOT_FOUND),
+        Err(_) => return Err(ApiError::not_found("Invitation not found or expired")),
     };
 
     // 确保用户已注册
     let user_id = if let Some(uid) = invitation.invitee_id {
         uid
     } else {
-        return Err(StatusCode::BAD_REQUEST); // 用户需要先注册
+        return Err(ApiError::bad_request("User needs to register first"));
     };
 
     // 创建员工记录
@@ -420,10 +371,10 @@ pub async fn accept_invitation(
     let now = Utc::now();
 
     // 开始事务
-    let mut tx = state.db.begin().await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let mut tx = state.db.begin().await.map_err(|e| super::errors::db_helpers::handle_transaction_error(e, "begin transaction"))?;
 
     // 插入员工记录
-    if let Err(_) = sqlx::query("INSERT INTO employees (id, shop_id, user_id, invited_by, role, status, hired_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?)")
+    if let Err(e) = sqlx::query("INSERT INTO employees (id, shop_id, user_id, invited_by, role, status, hired_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?)")
         .bind(&employee_id)
         .bind(&invitation.shop_id)
         .bind(&user_id)
@@ -436,23 +387,23 @@ pub async fn accept_invitation(
         .await
     {
         let _ = tx.rollback().await;
-        return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        return Err(super::errors::db_helpers::handle_employee_add_error(e));
     }
 
     // 更新邀请状态
-    if let Err(_) = sqlx::query("UPDATE employee_invitations SET status = 'accepted', responded_at = ? WHERE id = ?")
+    if let Err(e) = sqlx::query("UPDATE employee_invitations SET status = 'accepted', responded_at = ? WHERE id = ?")
         .bind(&now)
         .bind(&invitation.id)
         .execute(&mut *tx)
         .await
     {
         let _ = tx.rollback().await;
-        return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        return Err(super::errors::db_helpers::handle_employee_invitation_error(e));
     }
 
     // 提交事务
-    if tx.commit().await.is_err() {
-        return Err(StatusCode::INTERNAL_SERVER_ERROR);
+    if let Err(e) = tx.commit().await {
+        return Err(super::errors::db_helpers::handle_transaction_error(e, "commit transaction"));
     }
 
     // 获取用户信息构建Employee响应
@@ -460,32 +411,27 @@ pub async fn accept_invitation(
         .bind(&user_id)
         .fetch_one(&state.db)
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(|e| super::errors::db_helpers::handle_fetch_error(e, "user information"))?;
 
-    let employee = Employee {
-        id: employee_id,
-        shop_id: invitation.shop_id.clone(),
-        name: user.get("name"),
-        email: user.get("email"),
-        role: invitation.role.clone(),
-        status: "active".to_string(),
-        created_at: now,
-    };
+    let employee = super::data_mappers::create_employee_from_invitation(
+        employee_id,
+        invitation.shop_id.clone(),
+        user.get("name"),
+        user.get("email"),
+        invitation.role.clone(),
+        now
+    );
 
     info!("Employee invitation accepted: {} joined shop {}", invitation.invitee_email, invitation.shop_id);
 
-    Ok(Json(ApiResponse {
-        success: true,
-        data: Some(employee),
-        message: "Invitation accepted successfully".to_string(),
-    }))
+    success(employee, "Invitation accepted successfully")
 }
 
 // 拒绝邀请
 pub async fn reject_invitation(
     State(state): State<Arc<AppState>>,
     Path(token): Path<String>,
-) -> Result<Json<ApiResponse<()>>, StatusCode> {
+) -> ApiResult<()> {
     match sqlx::query("UPDATE employee_invitations SET status = 'rejected', responded_at = ? WHERE token = ? AND status = 'pending'")
         .bind(Utc::now())
         .bind(&token)
@@ -495,18 +441,13 @@ pub async fn reject_invitation(
         Ok(result) => {
             if result.rows_affected() > 0 {
                 info!("Employee invitation rejected: token {}", token);
-                Ok(Json(ApiResponse {
-                    success: true,
-                    data: Some(()),
-                    message: "Invitation rejected successfully".to_string(),
-                }))
+                success_empty("Invitation rejected successfully")
             } else {
-                Err(StatusCode::NOT_FOUND)
+                Err(ApiError::not_found("Invitation not found"))
             }
         }
         Err(e) => {
-            warn!("Failed to reject invitation: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
+            Err(super::errors::db_helpers::handle_employee_invitation_error(e))
         }
     }
 }

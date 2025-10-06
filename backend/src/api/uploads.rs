@@ -1,30 +1,29 @@
-use axum::{extract::Multipart, response::Json};
+use axum::extract::Multipart;
 use chrono::Utc;
 use std::path::PathBuf;
 use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::bootstrap::app_state::AppState;
-use crate::types::ApiResponse;
-use crate::api::errors::ApiError;
+use crate::api::errors::{ApiError, ApiResult, success};
 
 pub async fn upload_file(
     axum::extract::State(_state): axum::extract::State<Arc<AppState>>,
     mut multipart: Multipart,
-) -> Result<Json<ApiResponse<serde_json::Value>>, ApiError> {
+) -> ApiResult<serde_json::Value> {
     let mut uploaded_files = Vec::new();
 
-    while let Some(field) = multipart.next_field().await.map_err(|e| { tracing::error!(error=%e, "multipart read failed"); ApiError::bad_request("表单解析失败") })? {
+    while let Some(field) = multipart.next_field().await.map_err(|e| super::errors::db_helpers::handle_multipart_error(e))? {
         let _name = field.name().unwrap_or("file").to_string();
         let filename = field.file_name().unwrap_or("unknown").to_string();
         let content_type = field.content_type().unwrap_or("application/octet-stream").to_string();
-    let data = field.bytes().await.map_err(|e| { tracing::error!(error=%e, "read field bytes failed"); ApiError::bad_request("文件读取失败") })?;
+    let data = field.bytes().await.map_err(|e| super::errors::db_helpers::handle_file_bytes_error(e))?;
 
         // 创建上传目录
         let upload_dir = PathBuf::from("../uploads");
         tokio::fs::create_dir_all(&upload_dir)
             .await
-            .map_err(|e| { tracing::error!(error=%e, dir=%upload_dir.display(), "create upload dir failed"); ApiError::internal("创建上传目录失败") })?;
+            .map_err(|e| super::errors::db_helpers::handle_dir_creation_error(e, &upload_dir.display().to_string()))?;
 
         // 生成唯一文件名
         let file_extension = filename.split('.').last().unwrap_or("bin");
@@ -39,7 +38,7 @@ pub async fn upload_file(
         // 保存文件
         tokio::fs::write(&file_path, &data)
             .await
-            .map_err(|e| { tracing::error!(error=%e, path=%file_path.display(), "write file failed"); ApiError::internal("写入文件失败") })?;
+            .map_err(|e| super::errors::db_helpers::handle_file_write_error(e, &file_path.display().to_string()))?;
 
         tracing::info!(
             original = %filename,
@@ -62,33 +61,25 @@ pub async fn upload_file(
         return Err(ApiError::bad_request("未选择文件"));
     }
 
-    Ok(Json(ApiResponse {
-        success: true,
-        data: Some(serde_json::json!({
-            "files": uploaded_files,
-            "count": uploaded_files.len()
-        })),
-        message: "Files uploaded successfully".to_string(),
-    }))
+    success(serde_json::json!({
+        "files": uploaded_files,
+        "count": uploaded_files.len()
+    }), "Files uploaded successfully")
 }
 
-pub async fn list_uploaded_files() -> Result<Json<ApiResponse<Vec<serde_json::Value>>>, ApiError> {
+pub async fn list_uploaded_files() -> ApiResult<Vec<serde_json::Value>> {
     let upload_dir = PathBuf::from("../uploads");
 
     if !upload_dir.exists() {
-        return Ok(Json(ApiResponse {
-            success: true,
-            data: Some(Vec::new()),
-            message: "No uploads directory found".to_string(),
-        }));
+        return super::response_helpers::success_empty_array("No uploads directory found");
     }
 
     let mut files = Vec::new();
     let mut dir = tokio::fs::read_dir(upload_dir)
         .await
-        .map_err(|e| { tracing::error!(error=%e, "read_dir failed"); ApiError::internal("读取目录失败") })?;
+        .map_err(|e| super::errors::db_helpers::handle_dir_read_error(e))?;
 
-    while let Some(entry) = dir.next_entry().await.map_err(|e| { tracing::error!(error=%e, "read_dir entry failed"); ApiError::internal("读取文件条目失败") })? {
+    while let Some(entry) = dir.next_entry().await.map_err(|e| super::errors::db_helpers::handle_file_entry_error(e))? {
         if let Ok(metadata) = entry.metadata().await {
             if metadata.is_file() {
                 let filename = entry.file_name().to_string_lossy().to_string();
@@ -104,9 +95,5 @@ pub async fn list_uploaded_files() -> Result<Json<ApiResponse<Vec<serde_json::Va
         }
     }
 
-    Ok(Json(ApiResponse {
-        success: true,
-        data: Some(files),
-        message: "Files listed successfully".to_string(),
-    }))
+    success(files, "Files listed successfully")
 }

@@ -39,6 +39,7 @@ use crate::db::conversation_repository_sqlx::SqlxConversationRepository;
 use crate::db::message_repository_sqlx::MessageRepositorySqlx;
 use crate::domain::conversation::{ConversationId, ConversationRepository, MessageReadRepository}; // for repository trait methods
 use crate::api::errors::{ApiError, ApiResult, success, success_empty};
+use crate::api::logging_helpers::LoggingHelpers;
 use crate::application::queries::conversation_queries::{ConversationQueries, QueryError};
 use crate::db::conversation_read_model_sqlx::ConversationReadModelSqlx;
 use crate::db::message_read_repository_sqlx::MessageReadRepositorySqlx;
@@ -182,7 +183,10 @@ pub async fn get_conversation_details(
             last_message_time: None,
         }, "Conversation details retrieved successfully"),
         Ok(None) => Err(ApiError::not_found("Conversation not found")),
-        Err(e) => { tracing::error!(?e, "get conversation failed"); Err(ApiError::internal("Failed to get conversation")) }
+        Err(e) => { 
+            LoggingHelpers::log_db_query_error(&e, "conversation", &conversation_id); 
+            Err(ApiError::internal("Failed to get conversation")) 
+        }
     }
 }
 

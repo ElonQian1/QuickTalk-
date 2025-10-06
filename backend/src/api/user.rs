@@ -7,6 +7,8 @@ use tracing::error;
 
 use crate::{bootstrap::app_state::AppState, types::ApiResponse, auth::SessionExtractor};
 use crate::api::errors::ApiError;
+use crate::api::input_validators::InputValidators;
+use crate::api::response_types::{ResponseBuilder, JsonResult};
 
 // ============ DTO ============
 #[derive(Debug, Serialize)]
@@ -46,7 +48,7 @@ pub struct NotificationSettingsDto {
 pub async fn get_current_user_profile(
     State(state): State<Arc<AppState>>,
     SessionExtractor(session): SessionExtractor,
-) -> Result<AxumJson<ApiResponse<serde_json::Value>>, ApiError> {
+) -> JsonResult {
     let row = sqlx::query("SELECT id, username, role, email, created_at FROM admins WHERE id = ?")
         .bind(&session.admin_id)
         .fetch_one(&state.db)
@@ -60,7 +62,7 @@ pub async fn get_current_user_profile(
     let created_at: String = row.get("created_at");
 
     // 兼容：前端代码 data.user 或 data.* 均可
-    Ok(AxumJson(ApiResponse { success: true, data: Some(serde_json::json!({
+    ResponseBuilder::success_value(serde_json::json!({
         "user": {
             "id": id,
             "name": username,          // profile-manager.js 期望 name 字段
@@ -69,7 +71,7 @@ pub async fn get_current_user_profile(
             "email": email,
             "created_at": created_at
         }
-    })), message: "ok".into() }))
+    }), "用户信息获取成功")
 }
 
 // PUT /api/user/profile  （当前仅允许更新 email；name/username 出于安全暂不修改）
@@ -78,14 +80,9 @@ pub async fn update_user_profile(
     SessionExtractor(session): SessionExtractor,
     AxumJson(body): AxumJson<UpdateUserProfileRequest>,
 ) -> Result<AxumJson<ApiResponse<serde_json::Value>>, ApiError> {
-    if let Some(ref email) = body.email {
-        if email.trim().is_empty() { return Err(ApiError::bad_request("邮箱不能为空")); }
-        if !email.contains('@') { return Err(ApiError::bad_request("邮箱格式不正确")); }
-    }
-
-    let email_to_set = body.email.as_deref().map(|s| s.trim()).unwrap_or("");
+    let email_to_set = InputValidators::process_optional_email(body.email.as_deref())?;
     let affected = sqlx::query("UPDATE admins SET email = ? WHERE id = ?")
-        .bind(if email_to_set.is_empty() { None::<String> } else { Some(email_to_set.to_string()) })
+        .bind(email_to_set.as_deref())
         .bind(&session.admin_id)
         .execute(&state.db)
         .await

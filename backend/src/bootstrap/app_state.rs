@@ -4,7 +4,7 @@ use tokio::sync::broadcast;
 use sqlx::SqlitePool;
 use crate::db::{conversation_repository_sqlx::SqlxConversationRepository, message_read_repository_sqlx::MessageReadRepositorySqlx, message_repository_sqlx::MessageRepositorySqlx, admin_repository_sqlx::SqlxAdminRepository, notification_settings_repository_sqlx::NotificationSettingsRepositorySqlx, shop_repository_sqlx::ShopRepositorySqlx};
 use crate::application::event_bus_rich::EventBusWithDb;
-use crate::application::shops::authz::{ShopPermissionSqlx, ShopPermissionService};
+use crate::application::shops::authz::ShopPermissionSqlx;
 
 pub type WebSocketConnections = Arc<Mutex<HashMap<String, broadcast::Sender<String>>>>;
 
