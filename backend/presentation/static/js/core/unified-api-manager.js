@@ -23,31 +23,27 @@
         constructor(options = {}) {
             this.options = {
                 debug: false,
-                cacheTimeout: 30000, // 30秒缓存
-                maxRetries: 3,
-                retryDelay: 1000,
                 enableBatching: true,
+                batchDelay: 100,
                 ...options
             };
 
-            // 缓存存储
-            this.cache = new Map();
-            
-            // 正在进行的请求（防止重复请求）
-            this.pendingRequests = new Map();
-            
-            // 批量请求队列
+            // 使用统一的fetch工具，消除重复的缓存和重试逻辑
+            this.fetch = window.unifiedFetch || new (window.UnifiedFetch || class MockFetch {
+                async get() { throw new Error('UnifiedFetch未加载'); }
+                async post() { throw new Error('UnifiedFetch未加载'); }
+                async put() { throw new Error('UnifiedFetch未加载'); }
+                async delete() { throw new Error('UnifiedFetch未加载'); }
+            })();
+
+            // 批量请求队列（UnifiedFetch不处理的特殊功能）
             this.batchQueue = new Map();
             this.batchTimer = null;
 
-            // 统计信息
+            // 简化的统计信息（大部分由UnifiedFetch处理）
             this.stats = {
-                cacheHits: 0,
-                cacheMisses: 0,
-                requestsMade: 0,
-                requestsCached: 0,
-                duplicatesPrevented: 0,
-                batchesSent: 0
+                batchesSent: 0,
+                batchedRequests: 0
             };
 
             // 使用统一日志系统
@@ -57,7 +53,7 @@
         }
 
         /**
-         * 统一日志记录 - 使用 UnifiedLogger
+         * 统一日志记录 - 使用 UnifiedLogger（简化版）
          */
         log(level, message, ...args) {
             if (this.logger) {
@@ -72,92 +68,27 @@
         }
 
         /**
-         * 生成缓存键
-         */
-        _generateCacheKey(url, options = {}) {
-            const method = options.method || 'GET';
-            const body = options.body ? JSON.stringify(options.body) : '';
-            const headers = options.headers ? JSON.stringify(options.headers) : '';
-            return `${method}:${url}:${body}:${headers}`;
-        }
-
-        /**
-         * 检查缓存是否有效
-         */
-        _isCacheValid(cacheEntry) {
-            if (!cacheEntry) return false;
-            return Date.now() - cacheEntry.timestamp < this.options.cacheTimeout;
-        }
-
-        /**
-         * 获取缓存数据
-         */
-        _getFromCache(cacheKey) {
-            const entry = this.cache.get(cacheKey);
-            if (this._isCacheValid(entry)) {
-                this.stats.cacheHits++;
-                this.log('debug', T('CACHE_HIT', '缓存命中'), cacheKey);
-                return entry.data;
-            }
-            
-            if (entry) {
-                this.cache.delete(cacheKey);
-                this.log('debug', T('CACHE_EXPIRED', '缓存过期'), cacheKey);
-            }
-            
-            this.stats.cacheMisses++;
-            return null;
-        }
-
-        /**
-         * 设置缓存数据
-         */
-        _setCache(cacheKey, data) {
-            this.cache.set(cacheKey, {
-                data: JSON.parse(JSON.stringify(data)), // 深拷贝
-                timestamp: Date.now()
-            });
-            this.stats.requestsCached++;
-            this.log('debug', T('CACHE_SET', '设置缓存'), cacheKey);
-        }
-
-        /**
-         * 通用API请求方法
+         * 通用API请求方法（委托给UnifiedFetch）
          */
         async request(url, options = {}) {
-            const cacheKey = this._generateCacheKey(url, options);
-            
-            // 检查缓存（仅对GET请求缓存）
             const method = options.method || 'GET';
-            if (method === 'GET') {
-                const cached = this._getFromCache(cacheKey);
-                if (cached) {
-                    return cached;
-                }
-            }
-
-            // 检查是否有相同的请求正在进行
-            if (this.pendingRequests.has(cacheKey)) {
-                this.stats.duplicatesPrevented++;
-                this.log('debug', T('DUPLICATE_PREVENTED', '防止重复请求'), url);
-                return this.pendingRequests.get(cacheKey);
-            }
-
-            // 执行请求
-            const requestPromise = this._executeRequest(url, options);
-            this.pendingRequests.set(cacheKey, requestPromise);
-
+            
             try {
-                const result = await requestPromise;
-                
-                // 缓存结果（仅GET请求且成功时）
-                if (method === 'GET' && result && !result.error) {
-                    this._setCache(cacheKey, result);
+                switch (method.toUpperCase()) {
+                    case 'GET':
+                        return await this.fetch.get(url, options);
+                    case 'POST':
+                        return await this.fetch.post(url, options.body ? JSON.parse(options.body) : {}, options);
+                    case 'PUT':
+                        return await this.fetch.put(url, options.body ? JSON.parse(options.body) : {}, options);
+                    case 'DELETE':
+                        return await this.fetch.delete(url, options);
+                    default:
+                        return await this.fetch.fetch(url, options);
                 }
-                
-                return result;
-            } finally {
-                this.pendingRequests.delete(cacheKey);
+            } catch (error) {
+                this.log('error', `API请求失败 ${method} ${url}:`, error.message);
+                throw error;
             }
         }
 
@@ -240,37 +171,24 @@
         }
 
         /**
-         * 清除缓存
+         * 清除缓存（委托给UnifiedFetch）
          */
         clearCache(pattern = null) {
-            if (!pattern) {
-                const cleared = this.cache.size;
-                this.cache.clear();
-                this.log('info', T('CACHE_CLEARED_ALL', '清空所有缓存'), { cleared });
-                return;
+            if (this.fetch && this.fetch.clearCache) {
+                this.fetch.clearCache();
+                this.log('info', T('CACHE_CLEARED_DELEGATED', '缓存清理已委托给UnifiedFetch'));
             }
-
-            const keysToDelete = [];
-            for (const key of this.cache.keys()) {
-                if (key.includes(pattern)) {
-                    keysToDelete.push(key);
-                }
-            }
-
-            keysToDelete.forEach(key => this.cache.delete(key));
-            this.log('info', T('CACHE_CLEARED_PATTERN', '清空匹配缓存'), { pattern, cleared: keysToDelete.length });
         }
 
         /**
-         * 获取统计信息
+         * 获取统计信息（合并UnifiedFetch的统计）
          */
         getStats() {
+            const fetchStats = this.fetch.getStats ? this.fetch.getStats() : {};
             return {
                 ...this.stats,
-                cacheSize: this.cache.size,
-                pendingRequests: this.pendingRequests.size,
-                batchQueueSize: this.batchQueue.size,
-                cacheHitRate: this.stats.cacheHits / (this.stats.cacheHits + this.stats.cacheMisses) || 0
+                ...fetchStats,
+                batchQueueSize: this.batchQueue.size
             };
         }
 
@@ -280,8 +198,11 @@
         debug() {
             console.group('🔍 UnifiedApiManager调试信息');
             console.log('📊 统计信息:', this.getStats());
-            console.log('💾 缓存键列表:', Array.from(this.cache.keys()));
-            console.log('⏳ 进行中的请求:', Array.from(this.pendingRequests.keys()));
+            console.log('� 批量队列:', Array.from(this.batchQueue.keys()));
+            if (this.fetch.debug) {
+                console.log('🌐 UnifiedFetch调试:');
+                this.fetch.debug();
+            }
             console.groupEnd();
         }
     }
@@ -369,6 +290,11 @@
         }
     };
 
-    console.log('✅ 统一API管理器已加载 (UnifiedApiManager)');
+    // 模块注册
+    if (typeof window.ModuleLoader?.registerModule === 'function') {
+        window.ModuleLoader.registerModule('unified-api-manager', 'core', '统一API管理器已加载 (UnifiedApiManager)');
+    } else {
+        console.log('✅ 统一API管理器已加载 (UnifiedApiManager)');
+    }
 
 })();

@@ -396,6 +396,11 @@ if (window.Loggers) {
     window.Loggers.TemplateRenderer = window.UnifiedLogger.createModuleLogger('TemplateRenderer');
 }
 
-console.log('🎨 统一模板渲染器已加载 (基于 UIBase)');
+// 模块注册
+if (typeof window.ModuleLoader?.registerModule === 'function') {
+    window.ModuleLoader.registerModule('template-renderer', 'core', '统一模板渲染器已加载 (基于 UIBase)');
+} else {
+    console.log('🎨 统一模板渲染器已加载 (基于 UIBase)');
+}
 
 export default TemplateRenderer;

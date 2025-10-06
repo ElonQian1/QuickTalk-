@@ -34,13 +34,8 @@
      * 确保MessageEventBus完全兼容
      */
     if (window.MessageEventBus && typeof window.MessageEventBus !== 'object') {
-        // 如果MessageEventBus是类，重新创建实例
-        window.MessageEventBus = {
-            subscribe: (event, handler) => window.eventBus.subscribe(event, handler),
-            publish: (event, payload) => window.eventBus.publish(event, payload),
-            once: (event, handler) => window.eventBus.once(event, handler),
-            off: (event, handler) => window.eventBus.off(event, handler)
-        };
+        // MessageEventBus已由UnifiedEventBus提供，无需重复创建
+        console.log('📋 MessageEventBus兼容接口已由UnifiedEventBus统一提供');
     }
 
     /**

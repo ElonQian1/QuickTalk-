@@ -118,5 +118,10 @@
     return issues;
   };
 
-  console.log('✅ state-texts-validate 已加载 (validateStateTextsSchema)');
+  // 模块注册
+  if (typeof window.ModuleLoader?.registerModule === 'function') {
+      window.ModuleLoader.registerModule('state-texts-validate', 'core', 'state-texts-validate 已加载 (validateStateTextsSchema)');
+  } else {
+      console.log('✅ state-texts-validate 已加载 (validateStateTextsSchema)');
+  }
 })();

@@ -46,5 +46,10 @@
   }
 
   window.exportTextUsageHotspots = exportTextUsageHotspots;
-  console.log('✅ text-usage-hotspots 已加载 (exportTextUsageHotspots)');
+  // 模块注册
+  if (typeof window.ModuleLoader?.registerModule === 'function') {
+      window.ModuleLoader.registerModule('text-usage-hotspots', 'core', 'text-usage-hotspots 已加载 (exportTextUsageHotspots)');
+  } else {
+      console.log('✅ text-usage-hotspots 已加载 (exportTextUsageHotspots)');
+  }
 })();

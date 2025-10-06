@@ -72,5 +72,10 @@
     return QT_CONFIG;
   };
 
-  console.log('🧩 QT_CONFIG 已初始化 v'+QT_CONFIG.version);
+  // 模块注册
+  if (typeof window.ModuleLoader?.registerModule === 'function') {
+      window.ModuleLoader.registerModule('qt-config', 'core', 'QT_CONFIG 已初始化 v'+QT_CONFIG.version);
+  } else {
+      console.log('🧩 QT_CONFIG 已初始化 v'+QT_CONFIG.version);
+  }
 })();

@@ -9,11 +9,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <t    <script src="/static/js/usecases/shops-manager-clean.js"></script>
-    <!-- 统一已读状态管理器 - conversations-manager-clean.js 依赖 -->
-    <script src="/static/js/managers/read-state-manager.js"></script>
-    <script src="/static/js/usecases/conversations-manager-clean.js"></script>
-    <script src="/static/js/usecases/messages-manager-clean.js"></script>QuickTalk 移动端管理后台</title>
+    <title>QuickTalk 移动端管理后台</title>
     
     <!-- 全局基础样式（优先级最高，放在最前） -->
     <link rel="stylesheet" href="/static/css/reset.css">
@@ -119,14 +115,22 @@
     </div>
 
     <!-- 引入模块化JS文件 (必须在主脚本之前加载) -->
-    <!-- 0. 全局工具库（最优先加载，避免重复代码） -->
+    <!-- 0. 模块加载器（最优先，为其他模块提供注册功能） -->
+    <script src="/static/js/core/module-loader.js"></script>
+    
+    <!-- 1. 全局工具库（需要ModuleLoader支持） -->
     <script src="/static/js/utils/global-utils.js"></script>
     
-    <!-- 1. 核心基础设施（必须最先加载） -->
+    <!-- 2. 核心基础设施（必须最先加载） -->
     <script src="/static/js/core/module-registry.js"></script>
     <script src="/static/js/core/module-loader-compat.js"></script>
     <script src="/static/js/core/constants.js"></script>
+    <!-- BaseManager 基础类必须在使用它的Manager之前加载 -->
+    <script src="/static/js/core/base-manager.js"></script>
+        <!-- 🧠 核心基础设施 -->
     <script src="/static/js/core/logger.js"></script>
+    <script src="/static/js/core/manager-factory.js"></script>
+    <script src="/static/js/core/read-state-manager.js"></script>
     
     <!-- 1.0 统一日志系统（最早加载，为其他模块提供日志服务） -->
     <script src="/static/js/core/unified-logger.js"></script>
@@ -136,6 +140,8 @@
     <script src="/static/js/core/event-migration-compat.js"></script>
     
     <!-- 1.2 统一API管理器（消除重复API调用，提供智能缓存） -->
+        <!-- 2. 核心工具类（API、数据、事件等基础设施） -->
+    <script src="/static/js/core/unified-fetch.js"></script>
     <script src="/static/js/core/unified-api-manager.js"></script>
     <script src="/static/js/core/api-migration-adapter.js"></script>
     
@@ -359,16 +365,16 @@
     
     <!-- 重构版业务管理器模块（usecases） - 拆分后的独立模块 -->
     <script src="/static/js/usecases/shops-manager.js"></script>
-    <!-- 统一已读状态管理器 - conversations-manager.js 依赖 -->
+    <!-- 统一已读状态管理器 - conversations-manager-clean.js 依赖 -->
     <script src="/static/js/core/unified-read-manager.js"></script>
-    <script src="/static/js/usecases/conversations-manager.js"></script>
-    <script src="/static/js/usecases/messages-manager.js"></script>
+    <script src="/static/js/usecases/conversations-manager-clean.js"></script>
+    <script src="/static/js/usecases/messages-manager-clean.js"></script>
     <script src="/static/js/usecases/media-handler.js"></script>
 
     <!-- 原版管理器（已暂停加载以避免重复实例化；保留文件以备回滚） -->
     <!-- <script src="/static/js/usecases/shops-manager.js"></script> -->
-    <!-- <script src="/static/js/usecases/conversations-manager.js"></script> -->
-    <!-- <script src="/static/js/usecases/messages-manager.js"></script> -->
+    <!-- <script src="/static/js/usecases/conversations-manager-clean.js"></script> -->
+    <!-- <script src="/static/js/usecases/messages-manager-clean.js"></script> -->
     <!-- Legacy 名称兼容别名（需在重构版加载后、其它依赖使用前） -->
     <script src="/static/js/bootstrap/legacy-managers-alias.js"></script>
 

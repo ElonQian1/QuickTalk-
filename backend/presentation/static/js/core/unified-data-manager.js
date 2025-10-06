@@ -21,7 +21,6 @@
         constructor(options = {}) {
             this.options = {
                 debug: false,
-                cacheTimeout: 30000,
                 enableOfflineCache: true,
                 enableAutoSync: true,
                 syncInterval: 60000, // 1分钟自动同步
@@ -30,6 +29,12 @@
 
             // 使用统一日志系统
             this.logger = window.getLogger ? window.getLogger('DataManager', { enableDebug: this.options.debug }) : null;
+
+            // 使用统一的fetch工具，消除重复的HTTP请求逻辑
+            this.fetch = window.unifiedFetch || new (window.UnifiedFetch || class MockFetch {
+                async get() { throw new Error('UnifiedFetch未加载'); }
+                async post() { throw new Error('UnifiedFetch未加载'); }
+            })();
 
             // 数据存储
             this.stores = {
@@ -149,7 +154,9 @@
                     await this.apiManager.request('/api/shops', {
                         headers: { 'Authorization': localStorage.getItem('authToken') || '' }
                     }) : 
-                    await this._fallbackFetch('/api/shops');
+                    await this.fetch.get('/api/shops', {
+                        headers: { 'Authorization': localStorage.getItem('authToken') || '' }
+                    });
 
                 if (shops && Array.isArray(shops)) {
                     this._updateShopsStore(shops);
@@ -216,7 +223,9 @@
                     await this.apiManager.request(url, {
                         headers: { 'Authorization': localStorage.getItem('authToken') || '' }
                     }) :
-                    await this._fallbackFetch(url);
+                    await this.fetch.get(url, {
+                        headers: { 'Authorization': localStorage.getItem('authToken') || '' }
+                    });
 
                 if (conversations && Array.isArray(conversations)) {
                     const cacheKey = `conversations_${shopId}`;
@@ -273,7 +282,9 @@
                     await this.apiManager.request(url, {
                         headers: { 'Authorization': localStorage.getItem('authToken') || '' }
                     }) :
-                    await this._fallbackFetch(url);
+                    await this.fetch.get(url, {
+                        headers: { 'Authorization': localStorage.getItem('authToken') || '' }
+                    });
 
                 if (messages && Array.isArray(messages)) {
                     const cacheKey = `messages_${conversationId}`;
@@ -320,21 +331,6 @@
             }
             
             return Array.from(this.stores[stateKey].values());
-        }
-
-        /**
-         * 降级fetch
-         */
-        async _fallbackFetch(url) {
-            const response = await fetch(url, {
-                headers: { 'Authorization': localStorage.getItem('authToken') || '' }
-            });
-            
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-            
-            return response.json();
         }
 
         /**
@@ -431,6 +427,11 @@
     window.unifiedDataSyncManager = globalDataManager;
     window.mobileDataSyncManager = globalDataManager;
 
-    console.log('✅ 统一数据管理器已加载 (UnifiedDataManager)');
+    // 模块注册
+    if (typeof window.ModuleLoader?.registerModule === 'function') {
+        window.ModuleLoader.registerModule('unified-data-manager', 'core', '统一数据管理器已加载 (UnifiedDataManager)');
+    } else {
+        console.log('✅ 统一数据管理器已加载 (UnifiedDataManager)');
+    }
 
 })();

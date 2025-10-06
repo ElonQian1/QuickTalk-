@@ -14,5 +14,10 @@
     try { return new Date(ts).toLocaleString(); } catch(_){ return placeholders.lastMessage; }
   }
   window.Formatters = { placeholders, lastMessageTime };
-  console.log('✅ Formatters 已加载');
+// 模块注册
+if (typeof window.ModuleLoader?.registerModule === 'function') {
+    window.ModuleLoader.registerModule('formatters', 'core', 'Formatters 已加载');
+} else {
+    console.log('✅ Formatters 已加载');
+}
 })();

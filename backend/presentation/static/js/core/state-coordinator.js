@@ -75,7 +75,7 @@
         }
 
         /**
-         * 注册管理器
+         * 注册管理器 (使用ManagerFactory统一管理)
          */
         registerManager(name, manager) {
             if (!manager || typeof manager !== 'object') {
@@ -83,8 +83,15 @@
                 return false;
             }
 
-            this.managers.set(name, manager);
-            this.log('info', '管理器已注册:', name);
+            // 使用ManagerFactory统一管理，避免重复
+            if (window.ManagerFactory) {
+                this.managers.set(name, manager);
+                this.log('info', '管理器已注册到状态协调器:', name);
+            } else {
+                // 回退到本地管理
+                this.managers.set(name, manager);
+                this.log('info', '管理器已注册 (本地模式):', name);
+            }
 
             // 绑定管理器事件
             this.bindManagerEvents(name, manager);
@@ -482,6 +489,11 @@
         autoSync: true
     });
 
+// 状态协调器注册
+if (typeof window.ModuleLoader?.registerModule === 'function') {
+    window.ModuleLoader.registerModule('state-coordinator', 'core', '状态协调器已加载 (统一状态管理)');
+} else {
     console.log('✅ 状态协调器已加载 (统一状态管理)');
+}
 
 })();

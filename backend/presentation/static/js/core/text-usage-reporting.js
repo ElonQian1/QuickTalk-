@@ -234,5 +234,10 @@
     lastFlushTs: 0
   };
 
-  console.log('✅ text-usage-reporting 已加载 (configureTextUsageReporting)');
+  // 模块注册
+  if (typeof window.ModuleLoader?.registerModule === 'function') {
+      window.ModuleLoader.registerModule('text-usage-reporting', 'core', 'text-usage-reporting 已加载 (configureTextUsageReporting)');
+  } else {
+      console.log('✅ text-usage-reporting 已加载 (configureTextUsageReporting)');
+  }
 })();

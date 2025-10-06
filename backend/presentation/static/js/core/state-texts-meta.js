@@ -14,5 +14,10 @@
     HEARTBEAT_SEND_FAIL: { note: '心跳发送异常日志' },
     ADAPTIVE_HEARTBEAT: { note: '自适应心跳调节结果日志' }
   });
-  console.log('✅ StateTexts Meta 已加载 (__META notes 合并)');
+  // 模块注册
+  if (typeof window.ModuleLoader?.registerModule === 'function') {
+      window.ModuleLoader.registerModule('state-texts-meta', 'core', 'StateTexts Meta 已加载 (__META notes 合并)');
+  } else {
+      console.log('✅ StateTexts Meta 已加载 (__META notes 合并)');
+  }
 })();

@@ -92,5 +92,10 @@
     return { key:p, exists: !!(window.StateTexts && window.StateTexts[p]), suggestion:p + '_GENERIC', reason:'仅提供 prefix，建议加泛化后缀' };
   };
 
-  console.log('✅ state-texts-suggest 已加载 (analyzeStateTextPatterns, suggestStateTextKey)');
+  // 模块注册
+  if (typeof window.ModuleLoader?.registerModule === 'function') {
+      window.ModuleLoader.registerModule('state-texts-suggest', 'core', 'state-texts-suggest 已加载 (analyzeStateTextPatterns, suggestStateTextKey)');
+  } else {
+      console.log('✅ state-texts-suggest 已加载 (analyzeStateTextPatterns, suggestStateTextKey)');
+  }
 })();

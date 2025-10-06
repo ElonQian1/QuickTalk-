@@ -1,7 +1,18 @@
 /**
  * 事件总线迁移适配器 - Event Bus Migration Adapter
  * 
- * 🎯 目的：确保旧代码平滑迁移到 UnifiedEventBus
+ * 🎯            
+            const oldMessageEventBus = window.MessageEventBus;
+            
+            // MessageEventBus已由UnifiedEventBus统一提供，无需重复创建
+            if (!window.MessageEventBus) {
+                console.warn('⚠️ MessageEventBus应该已由UnifiedEventBus提供，请检查加载顺序');
+            } else {
+                console.log('📋 MessageEventBus兼容接口已存在，跳过重复创建');
+            }
+            
+            console.log('✅ MessageEventBus 迁移完成');
+        }edEventBus
  * 
  * 迁移策略：
  * 1. 检测 UnifiedEventBus 是否已加载
@@ -60,19 +71,12 @@
             
             const oldMessageEventBus = window.MessageEventBus;
             
-            // 重定向到统一事件总线
-            window.MessageEventBus = {
-                subscribe: (event, handler) => {
-                    console.debug(`🔀 MessageEventBus.subscribe("${event}") -> UnifiedEventBus.subscribe`);
-                    return window.eventBus.subscribe(event, handler);
-                },
-                publish: (event, payload) => {
-                    console.debug(`🔀 MessageEventBus.publish("${event}") -> UnifiedEventBus.publish`);
-                    window.eventBus.publish(event, payload);
-                },
-                once: (event, handler) => {
-                    console.debug(`🔀 MessageEventBus.once("${event}") -> UnifiedEventBus.once`);
-                    return window.eventBus.once(event, handler);
+            // MessageEventBus已由UnifiedEventBus统一提供，无需重复创建
+            if (!window.MessageEventBus) {
+                console.warn('⚠️ MessageEventBus应该已由UnifiedEventBus提供，请检查加载顺序');
+            } else {
+                console.log('� MessageEventBus兼容接口已存在，跳过重复创建');
+            }
                 },
                 off: (event, handler) => {
                     console.debug(`🔀 MessageEventBus.off("${event}") -> UnifiedEventBus.off`);
