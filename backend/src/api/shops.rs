@@ -7,7 +7,7 @@ use uuid::Uuid;
 use crate::bootstrap::app_state::AppState;
 use crate::auth::SessionExtractor; // 解析会话
 use crate::types::Shop;
-use crate::api::errors::{ApiError, success_empty};
+use crate::api::errors::{ApiError, ApiResult, success, success_empty};
 use crate::api::auth_helpers::{get_admin_info, UserRole, enforce_super_admin};
 use crate::api::response_types::{StandardApiResult, JsonResult, ResponseBuilder};
 use crate::api::input_validators::InputValidators;

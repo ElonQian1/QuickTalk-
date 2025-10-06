@@ -13,6 +13,7 @@ use uuid::Uuid;
 use crate::bootstrap::app_state::AppState;
 use crate::types::ApiResponse;
 use crate::auth::SessionExtractor;
+use crate::api::system_status_helpers::{OperationCollector, SystemStatusHelpers};
 
 pub async fn fix_shop_owners(
     State(state): State<Arc<AppState>>,
@@ -85,15 +86,19 @@ pub async fn fix_shop_owners(
         }
     }
     
-    let result = json!({
-        "fixed_count": fixed_shops.len(),
-        "error_count": fix_errors.len(),
-        "default_owner_id": default_owner_id,
-        "fixed_shops": fixed_shops,
-        "errors": fix_errors
-    });
+    let result = SystemStatusHelpers::repair_result(
+        &fixed_shops.iter().map(|s| s.get("shop_name").unwrap().as_str().unwrap().to_string()).collect::<Vec<_>>(),
+        &fix_errors,
+        "店铺所有者修复",
+        Some(json!({"default_owner_id": default_owner_id, "fixed_shops": fixed_shops}))
+    );
     
-    info!("🎉 店铺所有者修复完成: 成功 {}, 失败 {}", fixed_shops.len(), fix_errors.len());
+    let status_msg = SystemStatusHelpers::operation_status_message(
+        fixed_shops.len(), 
+        fix_errors.len(), 
+        "店铺所有者修复"
+    );
+    info!("{}", status_msg);
     
     Ok(AxumJson(ApiResponse {
         success: fix_errors.is_empty(),
@@ -107,8 +112,7 @@ pub async fn validate_shop_data_integrity(
 ) -> Result<AxumJson<ApiResponse<serde_json::Value>>, StatusCode> {
     info!("🔍 开始验证店铺数据完整性");
     
-    let mut validation_errors = Vec::new();
-    let mut validation_warnings = Vec::new();
+    let mut collector = OperationCollector::new();
     
     let orphaned_shops = sqlx::query("SELECT id, name, owner_id FROM shops WHERE owner_id = '' OR owner_id = 'default_owner' OR owner_id NOT IN (SELECT id FROM admins)")
         .fetch_all(&state.db)
@@ -120,12 +124,12 @@ pub async fn validate_shop_data_integrity(
                 for shop in &shops {
                     let shop_name = shop.get::<String, _>("name");
                     let owner_id = shop.get::<String, _>("owner_id");
-                    validation_errors.push(format!("店铺 '{}' 的所有者ID '{}' 无效或不存在", shop_name, owner_id));
+                    collector.add_error(format!("店铺 '{}' 的所有者ID '{}' 无效或不存在", shop_name, owner_id));
                 }
             }
         }
         Err(e) => {
-            validation_errors.push(format!("查询孤立店铺时出错: {}", e));
+            collector.add_error(format!("查询孤立店铺时出错: {}", e));
         }
     }
     
@@ -138,11 +142,11 @@ pub async fn validate_shop_data_integrity(
             for duplicate in &duplicates {
                 let name = duplicate.get::<String, _>("name");
                 let count = duplicate.get::<i64, _>("count");
-                validation_warnings.push(format!("店铺名称 '{}' 重复 {} 次", name, count));
+                collector.add_warning(format!("店铺名称 '{}' 重复 {} 次", name, count));
             }
         }
         Err(e) => {
-            validation_errors.push(format!("检查重复店铺名称时出错: {}", e));
+            collector.add_error(format!("检查重复店铺名称时出错: {}", e));
         }
     }
     
@@ -155,11 +159,11 @@ pub async fn validate_shop_data_integrity(
             for duplicate in &duplicates {
                 let domain = duplicate.get::<String, _>("domain");
                 let count = duplicate.get::<i64, _>("count");
-                validation_warnings.push(format!("店铺域名 '{}' 重复 {} 次", domain, count));
+                collector.add_warning(format!("店铺域名 '{}' 重复 {} 次", domain, count));
             }
         }
         Err(e) => {
-            validation_errors.push(format!("检查重复域名时出错: {}", e));
+            collector.add_error(format!("检查重复域名时出错: {}", e));
         }
     }
     
@@ -171,37 +175,30 @@ pub async fn validate_shop_data_integrity(
         Ok(invalid_admins) => {
             for admin in &invalid_admins {
                 let admin_id = admin.get::<String, _>("id");
-                validation_errors.push(format!("管理员账号 '{}' 缺少用户名", admin_id));
+                collector.add_error(format!("管理员账号 '{}' 缺少用户名", admin_id));
             }
         }
         Err(e) => {
-            validation_errors.push(format!("检查管理员数据完整性时出错: {}", e));
+            collector.add_error(format!("检查管理员数据完整性时出错: {}", e));
         }
     }
     
-    let validation_result = json!({
-        "is_valid": validation_errors.is_empty(),
-        "errors": validation_errors,
-        "warnings": validation_warnings,
-        "summary": {
-            "error_count": validation_errors.len(),
-            "warning_count": validation_warnings.len(),
-            "status": if validation_errors.is_empty() { "通过" } else { "失败" }
-        }
-    });
+    let validation_result = SystemStatusHelpers::validation_result(
+        &collector.errors,
+        &collector.warnings
+    );
     
-    let status_msg = if validation_errors.is_empty() {
-        "✅ 数据完整性验证通过"
-    } else {
+    let status_msg = collector.status_message(
+        "✅ 数据完整性验证通过",
         "❌ 数据完整性验证失败"
-    };
+    );
     
-    info!("{}: {} 个错误, {} 个警告", status_msg, validation_errors.len(), validation_warnings.len());
+    info!("{}: {} 个错误, {} 个警告", status_msg, collector.errors.len(), collector.warnings.len());
     
     Ok(AxumJson(ApiResponse {
-        success: validation_errors.is_empty(),
+        success: collector.is_success(),
         data: Some(validation_result),
-        message: format!("数据完整性验证完成: {} 个错误, {} 个警告", validation_errors.len(), validation_warnings.len()),
+        message: format!("数据完整性验证完成: {} 个错误, {} 个警告", collector.errors.len(), collector.warnings.len()),
     }))
 }
 
@@ -299,8 +296,7 @@ pub async fn clean_test_data(
         }
     };
     
-    let mut cleanup_results = Vec::new();
-    let mut cleanup_errors = Vec::new();
+    let mut collector = OperationCollector::new();
     
     info!("🗑️ 删除其他管理员账号...");
     let delete_admins_result = sqlx::query("DELETE FROM admins WHERE id != ?")
@@ -312,11 +308,11 @@ pub async fn clean_test_data(
         Ok(result) => {
             let deleted_count = result.rows_affected();
             info!("✅ 删除了 {} 个其他管理员账号", deleted_count);
-            cleanup_results.push(format!("删除了 {} 个其他管理员账号", deleted_count));
+            collector.add_success(format!("删除了 {} 个其他管理员账号", deleted_count));
         }
         Err(e) => {
             error!("❌ 删除管理员账号失败: {}", e);
-            cleanup_errors.push(format!("删除管理员账号失败: {}", e));
+            collector.add_error(format!("删除管理员账号失败: {}", e));
         }
     }
     
@@ -329,11 +325,11 @@ pub async fn clean_test_data(
         Ok(result) => {
             let deleted_count = result.rows_affected();
             info!("✅ 删除了 {} 个测试店铺", deleted_count);
-            cleanup_results.push(format!("删除了 {} 个测试店铺", deleted_count));
+            collector.add_success(format!("删除了 {} 个测试店铺", deleted_count));
         }
         Err(e) => {
             error!("❌ 删除店铺失败: {}", e);
-            cleanup_errors.push(format!("删除店铺失败: {}", e));
+            collector.add_error(format!("删除店铺失败: {}", e));
         }
     }
     
@@ -346,11 +342,11 @@ pub async fn clean_test_data(
         Ok(result) => {
             let deleted_count = result.rows_affected();
             info!("✅ 删除了 {} 个客户记录", deleted_count);
-            cleanup_results.push(format!("删除了 {} 个客户记录", deleted_count));
+            collector.add_success(format!("删除了 {} 个客户记录", deleted_count));
         }
         Err(e) => {
             error!("❌ 删除客户数据失败: {}", e);
-            cleanup_errors.push(format!("删除客户数据失败: {}", e));
+            collector.add_error(format!("删除客户数据失败: {}", e));
         }
     }
     
@@ -368,10 +364,10 @@ pub async fn clean_test_data(
             let deleted_messages = messages_result.rows_affected();
             let deleted_conversations = conversations_result.rows_affected();
             info!("✅ 删除了 {} 条消息和 {} 个对话", deleted_messages, deleted_conversations);
-            cleanup_results.push(format!("删除了 {} 条消息和 {} 个对话", deleted_messages, deleted_conversations));
+            collector.add_success(format!("删除了 {} 条消息和 {} 个对话", deleted_messages, deleted_conversations));
         }
         _ => {
-            cleanup_errors.push("删除对话或消息数据时出错".to_string());
+            collector.add_error("删除对话或消息数据时出错".to_string());
         }
     }
     
@@ -379,33 +375,36 @@ pub async fn clean_test_data(
     let _ = sqlx::query("DELETE FROM activation_orders").execute(&state.db).await;
     let _ = sqlx::query("DELETE FROM employees").execute(&state.db).await;
     
-    cleanup_results.push("清理了激活订单和员工数据".to_string());
+    collector.add_success("清理了激活订单和员工数据".to_string());
     
-    let result = json!({
-        "success": cleanup_errors.is_empty(),
+    let extra_data = json!({
         "kept_user": {
             "username": keep_username,
             "id": keep_user_id
-        },
-        "cleanup_results": cleanup_results,
-        "errors": cleanup_errors,
-        "summary": {
-            "operations_count": cleanup_results.len(),
-            "errors_count": cleanup_errors.len()
         }
     });
     
-    let status_msg = if cleanup_errors.is_empty() {
-        "🎉 测试数据清理完成"
-    } else {
+    let combined_data = json!({
+        "success": collector.is_success(),
+        "kept_user": extra_data["kept_user"],
+        "cleanup_results": collector.successes,
+        "errors": collector.errors,
+        "summary": {
+            "operations_count": collector.successes.len(),
+            "errors_count": collector.errors.len()
+        }
+    });
+    
+    let status_msg = collector.status_message(
+        "🎉 测试数据清理完成", 
         "⚠️ 测试数据清理部分完成，有错误"
-    };
+    );
     
     info!("{}", status_msg);
     
     Ok(AxumJson(ApiResponse {
-        success: cleanup_errors.is_empty(),
-        data: Some(result),
+        success: collector.is_success(),
+        data: Some(combined_data),
         message: format!("测试数据清理完成，保留用户: {}", keep_username),
     }))
 }
@@ -424,14 +423,13 @@ pub async fn force_clean_shops(
     if role != "super_admin" { return Err(StatusCode::FORBIDDEN); }
     info!("🧹 强制清理所有店铺数据");
     
-    let mut cleanup_results = Vec::new();
-    let mut cleanup_errors = Vec::new();
+    let mut collector = OperationCollector::new();
     
     let disable_fk_result = sqlx::query("PRAGMA foreign_keys = OFF").execute(&state.db).await;
     if disable_fk_result.is_err() {
-        cleanup_errors.push("禁用外键约束失败".to_string());
+        collector.add_error("禁用外键约束失败".to_string());
     } else {
-        cleanup_results.push("已禁用外键约束".to_string());
+        collector.add_success("已禁用外键约束".to_string());
     }
     
     let delete_shops_result = sqlx::query("DELETE FROM shops").execute(&state.db).await;
@@ -439,11 +437,11 @@ pub async fn force_clean_shops(
         Ok(result) => {
             let deleted_count = result.rows_affected();
             info!("✅ 强制删除了 {} 个店铺", deleted_count);
-            cleanup_results.push(format!("强制删除了 {} 个店铺", deleted_count));
+            collector.add_success(format!("强制删除了 {} 个店铺", deleted_count));
         }
         Err(e) => {
             error!("❌ 强制删除店铺失败: {}", e);
-            cleanup_errors.push(format!("强制删除店铺失败: {}", e));
+            collector.add_error(format!("强制删除店铺失败: {}", e));
         }
     }
     
@@ -451,40 +449,39 @@ pub async fn force_clean_shops(
     match delete_orders_result {
         Ok(result) => {
             let deleted_count = result.rows_affected();
-            cleanup_results.push(format!("删除了 {} 个激活订单", deleted_count));
+            collector.add_success(format!("删除了 {} 个激活订单", deleted_count));
         }
         Err(e) => {
-            cleanup_errors.push(format!("删除激活订单失败: {}", e));
+            collector.add_error(format!("删除激活订单失败: {}", e));
         }
     }
     
     let enable_fk_result = sqlx::query("PRAGMA foreign_keys = ON").execute(&state.db).await;
     if enable_fk_result.is_err() {
-        cleanup_errors.push("重新启用外键约束失败".to_string());
+        collector.add_error("重新启用外键约束失败".to_string());
     } else {
-        cleanup_results.push("已重新启用外键约束".to_string());
+        collector.add_success("已重新启用外键约束".to_string());
     }
     
     let result = json!({
-        "success": cleanup_errors.is_empty(),
-        "cleanup_results": cleanup_results,
-        "errors": cleanup_errors,
+        "success": collector.is_success(),
+        "cleanup_results": collector.successes,
+        "errors": collector.errors,
         "summary": {
-            "operations_count": cleanup_results.len(),
-            "errors_count": cleanup_errors.len()
+            "operations_count": collector.successes.len(),
+            "errors_count": collector.errors.len()
         }
     });
     
-    let status_msg = if cleanup_errors.is_empty() {
-        "🎉 店铺强制清理完成"
-    } else {
+    let status_msg = collector.status_message(
+        "🎉 店铺强制清理完成",
         "⚠️ 店铺强制清理部分完成，有错误"
-    };
+    );
     
     info!("{}", status_msg);
     
     Ok(AxumJson(ApiResponse {
-        success: cleanup_errors.is_empty(),
+        success: collector.is_success(),
         data: Some(result),
         message: "店铺强制清理完成".to_string(),
     }))
@@ -495,12 +492,11 @@ pub async fn reset_database(
 ) -> Result<AxumJson<ApiResponse<serde_json::Value>>, StatusCode> {
     info!("🔄 执行数据库完全重置");
     
-    let mut reset_results = Vec::new();
-    let mut reset_errors = Vec::new();
+    let mut collector = OperationCollector::new();
     
     let disable_fk = sqlx::query("PRAGMA foreign_keys = OFF").execute(&state.db).await;
     if disable_fk.is_err() {
-        reset_errors.push("禁用外键约束失败".to_string());
+        collector.add_error("禁用外键约束失败".to_string());
     }
     
     let tables = vec!["messages", "conversations", "customers", "employees", "activation_orders", "shops", "admins"];
@@ -510,11 +506,11 @@ pub async fn reset_database(
         match delete_result {
             Ok(result) => {
                 let deleted_count = result.rows_affected();
-                reset_results.push(format!("清空表 {}: {} 条记录", table, deleted_count));
+                collector.add_success(format!("清空表 {}: {} 条记录", table, deleted_count));
                 info!("✅ 清空表 {}: {} 条记录", table, deleted_count);
             }
             Err(e) => {
-                reset_errors.push(format!("清空表 {} 失败: {}", table, e));
+                collector.add_error(format!("清空表 {} 失败: {}", table, e));
                 error!("❌ 清空表 {} 失败: {}", table, e);
             }
         }
@@ -522,7 +518,7 @@ pub async fn reset_database(
     
     let enable_fk = sqlx::query("PRAGMA foreign_keys = ON").execute(&state.db).await;
     if enable_fk.is_err() {
-        reset_errors.push("重新启用外键约束失败".to_string());
+        collector.add_error("重新启用外键约束失败".to_string());
     }
     
     let mut verification = Vec::new();
@@ -540,26 +536,25 @@ pub async fn reset_database(
     }
     
     let result = json!({
-        "success": reset_errors.is_empty(),
-        "reset_results": reset_results,
-        "errors": reset_errors,
+        "success": collector.is_success(),
+        "reset_results": collector.successes,
+        "errors": collector.errors,
         "verification": verification,
         "summary": {
             "tables_processed": tables.len(),
-            "errors_count": reset_errors.len()
+            "errors_count": collector.errors.len()
         }
     });
     
-    let status_msg = if reset_errors.is_empty() {
-        "🎉 数据库完全重置成功"
-    } else {
+    let status_msg = collector.status_message(
+        "🎉 数据库完全重置成功",
         "⚠️ 数据库重置部分完成，有错误"
-    };
+    );
     
     info!("{}", status_msg);
     
     Ok(AxumJson(ApiResponse {
-        success: reset_errors.is_empty(),
+        success: collector.is_success(),
         data: Some(result),
         message: "数据库完全重置完成".to_string(),
     }))
