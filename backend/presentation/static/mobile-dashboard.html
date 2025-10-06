@@ -127,11 +127,31 @@
     <script src="/static/js/core/module-loader-compat.js"></script>
     <script src="/static/js/core/constants.js"></script>
     <script src="/static/js/core/logger.js"></script>
-    <script src="/static/js/core/event-bus.js"></script>
+    
+    <!-- 1.0 统一日志系统（最早加载，为其他模块提供日志服务） -->
+    <script src="/static/js/core/unified-logger.js"></script>
+    
+    <!-- 1.1 统一事件系统（替代重复的EventBus和MessageEventBus） -->
+    <script src="/static/js/core/unified-event-bus.js"></script>
+    <script src="/static/js/core/event-migration-compat.js"></script>
+    
+    <!-- 1.2 统一API管理器（消除重复API调用，提供智能缓存） -->
+    <script src="/static/js/core/unified-api-manager.js"></script>
+    <script src="/static/js/core/api-migration-adapter.js"></script>
+    
+    <!-- 1.3 统一数据管理器（消除重复的DataSyncManager等） -->
+    <script src="/static/js/core/unified-data-manager.js"></script>
+    
+    <!-- 1.4 统一消息处理器（消除重复的WebSocket消息处理逻辑） -->
+    <script src="/static/js/core/unified-message-processor.js"></script>
+    
     <!-- 响应式视图管理器 -->
     <script src="/static/js/core/responsive-view-manager.js"></script>
-    <!-- 新增 消息域核心 (事件总线/类型/状态/发送/渲染/typing) -->
+    <!-- 新增 消息域核心 (类型/状态/发送/渲染/typing) -->
+    <!-- 注释掉原有的事件总线，使用统一事件系统
+    <script src="/static/js/core/event-bus.js"></script>
     <script src="/static/js/message/core/message-event-bus.js"></script>
+    -->
     <script src="/static/js/message/core/message-type-registry.js"></script>
     <script src="/static/js/message/core/message-state-store.js"></script>
     <script src="/static/js/message/core/message-sender.js"></script>

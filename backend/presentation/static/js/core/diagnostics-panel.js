@@ -61,6 +61,21 @@
   }
   function _wsRenderHeartbeatQuality(wrap, pf){ if (!pf.heartbeatQuality) return; const q=pf.heartbeatQuality; const badge=_el('div'); const color=q.level==='good'?'#2e8b57':(q.level==='warning'?'#b8860b':'#b22222'); badge.style.cssText='margin:4px 0 8px;padding:4px 6px;border:1px solid #333;border-radius:4px;font-size:11px;display:inline-block;background:#1c1c1c;'; badge.innerHTML=`<span style="display:inline-block;margin-right:6px;padding:2px 6px;border-radius:3px;background:${color};color:#fff;font-weight:600;">${q.level}</span><span>p50=${q.metrics.p50||'-'} p90=${q.metrics.p90||'-'} jitter=${q.metrics.jitter||'-'}</span>`; wrap.appendChild(badge); }
   function _wsRenderHealthScore(wrap, pf){ if (!pf.healthScore) return; const hs=pf.healthScore; const badge=_el('div'); const color=hs.score>=85?'#2e8b57':(hs.score>=70?'#b8860b':'#b22222'); badge.style.cssText='margin:4px 0 6px;padding:5px 8px;border:1px solid #333;border-radius:5px;font-size:11px;display:flex;flex-direction:column;background:#181818;gap:4px;'; const encoded=encodeURIComponent(JSON.stringify(hs)); const hasRecov=typeof hs.breakdown.recovery==='number'; const brStr=`(R ${hs.breakdown.reconnect} | H ${hs.breakdown.heartbeat} | G ${hs.breakdown.spikesGlobal} | C ${hs.breakdown.spikesCategory}${hasRecov? ' | Rv '+hs.breakdown.recovery:''})`; badge.innerHTML=`<div style="display:flex;align-items:center;gap:8px;"><span data-hs-detail="${encoded}" style="background:${color};color:#fff;padding:2px 8px;border-radius:4px;font-weight:600;cursor:pointer;" title="点击查看健康评分明细">Health ${hs.score}</span><span style="opacity:.8;">${brStr}</span></div>`; wrap.appendChild(badge); }
+  // 维护 HealthScore 历史并追加 sparkline（限定长度 24）
+  function _wsRenderHealthScore(wrap, pf){
+    if (!pf.healthScore) return; const hs=pf.healthScore;
+    if (!Array.isArray(window.__WS_HEALTH_HISTORY__)) window.__WS_HEALTH_HISTORY__=[];
+    window.__WS_HEALTH_HISTORY__.push(hs.score);
+    if (window.__WS_HEALTH_HISTORY__.length>48) window.__WS_HEALTH_HISTORY__.splice(0, window.__WS_HEALTH_HISTORY__.length-48);
+    const trend = _miniSparkline(window.__WS_HEALTH_HISTORY__);
+    const badge=_el('div'); const color=hs.score>=85?'#2e8b57':(hs.score>=70?'#b8860b':'#b22222');
+    badge.style.cssText='margin:4px 0 6px;padding:5px 8px;border:1px solid #333;border-radius:5px;font-size:11px;display:flex;flex-direction:column;background:#181818;gap:4px;';
+    const encoded=encodeURIComponent(JSON.stringify(hs));
+    const hasRecov=typeof hs.breakdown.recovery==='number';
+    const brStr=`(R ${hs.breakdown.reconnect} | H ${hs.breakdown.heartbeat} | G ${hs.breakdown.spikesGlobal} | C ${hs.breakdown.spikesCategory}${hasRecov? ' | Rv '+hs.breakdown.recovery:''})`;
+    badge.innerHTML=`<div style="display:flex;align-items:center;gap:8px;"><span data-hs-detail="${encoded}" style="background:${color};color:#fff;padding:2px 8px;border-radius:4px;font-weight:600;cursor:pointer;" title="点击查看健康评分明细">Health ${hs.score}</span><span style="opacity:.8;">${brStr}</span><span style='font-family:monospace;opacity:.85;' title='Recent Health Trend'>${trend}</span></div>`;
+    wrap.appendChild(badge);
+  }
   // 派生健康权重：若 hs.weights 不存在，用 breakdown 相对值近似
   function _deriveHealthWeights(hs){
     if (hs && hs.weights && Object.keys(hs.weights).length) return hs.weights;
@@ -415,7 +430,7 @@ body.appendChild(tbl);
         // 风险/基本视图切换容器
         const viewCtrl=_el('div');
         viewCtrl.style.cssText='display:flex;align-items:center;gap:8px;margin:4px 0 6px;font-size:11px;';
-        viewCtrl.innerHTML = `<button data-cat-view="basic" class="qt-btn-on" style="background:#333;border:1px solid #555;color:#ccc;padding:2px 8px;border-radius:4px;cursor:pointer;">Basic</button><button data-cat-view="risk" style="background:#222;border:1px solid #444;color:#999;padding:2px 8px;border-radius:4px;cursor:pointer;">Risk</button><span style="opacity:.6;">Categories (window ${(data.wsCats.windowMs/1000)|0}s)</span>`;
+  viewCtrl.innerHTML = `<button data-cat-view="basic" class="qt-btn-on" style="background:#333;border:1px solid #555;color:#ccc;padding:2px 8px;border-radius:4px;cursor:pointer;">Basic</button><button data-cat-view="risk" style="background:#222;border:1px solid #444;color:#999;padding:2px 8px;border-radius:4px;cursor:pointer;">Risk</button><button data-cat-risk-explain style="background:#2a2a2a;border:1px solid #444;color:#bbb;padding:2px 8px;border-radius:4px;cursor:pointer;">Explain</button><button data-cat-risk-adjust style="background:#2d2d2d;border:1px solid #555;color:#ccc;padding:2px 8px;border-radius:4px;cursor:pointer;">Adjust</button><span style="opacity:.6;">Categories (window ${(data.wsCats.windowMs/1000)|0}s)</span>`;
         body.appendChild(viewCtrl);
         const tbl = _el('table','qt-diag-table'); body.appendChild(tbl);
         function renderCatBasic(){
@@ -446,6 +461,99 @@ body.appendChild(tbl);
             e.target.classList.add('qt-btn-on');
             const mode=e.target.getAttribute('data-cat-view');
             if (mode==='risk') renderCatRisk(); else renderCatBasic();
+          }
+          if (e.target && e.target.hasAttribute('data-cat-risk-explain')){
+            // 构造一次性说明内容（避免重复变量与函数）
+            const formulaHtml = `<div class='sec' style='font-size:12px;line-height:1.45;'>
+              <div><b>RiskScore 组成:</b></div>
+              <div style='margin-top:4px;font-family:ui-monospace,monospace;'>score = ratePerMin
+                + freshness*0.8
+                + min(count/500, 0.5)
+                + spikeFactor*0.9
+                + spikeStreak*0.05
+                + (spikeSustained?0.2:0)</div>
+              <ul style='margin:6px 0 0 18px;padding:0;'>
+                <li><b>ratePerMin</b>: 当前分类每分钟速率</li>
+                <li><b>freshness</b>: 最近活跃度 (0~1, 基于最后消息时间分段)</li>
+                <li><b>count/500</b>: 总量归一（上限0.5）</li>
+                <li><b>spikeFactor</b>: 与基线对比倍数主贡献</li>
+                <li><b>spikeStreak</b>: 连续 spike 次数微调</li>
+                <li><b>spikeSustained</b>: 持续尖峰奖励 +0.2</li>
+              </ul>
+              <div style='margin-top:6px;opacity:.75;'>本模型仅用于 UI 相对排序，后续可引入权重配置与阈值标色。</div>
+            </div>`;
+            // 抽取前 3 个风险结果做示例贡献分解
+            const sample = _computeCategoryRisk(data.wsCats).slice(0,3);
+            const rows = sample.map(s=>{
+              const c = data.wsCats.categories[s.cat];
+              const rate = c.ratePerMin||0; const ageSec = c.lastTs? (Date.now()-c.lastTs)/1000 : 99999;
+              const freshness = ageSec>3600?0:(ageSec>600?0.3:(ageSec>120?0.6:1));
+              const countAdj = Math.min((c.count||0)/500, 0.5);
+              const spikeF = c.spikeFactor||0; const spikeStreak=c.spikeStreak||0; const sustain = c.spikeSustained?0.2:0;
+              const partRate = rate;
+              const partFresh = +(freshness*0.8).toFixed(3);
+              const partCount = +countAdj.toFixed(3);
+              const partSpikeF = +(spikeF*0.9).toFixed(3);
+              const partStreak = +(spikeStreak*0.05).toFixed(3);
+              const partSustain = +sustain.toFixed(3);
+              return `<tr><td>${s.cat}</td><td>${partRate}</td><td>${partFresh}</td><td>${partCount}</td><td>${partSpikeF}</td><td>${partStreak}</td><td>${partSustain}</td><td>${s.score}</td></tr>`;
+            }).join('') || '<tr><td colspan=8>-</td></tr>';
+            const table = `<div class='sec'><b>示例贡献分解 (Top3)</b><table style='width:100%;border-collapse:collapse;font-size:11px;margin-top:4px;'><thead><tr><th>Cat</th><th>rate</th><th>fresh</th><th>count</th><th>spikeF</th><th>streak</th><th>sustain</th><th>Total</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+            _openOverlay('qt-cat-risk-explain', { title:'Category Risk Explain', html: formulaHtml + table });
+          }
+          if (e.target && e.target.hasAttribute('data-cat-risk-adjust')){
+            // 权重调参原型：不修改原 score 计算，只做预览排序
+            const DEFAULT_W = { rate:1, freshness:0.8, count:1, spikeFactor:0.9, spikeStreak:0.05, spikeSustain:0.2 };
+            function getRawFactors(c){
+              const rate = c.ratePerMin||0;
+              const ageSec = c.lastTs? (Date.now()-c.lastTs)/1000 : 999999;
+              const freshness = ageSec>3600?0:(ageSec>600?0.3:(ageSec>120?0.6:1));
+              const countAdj = Math.min((c.count||0)/500, 0.5);
+              const spikeFactor = c.spikeFactor||0;
+              const spikeStreak = c.spikeStreak||0;
+              const spikeSustain = c.spikeSustained?1:0; // 用 0/1 * weight
+              return { rate, freshness, count:countAdj, spikeFactor, spikeStreak, spikeSustain };
+            }
+            function computeCustomScores(weights){
+              const list=[]; const cats=data.wsCats.categories;
+              Object.keys(cats).forEach(cat=>{
+                const f=getRawFactors(cats[cat]);
+                const score = f.rate*weights.rate + f.freshness*weights.freshness + f.count*weights.count + f.spikeFactor*weights.spikeFactor + f.spikeStreak*weights.spikeStreak + f.spikeSustain*weights.spikeSustain;
+                list.push({ cat, score:+score.toFixed(3), factors:f });
+              });
+              list.sort((a,b)=> b.score - a.score);
+              return list;
+            }
+            const w = { ...DEFAULT_W };
+            let html=`<div style='display:flex;flex-wrap:wrap;gap:6px;margin-bottom:4px;font-size:11px;'>`+
+              Object.keys(w).map(k=>`<label style='display:flex;flex-direction:column;gap:2px;'>${k}<input data-crw='${k}' value='${w[k]}' style='width:70px;background:#111;border:1px solid #333;color:#ccc;font-size:11px;padding:2px 4px;border-radius:3px;'></label>`).join('')+
+              `<button data-crw-apply style='align-self:flex-end;background:#333;border:1px solid #555;color:#ccc;padding:4px 10px;border-radius:4px;cursor:pointer;height:30px;'>Apply</button>`+
+              `<button data-crw-reset style='align-self:flex-end;background:#222;border:1px solid #444;color:#aaa;padding:4px 10px;border-radius:4px;cursor:pointer;height:30px;'>Reset</button>`+
+              `<span data-crw-hint style='margin-left:auto;opacity:.7;align-self:flex-end;'>Edit weights then Apply</span>`+
+              `</div>`;
+            html += `<div data-crw-table style='max-height:300px;overflow:auto;font-size:11px;'></div>`;
+            const ov=_openOverlay('qt-cat-risk-adjust', { title:'Category Risk Adjust', html });
+            if (ov){
+              const renderTable=(weights)=>{
+                const list=computeCustomScores(weights).slice(0,50);
+                const rows=list.map((r,i)=>`<tr><td>${i+1}</td><td>${r.cat}</td><td>${r.score}</td><td>${r.factors.rate}</td><td>${r.factors.freshness}</td><td>${r.factors.count}</td><td>${r.factors.spikeFactor}</td><td>${r.factors.spikeStreak}</td><td>${r.factors.spikeSustain}</td></tr>`).join('')||'<tr><td colspan=9>-</td></tr>';
+                ov.panel.querySelector('[data-crw-table]').innerHTML = `<table class='qt-diag-table'><thead><tr><th>#</th><th>Cat</th><th>Score*</th><th>rate</th><th>fresh</th><th>count</th><th>spikeF</th><th>streak</th><th>sustain</th></tr></thead><tbody>${rows}</tbody></table>`;
+              };
+              renderTable(w);
+              ov.panel.addEventListener('click', ev=>{
+                if (ev.target && ev.target.hasAttribute('data-crw-apply')){
+                  const inputs=ov.panel.querySelectorAll('input[data-crw]'); const nw={};
+                  inputs.forEach(inp=>{ const k=inp.getAttribute('data-crw'); const v=parseFloat(inp.value); if(!isNaN(v)) nw[k]=v; });
+                  // 不做归一化，直接线性组合；提示使用 *Score
+                  Object.keys(DEFAULT_W).forEach(k=>{ if(nw[k]==null) nw[k]=DEFAULT_W[k]; });
+                  renderTable(nw);
+                }
+                if (ev.target && ev.target.hasAttribute('data-crw-reset')){
+                  Object.keys(DEFAULT_W).forEach(k=>{ const inp=ov.panel.querySelector(`input[data-crw='${k}']`); if (inp) inp.value=DEFAULT_W[k]; });
+                  renderTable({ ...DEFAULT_W });
+                }
+              });
+            }
           }
         });
         // 分类 Spike 参数 + 表格
@@ -498,18 +606,11 @@ body.appendChild(tbl);
                 let spark='';
                 try {
                   if (window.__WS_SPARK_HIST__){
-                    // 记录分类历史（只在有 spikes 项时记录一次）
                     if (typeof window.__WS_SPARK_HIST__.recordCategories==='function') window.__WS_SPARK_HIST__.recordCategories(catSp.items);
                     const hist = window.__WS_SPARK_HIST__.getCategoryHistory(it.category);
-                    if (hist.length>1){
-                      const min=Math.min.apply(null,hist); const max=Math.max.apply(null,hist);
-                      if (max>min){
-                        const chars='▁▂▃▄▅▆▇█';
-                        spark = hist.slice(-12).map(v=>{ const idx=Math.floor(((v-min)/(max-min))*(chars.length-1)); return chars[idx]; }).join('');
-                      } else { spark='—'; }
-                    }
+                    spark = _miniSparkline(hist || []);
                   }
-                } catch(_){ }
+                } catch(_){ spark='—'; }
                 tr.innerHTML=`<td>${i+1}</td><td>${it.category}</td><td>${it.ratePerMin}</td><td>${it.count}</td><td>${it.factor}</td><td>${it.streak||1}</td><td>${it.sustained?'✔':'-'}</td><td>${it.recovering? 'R':''}</td><td>${recAge}</td><td style=\"font-family:monospace;\">${spark}</td>`;
                 stb.appendChild(tr);
               });
@@ -679,6 +780,11 @@ body.appendChild(tbl);
                     <button data-save style='background:#333;border:1px solid #555;color:#ccc;padding:2px 8px;border-radius:4px;cursor:pointer;'>Set Base</button>
                     <button data-view='raw' class='qt-btn-on' style='background:#333;border:1px solid #555;color:#ccc;padding:2px 8px;border-radius:4px;cursor:pointer;'>Raw</button>
                     <button data-view='fields' style='background:#222;border:1px solid #444;color:#999;padding:2px 8px;border-radius:4px;cursor:pointer;'>Fields</button>
+                    <span style='margin-left:auto;display:flex;gap:4px;align-items:center;'>
+                      <label style='display:flex;gap:2px;align-items:center;font-size:11px;'><input type='checkbox' data-df-filter='added' checked>Added</label>
+                      <label style='display:flex;gap:2px;align-items:center;font-size:11px;'><input type='checkbox' data-df-filter='removed' checked>Removed</label>
+                      <label style='display:flex;gap:2px;align-items:center;font-size:11px;'><input type='checkbox' data-df-filter='changed' checked>Changed</label>
+                    </span>
                   </div>
                   <div data-diff-raw style='display:block;'>
                     <textarea readonly style='width:100%;min-height:240px;background:#121212;color:#d6d6d6;font:11px/1.3 ui-monospace,monospace;border:1px solid #333;border-radius:4px;padding:6px;resize:vertical;'>${diffJson}</textarea>
@@ -698,6 +804,21 @@ body.appendChild(tbl);
                       if (v==='raw'){ raw.style.display='block'; fields.style.display='none'; }
                       else { raw.style.display='none'; fields.style.display='block'; }
                     });
+                    // 过滤逻辑
+                    function applyFieldFilters(){
+                      const wrap = diffPanel.querySelector('[data-diff-fields]');
+                      if (!wrap) return;
+                      const checks = Array.from(diffPanel.querySelectorAll('input[data-df-filter]'));
+                      const allow = new Set(checks.filter(c=>c.checked).map(c=>c.getAttribute('data-df-filter')));
+                      const rows = wrap.querySelectorAll('tbody tr');
+                      rows.forEach(tr=>{
+                        const typeCell = tr.children[1]; // #,Type,Path,... => index1 = Type
+                        const t = typeCell? typeCell.textContent.trim():'';
+                        tr.style.display = allow.has(t)? '' : 'none';
+                      });
+                    }
+                    diffPanel.querySelectorAll('input[data-df-filter]').forEach(ch=> ch.addEventListener('change', applyFieldFilters));
+                    applyFieldFilters();
                   }
                 } catch(_){ }
               });
@@ -723,12 +844,21 @@ body.appendChild(tbl);
             if (ov){
               const previewNode = ov.panel.querySelector('[data-hw-preview]');
               function recomputePreview(weights){
-                // 使用 breakdown * 新权重 生成预览 (归一化后)
                 const bd = hs.breakdown||{}; const keys=Object.keys(weights||{});
                 if (!keys.length){ previewNode.textContent=''; return; }
-                const rawSum = keys.reduce((s,k)=> s + ( (bd[k]!=null? bd[k]:0) * weights[k] ),0);
-                // 归一 scale 到当前 hs.score （保持视觉可比），或直接显示 raw
+                const contributions = keys.map(k=>{ const base = bd[k]!=null? bd[k]:0; return { k, base, w:weights[k], part: base * weights[k] }; });
+                const rawSum = contributions.reduce((s,c)=> s + c.part,0);
                 previewNode.textContent = 'Preview: ' + rawSum.toFixed(1);
+                // 渲染贡献表（若不存在则追加，存在则更新）
+                let contribBox = ov.panel.querySelector('[data-hw-contrib]');
+                if (!contribBox){
+                  contribBox = document.createElement('div');
+                  contribBox.setAttribute('data-hw-contrib','');
+                  contribBox.style.cssText='margin-top:4px;font-size:11px;';
+                  ov.body.appendChild(contribBox);
+                }
+                const rows = contributions.map(c=>`<tr><td>${c.k}</td><td>${c.base}</td><td>${c.w}</td><td>${c.part.toFixed(2)}</td></tr>`).join('')||'<tr><td colspan=4>-</td></tr>';
+                contribBox.innerHTML = `<div style='font-weight:600;margin:4px 0 2px;'>Contributions</div><table style='width:100%;border-collapse:collapse;font-size:11px;'><thead><tr><th>Part</th><th>Breakdown</th><th>Weight</th><th>PartScore</th></tr></thead><tbody>${rows}</tbody></table>`;
               }
               let editing=false; let currentWeights = { ...baseWeights };
               const btnEdit = ov.panel.querySelector('[data-hw-edit]');
@@ -749,6 +879,8 @@ body.appendChild(tbl);
                     }
                   }
                   previewNode.textContent='';
+                  // 若存在贡献表清空
+                  const box=ov.panel.querySelector('[data-hw-contrib]'); if (box) box.remove();
                 } else {
                   // 收集输入并预览
                   const inputs = ov.panel.querySelectorAll('input[data-hw-k]');
@@ -764,6 +896,7 @@ body.appendChild(tbl);
                 // 重新渲染 detail HTML（简单起见整个重建）
                 const bodyHtml = _buildHealthDetailHtml(hs); ov.body.innerHTML = ov.body.innerHTML.replace(/<div class='sec'><b>Breakdown[\s\S]*<div class='sec'><b>Suggestions/, bodyHtml + "<div class='sec'><b>Suggestions");
                 previewNode.textContent='';
+                const box=ov.panel.querySelector('[data-hw-contrib]'); if (box) box.remove();
               });
             }
           } catch(_){ }
