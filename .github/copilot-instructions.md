@@ -96,10 +96,12 @@ POST /api/sessions/:id/messages - 发送消息
 
 ### 对于后端开发
 1. **只能修改 Rust 代码** (`backend/src/`)
-2. 使用 Axum 框架处理 HTTP 请求
-3. 使用 sqlx 进行数据库操作
-4. 使用 tokio 处理异步操作
-5. 遵循 Rust 最佳实践和错误处理
+2. **使用单一main.rs文件** - 不创建多个版本的main.rs (如main_test.rs, main_backup.rs等)
+3. 使用 Axum 框架处理 HTTP 请求
+4. 使用 sqlx 进行数据库操作
+5. 使用 tokio 处理异步操作
+6. 遵循 Rust 最佳实践和错误处理
+7. **代码变更直接在main.rs中进行** - 避免创建备份或测试版本文件
 
 ### 对于前端开发
 1. 使用 TypeScript 严格模式
@@ -142,6 +144,8 @@ SERVER_PORT=8080
 ❌ 直接从前端连接 SQLite
 ❌ 绕过 Rust 后端的任何方案
 ❌ 使用其他语言重写后端
+❌ 创建多个版本的main.rs文件 (如main_test.rs, main_backup.rs, main_original.rs等)
+❌ 创建备份或测试版本的主文件
 
 ## 代码审查标准
 
@@ -152,6 +156,8 @@ SERVER_PORT=8080
 - [ ] 错误处理完整
 - [ ] 安全认证实现正确
 - [ ] WebSocket 连接稳定
+- [ ] 只维护单一版本的main.rs文件
+- [ ] 不存在多余的测试或备份版本文件
 
 ### 性能要求
 - 后端响应时间 < 100ms
