@@ -23,13 +23,21 @@ impl Database {
         info!("Running database migrations...");
         
         // 读取并执行 schema
-        let schema = include_str!("../../database_schema.sql");
+        let schema = include_str!("schema.sql");
         
         // 拆分 SQL 语句并执行
         for statement in schema.split(';') {
             let statement = statement.trim();
             if !statement.is_empty() && !statement.starts_with("--") {
-                sqlx::query(statement).execute(&self.pool).await?;
+                match sqlx::query(statement).execute(&self.pool).await {
+                    Ok(_) => {},
+                    Err(e) => {
+                        // 忽略"already exists"类型的错误
+                        if !e.to_string().contains("already exists") {
+                            return Err(e.into());
+                        }
+                    }
+                }
             }
         }
 

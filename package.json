@@ -8,7 +8,7 @@
     "dev:full": "concurrently --kill-others \"npm run backend:dev\" \"npm run frontend:dev\" \"npm run sdk:dev\"",
     "backend:temp": "node backend-temp.js",
     "backend:sqlite": "node backend-sqlite.js",
-    "backend:dev": "cd backend && cargo run",
+    "backend:dev": "cd backend && set DATABASE_URL=sqlite:customer_service.db && set JWT_SECRET=your-super-secret-jwt-key && set SERVER_HOST=0.0.0.0 && set SERVER_PORT=8080 && customer-service-final.exe",
     "frontend:dev": "cd frontend && npm start",
     "sdk:dev": "cd websocket-sdk && npm run dev",
     "backend:build": "cd backend && cargo build",

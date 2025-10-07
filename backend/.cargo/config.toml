@@ -1,5 +1,8 @@
 [build]
-target = "x86_64-pc-windows-msvc"
+target = "x86_64-pc-windows-gnu"
 
-[target.x86_64-pc-windows-msvc]
-linker = "link.exe"
+[target.x86_64-pc-windows-gnu]
+linker = "x86_64-w64-mingw32-gcc"
+
+[env]
+RING_PREGENERATE_ASM = "1"
