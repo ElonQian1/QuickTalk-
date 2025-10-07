@@ -5,12 +5,15 @@
 // 依赖：showLoading, hideLoading, showSuccess, showError, getAuthToken, loadShops
 
 (function(){
-  // 批准店铺
-  window.approveShop = async function approveShop(shopId) {
+  
+  /**
+   * 统一的店铺操作方法 - 消除重复的fetch、loading、错误处理代码
+   */
+  async function performShopAction(shopId, action, loadingText, successText, errorText) {
     try {
-      if (typeof showLoading === 'function') showLoading('正在审批店铺...');
-      const response = await fetch(`/api/shops/${shopId}/approve`, {
-        method: 'POST',
+      if (typeof showLoading === 'function') showLoading(loadingText);
+      
+      const response = await window.unifiedFetch.post(`/api/shops/${shopId}/${action}`, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${typeof getAuthToken === 'function' ? getAuthToken() : ''}`
@@ -18,94 +21,35 @@
       });
       
       if (response.ok) {
-        if (typeof showSuccess === 'function') showSuccess('店铺已批准');
+        if (typeof showSuccess === 'function') showSuccess(successText);
         if (typeof loadShops === 'function') await loadShops();
       } else {
-        if (typeof showError === 'function') showError('批准失败');
+        if (typeof showError === 'function') showError(errorText);
       }
     } catch (error) {
-      console.error('审批店铺失败:', error);
+      console.error(`${action}店铺失败:`, error);
       if (typeof showError === 'function') showError('网络错误，请重试');
     } finally {
       if (typeof hideLoading === 'function') hideLoading();
     }
+  }
+  // 批准店铺
+  window.approveShop = async function approveShop(shopId) {
+    return performShopAction(shopId, 'approve', '正在审批店铺...', '店铺已批准', '批准失败');
   };
 
   // 拒绝店铺
   window.rejectShop = async function rejectShop(shopId) {
-    try {
-      if (typeof showLoading === 'function') showLoading('正在拒绝店铺...');
-      const response = await fetch(`/api/shops/${shopId}/reject`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${typeof getAuthToken === 'function' ? getAuthToken() : ''}`
-        }
-      });
-      
-      if (response.ok) {
-        if (typeof showSuccess === 'function') showSuccess('店铺已拒绝');
-        if (typeof loadShops === 'function') await loadShops();
-      } else {
-        if (typeof showError === 'function') showError('拒绝失败');
-      }
-    } catch (error) {
-      console.error('拒绝店铺失败:', error);
-      if (typeof showError === 'function') showError('网络错误，请重试');
-    } finally {
-      if (typeof hideLoading === 'function') hideLoading();
-    }
+    return performShopAction(shopId, 'reject', '正在拒绝店铺...', '店铺已拒绝', '拒绝失败');
   };
 
   // 激活店铺
   window.activateShop = async function activateShop(shopId) {
-    try {
-      if (typeof showLoading === 'function') showLoading('正在激活店铺...');
-      const response = await fetch(`/api/shops/${shopId}/activate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${typeof getAuthToken === 'function' ? getAuthToken() : ''}`
-        }
-      });
-      
-      if (response.ok) {
-        if (typeof showSuccess === 'function') showSuccess('店铺已激活');
-        if (typeof loadShops === 'function') await loadShops();
-      } else {
-        if (typeof showError === 'function') showError('激活失败');
-      }
-    } catch (error) {
-      console.error('激活店铺失败:', error);
-      if (typeof showError === 'function') showError('网络错误，请重试');
-    } finally {
-      if (typeof hideLoading === 'function') hideLoading();
-    }
+    return performShopAction(shopId, 'activate', '正在激活店铺...', '店铺已激活', '激活失败');
   };
 
   // 停用店铺
   window.deactivateShop = async function deactivateShop(shopId) {
-    try {
-      if (typeof showLoading === 'function') showLoading('正在停用店铺...');
-      const response = await fetch(`/api/shops/${shopId}/deactivate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${typeof getAuthToken === 'function' ? getAuthToken() : ''}`
-        }
-      });
-      
-      if (response.ok) {
-        if (typeof showSuccess === 'function') showSuccess('店铺已停用');
-        if (typeof loadShops === 'function') await loadShops();
-      } else {
-        if (typeof showError === 'function') showError('停用失败');
-      }
-    } catch (error) {
-      console.error('停用店铺失败:', error);
-      if (typeof showError === 'function') showError('网络错误，请重试');
-    } finally {
-      if (typeof hideLoading === 'function') hideLoading();
-    }
+    return performShopAction(shopId, 'deactivate', '正在停用店铺...', '店铺已停用', '停用失败');
   };
 })();

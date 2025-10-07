@@ -17,6 +17,38 @@ class UserProfileManager {
     }
 
     /**
+     * 统一HTTP请求方法 - 消除重复的fetch、错误处理、loading管理
+     */
+    async _makeAuthenticatedRequest(url, options = {}, loadingMessage = null) {
+        const defaultOptions = {
+            headers: {
+                'Authorization': `Bearer ${this.getAuthToken()}`,
+                ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+                ...options.headers
+            },
+            ...options
+        };
+
+        try {
+            if (loadingMessage) showLoading(loadingMessage);
+            
+            const response = await window.unifiedFetch.fetch(url, defaultOptions);
+            
+            if (response.ok) {
+                return await response.json();
+            } else {
+                const error = await response.json();
+                throw new Error(error.message || '请求失败');
+            }
+        } catch (error) {
+            console.error(`请求 ${url} 失败:`, error);
+            throw error;
+        } finally {
+            if (loadingMessage) hideLoading();
+        }
+    }
+
+    /**
      * 初始化用户档案管理
      */
     async init() {
@@ -47,21 +79,10 @@ class UserProfileManager {
      */
     async loadUserInfo() {
         try {
-            const response = await fetch('/api/user/profile', {
-                headers: {
-                    'Authorization': `Bearer ${this.getAuthToken()}`
-                }
-            });
-
-            if (response.ok) {
-                const raw = await response.json();
-                // 兼容结构: { success, data: { user } } 或 { user } 或直接 user 对象
-                const userPayload = raw?.data?.user || raw?.user || raw?.data || raw;
-                this.currentUser = userPayload;
-            } else {
-                // 使用模拟数据
-                this.currentUser = this.getMockUserData();
-            }
+            const raw = await this._makeAuthenticatedRequest('/api/user/profile');
+            // 兼容结构: { success, data: { user } } 或 { user } 或直接 user 对象
+            const userPayload = raw?.data?.user || raw?.user || raw?.data || raw;
+            this.currentUser = userPayload;
         } catch (error) {
             console.warn('加载用户信息失败，使用模拟数据:', error);
             this.currentUser = this.getMockUserData();
@@ -272,30 +293,16 @@ async function saveUserProfile() {
     }
 
     try {
-        showLoading('正在保存个人资料...');
-        
-        const response = await fetch('/api/user/profile', {
+        await window.userProfileManager._makeAuthenticatedRequest('/api/user/profile', {
             method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${window.userProfileManager.getAuthToken()}`
-            },
             body: JSON.stringify({ name, email })
-        });
-
-        if (response.ok) {
-            showToast('个人资料已更新', 'success');
-            closeProfileModal();
-            await window.userProfileManager.refreshUserInfo();
-        } else {
-            const error = await response.json();
-            showToast(error.message || '保存失败', 'error');
-        }
+        }, '正在保存个人资料...');
+        
+        showToast('个人资料已更新', 'success');
+        closeProfileModal();
+        await window.userProfileManager.refreshUserInfo();
     } catch (error) {
-        console.error('保存个人资料失败:', error);
-        showToast('网络错误，请重试', 'error');
-    } finally {
-        hideLoading();
+        showToast(error.message || '保存失败', 'error');
     }
 }
 
@@ -392,32 +399,18 @@ async function saveNewPassword() {
     }
 
     try {
-        showLoading('正在修改密码...');
-        
-        const response = await fetch('/api/user/change-password', {
+        await window.userProfileManager._makeAuthenticatedRequest('/api/user/change-password', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${window.userProfileManager.getAuthToken()}`
-            },
             body: JSON.stringify({
                 currentPassword,
                 newPassword
             })
-        });
-
-        if (response.ok) {
-            showToast('密码修改成功', 'success');
-            closePasswordModal();
-        } else {
-            const error = await response.json();
-            showToast(error.message || '密码修改失败', 'error');
-        }
+        }, '正在修改密码...');
+        
+        showToast('密码修改成功', 'success');
+        closePasswordModal();
     } catch (error) {
-        console.error('修改密码失败:', error);
-        showToast('网络错误，请重试', 'error');
-    } finally {
-        hideLoading();
+        showToast(error.message || '密码修改失败', 'error');
     }
 }
 
@@ -521,28 +514,15 @@ function toggleNotification(type) {
  */
 async function saveNotificationSettings() {
     try {
-        showLoading('正在保存通知设置...');
-        
-        const response = await fetch('/api/user/notification-settings', {
+        await window.userProfileManager._makeAuthenticatedRequest('/api/user/notification-settings', {
             method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${window.userProfileManager.getAuthToken()}`
-            },
             body: JSON.stringify(window.userProfileManager.notifications)
-        });
-
-        if (response.ok) {
-            showToast('通知设置已保存', 'success');
-            closeNotificationModal();
-        } else {
-            showToast('保存失败', 'error');
-        }
+        }, '正在保存通知设置...');
+        
+        showToast('通知设置已保存', 'success');
+        closeNotificationModal();
     } catch (error) {
-        console.error('保存通知设置失败:', error);
-        showToast('网络错误，请重试', 'error');
-    } finally {
-        hideLoading();
+        showToast(error.message || '保存失败', 'error');
     }
 }
 

@@ -481,4 +481,5 @@ window.Loggers = {
     APIClient: window.UnifiedLogger.createModuleLogger('APIClient')
 };
 
-export default UnifiedLogger;
+// 兼容浏览器环境：使用window对象而不是ES6 export
+console.log('✅ 统一日志系统已加载 (UnifiedLogger)');

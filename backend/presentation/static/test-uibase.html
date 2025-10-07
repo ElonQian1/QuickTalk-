@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UIBase依赖测试</title>
+</head>
+<body>
+    <h1>UIBase依赖测试页面</h1>
+    <div id="test-results"></div>
+
+    <!-- 按正确顺序加载 -->
+    <script src="/static/js/ui/ui-base.js"></script>               <!-- UI基础类 -->
+    <script src="/static/js/ui/toast.js"></script>                 <!-- Toast组件 -->
+
+    <script>
+        // 测试脚本
+        (function() {
+            'use strict';
+            
+            const results = document.getElementById('test-results');
+            const tests = [];
+            
+            function addTest(name, test) {
+                try {
+                    const result = test();
+                    tests.push(`✅ ${name}: ${result || 'PASS'}`);
+                } catch (error) {
+                    tests.push(`❌ ${name}: ${error.message}`);
+                    console.error(`Test failed: ${name}`, error);
+                }
+            }
+            
+            // 等待所有模块加载
+            setTimeout(() => {
+                console.log('🧪 开始UIBase依赖测试...');
+                
+                // 测试UIBase存在
+                addTest('UIBase类存在', () => {
+                    return typeof window.UIBase === 'function' ? 'OK' : 'MISSING';
+                });
+                
+                // 测试Toast存在
+                addTest('Toast组件存在', () => {
+                    return window.Toast ? 'OK' : 'MISSING';
+                });
+                
+                // 测试showToast存在
+                addTest('showToast函数存在', () => {
+                    return typeof window.showToast === 'function' ? 'OK' : 'MISSING';
+                });
+                
+                // 测试Toast功能
+                addTest('Toast功能测试', () => {
+                    if (typeof window.showToast === 'function') {
+                        window.showToast('测试消息', 'info');
+                        return 'FUNCTIONAL';
+                    }
+                    return 'UNAVAILABLE';
+                });
+                
+                // 显示结果
+                results.innerHTML = `
+                    <h2>测试结果</h2>
+                    <pre>${tests.join('\n')}</pre>
+                    <h3>控制台日志</h3>
+                    <p>请查看浏览器控制台获取详细错误信息</p>
+                `;
+                
+                console.log('🎯 UIBase测试完成:', tests);
+                
+            }, 200);
+            
+        })();
+    </script>
+</body>
+</html>

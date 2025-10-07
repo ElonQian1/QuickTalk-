@@ -10,6 +10,39 @@
 (function(){
     'use strict';
 
+    // 检查UIBase依赖
+    if (typeof window.UIBase !== 'function') {
+        console.error('❌ LoadingStates组件依赖UIBase，但UIBase未定义。请确保ui-base.js在loading-states-optimized.js之前加载。');
+        
+        // 提供降级实现
+        const fallbackAPI = {
+            show: (container, options) => {
+                if (container) {
+                    container.innerHTML = '<div style="text-align:center;padding:20px;color:#666;">加载中...</div>';
+                }
+            },
+            hide: (container) => {
+                if (container && container.querySelector && container.querySelector('.loading-state')) {
+                    container.innerHTML = '';
+                }
+            },
+            spinner: () => fallbackAPI.show,
+            overlay: () => fallbackAPI.show,
+            small: () => fallbackAPI.show,
+            button: () => fallbackAPI.show,
+            skeleton: () => console.log('📊 [LoadingStates Fallback] 骨架屏不可用'),
+            showFullScreen: () => console.log('📊 [LoadingStates Fallback] 全局加载不可用'),
+            hideFullScreen: () => console.log('📊 [LoadingStates Fallback] 全局加载隐藏'),
+            attachTo: () => fallbackAPI.show,
+            detachFrom: () => fallbackAPI.hide
+        };
+        
+        // 统一API暴露（降级）
+        exposeLoadingStatesAPI(fallbackAPI);
+        console.log('⚠️ LoadingStates降级模式已启用（UIBase不可用）');
+        return;
+    }
+
     class LoadingStates extends UIBase {
         constructor(options = {}) {
             super('LoadingStates', {
@@ -295,21 +328,30 @@
         }
     }
 
+    // 统一API暴露函数
+    function exposeLoadingStatesAPI(loadingAPI) {
+        // 统一暴露为LoadingStatesUI（保持向后兼容）
+        window.LoadingStatesUI = {
+            spinner: (text) => loadingAPI.spinner(text),
+            overlay: (text) => loadingAPI.overlay(text),
+            small: (text) => loadingAPI.small(text),
+            button: (text) => loadingAPI.button(text),
+            skeleton: (config) => loadingAPI.skeleton(config),
+            showFullScreen: (text) => loadingAPI.showFullScreen(text),
+            hideFullScreen: () => loadingAPI.hideFullScreen(),
+            attachTo: (element, text, options) => loadingAPI.attachTo(element, text, options),
+            detachFrom: (element) => loadingAPI.detachFrom(element)
+        };
+        
+        // 同时暴露为LoadingStates（新的统一命名）
+        window.LoadingStates = window.LoadingStatesUI;
+    }
+
     // 创建全局实例
     const loadingStatesInstance = new LoadingStates();
 
-    // 兼容旧版API
-    window.LoadingStatesUI = {
-        spinner: (text) => loadingStatesInstance.spinner(text),
-        overlay: (text) => loadingStatesInstance.overlay(text),
-        small: (text) => loadingStatesInstance.small(text),
-        button: (text) => loadingStatesInstance.button(text),
-        skeleton: (config) => loadingStatesInstance.skeleton(config),
-        showFullScreen: (text) => loadingStatesInstance.showFullScreen(text),
-        hideFullScreen: () => loadingStatesInstance.hideFullScreen(),
-        attachTo: (element, text, options) => loadingStatesInstance.attachTo(element, text, options),
-        detachFrom: (element) => loadingStatesInstance.detachFrom(element)
-    };
+    // 统一API暴露
+    exposeLoadingStatesAPI(loadingStatesInstance);
 
     console.log('✅ 优化的LoadingStates组件已加载 (继承UIBase)');
 

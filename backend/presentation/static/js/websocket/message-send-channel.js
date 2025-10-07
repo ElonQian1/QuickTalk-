@@ -315,23 +315,52 @@
         }
 
         /**
+         * 统一HTTP请求方法 - 消除重复的fetch调用
+         */
+        async _makeRequest(url, options = {}) {
+            try {
+                const response = await window.unifiedFetch.fetch(url, options);
+                
+                if (!response.ok) {
+                    const err = new Error(`请求失败: ${response.statusText}`);
+                    // 根据状态码附加潜在分类标签
+                    if (response.status >= 500) err._server = true;
+                    if (response.status === 429) err._rate = true;
+                    throw err;
+                }
+                
+                return response.json();
+            } catch (error) {
+                console.error('HTTP请求失败:', error);
+                throw error;
+            }
+        }
+
+        /**
+         * 统一上传方法 - 消除FormData重复代码
+         */
+        async _uploadToServer(formData, errorMessageKey, defaultErrorMessage) {
+            try {
+                return await this._makeRequest('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+            } catch (error) {
+                const base = (typeof window.getText === 'function') 
+                    ? window.getText(errorMessageKey, defaultErrorMessage) 
+                    : ((window.StateTexts && window.StateTexts[errorMessageKey]) || defaultErrorMessage);
+                throw new Error(base + ': ' + error.message);
+            }
+        }
+
+        /**
          * 上传文件
          */
         async _uploadFile(file) {
             const formData = new FormData();
             formData.append('file', file);
 
-            const response = await fetch('/api/upload', {
-                method: 'POST',
-                body: formData
-            });
-
-            if (!response.ok) {
-                const base = (typeof window.getText==='function') ? window.getText('UPLOAD_FILE_FAIL','文件上传失败') : ((window.StateTexts && window.StateTexts.UPLOAD_FILE_FAIL) || '文件上传失败');
-                throw new Error(base + ': ' + response.statusText);
-            }
-
-            return response.json();
+            return this._uploadToServer(formData, 'UPLOAD_FILE_FAIL', '文件上传失败');
         }
 
         /**
@@ -341,40 +370,20 @@
             const formData = new FormData();
             formData.append('audio', audioBlob, 'voice.webm');
 
-            const response = await fetch('/api/upload', {
-                method: 'POST',
-                body: formData
-            });
-
-            if (!response.ok) {
-                const base = (typeof window.getText==='function') ? window.getText('UPLOAD_AUDIO_FAIL','音频上传失败') : ((window.StateTexts && window.StateTexts.UPLOAD_AUDIO_FAIL) || '音频上传失败');
-                throw new Error(base + ': ' + response.statusText);
-            }
-
-            return response.json();
+            return this._uploadToServer(formData, 'UPLOAD_AUDIO_FAIL', '音频上传失败');
         }
 
         /**
          * 发送到服务器
          */
         async _sendToServer(url, payload) {
-            const response = await fetch(url, {
+            return this._makeRequest(url, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify(payload)
             });
-
-            if (!response.ok) {
-                const err = new Error(`发送失败: ${response.statusText}`);
-                // 根据状态码附加潜在分类标签用于 _mapSendError 进一步匹配
-                if (response.status >=500) err._server = true;
-                if (response.status === 429) err._rate = true;
-                throw err;
-            }
-
-            return response.json();
         }
 
         /**

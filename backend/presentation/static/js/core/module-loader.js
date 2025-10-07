@@ -151,9 +151,8 @@ class ModuleLoader {
     }
 }
 
-// 全局注册函数简化调用（避免覆盖现有的registerModule）
-if (!window.registerModule) {
-    window.registerModule = (name, type, initCallback) => ModuleLoader.register(name, type, initCallback);
-}
+// 注释：避免与 module-registry.js 的 registerModule 冲突
+// module-registry.js 提供标准的模块注册实现
+// 这里不再重复定义 window.registerModule
 
 console.log('⚡ ModuleLoader 模块加载管理器已加载');

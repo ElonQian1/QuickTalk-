@@ -37,7 +37,8 @@
 
     <!-- ==================== 极速优化JavaScript架构 ==================== -->
     
-    <!-- 🏗️ 基础设施层 (Infrastructure) - 12个文件 -->
+    <!-- 🏗️ 基础设施层 (Infrastructure) - 14个文件 -->
+    <script src="/static/js/core/module-registry.js"></script>     <!-- 模块注册中心 -->
     <script src="/static/js/websocket/websocket-base.js"></script>  <!-- WebSocket基础类 -->
     <script src="/static/js/ui/ui-base.js"></script>               <!-- UI基础类 -->
     <script src="/static/js/utils/utils-base.js"></script>         <!-- 工具基础类 -->
@@ -46,6 +47,8 @@
     <script src="/static/js/core/api-client.js"></script>          <!-- 统一API客户端 -->
     <script src="/static/js/core/template-renderer.js"></script>   <!-- 统一模板渲染器 -->
     <script src="/static/js/core/unified-logger.js"></script>      <!-- 统一日志管理器 -->
+    <script src="/static/js/core/unified-event-bus.js"></script>   <!-- 统一事件总线 -->
+    <script src="/static/js/core/event-migration-compat.js"></script> <!-- 事件系统兼容层 -->
     <script src="/static/js/core/websocket-manager.js"></script>   <!-- 统一WebSocket管理器 -->
     <script src="/static/js/core/base-manager.js"></script>        <!-- 业务管理基础类 -->
     <script src="/static/js/core/state-coordinator.js"></script>   <!-- 状态协调器 -->
@@ -58,9 +61,9 @@
     <script src="/static/js/core/message-coordinator.js"></script>           <!-- 消息协调器 -->
     
     <!-- 🎨 UI组件层 (Components) - 3个文件 -->
-    <script src="/static/js/ui/toast-optimized.js"></script>         <!-- 轻通知 -->
+    <script src="/static/js/ui/toast.js"></script>                   <!-- 轻通知 -->
     <script src="/static/js/ui/loading-states-optimized.js"></script> <!-- 加载态 -->
-    <script src="/static/js/ui/empty-states-optimized.js"></script>  <!-- 空状态 -->
+    <script src="/static/js/ui/empty-states.js"></script>            <!-- 空状态 -->
     
     <!-- 💼 业务逻辑层 (Business) - 3个文件 -->
     <script src="/static/js/usecases/shops-manager-clean.js"></script>       <!-- 店铺管理 (优化版) -->
@@ -105,7 +108,7 @@
                 console.log('🎨 初始化UI组件...');
                 initUIComponents();
                 
-                console.log('✅ 系统启动完成！共加载 18 个模块文件');
+                console.log('✅ 系统启动完成！共加载 21 个模块文件');
             }
             
             function initInfrastructure() {

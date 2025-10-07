@@ -13,6 +13,52 @@
  */
 
 (function(){
+  
+  /**
+   * 统一会话验证和过期处理函数 - 消除重复代码
+   */
+  async function handleSessionValidation(headers = null, redirectOnExpiry = false) {
+    try {
+      const sessionResponse = await window.unifiedFetch.get('/api/auth/session', headers ? { headers } : {});
+      if (sessionResponse.ok) {
+        const sessionData = await sessionResponse.json();
+        console.log('🔍 会话验证结果:', sessionData);
+        
+        if (sessionData.success && sessionData.data && !sessionData.data.authenticated) {
+          console.log('❌ 会话已过期，需要重新登录');
+          
+          if (redirectOnExpiry) {
+            // 清理所有可能的token
+            localStorage.removeItem('quicktalk_user');
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('admin_token');
+            localStorage.removeItem('qt_admin_token');
+            localStorage.removeItem('qt_admin_user');
+            
+            // 重定向到登录页面
+            setTimeout(() => {
+              window.location.href = '/mobile/login';
+            }, 1000);
+            
+            if (typeof showToast === 'function') {
+              showToast('登录已过期，正在跳转到登录页面...', 'warning');
+            }
+          } else {
+            if (typeof window.checkLoginStatus === 'function') {
+              window.checkLoginStatus();
+            }
+          }
+          
+          return { expired: true, authenticated: false };
+        }
+        return { expired: false, authenticated: true, data: sessionData.data };
+      }
+    } catch (e) {
+      console.warn('会话验证失败:', e);
+    }
+    return { expired: true, authenticated: false };
+  }
+
   // 委托给 UnifiedUtils 的时间格式化
   window.formatTime = function formatTime(date) {
     if (window.UnifiedUtils && window.UnifiedUtils.formatRelativeTime) {
@@ -34,19 +80,8 @@
     }
   };
 
-  // 委托给统一通知系统的 showToast
-  if (typeof window.showToast === 'undefined') {
-    window.showToast = function showToast(message, type = 'info') {
-      if (window.UnifiedNotification && window.UnifiedNotification.notify) {
-        window.UnifiedNotification.notify(type, message);
-        return;
-      }
-      
-      // 降级到控制台输出
-      const icon = type === 'error' ? '❌' : type === 'success' ? '✅' : 'ℹ️';
-      console.log(`${icon} [Toast] ${message}`);
-    };
-  }
+  // 注释：showToast的定义统一由toast.js提供
+  // 避免重复定义，保持单一职责原则
 
   // 调试工具：检查当前登录状态和token
   window.debugAuthStatus = function() {
@@ -174,27 +209,12 @@
       if (!authToken) {
         console.warn('⚠️ 最终无法获取有效token，尝试验证会话状态...');
         
-        // 最后尝试：调用session验证API
-        try {
-          const sessionResponse = await fetch('/api/auth/session');
-          if (sessionResponse.ok) {
-            const sessionData = await sessionResponse.json();
-            console.log('🔍 会话验证结果:', sessionData);
-            
-            if (sessionData.success && sessionData.data && !sessionData.data.authenticated) {
-              console.log('❌ 会话已过期，需要重新登录');
-              if (typeof window.checkLoginStatus === 'function') {
-                window.checkLoginStatus();
-              }
-              return [];
-            }
-          }
-        } catch (e) {
-          console.warn('会话验证失败:', e);
+        // 使用统一会话验证函数
+        const sessionResult = await handleSessionValidation();
+        if (sessionResult.expired) {
+          console.warn('⚠️ 无法建立有效会话，返回空数组');
+          return [];
         }
-        
-        console.warn('⚠️ 无法建立有效会话，返回空数组');
-        return [];
       }
       }
 
@@ -210,39 +230,15 @@
         tokenPrefix: authToken.substr(0, 10) + '...'
       });
 
-      const response = await fetch(apiUrl, { headers });
+      const response = await window.unifiedFetch.fetch(apiUrl, { headers });
       if (response.status === 401) {
         console.warn('⚠️ 401 未授权，尝试调用 /api/auth/session 诊断');
-        try {
-          const diag = await fetch('/api/auth/session', { headers });
-          if (diag.ok) {
-            const j = await diag.json();
-            console.log('🩺 会话诊断:', j);
-            if (j.data && !j.data.authenticated) {
-              console.log('❌ 会话确认已过期，清理本地存储并重定向登录');
-              // 清理所有可能的token
-              localStorage.removeItem('quicktalk_user');
-              localStorage.removeItem('authToken');
-              localStorage.removeItem('admin_token');
-              localStorage.removeItem('qt_admin_token');
-              localStorage.removeItem('qt_admin_user');
-              
-              // 重定向到登录页面
-              setTimeout(() => {
-                window.location.href = '/mobile/login';
-              }, 1000);
-              
-              if (typeof showToast === 'function') {
-                showToast('登录已过期，正在跳转到登录页面...', 'warning');
-              }
-              return [];
-            }
-          }
-        } catch(e) { 
-          console.warn('会话诊断失败:', e);
+        const sessionResult = await handleSessionValidation(headers, true);
+        if (sessionResult.expired) {
+          try { sessionStorage.removeItem(CACHE_KEY); } catch(_) {}
+          if (typeof showToast === 'function') showToast('登录已过期或未登录，请重新登录', 'warning');
+          return [];
         }
-        try { sessionStorage.removeItem(CACHE_KEY); } catch(_) {}
-        if (typeof showToast === 'function') showToast('登录已过期或未登录，请重新登录', 'warning');
         return [];
       }
       if (!response.ok) {

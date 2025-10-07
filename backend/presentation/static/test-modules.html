@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>模块加载测试</title>
+</head>
+<body>
+    <h1>模块加载测试页面</h1>
+    <div id="test-results"></div>
+
+    <!-- 按正确顺序加载模块 -->
+    <script src="/static/js/core/module-registry.js"></script>     <!-- 模块注册中心 -->
+    <script src="/static/js/core/unified-logger.js"></script>      <!-- 统一日志管理器 -->
+    <script src="/static/js/core/unified-event-bus.js"></script>   <!-- 统一事件总线 -->
+    <script src="/static/js/core/event-migration-compat.js"></script> <!-- 事件系统兼容层 -->
+
+    <script>
+        // 测试脚本
+        (function() {
+            'use strict';
+            
+            const results = document.getElementById('test-results');
+            const tests = [];
+            
+            function addTest(name, test) {
+                try {
+                    const result = test();
+                    tests.push(`✅ ${name}: ${result || 'PASS'}`);
+                } catch (error) {
+                    tests.push(`❌ ${name}: ${error.message}`);
+                    console.error(`Test failed: ${name}`, error);
+                }
+            }
+            
+            // 等待所有模块加载
+            setTimeout(() => {
+                console.log('🧪 开始模块测试...');
+                
+                // 测试模块注册中心
+                addTest('ModuleRegistry存在', () => {
+                    return window.ModuleRegistry ? 'OK' : 'MISSING';
+                });
+                
+                addTest('getModule函数存在', () => {
+                    return typeof window.getModule === 'function' ? 'OK' : 'MISSING';
+                });
+                
+                addTest('registerModule函数存在', () => {
+                    return typeof window.registerModule === 'function' ? 'OK' : 'MISSING';
+                });
+                
+                // 测试统一日志器
+                addTest('UnifiedLogger存在', () => {
+                    return window.UnifiedLogger ? 'OK' : 'MISSING';
+                });
+                
+                addTest('Loggers对象存在', () => {
+                    return window.Loggers ? 'OK' : 'MISSING';
+                });
+                
+                // 测试统一事件总线
+                addTest('UnifiedEventBus存在', () => {
+                    return window.UnifiedEventBus ? 'OK' : 'MISSING';
+                });
+                
+                addTest('eventBus全局实例存在', () => {
+                    return window.eventBus ? 'OK' : 'MISSING';
+                });
+                
+                // 测试事件兼容层
+                addTest('EventBus兼容类存在', () => {
+                    return window.EventBus ? 'OK' : 'MISSING';
+                });
+                
+                // 测试模块注册
+                addTest('EventBus模块已注册', () => {
+                    const eventBusModule = window.getModule('EventBus');
+                    return eventBusModule ? 'OK' : 'NOT_REGISTERED';
+                });
+                
+                // 显示结果
+                results.innerHTML = `
+                    <h2>测试结果</h2>
+                    <pre>${tests.join('\n')}</pre>
+                    <h3>控制台日志</h3>
+                    <p>请查看浏览器控制台获取详细信息</p>
+                `;
+                
+                console.log('🎯 测试完成:', tests);
+                
+            }, 100);
+            
+        })();
+    </script>
+</body>
+</html>

@@ -1,12 +1,18 @@
 /**
- * MessagesManager - 消息管理器
+ * MessagesManager - 消息管理器 (深度优化版)
  * 继承自BaseManager，专门处理消息相关的业务逻辑
  * 
- * 优化内容：
- * - 移除重复的API调用代码
- * - 使用BaseManager提供的统一接口
- * - 统一错误处理和状态管理
- * - 优化消息渲染性能
+ * 优化内容 (2025-10-07):
+ * - ✅ 移除重复的API调用代码
+ * - ✅ 使用BaseManager提供的统一接口
+ * - ✅ 统一错误处理和状态管理
+ * - ✅ 优化消息渲染性能
+ * - 🔧 第一轮：合并过滤方法，提供统一filterMessages接口
+ * - 🔧 第一轮：优化统计计算，单次遍历获取所有数据
+ * - 🔧 第一轮：统一日期时间处理，减少重复的Date转换逻辑
+ * - 🔧 第一轮：保留向后兼容性，旧方法委托给新统一接口
+ * - 🚀 第二轮：消除双重通知冗余，使用BaseManager统一事件机制
+ * - 🚀 第二轮：移除冗余回调配置，简化初始化逻辑
  */
 (function() {
     'use strict';
@@ -41,15 +47,7 @@
                 total: 0
             };
 
-            // 回调函数
-            this.callbacks = {
-                onNewMessage: options.onNewMessage || (() => {}),
-                onMessageUpdated: options.onMessageUpdated || (() => {}),
-                onMessageDeleted: options.onMessageDeleted || (() => {}),
-                onMessagesLoaded: options.onMessagesLoaded || (() => {}),
-                onMessageSent: options.onMessageSent || (() => {})
-            };
-
+            // 🔧 优化：移除冗余回调配置，使用BaseManager统一事件机制
             // WebSocket依赖注入
             this.wsSend = options.wsSend || null;
 
@@ -57,6 +55,20 @@
 
             // 注册到状态协调器
             this.registerToStateCoordinator();
+        }
+
+        /**
+         * 🔧 优化：统一的日期时间处理工具方法
+         */
+        getMessageTime(message) {
+            return new Date(message.created_at).getTime();
+        }
+
+        /**
+         * 🔧 优化：消息时间比较器
+         */
+        compareMessageTime(a, b) {
+            return this.getMessageTime(a) - this.getMessageTime(b);
         }
 
         /**
@@ -129,12 +141,13 @@
 
                     this.log('info', `消息加载成功，数量: ${data.data.length}，总计: ${this.messages.length}`);
 
-                    // 触发回调
-                    this.callbacks.onMessagesLoaded(this.messages, { page, isNewConversation: page === 1 });
-                    this.emit('messages:loaded', { 
+                    // 🔧 优化：使用BaseManager统一通知机制，消除双重回调冗余
+                    this.emit('messagesLoaded', { 
                         messages: this.messages, 
                         conversationId,
-                        pagination: this.pagination 
+                        pagination: this.pagination,
+                        page, 
+                        isNewConversation: page === 1 
                     });
 
                     // 自动渲染消息
@@ -150,7 +163,7 @@
 
             } catch (error) {
                 this.log('error', '加载消息失败:', error.message);
-                this.emit('messages:error', { error: error.message, conversationId });
+                this.emit('messagesError', { error: error.message, conversationId });
                 throw error;
             }
         }
@@ -202,9 +215,8 @@
 
                     this.log('info', '消息发送成功:', message.id);
 
-                    // 触发回调
-                    this.callbacks.onMessageSent(message);
-                    this.emit('message:sent', { message, conversationId: this.currentConversationId });
+                    // 🔧 优化：使用BaseManager统一通知机制
+                    this.emit('messageSent', { message, conversationId: this.currentConversationId });
 
                     return message;
                 } else {
@@ -215,13 +227,13 @@
             } catch (error) {
                 const txt = T('SEND_MESSAGE_FAIL', '发送消息失败');
                 this.log('error', txt + ':', error.message);
-                this.emit('message:send_error', { error: error.message, messageData });
+                this.emit('messageSendError', { error: error.message, messageData });
                 throw error;
             }
         }
 
         /**
-         * 添加新消息到列表
+         * 🔧 优化：添加新消息到列表，使用统一时间处理
          */
         addMessage(message) {
             if (!message || !message.id) {
@@ -237,8 +249,9 @@
                 this.log('debug', '消息已更新:', message.id);
             } else {
                 // 添加新消息（按时间顺序插入）
+                const messageTime = this.getMessageTime(message);
                 const insertIndex = this.messages.findIndex(m => 
-                    new Date(m.created_at) > new Date(message.created_at)
+                    this.getMessageTime(m) > messageTime
                 );
                 
                 if (insertIndex === -1) {
@@ -250,9 +263,8 @@
                 this.log('debug', '新消息已添加:', message.id);
             }
 
-            // 触发回调
-            this.callbacks.onNewMessage(message);
-            this.emit('message:added', { message });
+            // 🔧 优化：使用BaseManager统一通知机制
+            this.emit('messageAdded', { message });
 
             // 自动渲染
             if (this.messageContainer) {
@@ -263,7 +275,7 @@
         }
 
         /**
-         * 渲染消息列表 (使用TemplateRenderer)
+         * 🔧 优化：渲染消息列表，使用统一时间排序
          */
         renderMessages(clearContainer = true) {
             if (!this.messageContainer) {
@@ -271,10 +283,8 @@
                 return false;
             }
 
-            // 按时间排序
-            const sortedMessages = this.messages.sort((a, b) => 
-                new Date(a.created_at) - new Date(b.created_at)
-            );
+            // 按时间排序，使用统一比较器
+            const sortedMessages = [...this.messages].sort(this.compareMessageTime.bind(this));
 
             // 使用TemplateRenderer渲染列表
             if (window.TemplateRenderer) {
@@ -491,56 +501,97 @@
         }
 
         /**
-         * 搜索消息
+         * 🔧 优化：统一的消息过滤接口，替代多个过滤方法
+         * @param {Object} filters - 过滤条件
+         * @param {string} filters.keyword - 搜索关键词
+         * @param {string} filters.type - 消息类型 ('text', 'image', 'file', 'all')
+         * @param {string} filters.senderType - 发送者类型 ('customer', 'agent', 'all')
+         * @returns {Array} 过滤后的消息列表
          */
-        searchMessages(keyword) {
-            if (!keyword) {
-                return this.messages;
+        filterMessages(filters = {}) {
+            let filtered = [...this.messages];
+
+            // 关键词搜索
+            if (filters.keyword) {
+                const searchTerm = filters.keyword.toLowerCase();
+                filtered = filtered.filter(message => 
+                    message.content.toLowerCase().includes(searchTerm) ||
+                    message.sender_name?.toLowerCase().includes(searchTerm)
+                );
             }
 
-            const searchTerm = keyword.toLowerCase();
-            return this.messages.filter(message => 
-                message.content.toLowerCase().includes(searchTerm) ||
-                message.sender_name?.toLowerCase().includes(searchTerm)
-            );
+            // 类型过滤
+            if (filters.type && filters.type !== 'all') {
+                filtered = filtered.filter(message => message.type === filters.type);
+            }
+
+            // 发送者过滤
+            if (filters.senderType && filters.senderType !== 'all') {
+                filtered = filtered.filter(message => message.sender_type === filters.senderType);
+            }
+
+            return filtered;
         }
 
         /**
-         * 按类型过滤消息
-         */
-        filterByType(type) {
-            if (!type || type === 'all') {
-                return this.messages;
-            }
-
-            return this.messages.filter(message => message.type === type);
-        }
-
-        /**
-         * 按发送者过滤消息
-         */
-        filterBySender(senderType) {
-            if (!senderType || senderType === 'all') {
-                return this.messages;
-            }
-
-            return this.messages.filter(message => message.sender_type === senderType);
-        }
-
-        /**
-         * 获取消息统计
+         * 🔧 优化：单次遍历获取所有消息统计数据
+         * @returns {Object} 消息统计信息
          */
         getMessagesStats() {
             const stats = {
                 total: this.messages.length,
-                customerMessages: this.messages.filter(m => m.sender_type === 'customer').length,
-                agentMessages: this.messages.filter(m => m.sender_type === 'agent').length,
-                textMessages: this.messages.filter(m => m.type === 'text').length,
-                imageMessages: this.messages.filter(m => m.type === 'image').length,
-                fileMessages: this.messages.filter(m => m.type === 'file').length
+                customerMessages: 0,
+                agentMessages: 0,
+                textMessages: 0,
+                imageMessages: 0,
+                fileMessages: 0
             };
 
+            // 单次遍历获取所有统计
+            this.messages.forEach(message => {
+                // 按发送者统计
+                if (message.sender_type === 'customer') {
+                    stats.customerMessages++;
+                } else if (message.sender_type === 'agent') {
+                    stats.agentMessages++;
+                }
+
+                // 按类型统计
+                switch (message.type) {
+                    case 'text':
+                        stats.textMessages++;
+                        break;
+                    case 'image':
+                        stats.imageMessages++;
+                        break;
+                    case 'file':
+                        stats.fileMessages++;
+                        break;
+                }
+            });
+
             return stats;
+        }
+
+        /**
+         * 🔧 保留兼容性：传统搜索方法 (委托给统一过滤接口)
+         */
+        searchMessages(keyword) {
+            return this.filterMessages({ keyword });
+        }
+
+        /**
+         * 🔧 保留兼容性：按类型过滤 (委托给统一过滤接口)
+         */
+        filterByType(type) {
+            return this.filterMessages({ type });
+        }
+
+        /**
+         * 🔧 保留兼容性：按发送者过滤 (委托给统一过滤接口)
+         */
+        filterBySender(senderType) {
+            return this.filterMessages({ senderType });
         }
 
         /**
@@ -623,6 +674,6 @@
     // 暴露到全局
     window.MessagesManager = MessagesManager;
 
-    console.log('✅ 优化的消息管理器已加载 (继承BaseManager)');
+    console.log('✅ 优化的消息管理器已加载 (深度优化：消除双重通知冗余)');
 
 })();

@@ -31,12 +31,8 @@
     }
 
     /**
-     * 确保MessageEventBus完全兼容
+     * MessageEventBus兼容接口已由UnifiedEventBus统一提供，此处无需重复处理
      */
-    if (window.MessageEventBus && typeof window.MessageEventBus !== 'object') {
-        // MessageEventBus已由UnifiedEventBus提供，无需重复创建
-        console.log('📋 MessageEventBus兼容接口已由UnifiedEventBus统一提供');
-    }
 
     /**
      * 兼容WebSocketBase中的事件总线访问

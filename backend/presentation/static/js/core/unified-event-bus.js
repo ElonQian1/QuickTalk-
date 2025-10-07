@@ -333,8 +333,8 @@
     };
 
     // 为传统模块提供兼容接口
-    if (window.getModule) {
-        window.getModule.register('EventBus', globalEventBus);
+    if (window.registerModule) {
+        window.registerModule('EventBus', globalEventBus);
     }
 
     console.log('✅ 统一事件总线已加载 (UnifiedEventBus)');

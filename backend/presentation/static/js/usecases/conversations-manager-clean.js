@@ -1,11 +1,17 @@
 /**
- * ConversationsManager - 对话管理器
+ * ConversationsManager - 对话管理器 (深度优化版)
  * 继承自BaseManager，专门处理对话相关的业务逻辑
  * 
- * 优化内容：
- * - 移除重复的API调用代码
- * - 使用BaseManager提供的统一接口
- * - 统一错误处理和状态管理
+ * 优化内容 (2025-10-06):
+ * - ✅ 移除重复的API调用代码
+ * - ✅ 使用BaseManager提供的统一接口
+ * - ✅ 统一错误处理和状态管理
+ * - 🔧 第一轮：合并过滤方法，提供统一filterConversations接口
+ * - 🔧 第一轮：简化排序逻辑，减少冗余代码
+ * - 🔧 第一轮：优化统计计算，单次遍历获取所有数据
+ * - 🔧 第一轮：保留向后兼容性，旧方法委托给新统一接口
+ * - 🚀 第二轮：消除状态同步冗余，使用getter/setter自动管理selectedConversation
+ * - 🚀 第二轮：简化状态重置逻辑，减少手动状态同步代码
  */
 (function() {
     'use strict';
@@ -28,9 +34,8 @@
 
             // 对话数据状态
             this.conversations = [];
-            this.currentConversationId = null;
+            this._currentConversationId = null; // 私有属性，通过getter/setter管理
             this.currentShopId = null;
-            this.selectedConversation = null;
 
             // 回调函数
             this.callbacks = {
@@ -43,6 +48,22 @@
 
             // 注册到状态协调器
             this.registerToStateCoordinator();
+        }
+
+        /**
+         * 🔧 优化：通过getter自动计算selectedConversation，消除状态同步冗余
+         */
+        get currentConversationId() {
+            return this._currentConversationId;
+        }
+
+        set currentConversationId(id) {
+            this._currentConversationId = id;
+        }
+
+        get selectedConversation() {
+            if (!this._currentConversationId) return null;
+            return this.conversations.find(c => c.id === this._currentConversationId) || null;
         }
 
         /**
@@ -105,7 +126,7 @@
         }
 
         /**
-         * 选择对话
+         * 🔧 优化：选择对话，自动状态同步
          */
         selectConversation(conversationId) {
             const conversation = this.conversations.find(c => c.id === conversationId);
@@ -115,8 +136,7 @@
             }
 
             const previousConversationId = this.currentConversationId;
-            this.currentConversationId = conversationId;
-            this.selectedConversation = conversation;
+            this.currentConversationId = conversationId; // selectedConversation 自动通过getter更新
 
             this.log('info', '对话已选择:', conversationId);
 
@@ -132,7 +152,7 @@
         }
 
         /**
-         * 获取当前选中的对话
+         * 🔧 优化：获取当前选中的对话，直接使用getter
          */
         getCurrentConversation() {
             return this.selectedConversation;
@@ -146,7 +166,7 @@
         }
 
         /**
-         * 更新对话信息（如最后消息、未读数等）
+         * 🔧 优化：更新对话信息，自动状态同步
          */
         updateConversation(conversationId, updateData) {
             const conversationIndex = this.conversations.findIndex(c => c.id === conversationId);
@@ -163,10 +183,7 @@
                 updated_at: new Date().toISOString()
             };
 
-            // 如果是当前选中的对话，更新选中数据
-            if (this.currentConversationId === conversationId) {
-                this.selectedConversation = this.conversations[conversationIndex];
-            }
+            // selectedConversation 自动通过getter同步，无需手动更新
 
             this.log('debug', '对话信息已更新:', conversationId, updateData);
 
@@ -240,76 +257,114 @@
         }
 
         /**
-         * 搜索对话
+         * 🔧 优化：统一的过滤接口，替代原来的多个过滤方法
+         * @param {Object} filters - 过滤条件
+         * @param {string} filters.keyword - 搜索关键词
+         * @param {string} filters.status - 状态过滤 ('active', 'closed', 'all')
+         * @param {boolean} filters.unreadOnly - 仅显示未读对话
+         * @returns {Array} 过滤后的对话列表
          */
-        searchConversations(keyword) {
-            if (!keyword) {
-                return this.conversations;
+        filterConversations(filters = {}) {
+            let filtered = [...this.conversations];
+
+            // 关键词搜索
+            if (filters.keyword) {
+                const searchTerm = filters.keyword.toLowerCase();
+                filtered = filtered.filter(conv => 
+                    conv.customer_name?.toLowerCase().includes(searchTerm) ||
+                    conv.last_message?.toLowerCase().includes(searchTerm) ||
+                    conv.customer_number?.includes(searchTerm)
+                );
             }
 
-            const searchTerm = keyword.toLowerCase();
-            return this.conversations.filter(conv => 
-                conv.customer_name?.toLowerCase().includes(searchTerm) ||
-                conv.last_message?.toLowerCase().includes(searchTerm) ||
-                conv.customer_number?.includes(searchTerm)
-            );
-        }
-
-        /**
-         * 按状态过滤对话
-         */
-        filterByStatus(status) {
-            if (!status || status === 'all') {
-                return this.conversations;
+            // 状态过滤
+            if (filters.status && filters.status !== 'all') {
+                filtered = filtered.filter(conv => conv.status === filters.status);
             }
 
-            return this.conversations.filter(conv => conv.status === status);
+            // 未读过滤
+            if (filters.unreadOnly) {
+                filtered = filtered.filter(conv => (conv.unread_count || 0) > 0);
+            }
+
+            return filtered;
         }
 
         /**
-         * 按未读状态过滤对话
-         */
-        filterUnread() {
-            return this.conversations.filter(conv => (conv.unread_count || 0) > 0);
-        }
-
-        /**
-         * 对话排序
+         * 🔧 优化：简化的排序方法
+         * @param {string} sortBy - 排序字段
+         * @param {string} order - 排序方向 ('asc' | 'desc')
+         * @returns {Array} 排序后的对话列表
          */
         sortConversations(sortBy = 'last_message_time', order = 'desc') {
-            const sorted = [...this.conversations].sort((a, b) => {
+            const isTimeField = sortBy.includes('time') || sortBy.includes('at');
+            const multiplier = order === 'desc' ? -1 : 1;
+
+            return [...this.conversations].sort((a, b) => {
                 let aValue = a[sortBy];
                 let bValue = b[sortBy];
 
-                // 处理时间字段
-                if (sortBy.includes('time') || sortBy.includes('at')) {
+                // 时间字段转换为时间戳比较
+                if (isTimeField) {
                     aValue = new Date(aValue || 0).getTime();
                     bValue = new Date(bValue || 0).getTime();
                 }
 
-                if (order === 'desc') {
-                    return bValue - aValue;
-                } else {
-                    return aValue - bValue;
-                }
+                return (aValue > bValue ? 1 : aValue < bValue ? -1 : 0) * multiplier;
             });
-
-            return sorted;
         }
 
         /**
-         * 获取对话统计
+         * 🔧 优化：单次遍历获取所有统计数据
+         * @returns {Object} 对话统计信息
          */
         getConversationsStats() {
             const stats = {
                 total: this.conversations.length,
-                unread: this.conversations.filter(c => (c.unread_count || 0) > 0).length,
-                active: this.conversations.filter(c => c.status === 'active').length,
-                closed: this.conversations.filter(c => c.status === 'closed').length,
-                totalUnreadCount: this.getUnreadCount()
+                unread: 0,
+                active: 0,
+                closed: 0,
+                totalUnreadCount: 0
             };
 
+            // 单次遍历获取所有统计
+            this.conversations.forEach(conv => {
+                const unreadCount = conv.unread_count || 0;
+                
+                if (unreadCount > 0) {
+                    stats.unread++;
+                    stats.totalUnreadCount += unreadCount;
+                }
+
+                if (conv.status === 'active') {
+                    stats.active++;
+                } else if (conv.status === 'closed') {
+                    stats.closed++;
+                }
+            });
+
             return stats;
+        }
+
+        /**
+         * 🔧 保留兼容性：传统搜索方法 (委托给统一过滤接口)
+         */
+        searchConversations(keyword) {
+            return this.filterConversations({ keyword });
+        }
+
+        /**
+         * 🔧 保留兼容性：按状态过滤 (委托给统一过滤接口)
+         */
+        filterByStatus(status) {
+            return this.filterConversations({ status });
+        }
+
+        /**
+         * 🔧 保留兼容性：未读过滤 (委托给统一过滤接口)
+         */
+        filterUnread() {
+            return this.filterConversations({ unreadOnly: true });
         }
 
         /**
@@ -321,7 +376,7 @@
         }
 
         /**
-         * 切换店铺
+         * 🔧 优化：切换店铺，简化状态重置
          */
         async switchShop(shopId) {
             if (shopId === this.currentShopId) {
@@ -332,21 +387,19 @@
             this.log('info', '切换店铺:', shopId);
             
             // 重置当前对话选择
-            this.currentConversationId = null;
-            this.selectedConversation = null;
+            this.currentConversationId = null; // selectedConversation 自动同步
             
             // 加载新店铺的对话
             return this.loadConversations(shopId);
         }
 
         /**
-         * 重置状态
+         * 🔧 优化：重置状态，简化属性重置
          */
         reset() {
             this.conversations = [];
-            this.currentConversationId = null;
+            this.currentConversationId = null; // selectedConversation 自动同步
             this.currentShopId = null;
-            this.selectedConversation = null;
             this.clearCache();
             this.log('info', '对话管理器状态已重置');
         }
@@ -377,6 +430,6 @@
     // 暴露到全局
     window.ConversationsManager = ConversationsManager;
 
-    console.log('✅ 优化的对话管理器已加载 (继承BaseManager)');
+    console.log('✅ 优化的对话管理器已加载 (深度优化：消除状态同步冗余)');
 
 })();

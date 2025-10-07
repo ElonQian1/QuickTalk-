@@ -10,6 +10,78 @@
 (function(){
     'use strict';
 
+    // 检查UIBase依赖
+    if (typeof window.UIBase !== 'function') {
+        console.error('❌ Toast组件依赖UIBase，但UIBase未定义。请确保ui-base.js在toast.js之前加载。');
+        
+        // 延迟重试机制
+        let retryCount = 0;
+        const maxRetries = 10;
+        const retryInterval = 100;
+        
+        function retryInitialization() {
+            retryCount++;
+            if (typeof window.UIBase === 'function') {
+                console.log('✅ UIBase依赖已解决，重新初始化Toast组件');
+                initializeToast();
+                return;
+            }
+            
+            if (retryCount < maxRetries) {
+                setTimeout(retryInitialization, retryInterval);
+            } else {
+                console.error('❌ Toast组件初始化失败：无法找到UIBase依赖');
+                provideFallbackToast();
+            }
+        }
+        
+        setTimeout(retryInitialization, retryInterval);
+        return;
+    }
+
+    // 降级实现
+    function provideFallbackToast() {
+        const fallbackAPI = {
+            show: (msg, opts) => {
+                const type = opts?.type || 'info';
+                const icon = type === 'error' ? '❌' : type === 'success' ? '✅' : 'ℹ️';
+                console.log(`${icon} [Toast Fallback] ${msg}`);
+            },
+            success: (msg) => fallbackAPI.show(msg, { type: 'success' }),
+            error: (msg) => fallbackAPI.show(msg, { type: 'error' }),
+            warning: (msg) => fallbackAPI.show(msg, { type: 'warning' }),
+            info: (msg) => fallbackAPI.show(msg, { type: 'info' }),
+            clearAll: () => {},
+            getStats: () => ({ activeCount: 0, totalCreated: 0, maxToasts: 5 })
+        };
+        
+        // 统一暴露API
+        exposeToastAPI(fallbackAPI);
+        console.log('⚠️ Toast降级模式已启用（UIBase不可用）');
+    }
+
+    // 统一API暴露函数
+    function exposeToastAPI(toastAPI) {
+        // 暴露Toast对象API
+        window.Toast = {
+            show: (message, options) => toastAPI.show(message, options),
+            success: (message, duration) => toastAPI.success(message, duration),
+            error: (message, duration) => toastAPI.error(message, duration),
+            warning: (message, duration) => toastAPI.warning(message, duration),
+            info: (message, duration) => toastAPI.info(message, duration),
+            clearAll: () => toastAPI.clearAll(),
+            getStats: () => toastAPI.getStats()
+        };
+
+        // 暴露简化API
+        window.showToast = function(message, type) {
+            toastAPI.show(message, { type: type || 'info' });
+        };
+    }
+
+    // 主初始化函数
+    function initializeToast() {
+
     class Toast extends UIBase {
         constructor(options = {}) {
             super('Toast', {
@@ -217,22 +289,13 @@
     // 创建全局实例
     const toastInstance = new Toast();
 
-    // 兼容旧版API
-    window.Toast = {
-        show: (message, options) => toastInstance.show(message, options),
-        success: (message, duration) => toastInstance.success(message, duration),
-        error: (message, duration) => toastInstance.error(message, duration),
-        warning: (message, duration) => toastInstance.warning(message, duration),
-        info: (message, duration) => toastInstance.info(message, duration),
-        clearAll: () => toastInstance.clearAll(),
-        getStats: () => toastInstance.getStats()
-    };
-
-    // 兼容旧接口
-    window.showToast = function(message, type) {
-        toastInstance.show(message, { type: type || 'info' });
-    };
+    // 统一暴露API
+    exposeToastAPI(toastInstance);
 
     console.log('✅ 优化的Toast组件已加载 (继承UIBase)');
+    }
+
+    // 立即尝试初始化
+    initializeToast();
 
 })();
