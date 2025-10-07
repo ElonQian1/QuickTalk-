@@ -1,0 +1,396 @@
+import React, { useState, useEffect } from 'react';
+import styled from 'styled-components';
+import { useNavigate } from 'react-router-dom';
+import { FiMessageCircle, FiUsers, FiClock } from 'react-icons/fi';
+import axios from 'axios';
+import { Card, Avatar, Badge, LoadingSpinner } from '../../styles/globalStyles';
+import { theme } from '../../styles/globalStyles';
+import toast from 'react-hot-toast';
+
+const Container = styled.div`
+  padding: ${theme.spacing.md};
+  padding-bottom: 80px; /* 为底部导航栏留出空间 */
+  height: 100vh;
+  overflow-y: auto;
+`;
+
+const Header = styled.div`
+  margin-bottom: ${theme.spacing.lg};
+`;
+
+const Title = styled.h2`
+  font-size: ${theme.typography.h2};
+  color: ${theme.colors.text.primary};
+  margin-bottom: ${theme.spacing.sm};
+`;
+
+const Subtitle = styled.p`
+  font-size: ${theme.typography.small};
+  color: ${theme.colors.text.secondary};
+`;
+
+const ConversationList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: ${theme.colors.divider};
+  border-radius: ${theme.borderRadius.medium};
+  overflow: hidden;
+`;
+
+const ConversationCard = styled(Card)`
+  padding: ${theme.spacing.md};
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-radius: 0;
+  
+  &:hover {
+    background: #f8f8f8;
+  }
+  
+  &:active {
+    background: #f0f0f0;
+  }
+`;
+
+const ConversationHeader = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${theme.spacing.md};
+  margin-bottom: ${theme.spacing.sm};
+`;
+
+const ConversationAvatar = styled.div<{ src?: string }>`
+  position: relative;
+  width: 48px;
+  height: 48px;
+  border-radius: ${theme.borderRadius.round};
+  background: ${props => props.src ? `url(${props.src})` : theme.colors.primary};
+  background-size: cover;
+  background-position: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: ${theme.colors.white};
+  font-size: 16px;
+  font-weight: 600;
+  flex-shrink: 0;
+`;
+
+const ConversationInfo = styled.div`
+  flex: 1;
+  overflow: hidden;
+`;
+
+const ConversationTitle = styled.div`
+  font-size: ${theme.typography.body};
+  font-weight: 600;
+  color: ${theme.colors.text.primary};
+  margin-bottom: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+`;
+
+const ConversationMeta = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${theme.spacing.sm};
+  font-size: ${theme.typography.small};
+  color: ${theme.colors.text.secondary};
+`;
+
+const LastMessage = styled.div`
+  margin-top: ${theme.spacing.sm};
+`;
+
+const MessageContent = styled.div`
+  font-size: ${theme.typography.small};
+  color: ${theme.colors.text.secondary};
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-bottom: 4px;
+`;
+
+const MessageTime = styled.div`
+  font-size: ${theme.typography.caption};
+  color: ${theme.colors.text.placeholder};
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+`;
+
+const UnreadBadge = styled(Badge)`
+  position: static;
+  margin-left: auto;
+`;
+
+const StatsCard = styled(Card)`
+  padding: ${theme.spacing.md};
+  margin-bottom: ${theme.spacing.lg};
+  background: linear-gradient(135deg, ${theme.colors.primary} 0%, ${theme.colors.secondary} 100%);
+  color: ${theme.colors.white};
+`;
+
+const StatsGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: ${theme.spacing.md};
+`;
+
+const StatItem = styled.div`
+  text-align: center;
+`;
+
+const StatValue = styled.div`
+  font-size: ${theme.typography.h2};
+  font-weight: bold;
+  margin-bottom: 4px;
+`;
+
+const StatLabel = styled.div`
+  font-size: ${theme.typography.small};
+  opacity: 0.9;
+`;
+
+const EmptyState = styled.div`
+  text-align: center;
+  padding: ${theme.spacing.xl} ${theme.spacing.md};
+  color: ${theme.colors.text.secondary};
+`;
+
+const EmptyIcon = styled.div`
+  width: 80px;
+  height: 80px;
+  margin: 0 auto ${theme.spacing.md};
+  background: ${theme.colors.background};
+  border-radius: ${theme.borderRadius.round};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  color: ${theme.colors.text.placeholder};
+`;
+
+interface Shop {
+  id: number;
+  shop_name: string;
+  unread_count?: number;
+}
+
+interface Conversation {
+  shop: Shop;
+  customer_count: number;
+  last_message?: {
+    content: string;
+    created_at: string;
+    sender_type: string;
+  };
+  unread_count: number;
+}
+
+const MessagesPage: React.FC = () => {
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    totalShops: 0,
+    totalCustomers: 0,
+    unreadMessages: 0,
+  });
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    fetchConversations();
+  }, []);
+
+  const fetchConversations = async () => {
+    try {
+      // 获取所有店铺
+      const shopsResponse = await axios.get('/api/shops');
+      const shops = shopsResponse.data;
+
+      // 为每个店铺获取对话数据
+      const conversationData = await Promise.all(
+        shops.map(async (shop: Shop) => {
+          try {
+            const customersResponse = await axios.get(`/api/shops/${shop.id}/customers`);
+            const customers = customersResponse.data;
+            
+            const unreadCount = customers.reduce((total: number, customer: any) => {
+              return total + (customer.unread_count || 0);
+            }, 0);
+
+            const lastMessage = customers.length > 0 && customers[0].last_message 
+              ? customers[0].last_message 
+              : null;
+
+            return {
+              shop: { ...shop, unread_count: unreadCount },
+              customer_count: customers.length,
+              last_message: lastMessage,
+              unread_count: unreadCount,
+            };
+          } catch (error) {
+            return {
+              shop: { ...shop, unread_count: 0 },
+              customer_count: 0,
+              last_message: null,
+              unread_count: 0,
+            };
+          }
+        })
+      );
+
+      setConversations(conversationData);
+
+      // 计算统计数据
+      const totalUnread = conversationData.reduce((total, conv) => total + conv.unread_count, 0);
+      const totalCustomers = conversationData.reduce((total, conv) => total + conv.customer_count, 0);
+
+      setStats({
+        totalShops: shops.length,
+        totalCustomers,
+        unreadMessages: totalUnread,
+      });
+
+    } catch (error) {
+      toast.error('获取消息列表失败');
+      console.error('Error fetching conversations:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConversationClick = (conversation: Conversation) => {
+    navigate(`/shops/${conversation.shop.id}/customers`);
+  };
+
+  const formatTime = (timestamp: string) => {
+    try {
+      const date = new Date(timestamp);
+      const now = new Date();
+      const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+      
+      if (diffInMinutes < 1) {
+        return '刚刚';
+      } else if (diffInMinutes < 60) {
+        return `${diffInMinutes}分钟前`;
+      } else if (diffInMinutes < 1440) {
+        return `${Math.floor(diffInMinutes / 60)}小时前`;
+      } else {
+        const days = Math.floor(diffInMinutes / 1440);
+        return `${days}天前`;
+      }
+    } catch (error) {
+      return '未知';
+    }
+  };
+
+  if (loading) {
+    return (
+      <Container>
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px' }}>
+          <LoadingSpinner />
+        </div>
+      </Container>
+    );
+  }
+
+  return (
+    <Container>
+      <Header>
+        <Title>消息中心</Title>
+        <Subtitle>管理所有店铺的客户对话</Subtitle>
+      </Header>
+
+      <StatsCard>
+        <StatsGrid>
+          <StatItem>
+            <StatValue>{stats.totalShops}</StatValue>
+            <StatLabel>店铺数量</StatLabel>
+          </StatItem>
+          <StatItem>
+            <StatValue>{stats.totalCustomers}</StatValue>
+            <StatLabel>客户数量</StatLabel>
+          </StatItem>
+          <StatItem>
+            <StatValue>{stats.unreadMessages}</StatValue>
+            <StatLabel>未读消息</StatLabel>
+          </StatItem>
+        </StatsGrid>
+      </StatsCard>
+
+      {conversations.length === 0 ? (
+        <EmptyState>
+          <EmptyIcon>💬</EmptyIcon>
+          <h3>暂无对话</h3>
+          <p>当有客户发起对话时，会显示在这里</p>
+        </EmptyState>
+      ) : (
+        <ConversationList>
+          {conversations.map((conversation) => (
+            <ConversationCard
+              key={conversation.shop.id}
+              onClick={() => handleConversationClick(conversation)}
+            >
+              <ConversationHeader>
+                <ConversationAvatar>
+                  🏪
+                  {conversation.unread_count > 0 && (
+                    <Badge count={conversation.unread_count} />
+                  )}
+                </ConversationAvatar>
+                
+                <ConversationInfo>
+                  <ConversationTitle>
+                    {conversation.shop.shop_name}
+                  </ConversationTitle>
+                  
+                  <ConversationMeta>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <FiUsers size={12} />
+                      {conversation.customer_count} 位客户
+                    </div>
+                    
+                    {conversation.unread_count > 0 && (
+                      <>
+                        <span>•</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <FiMessageCircle size={12} />
+                          {conversation.unread_count} 条未读
+                        </div>
+                      </>
+                    )}
+                  </ConversationMeta>
+                </ConversationInfo>
+                
+                {conversation.unread_count > 0 && (
+                  <UnreadBadge count={conversation.unread_count} />
+                )}
+              </ConversationHeader>
+
+              {conversation.last_message && (
+                <LastMessage>
+                  <MessageContent>
+                    {conversation.last_message.sender_type === 'customer' ? '' : '[我] '}
+                    {conversation.last_message.content}
+                  </MessageContent>
+                  
+                  <MessageTime>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <FiClock size={12} />
+                      {formatTime(conversation.last_message.created_at)}
+                    </div>
+                  </MessageTime>
+                </LastMessage>
+              )}
+            </ConversationCard>
+          ))}
+        </ConversationList>
+      )}
+    </Container>
+  );
+};
+
+export default MessagesPage;

@@ -1,0 +1,37 @@
+{
+  "name": "customer-service-system",
+  "version": "1.0.0",
+  "description": "客服系统 - 前后端一体化开发环境",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently --kill-others \"npm run backend:dev\" \"npm run frontend:dev\" \"npm run sdk:dev\"",
+    "dev:full": "concurrently --kill-others \"npm run backend:dev\" \"npm run frontend:dev\" \"npm run sdk:dev\"",
+    "backend:temp": "node backend-temp.js",
+    "backend:dev": "node backend-sqlite.js",
+    "frontend:dev": "cd frontend && npm start",
+    "sdk:dev": "cd websocket-sdk && npm run dev",
+    "backend:build": "cd backend && cargo build",
+    "frontend:only": "cd frontend && npm start",
+    "backend:only": "cd backend && cargo run",
+    "install:all": "npm install && cd frontend && npm install && cd ../websocket-sdk && npm install",
+    "build": "concurrently \"npm run frontend:build\" \"npm run sdk:build\"",
+    "build:full": "concurrently \"npm run backend:build\" \"npm run frontend:build\" \"npm run sdk:build\"",
+    "backend:build:release": "cd backend && cargo build --release",
+    "frontend:build": "cd frontend && npm run build",
+    "sdk:build": "cd websocket-sdk && npm run build"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  },
+  "workspaces": [
+    "frontend",
+    "websocket-sdk"
+  ],
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "dependencies": {
+    "sqlite3": "^5.1.7"
+  }
+}

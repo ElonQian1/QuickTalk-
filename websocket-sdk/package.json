@@ -1,0 +1,23 @@
+{
+  "name": "customer-service-sdk",
+  "version": "1.0.0",
+  "description": "WebSocket SDK for customer service integration",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "jest"
+  },
+  "keywords": ["websocket", "customer-service", "chat", "sdk"],
+  "author": "Your Name",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0",
+    "jest": "^29.0.0"
+  },
+  "dependencies": {
+    "ws": "^8.14.0"
+  }
+}
