@@ -49,3 +49,52 @@ uploads/**/*
 
 # 参考文件夹（包含个人文档）
 参考/
+
+# Rust项目构建产物和缓存
+backend/target/
+backend/target-*/
+backend/.cargo/
+backend/quicktalk.sqlite*
+backend/uploads/
+
+# 数据库归档文件
+data/archive/
+data/*.sqlite
+data/*.sqlite-*
+
+# Rust编译输出
+**/target/
+**/target-*/
+**/.cargo/
+
+# SQLite数据库文件
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# 临时文件和缓存
+temp/
+.cache/
+*.temp
+*.tmp
+
+# 文档和报告文件（保留README）
+*.html
+*.md
+!README.md
+!README-*.md
+
+# 脚本执行文件（保留源码脚本）
+*.exe
+*.dll
+*.so
+*.dylib
+
+# VS Code工作区文件
+*.code-workspace
+
+# 项目特定忽略
+图片消息修复报告.html
+最终交付版本结构.md
+架构说明.md
+甲方交付清单.md
