@@ -1,0 +1,46 @@
+{
+  "name": "quicktalk-fullstack-dev",
+  "private": true,
+  "version": "1.0.0",
+  "description": "QuickTalk 客服系统 - 全栈开发环境",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\" --names \"🦀 Backend,⚛️ Frontend\" --prefix-colors \"yellow,cyan\" --kill-others-on-fail",
+    "dev:backend": "cd backend && cargo watch -x run",
+    "dev:frontend": "cd frontend-react && npm run dev:frontend",
+    "dev:backend-only": "cd backend && cargo run",
+    "dev:frontend-only": "cd frontend-react && npm run dev:frontend",
+    "build": "npm run build:frontend && npm run build:backend",
+    "build:frontend": "cd frontend-react && npm run build",
+    "build:backend": "cd backend && cargo build --release",
+    "setup": "npm run setup:frontend && npm run setup:backend",
+    "setup:frontend": "cd frontend-react && npm install",
+    "setup:backend": "cd backend && cargo install cargo-watch",
+    "clean": "npm run clean:frontend && npm run clean:backend",
+    "clean:frontend": "cd frontend-react && rm -rf node_modules dist",
+    "clean:backend": "cd backend && cargo clean",
+    "test": "npm run test:frontend && npm run test:backend",
+    "test:frontend": "cd frontend-react && npm run test",
+    "test:backend": "cd backend && cargo test",
+    "check": "npm run check:frontend && npm run check:backend",
+    "check:frontend": "cd frontend-react && npm run lint",
+    "check:backend": "cd backend && cargo check",
+    "start": "npm run dev"
+  },
+  "devDependencies": {
+    "concurrently": "^7.6.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "keywords": [
+    "quicktalk",
+    "customer-service",
+    "rust",
+    "react",
+    "typescript",
+    "ddd"
+  ],
+  "author": "QuickTalk Team",
+  "license": "MIT"
+}
