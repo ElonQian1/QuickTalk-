@@ -3,6 +3,7 @@ pub mod shops;
 pub mod uploads;
 pub mod conversations;
 pub mod ddd_conversations; // 新的 DDD 风格 API
+pub mod react_routes; // React 路由处理
 pub mod admin;
 pub mod employees;
 pub mod payments;

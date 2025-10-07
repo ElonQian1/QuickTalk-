@@ -92,6 +92,7 @@ export interface ConversationListProps {
   conversations: Conversation[];
   selectedConversationId?: number;
   onSelectConversation: (conversation: Conversation) => void;
+  isLoading?: boolean;
 }
 
 // Form types

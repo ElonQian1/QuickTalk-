@@ -41,6 +41,8 @@ pub async fn build_app(db: SqlitePool) -> Router {
         .route("/", get(web::serve_index))
         .route("/admin", get(web::serve_admin))
         .route("/mobile/admin", get(web::serve_mobile_admin))
+        .route("/mobile/admin/react", get(crate::api::react_routes::serve_react_mobile_admin))
+        .route("/mobile/admin/legacy", get(crate::api::react_routes::serve_legacy_mobile_admin))
     .route("/mobile/dashboard", get(web::serve_mobile_dashboard))
         .route("/mobile/login", get(web::serve_mobile_login))
         .route("/ws", get(ws::websocket_handler))
