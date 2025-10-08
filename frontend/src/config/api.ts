@@ -12,6 +12,19 @@ export const api = axios.create({
   timeout: 15000,
 });
 
+// 添加一个简单的健康检查函数
+export const checkApiHealth = async (): Promise<boolean> => {
+  try {
+    const response = await fetch(`${API_BASE}/health`, { 
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    return response.ok;
+  } catch (error) {
+    return false;
+  }
+};
+
 // 全局响应处理（这里简单打印，可扩展）
 api.interceptors.response.use(
   (resp) => resp,

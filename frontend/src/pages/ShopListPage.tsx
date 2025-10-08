@@ -6,6 +6,7 @@ import { api } from '../config/api';
 import { Button, Card, Avatar, Badge, LoadingSpinner } from '../styles/globalStyles';
 import { theme } from '../styles/globalStyles';
 import toast from 'react-hot-toast';
+import CreateShopModal from '../components/CreateShopModal';
 
 const Container = styled.div`
   padding: ${theme.spacing.md};
@@ -153,6 +154,7 @@ interface Shop {
 const ShopListPage: React.FC = () => {
   const [shops, setShops] = useState<Shop[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -161,7 +163,8 @@ const ShopListPage: React.FC = () => {
 
   const fetchShops = async () => {
     try {
-  const response = await api.get('/api/shops');
+      const response = await api.get('/api/shops');
+      console.log('📋 获取到的店铺数据:', response.data);
       setShops(response.data);
     } catch (error) {
       toast.error('获取店铺列表失败');
@@ -176,17 +179,12 @@ const ShopListPage: React.FC = () => {
   };
 
   const handleCreateShop = () => {
-    const shopName = prompt('请输入店铺名称:');
-    if (!shopName) return;
-
-    const shopUrl = prompt('请输入店铺网址（可选）:');
-    
-    createShop(shopName, shopUrl || undefined);
+    setIsCreateModalOpen(true);
   };
 
   const createShop = async (shopName: string, shopUrl?: string) => {
     try {
-  const response = await api.post('/api/shops', {
+      const response = await api.post('/api/shops', {
         shop_name: shopName,
         shop_url: shopUrl,
       });
@@ -196,6 +194,7 @@ const ShopListPage: React.FC = () => {
     } catch (error) {
       toast.error('创建店铺失败');
       console.error('Error creating shop:', error);
+      throw error; // 重新抛出错误，让模态框知道创建失败
     }
   };
 
@@ -231,12 +230,14 @@ const ShopListPage: React.FC = () => {
         </EmptyState>
       ) : (
         <ShopList>
-          {shops.map((shop) => (
-            <ShopCard
-              key={shop.id}
-              onClick={() => handleShopClick(shop)}
-              className="fade-in"
-            >
+          {shops.map((shop) => {
+            console.log('🏪 渲染店铺:', shop.shop_name, '未读消息:', shop.unread_count, 'API Key:', shop.api_key);
+            return (
+              <ShopCard
+                key={shop.id}
+                onClick={() => handleShopClick(shop)}
+                className="fade-in"
+              >
               <ShopHeader>
                 <ShopIcon style={{ position: 'relative' }}>
                   🏪
@@ -266,9 +267,16 @@ const ShopListPage: React.FC = () => {
                 </StatItem>
               </ShopStats>
             </ShopCard>
-          ))}
+            );
+          })}
         </ShopList>
       )}
+      
+      <CreateShopModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSubmit={createShop}
+      />
     </Container>
   );
 };

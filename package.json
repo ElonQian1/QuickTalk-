@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:sdk\" --names \"🦀 Backend,⚛️ Frontend,📡 SDK\" --prefix-colors \"yellow,cyan,green\" --kill-others-on-fail",
-    "dev:backend": "node mock-backend.js",
+    "dev:backend": "node temp-backend.cjs",
     "dev:frontend": "cd frontend && npm start",
     "dev:sdk": "cd websocket-sdk && npm run dev",
     "dev:backend-only": "cd backend && cargo run",
@@ -44,7 +44,11 @@
   "author": "Customer Service Team",
   "license": "MIT",
   "dependencies": {
+    "axios": "^1.12.2",
+    "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "sqlite3": "^5.1.7"
   }
 }
