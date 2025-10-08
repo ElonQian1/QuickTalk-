@@ -1,0 +1,117 @@
+import React, { useState } from 'react';
+import styled from 'styled-components';
+import { theme } from '../../../styles/globalStyles';
+import { api } from '../../../config/api';
+import toast from 'react-hot-toast';
+
+interface AddStaffModalProps {
+  open: boolean;
+  shopId: number | undefined;
+  onClose: () => void;
+  onAdded: () => void; // 刷新列表
+}
+
+const Overlay = styled.div<{ open: boolean }>`
+  position: fixed; inset:0; background:rgba(0,0,0,0.45);
+  display:${p => p.open ? 'flex' : 'none'}; align-items:center; justify-content:center; z-index:3000; padding:24px;
+`;
+
+const Modal = styled.div`
+  background:${theme.colors.white}; width:100%; max-width:420px; border-radius:${theme.borderRadius.large};
+  box-shadow:0 6px 24px rgba(0,0,0,0.15); padding:28px 28px 32px; display:flex; flex-direction:column; gap:20px;
+`;
+
+const Title = styled.h3`margin:0; font-size:${theme.typography.h3}; font-weight:600;`;
+
+const Field = styled.div`display:flex; flex-direction:column; gap:6px;`;
+const Label = styled.label`font-size:${theme.typography.small}; color:${theme.colors.text.secondary}; font-weight:500;`;
+const Input = styled.input`
+  padding:10px 14px; border:1px solid ${theme.colors.border}; border-radius:${theme.borderRadius.small};
+  font-size:${theme.typography.body}; background:${theme.colors.white};
+  &:focus{outline:none; border-color:${theme.colors.primary};}
+`;
+const Select = styled.select`
+  padding:10px 14px; border:1px solid ${theme.colors.border}; border-radius:${theme.borderRadius.small};
+  font-size:${theme.typography.body}; background:${theme.colors.white};
+  &:focus{outline:none; border-color:${theme.colors.primary};}
+`;
+
+const Actions = styled.div`display:flex; justify-content:flex-end; gap:12px; margin-top:8px;`;
+
+const Button = styled.button<{ variant?: 'primary' | 'secondary' }>`
+  padding:10px 18px; font-size:${theme.typography.small}; border-radius:${theme.borderRadius.small}; cursor:pointer;
+  border:1px solid transparent; font-weight:500; display:inline-flex; align-items:center; gap:6px;
+  ${p => p.variant === 'primary' ? `background:${theme.colors.primary}; color:${theme.colors.white}; &:hover{background:#059246;}` : `background:${theme.colors.background}; color:${theme.colors.text.primary}; border-color:${theme.colors.border}; &:hover{background:#e9e9e9;}`};
+  &:disabled{opacity:.6; cursor:not-allowed;}
+`;
+
+const ErrorText = styled.div`color:${theme.colors.danger}; font-size:12px;`;
+
+const AddStaffModal: React.FC<AddStaffModalProps> = ({ open, onClose, shopId, onAdded }) => {
+  const [username, setUsername] = useState('');
+  const [role, setRole] = useState('staff');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const reset = () => {
+    setUsername('');
+    setRole('staff');
+    setError('');
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!shopId) return;
+    if (!username.trim()) {
+      setError('请输入用户名');
+      return;
+    }
+    setSubmitting(true);
+    setError('');
+    try {
+      // 真实后端接口假设: POST /api/shops/:id/staff  body: { username, role }
+      await api.post(`/api/shops/${shopId}/staff`, { username: username.trim(), role });
+      toast.success('员工已添加');
+      onAdded();
+      reset();
+      onClose();
+    } catch (err: any) {
+      console.error('添加员工失败', err);
+      if (err?.response?.data?.message) {
+        setError(err.response.data.message);
+      } else {
+        setError('添加失败');
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Overlay open={open} onClick={() => !submitting && onClose()}>
+      <Modal onClick={e => e.stopPropagation()}>
+        <form onSubmit={handleSubmit}>
+          <Title>添加员工</Title>
+          <Field>
+            <Label>用户名</Label>
+            <Input value={username} onChange={e => setUsername(e.target.value)} placeholder="输入系统已注册的用户名" disabled={submitting} />
+          </Field>
+          <Field>
+            <Label>角色</Label>
+            <Select value={role} onChange={e => setRole(e.target.value)} disabled={submitting}>
+              <option value="staff">普通员工</option>
+              <option value="manager">管理员</option>
+            </Select>
+          </Field>
+          {error && <ErrorText>{error}</ErrorText>}
+          <Actions>
+            <Button type="button" onClick={onClose} disabled={submitting}>取消</Button>
+            <Button type="submit" variant="primary" disabled={submitting}>{submitting ? '提交中...' : '确认添加'}</Button>
+          </Actions>
+        </form>
+      </Modal>
+    </Overlay>
+  );
+};
+
+export default AddStaffModal;

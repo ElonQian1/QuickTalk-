@@ -9,14 +9,14 @@ import { BottomTabBar } from '../Navigation';
 const LayoutContainer = styled.div`
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  min-height: 100dvh;
   background: ${theme.colors.background};
 `;
 
 const Header = styled.header`
   background: ${theme.colors.white};
   border-bottom: 1px solid ${theme.colors.border};
-  height: 56px;
+  height: 3.5rem; /* 56px */
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -44,8 +44,8 @@ const HeaderRight = styled.div`
 `;
 
 const IconButton = styled.button`
-  width: 40px;
-  height: 40px;
+  width: 2.5rem;
+  height: 2.5rem;
   border-radius: ${theme.borderRadius.round};
   background: transparent;
   border: none;
@@ -60,8 +60,8 @@ const IconButton = styled.button`
   }
   
   svg {
-    width: 20px;
-    height: 20px;
+  width: 1.25rem;
+  height: 1.25rem;
     color: ${theme.colors.text.primary};
   }
 `;

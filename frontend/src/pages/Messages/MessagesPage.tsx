@@ -4,13 +4,13 @@ import { useNavigate } from 'react-router-dom';
 import { FiMessageCircle, FiUsers, FiClock } from 'react-icons/fi';
 import { api, checkApiHealth } from '../../config/api';
 import { mockApi } from '../../config/mockData';
-import { Card, Avatar, Badge, LoadingSpinner } from '../../styles/globalStyles';
+import { Card, Badge, LoadingSpinner } from '../../styles/globalStyles';
 import { theme } from '../../styles/globalStyles';
 import toast from 'react-hot-toast';
 
 const Container = styled.div`
   padding: ${theme.spacing.md};
-  padding-bottom: 80px; /* 为底部导航栏留出空间 */
+  padding-bottom: ${theme.spacing.xxl}; /* 原 80px → xxl(40) 可视需求再扩，可引入 footerHeight token */
   height: 100vh;
   overflow-y: auto;
 `;
@@ -33,7 +33,7 @@ const Subtitle = styled.p`
 const ConversationList = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: ${theme.spacing.hair}; /* 原 1px */
   background: ${theme.colors.divider};
   border-radius: ${theme.borderRadius.medium};
   overflow: hidden;
@@ -63,8 +63,8 @@ const ConversationHeader = styled.div`
 
 const ConversationAvatar = styled.div<{ src?: string }>`
   position: relative;
-  width: 48px;
-  height: 48px;
+  width: ${theme.spacing.xxl}; /* 原 48px；如需更大头像可新增 xxxl */
+  height: ${theme.spacing.xxl};
   border-radius: ${theme.borderRadius.round};
   background: ${props => props.src ? `url(${props.src})` : theme.colors.primary};
   background-size: cover;
@@ -73,7 +73,7 @@ const ConversationAvatar = styled.div<{ src?: string }>`
   align-items: center;
   justify-content: center;
   color: ${theme.colors.white};
-  font-size: 16px;
+  font-size: ${theme.typography.h2}; /* 原 16px */
   font-weight: 600;
   flex-shrink: 0;
 `;
@@ -87,7 +87,7 @@ const ConversationTitle = styled.div`
   font-size: ${theme.typography.body};
   font-weight: 600;
   color: ${theme.colors.text.primary};
-  margin-bottom: 2px;
+  margin-bottom: ${theme.spacing.micro}; /* 原 2px */
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -111,7 +111,7 @@ const MessageContent = styled.div`
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  margin-bottom: 4px;
+  margin-bottom: ${theme.spacing.micro}; /* 原 4px */
 `;
 
 const MessageTime = styled.div`
@@ -147,7 +147,7 @@ const StatItem = styled.div`
 const StatValue = styled.div`
   font-size: ${theme.typography.h2};
   font-weight: bold;
-  margin-bottom: 4px;
+  margin-bottom: ${theme.spacing.micro}; /* 原 4px */
 `;
 
 const StatLabel = styled.div`
@@ -162,15 +162,15 @@ const EmptyState = styled.div`
 `;
 
 const EmptyIcon = styled.div`
-  width: 80px;
-  height: 80px;
+  width: ${theme.spacing.xxl}; /* 原 80px */
+  height: ${theme.spacing.xxl};
   margin: 0 auto ${theme.spacing.md};
   background: ${theme.colors.background};
   border-radius: ${theme.borderRadius.round};
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 32px;
+  font-size: ${theme.typography.display}; /* 原 32px */
   color: ${theme.colors.text.placeholder};
 `;
 
@@ -194,7 +194,7 @@ interface Conversation {
 const MessagesPage: React.FC = () => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
-  const [useOfflineData, setUseOfflineData] = useState(false);
+  // 已移除离线数据回退逻辑的标记状态（此前未使用）
   const [stats, setStats] = useState({
     totalShops: 0,
     totalCustomers: 0,
@@ -213,7 +213,7 @@ const MessagesPage: React.FC = () => {
       
       if (!isApiHealthy) {
         console.log('API不可用，使用离线数据');
-        setUseOfflineData(true);
+  // 离线数据回退：已简化，去除未使用的状态标记
         const mockShops = await mockApi.getShops();
         const mockConversations = await Promise.all(
           mockShops.map(async (shop) => {
@@ -289,7 +289,7 @@ const MessagesPage: React.FC = () => {
       console.error('Error fetching conversations:', error);
       // 如果API失败，使用离线数据
       console.log('API请求失败，切换到离线数据');
-      setUseOfflineData(true);
+  // 离线数据回退：已简化，去除未使用的状态标记
       try {
         const mockShops = await mockApi.getShops();
         const mockConversations = await Promise.all(

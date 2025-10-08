@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
-import { useNavigate } from 'react-router-dom';
-import { FiPlus, FiMessageCircle, FiGlobe } from 'react-icons/fi';
+import { FiPlus, FiGlobe } from 'react-icons/fi';
 import { api } from '../config/api';
-import { Button, Card, Avatar, Badge, LoadingSpinner } from '../styles/globalStyles';
+import { Button, Card, LoadingSpinner } from '../styles/globalStyles';
+import { ShopManageButton, ShopManageModal } from '../components/shops';
 import { theme } from '../styles/globalStyles';
 import toast from 'react-hot-toast';
 import CreateShopModal from '../components/CreateShopModal';
@@ -94,27 +94,7 @@ const ShopUrl = styled.p`
   white-space: nowrap;
 `;
 
-const ShopStats = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: ${theme.spacing.sm};
-  padding-top: ${theme.spacing.sm};
-  border-top: 1px solid ${theme.colors.divider};
-`;
-
-const StatItem = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: ${theme.typography.small};
-  color: ${theme.colors.text.secondary};
-`;
-
-const StatValue = styled.span`
-  font-weight: 600;
-  color: ${theme.colors.text.primary};
-`;
+// 统计区域移除，改为右上角管理按钮。保留命名占位可在未来扩展（例如显示订单统计）。
 
 const EmptyState = styled.div`
   text-align: center;
@@ -146,16 +126,19 @@ interface Shop {
   id: number;
   shop_name: string;
   shop_url?: string;
-  api_key: string;
+  api_key: string; // 仍从后端获取但不在卡片直接展示
   created_at: string;
-  unread_count?: number;
+  unread_count?: number; // 仍获取但不显示
 }
 
 const ShopListPage: React.FC = () => {
   const [shops, setShops] = useState<Shop[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const navigate = useNavigate();
+  // 移除店铺点击跳转：改为仅通过“管理”按钮操作。
+  const [manageOpen, setManageOpen] = useState(false);
+  const [activeShop, setActiveShop] = useState<Shop | undefined>();
+  const [initialTab, setInitialTab] = useState<'info' | 'staff' | 'apiKey'>('info');
 
   useEffect(() => {
     fetchShops();
@@ -174,8 +157,12 @@ const ShopListPage: React.FC = () => {
     }
   };
 
-  const handleShopClick = (shop: Shop) => {
-    navigate(`/shops/${shop.id}/customers`);
+  // 之前点击卡片跳转逻辑已移除。
+
+  const openManage = (shop: Shop, tab: 'info' | 'staff' | 'apiKey' = 'info') => {
+    setActiveShop(shop);
+    setInitialTab(tab);
+    setManageOpen(true);
   };
 
   const handleCreateShop = () => {
@@ -233,44 +220,43 @@ const ShopListPage: React.FC = () => {
           {shops.map((shop) => {
             console.log('🏪 渲染店铺:', shop.shop_name, '未读消息:', shop.unread_count, 'API Key:', shop.api_key);
             return (
-              <ShopCard
-                key={shop.id}
-                onClick={() => handleShopClick(shop)}
-                className="fade-in"
-              >
-              <ShopHeader>
-                <ShopIcon style={{ position: 'relative' }}>
-                  🏪
-                  {shop.unread_count && shop.unread_count > 0 && (
-                    <Badge count={shop.unread_count} />
-                  )}
-                </ShopIcon>
-                
-                <ShopInfo>
-                  <ShopName>{shop.shop_name}</ShopName>
-                  {shop.shop_url && (
-                    <ShopUrl>
-                      <FiGlobe />
-                      {shop.shop_url.replace(/^https?:\/\//, '')}
-                    </ShopUrl>
-                  )}
-                </ShopInfo>
-              </ShopHeader>
+              <ShopCard key={shop.id} className="fade-in">
+                <ShopHeader>
+                  <ShopIcon style={{ position: 'relative' }}>
+                    🏪
+                  </ShopIcon>
 
-              <ShopStats>
-                <StatItem>
-                  <FiMessageCircle />
-                  未读消息: <StatValue>{shop.unread_count || 0}</StatValue>
-                </StatItem>
-                <StatItem>
-                  API Key: <StatValue>{shop.api_key ? shop.api_key.substring(0, 8) + '...' : 'N/A'}</StatValue>
-                </StatItem>
-              </ShopStats>
-            </ShopCard>
+                  <ShopInfo>
+                    <ShopName>{shop.shop_name}</ShopName>
+                    {shop.shop_url && (
+                      <ShopUrl>
+                        <FiGlobe />
+                        {shop.shop_url.replace(/^https?:\/\//, '')}
+                      </ShopUrl>
+                    )}
+                  </ShopInfo>
+
+                  <div>
+                      <ShopManageButton
+                        shop={shop}
+                        mode="direct"
+                        onAction={(action) => {
+                          openManage(shop, action === 'apiKey' ? 'apiKey' : action === 'staff' ? 'staff' : 'info');
+                        }}
+                      />
+                  </div>
+                </ShopHeader>
+              </ShopCard>
             );
           })}
         </ShopList>
       )}
+      <ShopManageModal
+        open={manageOpen}
+        onClose={() => setManageOpen(false)}
+        shop={activeShop}
+        initialTab={initialTab}
+      />
       
       <CreateShopModal
         isOpen={isCreateModalOpen}

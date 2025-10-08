@@ -94,10 +94,6 @@ const MessageTime = styled.div<{ isOwn?: boolean }>`
   align-self: ${props => props.isOwn ? 'flex-end' : 'flex-start'};
 `;
 
-const MessageAvatar = styled.div<{ isOwn?: boolean }>`
-  ${props => props.isOwn && 'order: 1;'}
-  margin: ${props => props.isOwn ? '0 0 0 8px' : '0 8px 0 0'};
-`;
 
 const MessageContent = styled.div<{ isOwn?: boolean }>`
   display: flex;
@@ -208,42 +204,7 @@ const EmptyState = styled.div`
   padding: ${theme.spacing.xl};
 `;
 
-const TypingIndicator = styled.div`
-  display: flex;
-  align-items: center;
-  gap: ${theme.spacing.sm};
-  padding: ${theme.spacing.sm} ${theme.spacing.md};
-  color: ${theme.colors.text.placeholder};
-  font-size: ${theme.typography.small};
-`;
-
-const TypingDots = styled.div`
-  display: flex;
-  gap: 2px;
-  
-  span {
-    width: 4px;
-    height: 4px;
-    border-radius: 50%;
-    background: ${theme.colors.text.placeholder};
-    animation: typing 1.4s infinite ease-in-out;
-    
-    &:nth-child(1) { animation-delay: -0.32s; }
-    &:nth-child(2) { animation-delay: -0.16s; }
-    &:nth-child(3) { animation-delay: 0s; }
-  }
-  
-  @keyframes typing {
-    0%, 80%, 100% {
-      opacity: 0.3;
-      transform: scale(0.8);
-    }
-    40% {
-      opacity: 1;
-      transform: scale(1);
-    }
-  }
-`;
+// TypingIndicator / TypingDots 组件暂未使用，已移除以保持零未使用变量警告。
 
 interface Message {
   id: number;
@@ -260,7 +221,7 @@ const ChatPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [inputValue, setInputValue] = useState('');
   const [sending, setSending] = useState(false);
-  const [isTyping, setIsTyping] = useState(false);
+  // const [isTyping, setIsTyping] = useState(false); // 未来可接入实时输入指示
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -434,17 +395,7 @@ const ChatPage: React.FC = () => {
           })
         )}
         
-        {isTyping && (
-          <TypingIndicator>
-            <Avatar size={24}>👤</Avatar>
-            <span>正在输入</span>
-            <TypingDots>
-              <span></span>
-              <span></span>
-              <span></span>
-            </TypingDots>
-          </TypingIndicator>
-        )}
+        {/* 正在输入指示器暂未启用 */}
         
         <div ref={messagesEndRef} />
       </MessagesContainer>

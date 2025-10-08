@@ -24,12 +24,12 @@ const Overlay = styled.div<{ isOpen: boolean }>`
 const Modal = styled.div`
   background: ${theme.colors.white};
   border-radius: ${theme.borderRadius.large};
-  padding: ${theme.spacing.xl};
+  padding: ${theme.spacing.lg}; /* 24px 基准 */
   width: 90%;
-  max-width: 500px;
+  max-width: 32rem; /* 512px */
   box-shadow: ${theme.shadows.modal};
   position: relative;
-  max-height: 90vh;
+  max-height: 90dvh;
   overflow-y: auto;
 `;
 
@@ -37,11 +37,11 @@ const Header = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: ${theme.spacing.lg};
+  margin-bottom: ${theme.spacing.md};
 `;
 
 const Title = styled.h2`
-  font-size: ${theme.typography.h3};
+  font-size: ${theme.typography.h2};
   font-weight: 600;
   color: ${theme.colors.text.primary};
   margin: 0;
@@ -69,7 +69,7 @@ const Form = styled.form`
 const FormGroup = styled.div`
   display: flex;
   flex-direction: column;
-  gap: ${theme.spacing.sm};
+  gap: ${theme.spacing.xs};
 `;
 
 const Label = styled.label`
@@ -84,7 +84,7 @@ const RequiredMark = styled.span`
 `;
 
 const Input = styled.input<{ hasError?: boolean }>`
-  padding: ${theme.spacing.sm} ${theme.spacing.md};
+  padding: 0.625rem ${theme.spacing.md};
   border: 2px solid ${props => props.hasError ? theme.colors.danger : theme.colors.border};
   border-radius: ${theme.borderRadius.medium};
   font-size: ${theme.typography.body};
@@ -120,7 +120,7 @@ const ButtonGroup = styled.div`
 `;
 
 const Button = styled.button<{ variant?: 'primary' | 'secondary' }>`
-  padding: ${theme.spacing.sm} ${theme.spacing.lg};
+  padding: 0.625rem ${theme.spacing.lg};
   border: none;
   border-radius: ${theme.borderRadius.medium};
   font-size: ${theme.typography.body};

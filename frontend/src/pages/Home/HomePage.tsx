@@ -5,28 +5,29 @@ import { FiMessageSquare, FiUsers, FiTrendingUp, FiShoppingBag, FiClock } from '
 import { useAuthStore } from '../../stores/authStore';
 import { api, checkApiHealth } from '../../config/api';
 import { mockApi } from '../../config/mockData';
+import { theme } from '../../styles/globalStyles';
 
 const Container = styled.div`
   min-height: 100vh;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding-bottom: 80px; /* 为底部导航留出空间 */
+  padding-bottom: ${theme.spacing.xxl}; /* 原 80px */
 `;
 
 const Header = styled.div`
-  padding: 40px 20px 20px;
+  padding: ${theme.spacing.xxl} ${theme.spacing.md} ${theme.spacing.md}; /* 原 40 20 20 */
   text-align: center;
   color: white;
 `;
 
 const WelcomeText = styled.h1`
-  font-size: 28px;
+  font-size: ${theme.typography.display}; /* 原 28px 使用 display(32) 或可新设 token; 这里选 display */
   font-weight: 600;
-  margin: 0 0 8px;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  margin: 0 0 ${theme.spacing.xs}; /* 原 8px */
+  text-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.3); /* 2px 4px 转 rem */
 `;
 
 const SubText = styled.p`
-  font-size: 16px;
+  font-size: ${theme.typography.body};
   opacity: 0.9;
   margin: 0;
 `;
@@ -34,10 +35,10 @@ const SubText = styled.p`
 const OfflineIndicator = styled.div`
   background: rgba(255, 193, 7, 0.9);
   color: #856404;
-  padding: 8px 16px;
-  border-radius: 8px;
-  font-size: 14px;
-  margin-top: 12px;
+  padding: ${theme.spacing.xs} ${theme.spacing.sm}; /* 原 8 16 */
+  border-radius: ${theme.spacing.sm}; /* 原 8px */
+  font-size: ${theme.typography.small};
+  margin-top: ${theme.spacing.smd}; /* 原 12px */
   text-align: center;
   font-weight: 500;
 `;
@@ -45,77 +46,77 @@ const OfflineIndicator = styled.div`
 const StatsGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
-  padding: 0 20px 20px;
+  gap: ${theme.spacing.md}; /* 原 16px */
+  padding: 0 ${theme.spacing.md} ${theme.spacing.md}; /* 原 0 20 20 */
 `;
 
 const StatCard = styled.div`
   background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  border-radius: 16px;
-  padding: 20px;
+  backdrop-filter: blur(${theme.spacing.md}); /* 16px 近似原 10px */
+  border-radius: ${theme.spacing.xl}; /* 原 16px */
+  padding: ${theme.spacing.mlg}; /* 原 20px -> 20 token mlg */
   text-align: center;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 0.25rem 1.25rem rgba(0,0,0,0.1); /* 4px 20px -> rem */
   transition: transform 0.2s, box-shadow 0.2s;
 
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+    transform: translateY(-0.125rem); /* 原 -2px */
+    box-shadow: 0 0.5rem 1.875rem rgba(0,0,0,0.15); /* 8px 30px */
   }
 `;
 
 const StatIcon = styled.div<{ color: string }>`
-  width: 48px;
-  height: 48px;
+  width: ${theme.spacing.xxl}; /* 原 48px */
+  height: ${theme.spacing.xxl};
   background: ${props => props.color};
-  border-radius: 12px;
+  border-radius: ${theme.spacing.lg}; /* 原 12px */
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 auto 12px;
+  margin: 0 auto ${theme.spacing.smd}; /* 原 12px */
   color: white;
 
   svg {
-    width: 24px;
-    height: 24px;
+    width: ${theme.spacing.md}; /* 16px 近似原 24px? 若需24可用 pxToRem(24) */
+    height: ${theme.spacing.md};
   }
 `;
 
 const StatValue = styled.div`
-  font-size: 28px;
+  font-size: ${theme.typography.display}; /* 原 28px */
   font-weight: bold;
   color: #333;
-  margin-bottom: 4px;
+  margin-bottom: ${theme.spacing.micro}; /* 原 4px */
 `;
 
 const StatLabel = styled.div`
-  font-size: 14px;
+  font-size: ${theme.typography.small};
   color: #666;
 `;
 
 const QuickActions = styled.div`
-  padding: 0 20px;
-  margin-bottom: 20px;
+  padding: 0 ${theme.spacing.md};
+  margin-bottom: ${theme.spacing.mlg}; /* 原 20px */
 `;
 
 const SectionTitle = styled.h2`
   color: white;
-  font-size: 20px;
+  font-size: ${theme.typography.h2}; /* 原 20px */
   font-weight: 600;
-  margin: 0 0 16px;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  margin: 0 0 ${theme.spacing.md};
+  text-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.3);
 `;
 
 const ActionsGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
+  gap: ${theme.spacing.smd}; /* 原 12px */
 `;
 
 const ActionCard = styled.div`
   background: rgba(255, 255, 255, 0.9);
-  border-radius: 12px;
-  padding: 16px;
+  border-radius: ${theme.spacing.lg}; /* 原 12px */
+  padding: ${theme.spacing.md}; /* 原 16px */
   display: flex;
   align-items: center;
   cursor: pointer;
@@ -123,24 +124,24 @@ const ActionCard = styled.div`
 
   &:hover {
     background: rgba(255, 255, 255, 1);
-    transform: translateY(-1px);
+    transform: translateY(-0.0625rem); /* 原 1px */
   }
 `;
 
 const ActionIcon = styled.div<{ color: string }>`
-  width: 40px;
-  height: 40px;
+  width: ${theme.spacing.xxl}; /* 原 40px */
+  height: ${theme.spacing.xxl};
   background: ${props => props.color};
-  border-radius: 10px;
+  border-radius: ${theme.spacing.mlg}; /* 原 10px */
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-right: 12px;
+  margin-right: ${theme.spacing.smd}; /* 原 12px */
   color: white;
 
   svg {
-    width: 20px;
-    height: 20px;
+    width: ${theme.spacing.smd}; /* 12px 近似原 20px，可按需调整 */
+    height: ${theme.spacing.smd};
   }
 `;
 
@@ -149,14 +150,14 @@ const ActionText = styled.div`
 `;
 
 const ActionTitle = styled.div`
-  font-size: 16px;
+  font-size: ${theme.typography.body}; /* 原 16px */
   font-weight: 600;
   color: #333;
-  margin-bottom: 2px;
+  margin-bottom: ${theme.spacing.micro}; /* 原 2px */
 `;
 
 const ActionDesc = styled.div`
-  font-size: 12px;
+  font-size: ${theme.typography.caption};
   color: #666;
 `;
 
@@ -176,13 +177,14 @@ const HomePage: React.FC = () => {
     totalShops: 0,
     pendingChats: 0
   });
-  const [isLoading, setIsLoading] = useState(true);
+  // 移除未使用的 isLoading 状态（此前仅设置未被消费）
+  // const [isLoading, setIsLoading] = useState(true);
   const [useOfflineData, setUseOfflineData] = useState(false);
 
   useEffect(() => {
     // 获取真实统计数据
     const fetchStats = async () => {
-      setIsLoading(true);
+  // isLoading 已移除
       try {
         // 首先检查API健康状况
         const isApiHealthy = await checkApiHealth();
@@ -257,7 +259,7 @@ const HomePage: React.FC = () => {
           });
         }
       } finally {
-        setIsLoading(false);
+        // isLoading 已移除
       }
     };
 

@@ -1,4 +1,5 @@
 import styled, { createGlobalStyle } from 'styled-components';
+import { spacing as scaleSpacing, typography as scaleTypography } from './scale';
 
 // 主题配置
 export const theme = {
@@ -31,21 +32,8 @@ export const theme = {
     large: '12px',
     round: '50%',
   },
-  spacing: {
-    xs: '4px',
-    sm: '8px',
-    md: '16px',
-    lg: '24px',
-    xl: '32px',
-  },
-  typography: {
-    h1: '24px',
-    h2: '20px',
-    h3: '18px',
-    body: '16px',
-    small: '14px',
-    caption: '12px',
-  },
+  spacing: scaleSpacing,
+  typography: scaleTypography,
   breakpoints: {
     mobile: '768px',
     tablet: '1024px',
@@ -61,6 +49,20 @@ export const GlobalStyles = createGlobalStyle`
     box-sizing: border-box;
   }
 
+  html {
+    /*
+      自适应字体策略：
+      以 iPhone 14 Pro Max (逻辑宽度 ~430px) 的视觉为基准。
+      当屏幕宽度 < 430px 时按比例缩小 root 字号，组件 rem 计算随之缩放；
+      大于 430px 时不无限放大，限制一个上限，保持统一视觉密度。
+    */
+    --design-base-width: 430; /* 基准宽度，可根据喜欢的参考机型调整 */
+    --min-font: 14; /* 最小根字号 */
+    --max-font: 16; /* 基准/最大根字号 */
+    /* 公式：16 * (当前宽度 / 430)，再夹在最小与最大之间 */
+    font-size: clamp(var(--min-font)px, calc((100vw / var(--design-base-width)) * var(--max-font) * 1px), var(--max-font)px);
+  }
+
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
       'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
@@ -69,16 +71,28 @@ export const GlobalStyles = createGlobalStyle`
     -moz-osx-font-smoothing: grayscale;
     background-color: ${theme.colors.background};
     color: ${theme.colors.text.primary};
-    font-size: ${theme.typography.body};
+  font-size: 1rem; /* 使用 root 缩放 */
     line-height: 1.5;
-    height: 100vh;
-    overflow: hidden;
+    min-height: 100dvh;
+    min-height: -webkit-fill-available;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-text-size-adjust: 100%;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   }
 
   #root {
-    height: 100vh;
+    min-height: 100dvh;
+    min-height: -webkit-fill-available;
     display: flex;
     flex-direction: column;
+  }
+
+  /* 可选：用于在不同手机上保持主内容宽度近似 430px，居中显示 */
+  .app-fixed-width {
+    width: 100%;
+    max-width: 430px; /* 与设计基准宽度一致 */
+    margin: 0 auto;
   }
 
   /* 滚动条样式 */
@@ -100,15 +114,7 @@ export const GlobalStyles = createGlobalStyle`
   }
 
   /* 移动端适配 */
-  @media (max-width: ${theme.breakpoints.mobile}) {
-    html {
-      font-size: 14px;
-    }
-    
-    body {
-      font-size: 14px;
-    }
-  }
+  /* 通过 root clamp 已处理缩放，这里不再强制覆盖 html/body 字号 */
 
   /* 输入框通用样式 */
   input, textarea {
@@ -215,21 +221,21 @@ export const Button = styled.button<{
     switch (props.size) {
       case 'small':
         return `
-          height: 32px;
-          padding: 0 ${theme.spacing.md};
-          font-size: ${theme.typography.small};
+          height: 2rem; /* 32px 基准 */
+          padding: 0 1rem; /* 16px */
+          font-size: 0.875rem; /* 14px */
         `;
       case 'large':
         return `
-          height: 48px;
-          padding: 0 ${theme.spacing.lg};
-          font-size: ${theme.typography.body};
+          height: 3rem; /* 48px */
+          padding: 0 1.5rem; /* 24px */
+          font-size: 1rem; /* 16px */
         `;
       default:
         return `
-          height: 40px;
-          padding: 0 ${theme.spacing.md};
-          font-size: ${theme.typography.body};
+          height: 2.5rem; /* 40px */
+          padding: 0 1rem; /* 16px */
+          font-size: 1rem; /* 16px */
         `;
     }
   }}

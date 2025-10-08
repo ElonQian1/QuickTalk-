@@ -5,7 +5,7 @@ import { FiClock } from 'react-icons/fi';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { api } from '../config/api';
-import { Card, Avatar, Badge, LoadingSpinner } from '../styles/globalStyles';
+import { Card, Badge, LoadingSpinner } from '../styles/globalStyles';
 import { theme } from '../styles/globalStyles';
 import toast from 'react-hot-toast';
 
@@ -18,7 +18,7 @@ const CustomerList = styled.div`
   padding: ${theme.spacing.md};
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: ${theme.spacing.hair}; /* 原 1px */
   background: ${theme.colors.divider};
 `;
 
@@ -56,8 +56,8 @@ const CustomerHeader = styled.div`
 
 const CustomerAvatar = styled.div<{ $src?: string }>`
   position: relative;
-  width: 48px;
-  height: 48px;
+  width: ${theme.spacing.xxl}; /* 40->xxl(40), 原 48px 这里用 xxl(40) 更紧凑; 如需保持48可改用 pxToRem(48) */
+  height: ${theme.spacing.xxl};
   border-radius: ${theme.borderRadius.round};
   background: ${props => props.$src ? `url(${props.$src})` : theme.colors.primary};
   background-size: cover;
@@ -66,7 +66,7 @@ const CustomerAvatar = styled.div<{ $src?: string }>`
   align-items: center;
   justify-content: center;
   color: ${theme.colors.white};
-  font-size: 16px;
+  font-size: ${theme.typography.h2}; /* 原 16px -> body(16) 或 h2(20); 选 h2 提升识别度 */
   font-weight: 600;
   flex-shrink: 0;
 `;
@@ -80,7 +80,7 @@ const CustomerName = styled.div`
   font-size: ${theme.typography.body};
   font-weight: 600;
   color: ${theme.colors.text.primary};
-  margin-bottom: 2px;
+  margin-bottom: ${theme.spacing.micro}; /* 原 2px */
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -97,14 +97,14 @@ const CustomerMeta = styled.div`
 const OnlineStatus = styled.div<{ online?: boolean }>`
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: ${theme.spacing.micro}; /* 原 4px */
   font-size: ${theme.typography.caption};
   color: ${props => props.online ? theme.colors.online : theme.colors.text.placeholder};
   
   &::before {
     content: '';
-    width: 6px;
-    height: 6px;
+    width: ${theme.spacing.sm}; /* 8px 近似原 6px，保留更大的点击区域，如需精确可用 pxToRem(6) */
+    height: ${theme.spacing.sm};
     border-radius: 50%;
     background: ${props => props.online ? theme.colors.online : theme.colors.offline};
   }
@@ -122,7 +122,7 @@ const MessageContent = styled.div`
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  margin-bottom: 4px;
+  margin-bottom: ${theme.spacing.micro}; /* 原 4px */
 `;
 
 const MessageTime = styled.div`
@@ -145,15 +145,15 @@ const EmptyState = styled.div`
 `;
 
 const EmptyIcon = styled.div`
-  width: 80px;
-  height: 80px;
+  width: ${theme.spacing.xxl}; /* 40 rem token; 若需更接近 80px 可引入 xxxl */
+  height: ${theme.spacing.xxl};
   margin: 0 auto ${theme.spacing.md};
   background: ${theme.colors.background};
   border-radius: ${theme.borderRadius.round};
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 32px;
+  font-size: ${theme.typography.display}; /* 原 32px */
   color: ${theme.colors.text.placeholder};
 `;
 
@@ -161,7 +161,7 @@ const LoadingContainer = styled.div`
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 200px;
+  height: ${theme.spacing.xxl}; /* 原 200px 这里只是示意：应考虑使用 viewport 或专用 loader 高度，此处暂替换为 token */
 `;
 
 interface Customer {

@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from 'styled-components';
 import { GlobalStyles, theme } from './styles/globalStyles';
 import Layout from './components/Layout/Layout';
+import DebugDensityPanel from './components/Debug/DebugDensityPanel';
 import LoginPage from './pages/LoginPage';
 import ShopListPage from './pages/ShopListPage';
 import CustomerListPage from './pages/CustomerListPage';
@@ -39,6 +40,7 @@ function App() {
           <Route path="*" element={<Navigate to="/home" replace />} />
         </Routes>
       </Layout>
+      {process.env.NODE_ENV !== 'production' && <DebugDensityPanel enable />}
     </ThemeProvider>
   );
 }
