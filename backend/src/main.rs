@@ -54,6 +54,7 @@ async fn main() -> Result<()> {
     // 构建路由
     let app = Router::new()
         .route("/", get(|| async { "Customer Service System API" }))
+        .route("/health", get(health_check))
         .route("/api/auth/login", post(handlers::auth::login))
         .route("/api/auth/register", post(handlers::auth::register))
         .route("/api/shops", get(handlers::shop::get_shops))
@@ -77,6 +78,17 @@ async fn main() -> Result<()> {
     .await?;
 
     Ok(())
+}
+
+// 健康检查处理
+async fn health_check() -> impl IntoResponse {
+    use serde_json::json;
+    Json(json!({
+        "status": "ok",
+        "service": "customer-service-backend",
+        "version": env!("CARGO_PKG_VERSION"),
+        "timestamp": chrono::Utc::now().to_rfc3339(),
+    }))
 }
 
 // 客服人员 WebSocket 处理

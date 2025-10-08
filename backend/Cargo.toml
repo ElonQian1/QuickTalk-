@@ -4,18 +4,5 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-tokio = { version = "1.0", features = ["rt-multi-thread", "net", "macros", "io-util", "fs"] }
-axum = { version = "0.7", features = ["ws"] }
-tower = "0.4"
-tower-http = { version = "0.5", features = ["cors", "fs"] }
-anyhow = "1.0"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite", "chrono", "uuid"] }
-bcrypt = "0.15"
-jsonwebtoken = "9.0"
-chrono = { version = "0.4", features = ["serde"] }
-uuid = { version = "1.0", features = ["v4", "serde"] }
-tracing = "0.1"
-tracing-subscriber = "0.3"
-futures-util = "0.3"
+# 临时精简阶段：去除所有第三方依赖，保持最小可运行 HTTP（标准库）。
+# 保留此段落，后续恢复时再添加 axum / sqlx / serde 等。
