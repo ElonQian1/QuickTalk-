@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import axios from 'axios';
+// 使用集中管理的 Axios 实例
+import { api, setAuthToken } from '../config/api';
 import toast from 'react-hot-toast';
 
 interface User {
@@ -29,7 +30,7 @@ export const useAuthStore = create<AuthState>()(
 
       login: async (username: string, password: string) => {
         try {
-          const response = await axios.post('/api/auth/login', {
+          const response = await api.post('/api/auth/login', {
             username,
             password,
           });
@@ -37,7 +38,7 @@ export const useAuthStore = create<AuthState>()(
           const { token, user } = response.data;
           
           // 设置默认的 Authorization header
-          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+          setAuthToken(token);
           
           set({
             isAuthenticated: true,
@@ -56,7 +57,7 @@ export const useAuthStore = create<AuthState>()(
 
       logout: () => {
         // 清除 Authorization header
-        delete axios.defaults.headers.common['Authorization'];
+  setAuthToken(undefined);
         
         set({
           isAuthenticated: false,
@@ -69,7 +70,7 @@ export const useAuthStore = create<AuthState>()(
 
       register: async (username: string, password: string, email?: string, phone?: string) => {
         try {
-          const response = await axios.post('/api/auth/register', {
+          const response = await api.post('/api/auth/register', {
             username,
             password,
             email,
@@ -79,7 +80,7 @@ export const useAuthStore = create<AuthState>()(
           const { token, user } = response.data;
           
           // 设置默认的 Authorization header
-          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+          setAuthToken(token);
           
           set({
             isAuthenticated: true,
@@ -106,7 +107,7 @@ export const useAuthStore = create<AuthState>()(
       onRehydrateStorage: () => (state) => {
         // 恢复时设置 Authorization header
         if (state?.token) {
-          axios.defaults.headers.common['Authorization'] = `Bearer ${state.token}`;
+          setAuthToken(state.token || undefined);
         }
       },
     }

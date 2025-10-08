@@ -55,6 +55,7 @@ async fn main() -> Result<()> {
     let app = Router::new()
         .route("/", get(|| async { "Customer Service System API" }))
         .route("/health", get(health_check))
+        // API 端点
         .route("/api/auth/login", post(handlers::auth::login))
         .route("/api/auth/register", post(handlers::auth::register))
         .route("/api/shops", get(handlers::shop::get_shops))

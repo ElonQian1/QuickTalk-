@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { useAuthStore } from '../../stores/authStore';
 import { SettingsModal } from './components';
+import { api } from '../../config/api';
 
 const Container = styled.div`
   min-height: 100vh;
@@ -149,6 +150,29 @@ const LogoutButton = styled.button`
 const ProfilePage: React.FC = () => {
   const { user, logout } = useAuthStore();
   const [showSettings, setShowSettings] = useState(false);
+  const [stats, setStats] = useState({
+    todayMessages: 0,
+    activeCustomers: 0,
+    pendingChats: 0
+  });
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const response = await api.get('/api/stats');
+        setStats({
+          todayMessages: response.data.todayMessages || 0,
+          activeCustomers: response.data.activeCustomers || 0,
+          pendingChats: response.data.pendingChats || 0
+        });
+      } catch (error) {
+        console.error('Failed to fetch stats:', error);
+        // 保持默认值 0
+      }
+    };
+
+    fetchStats();
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -209,15 +233,15 @@ const ProfilePage: React.FC = () => {
 
       <StatsSection>
         <StatItem>
-          <StatValue>158</StatValue>
+          <StatValue>{stats.todayMessages}</StatValue>
           <StatLabel>今日消息</StatLabel>
         </StatItem>
         <StatItem>
-          <StatValue>89</StatValue>
+          <StatValue>{stats.activeCustomers}</StatValue>
           <StatLabel>活跃客户</StatLabel>
         </StatItem>
         <StatItem>
-          <StatValue>12</StatValue>
+          <StatValue>{stats.pendingChats}</StatValue>
           <StatLabel>待处理</StatLabel>
         </StatItem>
       </StatsSection>

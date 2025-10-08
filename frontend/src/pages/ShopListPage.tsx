@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { useNavigate } from 'react-router-dom';
 import { FiPlus, FiMessageCircle, FiGlobe } from 'react-icons/fi';
-import axios from 'axios';
+import { api } from '../config/api';
 import { Button, Card, Avatar, Badge, LoadingSpinner } from '../styles/globalStyles';
 import { theme } from '../styles/globalStyles';
 import toast from 'react-hot-toast';
@@ -161,7 +161,7 @@ const ShopListPage: React.FC = () => {
 
   const fetchShops = async () => {
     try {
-      const response = await axios.get('/api/shops');
+  const response = await api.get('/api/shops');
       setShops(response.data);
     } catch (error) {
       toast.error('获取店铺列表失败');
@@ -186,7 +186,7 @@ const ShopListPage: React.FC = () => {
 
   const createShop = async (shopName: string, shopUrl?: string) => {
     try {
-      const response = await axios.post('/api/shops', {
+  const response = await api.post('/api/shops', {
         shop_name: shopName,
         shop_url: shopUrl,
       });
@@ -262,7 +262,7 @@ const ShopListPage: React.FC = () => {
                   未读消息: <StatValue>{shop.unread_count || 0}</StatValue>
                 </StatItem>
                 <StatItem>
-                  API Key: <StatValue>{shop.api_key.substring(0, 8)}...</StatValue>
+                  API Key: <StatValue>{shop.api_key ? shop.api_key.substring(0, 8) + '...' : 'N/A'}</StatValue>
                 </StatItem>
               </ShopStats>
             </ShopCard>

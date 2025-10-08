@@ -4,7 +4,7 @@ import { useParams } from 'react-router-dom';
 import { FiSend, FiImage, FiPaperclip } from 'react-icons/fi';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
-import axios from 'axios';
+import { api } from '../config/api';
 import { Avatar, LoadingSpinner } from '../styles/globalStyles';
 import { theme } from '../styles/globalStyles';
 import toast from 'react-hot-toast';
@@ -277,7 +277,7 @@ const ChatPage: React.FC = () => {
 
   const fetchMessages = async (sessionId: number) => {
     try {
-      const response = await axios.get(`/api/sessions/${sessionId}/messages`);
+  const response = await api.get(`/api/sessions/${sessionId}/messages`);
       setMessages(response.data);
     } catch (error) {
       toast.error('获取消息失败');
@@ -315,7 +315,7 @@ const ChatPage: React.FC = () => {
     setSending(true);
     
     try {
-      const response = await axios.post(`/api/sessions/${sessionId}/messages`, {
+  const response = await api.post(`/api/sessions/${sessionId}/messages`, {
         content,
         message_type: 'text',
       });

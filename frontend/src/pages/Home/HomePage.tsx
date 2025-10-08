@@ -3,7 +3,7 @@ import styled from 'styled-components';
 import { useNavigate } from 'react-router-dom';
 import { FiMessageSquare, FiUsers, FiTrendingUp, FiShoppingBag, FiClock } from 'react-icons/fi';
 import { useAuthStore } from '../../stores/authStore';
-import axios from 'axios';
+import { api } from '../../config/api';
 
 const Container = styled.div`
   min-height: 100vh;
@@ -170,7 +170,7 @@ const HomePage: React.FC = () => {
     const fetchStats = async () => {
       try {
         // 获取店铺数据
-        const shopsResponse = await axios.get('/api/shops');
+  const shopsResponse = await api.get('/api/shops');
         const shops = shopsResponse.data;
         
         let totalMessages = 0;
@@ -180,7 +180,7 @@ const HomePage: React.FC = () => {
         // 为每个店铺获取统计数据
         for (const shop of shops) {
           try {
-            const customersResponse = await axios.get(`/api/shops/${shop.id}/customers`);
+            const customersResponse = await api.get(`/api/shops/${shop.id}/customers`);
             const customers = customersResponse.data;
             
             activeCustomers += customers.length;

@@ -4,5 +4,21 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-# 临时精简阶段：去除所有第三方依赖，保持最小可运行 HTTP（标准库）。
-# 保留此段落，后续恢复时再添加 axum / sqlx / serde 等。
+tokio = { version = "1.38", features = ["rt-multi-thread", "macros", "net", "fs", "io-util", "signal"] }
+axum = { version = "0.7", features = ["ws", "macros"] }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "fs", "trace"] }
+anyhow = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+# 选择 native-tls 避免 ring 在中文路径下构建问题
+sqlx = { version = "0.7", features = ["runtime-tokio-native-tls", "sqlite", "chrono", "uuid", "macros"] }
+bcrypt = "0.15"
+jsonwebtoken = "9.3"
+chrono = { version = "0.4", features = ["serde", "clock"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
+futures-util = "0.3"
+dotenvy = "0.15"
+thiserror = "1.0"

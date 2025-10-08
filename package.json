@@ -1,38 +1,50 @@
 {
   "name": "customer-service-system",
-  "version": "1.0.0",
-  "description": "客服系统 - 前后端一体化开发环境",
   "private": true,
+  "version": "1.0.0",
+  "description": "Customer Service System - 全栈开发环境",
+  "type": "module",
   "scripts": {
-    "setup:backend": "cargo install cargo-watch || echo cargo-watch already installed",
-    "backend:dev": "cd backend && cargo watch -x run",
-    "frontend:dev": "cd frontend && npm start",
-    "sdk:dev": "cd websocket-sdk && npm run dev",
-    "dev": "concurrently --kill-others-on-fail --names \"🦀Backend,⚛️Frontend\" --prefix-colors \"yellow,cyan\" \"npm run backend:dev\" \"npm run frontend:dev\"",
-    "dev:full": "concurrently --kill-others-on-fail --names \"🦀Backend,⚛️Frontend,📦SDK\" --prefix-colors \"yellow,cyan,magenta\" \"npm run backend:dev\" \"npm run frontend:dev\" \"npm run sdk:dev\"",
-    "dev:sdk": "npm run dev:full",
-    "backend:only": "cd backend && cargo run",
-    "frontend:only": "cd frontend && npm start",
-    "backend:build": "cd backend && cargo build",
-    "backend:build:release": "cd backend && cargo build --release",
-    "frontend:build": "cd frontend && npm run build",
-    "sdk:build": "cd websocket-sdk && npm run build",
-    "build": "concurrently \"npm run frontend:build\" \"npm run sdk:build\"",
-    "build:full": "concurrently \"npm run backend:build\" \"npm run frontend:build\" \"npm run sdk:build\"",
-  "install:all": "npm install && cd frontend && npm install && cd ../websocket-sdk && npm install"
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:sdk\" --names \"🦀 Backend,⚛️ Frontend,📡 SDK\" --prefix-colors \"yellow,cyan,green\" --kill-others-on-fail",
+    "dev:backend": "node mock-backend.js",
+    "dev:frontend": "cd frontend && npm start",
+    "dev:sdk": "cd websocket-sdk && npm run dev",
+    "dev:backend-only": "cd backend && cargo run",
+    "dev:frontend-only": "cd frontend && npm start",
+    "build": "npm run build:frontend && npm run build:backend",
+    "build:frontend": "cd frontend && npm run build",
+    "build:backend": "cd backend && cargo build --release",
+    "setup": "npm run setup:frontend && npm run setup:backend",
+    "setup:frontend": "cd frontend && npm install",
+    "setup:backend": "cd backend && cargo install cargo-watch",
+    "clean": "npm run clean:frontend && npm run clean:backend",
+    "clean:frontend": "cd frontend && rm -rf node_modules build",
+    "clean:backend": "cd backend && cargo clean",
+    "test": "npm run test:frontend && npm run test:backend",
+    "test:frontend": "cd frontend && npm run test",
+    "test:backend": "cd backend && cargo test",
+    "check": "npm run check:frontend && npm run check:backend",
+    "check:frontend": "cd frontend && npm run lint",
+    "check:backend": "cd backend && cargo check",
+    "start": "npm run dev"
   },
   "devDependencies": {
-    "concurrently": "^8.2.0"
+    "concurrently": "^7.6.0"
   },
-  "workspaces": [
-    "frontend",
-    "websocket-sdk"
-  ],
   "engines": {
-    "node": ">=16.0.0",
-    "npm": ">=8.0.0"
+    "node": ">=16.0.0"
   },
+  "keywords": [
+    "customer-service",
+    "rust",
+    "react",
+    "typescript",
+    "websocket"
+  ],
+  "author": "Customer Service Team",
+  "license": "MIT",
   "dependencies": {
-    "sqlite3": "^5.1.7"
+    "cors": "^2.8.5",
+    "express": "^5.1.0"
   }
 }

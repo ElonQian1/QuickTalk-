@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { useNavigate } from 'react-router-dom';
 import { FiMessageCircle, FiUsers, FiClock } from 'react-icons/fi';
-import axios from 'axios';
+import { api } from '../../config/api';
 import { Card, Avatar, Badge, LoadingSpinner } from '../../styles/globalStyles';
 import { theme } from '../../styles/globalStyles';
 import toast from 'react-hot-toast';
@@ -207,14 +207,14 @@ const MessagesPage: React.FC = () => {
   const fetchConversations = async () => {
     try {
       // 获取所有店铺
-      const shopsResponse = await axios.get('/api/shops');
+  const shopsResponse = await api.get('/api/shops');
       const shops = shopsResponse.data;
 
       // 为每个店铺获取对话数据
       const conversationData = await Promise.all(
         shops.map(async (shop: Shop) => {
           try {
-            const customersResponse = await axios.get(`/api/shops/${shop.id}/customers`);
+            const customersResponse = await api.get(`/api/shops/${shop.id}/customers`);
             const customers = customersResponse.data;
             
             const unreadCount = customers.reduce((total: number, customer: any) => {
