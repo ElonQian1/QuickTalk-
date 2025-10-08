@@ -19,6 +19,13 @@ backend/*.exe
 .env.test.local
 .env.production.local
 
+# Test files
+test-*.cjs
+test-*.js
+test-*.html
+quick-test.*
+*-test.html
+
 # Build outputs
 frontend/build/
 frontend/dist/

@@ -33,7 +33,11 @@ impl Database {
                     Ok(_) => {},
                     Err(e) => {
                         // 忽略"already exists"类型的错误
-                        if !e.to_string().contains("already exists") {
+                        let error_msg = e.to_string().to_lowercase();
+                        if !error_msg.contains("already exists") && 
+                           !error_msg.contains("duplicate") && 
+                           !error_msg.contains("table") &&
+                           !error_msg.contains("index") {
                             return Err(e.into());
                         }
                     }

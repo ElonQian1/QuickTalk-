@@ -44,7 +44,7 @@ async fn main() -> Result<()> {
 
     // 初始化数据库
     let db = Database::new("sqlite:customer_service.db").await?;
-    db.migrate().await?;
+    // db.migrate().await?; // 暂时跳过迁移，数据库已手动创建
 
     // 创建连接管理器
     let connections = Arc::new(Mutex::new(ConnectionManager::new()));
