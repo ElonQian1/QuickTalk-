@@ -189,13 +189,13 @@ const ProfilePage: React.FC = () => {
       icon: '👤',
       text: '账户设置',
       color: '#007bff',
-      onClick: () => console.log('账户设置')
+      onClick: () => {} // 账户设置功能待实现
     },
     {
       icon: '🏪',
       text: '我的店铺',
       color: '#28a745',
-      onClick: () => console.log('我的店铺')
+      onClick: () => {} // 我的店铺功能待实现
     },
     {
       icon: '⚙️',
@@ -207,19 +207,19 @@ const ProfilePage: React.FC = () => {
       icon: '�',
       text: '数据统计',
       color: '#17a2b8',
-      onClick: () => console.log('数据统计')
+      onClick: () => {} // 数据统计功能待实现
     },
     {
       icon: '�',
       text: '联系客服',
       color: '#ffc107',
-      onClick: () => console.log('联系客服')
+      onClick: () => {} // 联系客服功能待实现
     },
     {
       icon: '❓',
       text: '帮助中心',
       color: '#fd7e14',
-      onClick: () => console.log('帮助中心')
+      onClick: () => {} // 帮助中心功能待实现
     }
   ];
 

@@ -81,6 +81,41 @@ class CustomerServiceSDK {
         this.ws.send(JSON.stringify(message));
     }
     /**
+     * 上传文件并发送消息
+     */
+    async uploadFile(file, messageType = 'file') {
+        if (!file) {
+            throw new Error('No file provided');
+        }
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('shopId', this.config.apiKey); // 使用 apiKey 作为 shopId
+            formData.append('messageType', messageType);
+            formData.append('customerCode', this.config.customerId);
+            const uploadResponse = await fetch(`${this.config.serverUrl.replace('ws', 'http')}/api/customer/upload`, {
+                method: 'POST',
+                body: formData
+            });
+            if (!uploadResponse.ok) {
+                throw new Error(`Upload failed: ${uploadResponse.status}`);
+            }
+            const uploadData = await uploadResponse.json();
+            // 发送包含文件信息的消息
+            this.sendMessage(uploadData.original_name, messageType, uploadData.url);
+        }
+        catch (error) {
+            this.emit('error', { type: 'upload_error', error });
+            throw error;
+        }
+    }
+    /**
+     * 上传图片
+     */
+    async uploadImage(file) {
+        return this.uploadFile(file, 'image');
+    }
+    /**
      * 发送打字状态
      */
     sendTyping(isTyping) {

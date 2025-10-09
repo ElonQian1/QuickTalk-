@@ -74,34 +74,22 @@ export const useAuthStore = create<AuthState>()(
 
       register: async (username: string, password: string, email?: string, phone?: string) => {
         try {
-          console.log('🚀 开始注册流程...');
-          console.log('📋 注册数据:', { username, email, phone, hasPassword: !!password });
-          
           // 检查API健康状况
-          console.log('🔍 检查API连接...');
           const healthResponse = await api.get('/health');
-          console.log('✅ API连接正常:', healthResponse.data);
           
-          console.log('📤 发送注册请求...');
           const response = await api.post('/api/auth/register', {
             username,
             password,
             email,
             phone,
           });
-
-          console.log('📨 注册响应:', response.data);
-          console.log('📨 响应状态:', response.status);
           
           const { token, user } = response.data;
           
           if (!token || !user) {
-            console.error('❌ 响应缺少token或user信息');
             toast.error('注册响应格式错误');
             return false;
           }
-          
-          console.log('✅ 注册数据验证通过');
           
           // 设置默认的 Authorization header
           setAuthToken(token);
@@ -112,7 +100,6 @@ export const useAuthStore = create<AuthState>()(
             token,
           });
 
-          console.log('✅ 状态更新完成');
           toast.success('注册成功');
           return true;
         } catch (error: any) {

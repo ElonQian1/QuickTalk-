@@ -228,7 +228,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
       description: '选择界面语言',
       type: 'select',
       value: '中文简体',
-      onClick: () => console.log('语言设置')
+      onClick: () => {} // 语言设置功能待实现
     },
     {
       icon: '📝',
@@ -237,7 +237,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
       description: '调整字体显示大小',
       type: 'select',
       value: '中等',
-      onClick: () => console.log('字体大小')
+      onClick: () => {} // 字体大小功能待实现
     },
     {
       icon: '💾',
@@ -245,7 +245,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
       title: '数据管理',
       description: '清理缓存和数据',
       type: 'action',
-      onClick: () => console.log('数据管理')
+      onClick: () => {} // 数据管理功能待实现
     },
     {
       icon: '🔄',
@@ -253,7 +253,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
       title: '检查更新',
       description: '检查应用更新',
       type: 'action',
-      onClick: () => console.log('检查更新')
+      onClick: () => {} // 检查更新功能待实现
     }
   ];
 

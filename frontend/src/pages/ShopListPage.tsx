@@ -149,7 +149,6 @@ const ShopListPage: React.FC = () => {
   const fetchShops = async () => {
     try {
       const response = await api.get('/api/shops');
-      console.log('📋 获取到的店铺数据:', response.data);
       const normalized = normalizeShopsList(response.data) as Shop[];
       setShops(normalized);
       // 自动连接到第一个店铺的 staff WS（如存在）
@@ -225,7 +224,6 @@ const ShopListPage: React.FC = () => {
       ) : (
         <ShopList>
           {shops.map((shop) => {
-            console.log('🏪 渲染店铺:', shop.shop_name, '未读消息:', shop.unread_count, 'API Key:', shop.api_key);
             return (
               <ShopCard key={shop.id ?? `${shop.shop_name}-${shop.api_key || 'no-key'}`} className="fade-in">
                 <ShopHeader>

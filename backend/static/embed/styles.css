@@ -5,6 +5,13 @@
 .qt-body{flex:1;padding:10px 12px;overflow:auto;background:#fafafa}
 .qt-msg{background:#fff;margin:6px 0;padding:8px 10px;border-radius:10px;box-shadow:0 8px 24px -16px rgba(15,23,42,.25);max-width:78%}
 .qt-msg.own{background:#2563eb;color:#fff;align-self:flex-end}
+.qt-msg img{max-width:200px;max-height:200px;border-radius:8px;cursor:pointer;display:block}
+.qt-msg a{color:inherit;text-decoration:underline}
+.qt-msg.own a{color:#fff}
 .qt-input{display:flex;gap:8px;padding:10px;border-top:1px solid #eee;background:#fff}
-.qt-input input{flex:1;padding:8px 10px;border:1px solid #ddd;border-radius:8px}
-.qt-input button{padding:8px 12px;border-radius:8px;background:#2563eb;color:#fff;border:none;cursor:pointer}
+.qt-input input[type="text"]{flex:1;padding:8px 10px;border:1px solid #ddd;border-radius:8px}
+.qt-input button{padding:8px 12px;border-radius:8px;border:none;cursor:pointer}
+.qt-send-btn{background:#2563eb;color:#fff}
+.qt-image-btn,.qt-file-btn{background:#fff;border:1px solid #ddd;font-size:16px}
+.qt-image-btn:hover,.qt-file-btn:hover{background:#f5f5f5}
+.qt-send-btn:hover{background:#1d4ed8}

@@ -100,6 +100,8 @@ async fn main() -> Result<()> {
             post(handlers::message::send_message),
         )
         .route("/api/upload", post(handlers::upload::handle_upload))
+        .route("/api/customer/upload", post(handlers::upload::handle_customer_upload))
+        .route("/api/sdk/version", get(|| async { Json(serde_json::json!({"version": "1.1.0", "updated": "2025-10-09"})) }))
         .route(
             "/api/dashboard/stats",
             get(handlers::stats::get_dashboard_stats),

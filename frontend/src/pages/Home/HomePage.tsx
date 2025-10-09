@@ -221,7 +221,7 @@ const HomePage: React.FC = () => {
       desc: '查看运营数据',
       icon: FiTrendingUp,
       color: '#4ecdc4',
-      onClick: () => console.log('数据统计')
+      onClick: () => {} // 数据统计功能待实现
     }
   ];
 

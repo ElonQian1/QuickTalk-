@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import styled from 'styled-components';
 import { useParams } from 'react-router-dom';
-import { FiSend, FiImage, FiPaperclip } from 'react-icons/fi';
+import { FiSend, FiImage, FiPaperclip, FiFile } from 'react-icons/fi';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { api } from '../config/api';
@@ -140,7 +140,7 @@ const MessageInput = styled.textarea`
   }
 `;
 
-const ActionButton = styled.button`
+const ActionButton = styled.button<{ disabled?: boolean }>`
   width: 40px;
   height: 40px;
   border-radius: ${theme.borderRadius.round};
@@ -149,10 +149,11 @@ const ActionButton = styled.button`
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
+  cursor: ${props => props.disabled ? 'not-allowed' : 'pointer'};
   transition: background-color 0.2s ease;
+  opacity: ${props => props.disabled ? 0.5 : 1};
   
-  &:hover {
+  &:hover:not(:disabled) {
     background: ${theme.colors.background};
   }
   
@@ -204,6 +205,39 @@ const EmptyState = styled.div`
   padding: ${theme.spacing.xl};
 `;
 
+const MessageImage = styled.img`
+  max-width: 200px;
+  max-height: 200px;
+  border-radius: 8px;
+  margin-bottom: 4px;
+  cursor: pointer;
+`;
+
+const FileAttachment = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  margin-bottom: 4px;
+  cursor: pointer;
+  
+  &:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+  
+  svg {
+    width: 16px;
+    height: 16px;
+  }
+`;
+
+const FileName = styled.span`
+  font-size: ${theme.typography.small};
+  text-decoration: underline;
+`;
+
 // TypingIndicator / TypingDots 组件暂未使用，已移除以保持零未使用变量警告。
 
 interface Message {
@@ -213,6 +247,8 @@ interface Message {
   sender_type: 'customer' | 'staff';
   sender_id?: number;
   created_at: string;
+  file_url?: string;
+  file_name?: string;
 }
 
 const ChatPage: React.FC = () => {
@@ -221,10 +257,13 @@ const ChatPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [inputValue, setInputValue] = useState('');
   const [sending, setSending] = useState(false);
+  const [uploading, setUploading] = useState(false);
   // const [isTyping, setIsTyping] = useState(false); // 未来可接入实时输入指示
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (sessionId) {
@@ -298,6 +337,58 @@ const ChatPage: React.FC = () => {
     }
   };
 
+  const handleImageUpload = () => {
+    if (uploading) return;
+    imageInputRef.current?.click();
+  };
+
+  const handleFileUpload = () => {
+    if (uploading) return;
+    fileInputRef.current?.click();
+  };
+
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>, messageType: 'image' | 'file') => {
+    const file = event.target.files?.[0];
+    if (!file || !sessionId) return;
+
+    setUploading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('shopId', '1'); // 应该从当前会话获取真实的shopId
+      formData.append('messageType', messageType);
+
+      const uploadResponse = await api.post('/api/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      // 发送包含文件信息的消息
+      const messageResponse = await api.post(`/api/sessions/${sessionId}/messages`, {
+        content: uploadResponse.data.original_name,
+        message_type: messageType,
+        file_url: uploadResponse.data.url,
+        file_name: uploadResponse.data.file_name,
+      });
+
+      // 添加新消息到列表
+      setMessages(prev => [...prev, messageResponse.data]);
+      
+      toast.success('文件上传成功');
+    } catch (error) {
+      toast.error('文件上传失败');
+      console.error('Error uploading file:', error);
+    } finally {
+      setUploading(false);
+      // 清空文件输入
+      if (event.target) {
+        event.target.value = '';
+      }
+    }
+  };
+
   const formatMessageTime = (timestamp: string) => {
     try {
       const date = new Date(timestamp);
@@ -311,6 +402,33 @@ const ChatPage: React.FC = () => {
       }
     } catch (error) {
       return '';
+    }
+  };
+
+  const renderMessageContent = (message: Message) => {
+    switch (message.message_type) {
+      case 'image':
+        return (
+          <div>
+            {message.file_url && (
+              <MessageImage
+                src={message.file_url}
+                alt={message.content}
+                onClick={() => window.open(message.file_url, '_blank')}
+              />
+            )}
+            {message.content && <div>{message.content}</div>}
+          </div>
+        );
+      case 'file':
+        return (
+          <FileAttachment onClick={() => message.file_url && window.open(message.file_url, '_blank')}>
+            <FiFile />
+            <FileName>{message.content}</FileName>
+          </FileAttachment>
+        );
+      default:
+        return message.content;
     }
   };
 
@@ -384,7 +502,7 @@ const ChatPage: React.FC = () => {
               <MessageGroup key={message.id} isOwn={isOwn}>
                 <MessageContent isOwn={isOwn}>
                   <MessageBubble isOwn={isOwn}>
-                    {message.content}
+                    {renderMessageContent(message)}
                   </MessageBubble>
                 </MessageContent>
                 <MessageTime isOwn={isOwn}>
@@ -402,11 +520,11 @@ const ChatPage: React.FC = () => {
 
       <InputContainer>
         <InputRow>
-          <ActionButton>
+          <ActionButton onClick={handleImageUpload} disabled={uploading}>
             <FiImage />
           </ActionButton>
           
-          <ActionButton>
+          <ActionButton onClick={handleFileUpload} disabled={uploading}>
             <FiPaperclip />
           </ActionButton>
           
@@ -423,11 +541,26 @@ const ChatPage: React.FC = () => {
           
           <SendButton
             onClick={handleSendMessage}
-            disabled={!inputValue.trim() || sending}
+            disabled={!inputValue.trim() || sending || uploading}
           >
             <FiSend />
           </SendButton>
         </InputRow>
+
+        {/* 隐藏的文件输入框 */}
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/*"
+          style={{ display: 'none' }}
+          onChange={(e) => handleFileSelect(e, 'image')}
+        />
+        <input
+          ref={fileInputRef}
+          type="file"
+          style={{ display: 'none' }}
+          onChange={(e) => handleFileSelect(e, 'file')}
+        />
       </InputContainer>
     </Container>
   );
