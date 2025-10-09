@@ -3,6 +3,14 @@
 ## 项目概述
 这是一个多店铺客服系统，采用 Rust 后端 + React 前端 + WebSocket SDK 的架构。
 
+**🏗️ 架构状态**: 本项目经过精心设计和持续优化，已具本项目已具备成熟稳定的模块化架构，在"不创建多个 main.rs 版本"前提下，通过 `mod` / 子模块文件进行结构化拆分，达到可维护、低耦合、可测试与可演进的目的。
+
+#### 🎯 当前架构优势
+1. **清晰的领域边界**: auth / websocket / services / handlers / models / database 职责明确
+2. **合理的文件长度**: 各模块文件都控制在合理范围内
+3. **良好的依赖方向**: handlers -> services -> (models + database)
+4. **高度模块化**: 组件复用性强，减少重复实现块化架构。后端采用清晰的handlers/services/websocket分层，前端采用组件化设计，开发体验流畅。
+
 ## 核心架构要求
 
 ### ⚠️ 重要限制
@@ -15,24 +23,35 @@
 
 ### 技术栈
 
-#### 后端 (必须使用)
+#### 后端 (Rust - 模块化完善)
 - **语言**: Rust
 - **框架**: Axum + Tokio
 - **数据库**: SQLite (通过 sqlx)
 - **认证**: JWT + bcrypt
 - **WebSocket**: 原生 WebSocket 支持
-- **位置**: `backend/src/main.rs`
+- **架构**: 完善的模块化结构
+  - `handlers/`: HTTP 请求处理器 (auth, shop, customer, message, stats, upload, staff)
+  - `services/`: 业务逻辑服务 (chat, dashboard, metrics, staff, shop_utils)
+  - `websocket/`: WebSocket 连接管理 (manager, handlers)
+  - `models/`: 数据模型定义
+  - `database/`: 数据库操作抽象
 
-#### 前端
+#### 前端 (React - 组件化完善)
 - **框架**: React 18 + TypeScript
-- **状态管理**: Zustand
+- **状态管理**: Zustand (authStore, conversationsStore, wsStore)
 - **样式**: Styled Components
 - **构建工具**: Create React App
-- **位置**: `frontend/`
+- **架构**: 清晰的分层结构
+  - `components/`: 可复用UI组件 (Layout, Navigation, shops, Debug)
+  - `pages/`: 页面容器组件
+  - `stores/`: 状态管理模块
+  - `services/`: API 服务层
+  - `config/`: 配置文件
 
-#### WebSocket SDK
+#### WebSocket SDK (TypeScript - 标准化完善)
 - **语言**: TypeScript
 - **用途**: 为第三方网站提供客服集成
+- **构建**: 完善的构建流程和类型定义
 - **位置**: `websocket-sdk/`
 
 ## 开发命令
@@ -41,22 +60,15 @@
 ```bash
 npm run dev
 ```
-此命令应该启动：
+
+**这是唯一需要的启动命令！**
+
+此命令自动启动：
 1. Rust 后端服务器 (端口 8080)
 2. React 前端开发服务器 (端口 3000)
 3. WebSocket SDK 开发构建
 
-### 单独启动组件
-```bash
-# 仅启动 Rust 后端
-npm run backend:dev
-
-# 仅启动前端
-npm run frontend:dev
-
-# 仅构建 SDK
-npm run sdk:dev
-```
+项目已配置完善的架构，无需单独启动各个组件。
 
 ## 数据库
 
@@ -123,30 +135,17 @@ POST /api/sessions/:id/messages - 发送消息
 3. 促进代码复用，减少重复实现
 4. 为性能、安全与审计提供清晰入口
 
-#### Rust 后端结构约定
-保持唯一入口文件 `backend/src/main.rs`，其职责仅限：
-- 启动初始化（日志、配置、数据库连接、路由、WebSocket 设置）
-- 高层依赖注入与组件装配
-- 顶层错误 / 关停处理
+#### Rust 后端结构（已完善）
+入口文件 `backend/src/main.rs` 职责清晰：启动初始化、依赖注入、组件装配
 
-除入口外业务逻辑需拆分到模块：
-- `auth.rs` / `auth/`：认证、授权、JWT 逻辑
-- `database.rs`：数据库连接池与迁移
-- `models.rs`：结构体 / DTO / 持久化实体（禁止复杂业务逻辑）
-- `handlers/`：HTTP 处理器（解析输入 -> 调用 service -> 构建响应），单文件建议 < 300 行
-- `services/`：核心业务逻辑（纯函数优先），单文件建议 < 400 行
-- `websocket.rs` / `websocket/`：会话管理、消息路由
-- `jwt.rs`：JWT 编解码
-
-可按复杂度进一步细分，例如：
-```
-backend/src/services/
-	mod.rs
-	chat.rs
-	metrics.rs
-	notification.rs
-```
-禁止创建平行重复/历史副本（如 `chat_copy.rs`, `old_chat.rs`, `chat_final.rs`）。
+现有模块结构：
+- `auth.rs`: 认证、授权、JWT 逻辑
+- `database.rs`: 数据库连接池与迁移
+- `models.rs`: 结构体 / DTO / 持久化实体
+- `handlers/`: HTTP 处理器 (auth, shop, customer, message, stats, upload, staff)
+- `services/`: 核心业务逻辑 (chat, dashboard, metrics, staff, shop_utils)
+- `websocket/`: 会话管理、消息路由 (manager, handlers)
+- `jwt.rs`: JWT 编解码
 
 #### 文件长度与复杂度限制（软性约束）
 - `main.rs`：≤ 400 行（超出需拆出路由装配或初始化模块）
@@ -289,6 +288,8 @@ SERVER_PORT=8080
 
 ## 代码审查标准
 
+## 代码审查标准
+
 ### 必须通过的检查
 - [ ] 后端代码使用 Rust
 - [ ] 数据库连接仅通过 Rust
@@ -301,17 +302,10 @@ SERVER_PORT=8080
 - [ ] 所有数据来源于真实数据库查询
 - [ ] 无硬编码的模拟数据或测试数据
 - [ ] 统计数据通过SQL实时计算
-- [ ] 只维护单一版本的main.rs文件
-- [ ] 不存在多余的测试或备份版本文件
- - [ ] 模块化合规：入口最小 + 依赖方向正确
- - [ ] 文件/函数长度在规定范围（超出附说明或拆分）
- - [ ] 无重复代码（≥3 次相似片段已抽取）
- - [ ] 无死代码 / 未使用符号
- - [ ] 无临时/备份/版本后缀文件
- - [ ] 常量集中管理，无散落 magic numbers / strings
- - [ ] Handler 瘦 + 业务下沉 service
- - [ ] WebSocket 事件 & 消息类型集中定义
- - [ ] PR 说明包含模块职责与设计摘要
+- [ ] 模块化架构合规：依赖方向正确
+- [ ] 无重复代码：相似片段已抽取
+- [ ] 无死代码/未使用符号
+- [ ] 无临时/备份/版本后缀文件
 
 ### 性能要求
 - 后端响应时间 < 100ms

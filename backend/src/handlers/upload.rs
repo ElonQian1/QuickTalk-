@@ -125,12 +125,19 @@ async fn parse_customer_multipart(mut multipart: Multipart) -> Result<CustomerUp
     {
         let name = field.name().unwrap_or_default().to_string();
         match name.as_str() {
-            "customerCode" => {
+            "shopId" => {
                 let value = field
                     .text()
                     .await
-                    .map_err(|_| AppError::BadRequest("customerCode 无效"))?;
+                    .map_err(|_| AppError::BadRequest("shopId 无效"))?;
                 api_key = Some(value);
+            }
+            "customerCode" => {
+                // 客户代码，暂时不使用
+                let _value = field
+                    .text()
+                    .await
+                    .map_err(|_| AppError::BadRequest("customerCode 无效"))?;
             }
             "messageType" => {
                 let value = field
@@ -156,7 +163,7 @@ async fn parse_customer_multipart(mut multipart: Multipart) -> Result<CustomerUp
         }
     }
 
-    let api_key = api_key.ok_or(AppError::BadRequest("缺少 customerCode"))?;
+    let api_key = api_key.ok_or(AppError::BadRequest("缺少 shopId"))?;
     let data = data.ok_or(AppError::BadRequest("缺少文件"))?;
     let original_name = original_name.unwrap_or_else(|| "upload.bin".to_string());
 
