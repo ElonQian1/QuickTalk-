@@ -17,7 +17,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 use tokio::sync::mpsc;
-use tower_http::{cors::CorsLayer, services::ServeDir};
+use tower_http::cors::CorsLayer;
 use tracing::{error, info, warn};
 
 mod auth;
@@ -109,7 +109,7 @@ async fn main() -> Result<()> {
             "/ws/customer/:shop_ref/:customer_id",
             get(websocket_handler_customer),
         )
-        .nest_service("/static", ServeDir::new("static"))
+        .route("/static/*file_path", get(handlers::static_files::serve_static_file))
         .layer(CorsLayer::permissive())
         .with_state(state);
 

@@ -399,6 +399,141 @@ impl Database {
         Ok(customer)
     }
 
+    // 店铺员工管理
+    pub async fn list_shop_staff(&self, shop_id: i64) -> Result<Vec<(UserPublic, String)>> {
+        // 返回 (用户公开信息, 角色)，包含店主与员工：店主用 owner 角色
+        let mut staff: Vec<(UserPublic, String)> = Vec::new();
+
+        // 店主
+        if let Some(owner) = sqlx::query_as::<_, User>("SELECT u.* FROM users u JOIN shops s ON s.owner_id = u.id WHERE s.id = ?")
+            .bind(shop_id)
+            .fetch_optional(&self.pool)
+            .await? {
+            staff.push((owner.into(), "owner".to_string()));
+        }
+
+        // 员工
+        let rows = match sqlx::query(
+            r#"SELECT u.id, u.username, u.email, u.phone, u.avatar_url, ss.role
+               FROM shop_staffs ss JOIN users u ON ss.user_id = u.id
+               WHERE ss.shop_id = ? ORDER BY ss.created_at DESC"#
+        )
+        .bind(shop_id)
+        .fetch_all(&self.pool)
+        .await {
+            Ok(rows) => rows,
+            Err(e) => {
+                let msg = e.to_string().to_lowercase();
+                if msg.contains("no such table") && msg.contains("shop_staffs") {
+                    // 旧库尚未包含表：返回仅包含店主的列表
+                    return Ok(staff);
+                } else {
+                    return Err(e.into());
+                }
+            }
+        };
+
+        for row in rows {
+            let user_pub = UserPublic {
+                id: row.try_get("id")?,
+                username: row.try_get("username")?,
+                email: row.try_get("email")?,
+                phone: row.try_get("phone")?,
+                avatar_url: row.try_get("avatar_url")?,
+            };
+            let role: Option<String> = row.try_get("role").ok();
+            staff.push((user_pub, role.unwrap_or_else(|| "staff".to_string())));
+        }
+
+        Ok(staff)
+    }
+
+    pub async fn add_shop_staff_by_username(&self, shop_id: i64, username: &str, role: Option<&str>) -> Result<()> {
+        let user = sqlx::query_as::<_, User>("SELECT * FROM users WHERE username = ?")
+            .bind(username)
+            .fetch_optional(&self.pool)
+            .await?;
+        let Some(user) = user else { anyhow::bail!("user_not_found"); };
+
+        // 防止把店主重复加入员工表
+        let owner_id: Option<i64> = sqlx::query_scalar("SELECT owner_id FROM shops WHERE id = ?")
+            .bind(shop_id)
+            .fetch_optional(&self.pool)
+            .await?;
+        if let Some(oid) = owner_id {
+            if oid == user.id {
+                // 店主天然拥有权限，无需加入员工表
+                return Ok(());
+            }
+        }
+
+        let the_role = role.unwrap_or("staff");
+        // 插入或忽略（若已存在）
+        let _ = sqlx::query(
+            "INSERT OR IGNORE INTO shop_staffs (shop_id, user_id, role) VALUES (?, ?, ?)"
+        )
+        .bind(shop_id)
+        .bind(user.id)
+        .bind(the_role)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
+    pub async fn is_shop_owner(&self, shop_id: i64, user_id: i64) -> Result<bool> {
+        let owner_id: Option<i64> = sqlx::query_scalar("SELECT owner_id FROM shops WHERE id = ?")
+            .bind(shop_id)
+            .fetch_optional(&self.pool)
+            .await?;
+        Ok(owner_id.map(|oid| oid == user_id).unwrap_or(false))
+    }
+
+    pub async fn is_shop_member(&self, shop_id: i64, user_id: i64) -> Result<bool> {
+        if self.is_shop_owner(shop_id, user_id).await? {
+            return Ok(true);
+        }
+        let exists: Option<i64> = match sqlx::query_scalar(
+            "SELECT id FROM shop_staffs WHERE shop_id = ? AND user_id = ? LIMIT 1",
+        )
+        .bind(shop_id)
+        .bind(user_id)
+        .fetch_optional(&self.pool)
+        .await {
+            Ok(v) => v,
+            Err(e) => {
+                let msg = e.to_string().to_lowercase();
+                if msg.contains("no such table") && msg.contains("shop_staffs") {
+                    // 表不存在 => 视为非成员
+                    None
+                } else {
+                    return Err(e.into());
+                }
+            }
+        };
+        Ok(exists.is_some())
+    }
+
+    pub async fn remove_shop_staff(&self, shop_id: i64, user_id: i64) -> Result<u64> {
+        let result = match sqlx::query("DELETE FROM shop_staffs WHERE shop_id = ? AND user_id = ?")
+            .bind(shop_id)
+            .bind(user_id)
+            .execute(&self.pool)
+            .await {
+                Ok(res) => res,
+                Err(e) => {
+                    let msg = e.to_string().to_lowercase();
+                    if msg.contains("no such table") && msg.contains("shop_staffs") {
+                        // 表不存在 => 视为未删除任何行
+                        return Ok(0);
+                    } else {
+                        return Err(e.into());
+                    }
+                }
+            };
+        Ok(result.rows_affected())
+    }
+
     pub async fn get_messages_by_session(
         &self,
         session_id: i64,
