@@ -40,6 +40,9 @@
     var eventHandlers = {};
 
     return {
+      serverUrl: serverUrl,
+      shopId: shopId,
+      sessionId: customerId,
       connect: function() {
         var wsUrl = serverUrl.replace(/^http/, 'ws') + '/ws/customer/' + shopId + '/' + customerId;
         ws = new WebSocket(wsUrl);
@@ -98,13 +101,8 @@
             return response.json();
           })
           .then(function(data) {
-            // 如果返回的是相对路径，转换为完整URL
-            var fullUrl = data.url;
-            if (data.url && data.url.startsWith('/')) {
-              fullUrl = serverUrl + data.url;
-            }
             // 自动发送消息 - 对于图片，content应该是URL而不是文件名
-            this.sendMessage(fullUrl, messageType, fullUrl);
+            this.sendMessage(data.url, messageType, data.url);
             resolve(data);
           }.bind(this))
           .catch(reject);
@@ -144,7 +142,7 @@
     panel.id = 'qt-panel';
     panel.className = 'qt-panel';
     panel.style.cssText = 'position:fixed;right:18px;bottom:68px;width:320px;height:440px;background:#fff;border-radius:12px;box-shadow:0 16px 48px -12px rgba(15,23,42,.35);display:none;flex-direction:column;overflow:hidden;z-index:2147483647';
-    panel.innerHTML = '<div class="qt-header" style="padding:12px 14px;border-bottom:1px solid #eee;font-weight:700;background:#f9fafb">在线客服</div><div class="qt-body" style="flex:1;padding:10px 12px;overflow:auto;background:#fafafa"></div><div class="qt-input" style="display:flex;gap:8px;padding:10px;border-top:1px solid #eee;background:#fff"><button class="qt-image-btn" title="发送图片" style="padding:8px;border-radius:8px;background:#fff;border:1px solid #ddd;cursor:pointer;font-size:16px">📷</button><button class="qt-file-btn" title="发送文件" style="padding:8px;border-radius:8px;background:#fff;border:1px solid #ddd;cursor:pointer;font-size:16px">📎</button><input type="text" placeholder="输入消息..." style="flex:1;padding:8px 10px;border:1px solid #ddd;border-radius:8px"/><button class="qt-send-btn" style="padding:8px 12px;border-radius:8px;background:#2563eb;color:#fff;border:none;cursor:pointer">发送</button><input type="file" class="qt-image-input" accept="image/*" style="display:none"/><input type="file" class="qt-file-input" style="display:none"/></div>';
+    panel.innerHTML = '<div class="qt-header" style="padding:12px 14px;border-bottom:1px solid #eee;font-weight:700;background:#f9fafb">在线客服</div><div class="qt-body" style="flex:1;padding:10px 12px;overflow:auto;background:#fafafa"></div><div class="qt-input" style="display:flex;gap:8px;padding:10px;border-top:1px solid #eee;background:#fff"><button class="qt-image-btn" title="发送图片" style="padding:8px;border-radius:8px;background:#fff;border:1px solid #ddd;cursor:pointer;font-size:16px">📷</button><button class="qt-file-btn" title="发送文件" style="padding:8px;border-radius:8px;background:#fff;border:1px solid #ddd;cursor:pointer;font-size:16px">📎</button><button class="qt-voice-btn" title="发送语音" style="padding:8px;border-radius:8px;background:#fff;border:1px solid #ddd;cursor:pointer;font-size:16px">🎤</button><input type="text" placeholder="输入消息..." style="flex:1;padding:8px 10px;border:1px solid #ddd;border-radius:8px"/><button class="qt-send-btn" style="padding:8px 12px;border-radius:8px;background:#2563eb;color:#fff;border:none;cursor:pointer">发送</button><input type="file" class="qt-image-input" accept="image/*" style="display:none"/><input type="file" class="qt-file-input" style="display:none"/></div>';
 
     document.body.appendChild(btn);
     document.body.appendChild(panel);
@@ -157,10 +155,17 @@
     var send = ui.panel.querySelector('.qt-send-btn');
     var imageBtn = ui.panel.querySelector('.qt-image-btn');
     var fileBtn = ui.panel.querySelector('.qt-file-btn');
+    var voiceBtn = ui.panel.querySelector('.qt-voice-btn');
     var imageInput = ui.panel.querySelector('.qt-image-input');
     var fileInput = ui.panel.querySelector('.qt-file-input');
     var body = ui.panel.querySelector('.qt-body');
     var uploading = false;
+    
+    // 语音录制相关变量
+    var recording = false;
+    var mediaRecorder = null;
+    var audioChunks = [];
+    var stream = null;
 
     function toggle() {
       open = !open;
@@ -171,9 +176,96 @@
       uploading = state;
       imageBtn.disabled = state;
       fileBtn.disabled = state;
+      voiceBtn.disabled = state;
       send.disabled = state && !input.value.trim();
       imageBtn.style.opacity = state ? '0.5' : '1';
       fileBtn.style.opacity = state ? '0.5' : '1';
+      voiceBtn.style.opacity = state ? '0.5' : '1';
+    }
+    
+    // 语音录制功能
+    function startRecording() {
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(function(mediaStream) {
+          stream = mediaStream;
+          mediaRecorder = new MediaRecorder(mediaStream);
+          audioChunks = [];
+          
+          mediaRecorder.ondataavailable = function(event) {
+            audioChunks.push(event.data);
+          };
+          
+          mediaRecorder.onstop = function() {
+            var audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            uploadVoice(audioBlob);
+            stopStream();
+          };
+          
+          mediaRecorder.start();
+          recording = true;
+          voiceBtn.textContent = '⏹️';
+          voiceBtn.title = '停止录音';
+          voiceBtn.style.background = '#ef4444';
+          voiceBtn.style.color = '#fff';
+        })
+        .catch(function(error) {
+          console.error('无法访问麦克风:', error);
+          addMsg('无法访问麦克风，请检查权限设置', true);
+        });
+    }
+    
+    function stopRecording() {
+      if (mediaRecorder && recording) {
+        mediaRecorder.stop();
+        recording = false;
+        voiceBtn.textContent = '🎤';
+        voiceBtn.title = '发送语音';
+        voiceBtn.style.background = '#fff';
+        voiceBtn.style.color = '#333';
+      }
+    }
+    
+    function stopStream() {
+      if (stream) {
+        stream.getTracks().forEach(function(track) {
+          track.stop();
+        });
+        stream = null;
+      }
+    }
+    
+    function uploadVoice(audioBlob) {
+      setUploading(true);
+      addMsg('正在发送语音...', true);
+      
+      var formData = new FormData();
+      formData.append('file', audioBlob, 'voice.webm');
+      formData.append('shopId', client.shopId);
+      formData.append('messageType', 'voice');
+      formData.append('customerCode', client.sessionId);
+      
+      fetch(client.serverUrl + '/api/customer/upload', {
+        method: 'POST',
+        body: formData
+      })
+        .then(function(response) { 
+          if (!response.ok) throw new Error('Upload failed');
+          return response.json(); 
+        })
+        .then(function(data) {
+          if (data.url) {
+            client.sendMessage(data.url, 'voice', data.url);
+          } else {
+            addMsg('语音发送失败', true);
+          }
+        })
+        .catch(function(error) {
+          console.error('语音上传失败:', error);
+          addMsg('语音发送失败', true);
+        })
+        .finally(function() {
+          setUploading(false);
+        });
     }
 
     function addMsg(text, own, type) {
@@ -193,6 +285,51 @@
         link.textContent = '📎 ' + (text.split('/').pop() || '下载文件');
         link.style.cssText = 'color:inherit;text-decoration:underline';
         item.appendChild(link);
+      } else if (type === 'voice') {
+        var audioContainer = document.createElement('div');
+        audioContainer.style.cssText = 'display:flex;align-items:center;gap:8px;';
+        
+        var playButton = document.createElement('button');
+        playButton.textContent = '▶️';
+        playButton.style.cssText = 'background:none;border:none;cursor:pointer;font-size:16px;';
+        
+        var duration = document.createElement('span');
+        duration.textContent = '00:00';
+        duration.style.cssText = 'font-size:12px;';
+        
+        var audio = document.createElement('audio');
+        audio.src = text;
+        audio.style.display = 'none';
+        
+        var isPlaying = false;
+        
+        playButton.onclick = function() {
+          if (isPlaying) {
+            audio.pause();
+            playButton.textContent = '▶️';
+            isPlaying = false;
+          } else {
+            audio.play();
+            playButton.textContent = '⏸️';
+            isPlaying = true;
+          }
+        };
+        
+        audio.onended = function() {
+          playButton.textContent = '▶️';
+          isPlaying = false;
+        };
+        
+        audio.onloadedmetadata = function() {
+          var minutes = Math.floor(audio.duration / 60);
+          var seconds = Math.floor(audio.duration % 60);
+          duration.textContent = minutes.toString().padStart(2, '0') + ':' + seconds.toString().padStart(2, '0');
+        };
+        
+        audioContainer.appendChild(playButton);
+        audioContainer.appendChild(duration);
+        item.appendChild(audioContainer);
+        item.appendChild(audio);
       } else {
         item.textContent = text;
       }
@@ -219,6 +356,15 @@
     fileBtn.addEventListener('click', function() {
       if (uploading) return;
       fileInput.click();
+    });
+    
+    voiceBtn.addEventListener('click', function() {
+      if (uploading) return;
+      if (recording) {
+        stopRecording();
+      } else {
+        startRecording();
+      }
     });
 
     imageInput.addEventListener('change', function(e) {
@@ -265,21 +411,14 @@
       console.log('🔍 收到WebSocket消息:', JSON.stringify(m, null, 2));
       if (m && m.content) {
         if (m.metadata && m.metadata.messageType === 'image') {
-          console.log('📷 图片消息 - fileUrl:', m.fileUrl, 'content:', m.content);
-          var imageUrl = m.fileUrl || m.content;
-          // 如果是相对路径，转换为完整URL
-          if (imageUrl && imageUrl.startsWith('/')) {
-            imageUrl = serverUrl + imageUrl;
-          }
-          addMsg(imageUrl, m.senderType === 'customer', 'image');
+          console.log('📷 图片消息 - file_url:', m.file_url, 'content:', m.content);
+          addMsg(m.file_url || m.content, m.senderType === 'customer', 'image');
         } else if (m.metadata && m.metadata.messageType === 'file') {
-          console.log('📁 文件消息 - fileUrl:', m.fileUrl, 'content:', m.content);
-          var fileUrl = m.fileUrl || m.content;
-          // 如果是相对路径，转换为完整URL
-          if (fileUrl && fileUrl.startsWith('/')) {
-            fileUrl = serverUrl + fileUrl;
-          }
-          addMsg(fileUrl, m.senderType === 'customer', 'file');
+          console.log('📁 文件消息 - file_url:', m.file_url, 'content:', m.content);
+          addMsg(m.file_url || m.content, m.senderType === 'customer', 'file');
+        } else if (m.metadata && m.metadata.messageType === 'voice') {
+          console.log('🎤 语音消息 - file_url:', m.file_url, 'content:', m.content);
+          addMsg(m.file_url || m.content, m.senderType === 'customer', 'voice');
         } else {
           addMsg(m.content, m.senderType === 'customer');
         }

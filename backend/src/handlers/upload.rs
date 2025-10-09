@@ -11,6 +11,25 @@ use std::path::PathBuf;
 
 use crate::{auth::AuthUser, constants::upload_policy, error::AppError, AppState};
 
+// 检查是否为语音文件类型
+fn is_audio_file(content_type: &Option<String>, file_name: &str) -> bool {
+    // 检查 MIME 类型
+    if let Some(ct) = content_type {
+        if upload_policy::AUDIO_TYPES.iter().any(|&audio_type| ct.starts_with(audio_type)) {
+            return true;
+        }
+    }
+    
+    // 检查文件扩展名
+    let file_name_lower = file_name.to_lowercase();
+    file_name_lower.ends_with(".mp3") ||
+    file_name_lower.ends_with(".wav") ||
+    file_name_lower.ends_with(".ogg") ||
+    file_name_lower.ends_with(".webm") ||
+    file_name_lower.ends_with(".m4a") ||
+    file_name_lower.ends_with(".aac")
+}
+
 // 从请求头检测协议
 fn detect_protocol(headers: &HeaderMap) -> String {
     // 检查 X-Forwarded-Proto (常见的代理头)
@@ -134,10 +153,17 @@ async fn parse_multipart(mut multipart: Multipart) -> Result<UploadData, AppErro
     let data = data.ok_or(AppError::BadRequest("缺少文件"))?;
     let original_name = original_name.unwrap_or_else(|| "upload.bin".to_string());
 
+    // 如果消息类型为默认值，根据文件类型自动判断
+    let final_message_type = if message_type == "file" && is_audio_file(&content_type, &original_name) {
+        "voice".to_string()
+    } else {
+        message_type
+    };
+
     Ok(UploadData {
         shop_id,
         customer_code,
-        message_type,
+        message_type: final_message_type,
         original_name,
         content_type,
         data,
@@ -221,13 +247,20 @@ async fn parse_customer_multipart(mut multipart: Multipart) -> Result<CustomerUp
     })?;
     let original_name = original_name.unwrap_or_else(|| "upload.bin".to_string());
     
-    tracing::info!("准备创建CustomerUploadData: api_key={}, data_size={}, original_name={}", 
-                   api_key, data.len(), original_name);
+    // 如果消息类型为默认值，根据文件类型自动判断
+    let final_message_type = if message_type == "file" && is_audio_file(&content_type, &original_name) {
+        "voice".to_string()
+    } else {
+        message_type
+    };
+    
+    tracing::info!("准备创建CustomerUploadData: api_key={}, data_size={}, original_name={}, message_type={}", 
+                   api_key, data.len(), original_name, final_message_type);
 
     Ok(CustomerUploadData {
         api_key,
         customer_code,
-        message_type,
+        message_type: final_message_type,
         original_name,
         content_type,
         data,

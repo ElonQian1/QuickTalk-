@@ -2,13 +2,18 @@
 export interface ChatMessage {
   id?: number;
   content: string;
-  messageType: 'text' | 'image' | 'file' | 'system';
+  messageType: 'text' | 'image' | 'file' | 'voice' | 'system';
   senderId?: number;
   senderType: 'customer' | 'staff';
   timestamp: Date;
   sessionId?: number;
   fileUrl?: string;
+  fileName?: string;
 }
+
+// 导出语音相关组件
+export { VoicePlayer } from './voice-player';
+export { VoiceMessageRenderer } from './voice-message';
 
 // WebSocket 消息格式
 export interface WebSocketMessage {
@@ -126,7 +131,7 @@ export class CustomerServiceSDK {
   /**
    * 发送消息
    */
-  public sendMessage(content: string, messageType: 'text' | 'image' | 'file' = 'text', fileUrl?: string): void {
+  public sendMessage(content: string, messageType: 'text' | 'image' | 'file' | 'voice' = 'text', fileUrl?: string): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       throw new Error('WebSocket is not connected');
     }
@@ -148,7 +153,7 @@ export class CustomerServiceSDK {
   /**
    * 上传文件并发送消息
    */
-  public async uploadFile(file: File, messageType: 'image' | 'file' = 'file'): Promise<void> {
+  public async uploadFile(file: File, messageType: 'image' | 'file' | 'voice' = 'file'): Promise<void> {
     if (!file) {
       throw new Error('No file provided');
     }
@@ -178,6 +183,17 @@ export class CustomerServiceSDK {
       this.emit('error', { type: 'upload_error', error });
       throw error;
     }
+  }
+
+  /**
+   * 上传语音文件
+   */
+  public async uploadVoice(audioBlob: Blob, fileName?: string): Promise<void> {
+    const file = new File([audioBlob], fileName || `voice_${Date.now()}.webm`, { 
+      type: audioBlob.type || 'audio/webm' 
+    });
+    
+    return this.uploadFile(file, 'voice');
   }
 
   /**

@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import styled from 'styled-components';
 import { useParams } from 'react-router-dom';
-import { FiSend, FiImage, FiPaperclip, FiFile } from 'react-icons/fi';
+import { FiSend, FiImage, FiPaperclip, FiFile, FiMic } from 'react-icons/fi';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { api } from '../config/api';
 import { Avatar, LoadingSpinner } from '../styles/globalStyles';
 import { theme } from '../styles/globalStyles';
 import toast from 'react-hot-toast';
+import VoiceRecorder from '../components/VoiceRecorder';
+import VoiceMessage from '../components/VoiceMessage';
 
 const Container = styled.div`
   display: flex;
@@ -140,12 +142,12 @@ const MessageInput = styled.textarea`
   }
 `;
 
-const ActionButton = styled.button<{ disabled?: boolean }>`
+const ActionButton = styled.button<{ disabled?: boolean; $isActive?: boolean }>`
   width: 40px;
   height: 40px;
   border-radius: ${theme.borderRadius.round};
   border: none;
-  background: transparent;
+  background: ${props => props.$isActive ? theme.colors.primary : 'transparent'};
   display: flex;
   align-items: center;
   justify-content: center;
@@ -154,13 +156,13 @@ const ActionButton = styled.button<{ disabled?: boolean }>`
   opacity: ${props => props.disabled ? 0.5 : 1};
   
   &:hover:not(:disabled) {
-    background: ${theme.colors.background};
+    background: ${props => props.$isActive ? theme.colors.primary : theme.colors.background};
   }
   
   svg {
     width: 20px;
     height: 20px;
-    color: ${theme.colors.text.secondary};
+    color: ${props => props.$isActive ? 'white' : theme.colors.text.secondary};
   }
 `;
 
@@ -259,6 +261,7 @@ const ChatPage: React.FC = () => {
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [userShopId, setUserShopId] = useState<string | null>(null);
+  const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
   // const [isTyping, setIsTyping] = useState(false); // 未来可接入实时输入指示
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -427,6 +430,57 @@ const ChatPage: React.FC = () => {
     }
   };
 
+  const handleSendVoice = async (audioBlob: Blob) => {
+    if (!userShopId || !sessionId) {
+      toast.error('无法发送语音消息');
+      return;
+    }
+
+    setUploading(true);
+    setShowVoiceRecorder(false);
+
+    try {
+      // 创建语音文件名
+      const fileName = `voice_${Date.now()}.webm`;
+      const file = new File([audioBlob], fileName, { type: 'audio/webm' });
+      
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('shopId', userShopId);
+      formData.append('messageType', 'voice');
+      
+      console.log('📤 上传语音，使用shopId:', userShopId, ', 文件大小:', file.size);
+      
+      const uploadResponse = await api.post('/api/upload', formData);
+
+      // 发送包含语音信息的消息
+      const messageResponse = await api.post(`/api/sessions/${sessionId}/messages`, {
+        content: '语音消息',
+        message_type: 'voice',
+        file_url: uploadResponse.data.url,
+        file_name: uploadResponse.data.file_name,
+      });
+
+      // 添加新消息到列表
+      setMessages(prev => [...prev, messageResponse.data]);
+      
+      toast.success('语音发送成功');
+    } catch (error: any) {
+      console.error('Error sending voice:', error);
+      
+      if (error?.response?.status === 401) {
+        toast.error('权限不足，无法发送语音');
+      } else if (error?.response?.status === 400) {
+        const errorMessage = error?.response?.data?.message || '语音格式不支持或文件过大';
+        toast.error(`语音发送失败: ${errorMessage}`);
+      } else {
+        toast.error('语音发送失败，请稍后重试');
+      }
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const formatMessageTime = (timestamp: string) => {
     try {
       const date = new Date(timestamp);
@@ -464,6 +518,18 @@ const ChatPage: React.FC = () => {
             <FiFile />
             <FileName>{message.content}</FileName>
           </FileAttachment>
+        );
+      case 'voice':
+        return message.file_url ? (
+          <VoiceMessage
+            fileUrl={message.file_url}
+            fileName={message.content}
+            timestamp={message.created_at}
+            senderType={message.sender_type as 'staff' | 'customer'}
+            isOwn={message.sender_type === 'staff'}
+          />
+        ) : (
+          <div>语音消息加载失败</div>
         );
       default:
         return message.content;
@@ -557,6 +623,14 @@ const ChatPage: React.FC = () => {
       </MessagesContainer>
 
       <InputContainer>
+        {showVoiceRecorder && (
+          <VoiceRecorder 
+            onSendVoice={handleSendVoice}
+            onCancel={() => setShowVoiceRecorder(false)}
+            disabled={uploading}
+          />
+        )}
+        
         <InputRow>
           <ActionButton onClick={handleImageUpload} disabled={uploading}>
             <FiImage />
@@ -564,6 +638,14 @@ const ChatPage: React.FC = () => {
           
           <ActionButton onClick={handleFileUpload} disabled={uploading}>
             <FiPaperclip />
+          </ActionButton>
+          
+          <ActionButton 
+            onClick={() => setShowVoiceRecorder(!showVoiceRecorder)} 
+            disabled={uploading}
+            $isActive={showVoiceRecorder}
+          >
+            <FiMic />
           </ActionButton>
           
           <InputWrapper>

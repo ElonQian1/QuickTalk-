@@ -17,4 +17,16 @@ pub mod ws_incoming {
 pub mod upload_policy {
     pub const MAX_SIZE_BYTES: i64 = 10 * 1024 * 1024; // 10MB
     // 移除了 ALLOWED_PREFIX 常量，因为现在允许所有文件类型
+    
+    // 语音文件类型支持
+    pub const AUDIO_TYPES: &[&str] = &[
+        "audio/webm",
+        "audio/ogg", 
+        "audio/mp3",
+        "audio/mpeg",
+        "audio/wav",
+        "audio/x-wav",
+        "audio/m4a",
+        "audio/aac"
+    ];
 }
