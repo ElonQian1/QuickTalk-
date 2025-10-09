@@ -34,21 +34,45 @@ where
     type Rejection = StatusCode;
 
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+        tracing::debug!("🔍 AuthUser: 开始认证检查");
+        
         let auth = parts
             .headers
             .get(header::AUTHORIZATION)
-            .and_then(|v| v.to_str().ok())
-            .ok_or(StatusCode::UNAUTHORIZED)?;
+            .and_then(|v| v.to_str().ok());
+            
+        if let Some(auth_header) = &auth {
+            tracing::debug!("🔍 AuthUser: 找到Authorization头: {}...", &auth_header[..std::cmp::min(20, auth_header.len())]);
+        } else {
+            tracing::error!("❌ AuthUser: 未找到Authorization头");
+            tracing::debug!("📋 AuthUser: 可用的请求头: {:?}", parts.headers.keys().collect::<Vec<_>>());
+        }
+        
+        let auth = auth.ok_or_else(|| {
+            tracing::error!("❌ AuthUser: Authorization头缺失");
+            StatusCode::UNAUTHORIZED
+        })?;
 
         // 期望格式：Bearer <token>
         let token = auth
             .strip_prefix("Bearer ")
             .or_else(|| auth.strip_prefix("bearer "))
-            .ok_or(StatusCode::UNAUTHORIZED)?;
+            .ok_or_else(|| {
+                tracing::error!("❌ AuthUser: Authorization头格式错误，期望 'Bearer <token>'，实际: {}", auth);
+                StatusCode::UNAUTHORIZED
+            })?;
 
-        let claims = verify_token(token).map_err(|_| StatusCode::UNAUTHORIZED)?;
-        let user_id: i64 = claims.sub.parse().map_err(|_| StatusCode::UNAUTHORIZED)?;
-
+        let claims = verify_token(token).map_err(|e| {
+            tracing::error!("❌ AuthUser: token验证失败: {:?}", e);
+            StatusCode::UNAUTHORIZED
+        })?;
+        
+        let user_id: i64 = claims.sub.parse().map_err(|e| {
+            tracing::error!("❌ AuthUser: user_id解析失败: {:?}", e);
+            StatusCode::UNAUTHORIZED
+        })?;
+        
+        tracing::debug!("✅ AuthUser: 认证成功，user_id: {}", user_id);
         Ok(AuthUser { user_id })
     }
 }

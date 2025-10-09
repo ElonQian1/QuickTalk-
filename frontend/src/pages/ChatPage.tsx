@@ -258,6 +258,7 @@ const ChatPage: React.FC = () => {
   const [inputValue, setInputValue] = useState('');
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [userShopId, setUserShopId] = useState<string | null>(null);
   // const [isTyping, setIsTyping] = useState(false); // 未来可接入实时输入指示
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -270,6 +271,31 @@ const ChatPage: React.FC = () => {
       fetchMessages(parseInt(sessionId));
     }
   }, [sessionId]);
+
+  useEffect(() => {
+    // 获取用户的店铺信息
+    const fetchUserShop = async () => {
+      try {
+        console.log('🏪 获取用户店铺信息...');
+        const response = await api.get('/api/shops');
+        console.log('🏪 用户店铺列表:', response.data);
+        if (response.data && response.data.length > 0) {
+          const shopId = response.data[0].shop.id.toString();
+          setUserShopId(shopId);
+          console.log('✅ 设置用户的shopId:', shopId);
+        } else {
+          console.warn('⚠️ 用户没有任何店铺');
+        }
+      } catch (error: any) {
+        console.error('❌ 获取用户店铺失败:', error);
+        if (error?.response?.status === 401) {
+          toast.error('登录已过期，请重新登录');
+        }
+      }
+    };
+
+    fetchUserShop();
+  }, []);
 
   useEffect(() => {
     scrollToBottom();
@@ -351,19 +377,22 @@ const ChatPage: React.FC = () => {
     const file = event.target.files?.[0];
     if (!file || !sessionId) return;
 
+    if (!userShopId) {
+      toast.error('无法获取店铺信息，请刷新页面重试');
+      return;
+    }
+
     setUploading(true);
 
     try {
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('shopId', '1'); // 应该从当前会话获取真实的shopId
+      formData.append('shopId', userShopId);
       formData.append('messageType', messageType);
-
-      const uploadResponse = await api.post('/api/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      
+      console.log('📤 上传文件，使用shopId:', userShopId, ', 文件:', file.name);
+      
+      const uploadResponse = await api.post('/api/upload', formData);
 
       // 发送包含文件信息的消息
       const messageResponse = await api.post(`/api/sessions/${sessionId}/messages`, {
@@ -377,9 +406,18 @@ const ChatPage: React.FC = () => {
       setMessages(prev => [...prev, messageResponse.data]);
       
       toast.success('文件上传成功');
-    } catch (error) {
-      toast.error('文件上传失败');
+    } catch (error: any) {
       console.error('Error uploading file:', error);
+      
+      // 更友好的错误处理
+      if (error?.response?.status === 401) {
+        toast.error('权限不足，无法上传文件');
+      } else if (error?.response?.status === 400) {
+        const errorMessage = error?.response?.data?.message || '文件格式不支持或文件过大';
+        toast.error(`上传失败: ${errorMessage}`);
+      } else {
+        toast.error('文件上传失败，请稍后重试');
+      }
     } finally {
       setUploading(false);
       // 清空文件输入

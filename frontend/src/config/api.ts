@@ -25,10 +25,15 @@ api.interceptors.request.use((config) => {
         if (token) {
           (config.headers ||= {});
           (config.headers as any)['Authorization'] = `Bearer ${token}`;
+          console.log('✅ [api] 已添加Authorization头到请求:', config.method, config.url);
+        } else {
+          console.warn('⚠️ [api] localStorage中找不到token');
         }
+      } else {
+        console.warn('⚠️ [api] localStorage中找不到auth-storage');
       }
-    } catch {
-      // ignore JSON/Storage errors
+    } catch (e) {
+      console.error('❌ [api] 读取认证信息失败:', e);
     }
   }
   if (process.env.NODE_ENV !== 'production') {
@@ -55,6 +60,16 @@ api.interceptors.response.use(
   (err) => {
     // 统一处理 401：清理本地登录状态并跳回登录
     if (err?.response?.status === 401 && typeof window !== 'undefined') {
+      // 检查是否是上传相关的请求，给予更友好的提示
+      const isUploadRequest = err?.config?.url?.includes('/upload') || 
+                             err?.config?.headers?.['Content-Type']?.includes('multipart/form-data');
+      
+      if (isUploadRequest) {
+        // 对于上传请求，不直接跳转，而是抛出错误让组件处理
+        console.error('[auth] Upload request failed: 401 Unauthorized');
+        return Promise.reject(err);
+      }
+      
       try {
         const raw = window.localStorage.getItem('auth-storage');
         if (raw) {
