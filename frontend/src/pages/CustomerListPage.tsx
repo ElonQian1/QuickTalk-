@@ -191,10 +191,61 @@ interface Message {
 
 interface CustomerWithSession {
   customer: Customer;
-  session?: Session;
-  last_message?: Message;
+  session?: Session | null;
+  last_message?: Message | null;
   unread_count: number;
 }
+
+type LegacyCustomer = {
+  id: number;
+  customer_id: string;
+  customer_name?: string;
+  customer_email?: string;
+  customer_avatar?: string;
+  last_active_at?: string;
+  created_at?: string;
+  updated_at?: string;
+  status?: number;
+  unread_count?: number;
+};
+
+type ApiCustomer = CustomerWithSession | LegacyCustomer;
+
+const normalizeCustomer = (entry: ApiCustomer): CustomerWithSession => {
+  if (entry && typeof entry === 'object' && 'customer' in entry) {
+    const typed = entry as CustomerWithSession;
+    return {
+      customer: typed.customer,
+      session: typed.session ?? null,
+      last_message: typed.last_message ?? null,
+      unread_count:
+        typeof typed.unread_count === 'number' ? typed.unread_count : 0,
+    };
+  }
+
+  const legacy = entry as LegacyCustomer;
+  const lastActive =
+    legacy.last_active_at ||
+    legacy.updated_at ||
+    legacy.created_at ||
+    new Date().toISOString();
+
+  return {
+    customer: {
+      id: legacy.id,
+      customer_id: legacy.customer_id,
+      customer_name: legacy.customer_name,
+      customer_email: legacy.customer_email,
+      customer_avatar: legacy.customer_avatar,
+      last_active_at: lastActive,
+  status: legacy.status ?? 1,
+    } as Customer,
+    session: null,
+    last_message: null,
+    unread_count:
+      typeof legacy.unread_count === 'number' ? legacy.unread_count : 0,
+  };
+};
 
 const CustomerListPage: React.FC = () => {
   const { shopId } = useParams<{ shopId: string }>();
@@ -210,8 +261,12 @@ const CustomerListPage: React.FC = () => {
 
   const fetchCustomers = async (shopId: number) => {
     try {
-  const response = await api.get(`/api/shops/${shopId}/customers`);
-      setCustomers(response.data);
+      const response = await api.get(`/api/shops/${shopId}/customers`);
+      const payload = Array.isArray(response.data) ? response.data : [];
+      const normalized = payload.map((entry) =>
+        normalizeCustomer(entry as ApiCustomer)
+      );
+      setCustomers(normalized);
     } catch (error) {
       toast.error('获取客户列表失败');
       console.error('Error fetching customers:', error);

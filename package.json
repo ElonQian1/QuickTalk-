@@ -5,8 +5,8 @@
   "description": "Customer Service System - 全栈开发环境",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:sdk\" --names \"🦀 Backend,⚛️ Frontend,📡 SDK\" --prefix-colors \"yellow,cyan,green\" --kill-others-on-fail",
-    "dev:backend": "node temp-backend.cjs",
+    "dev": "concurrently -k -n \"🦀 Backend,⚛️ Frontend,📡 SDK\" -c \"yellow,cyan,green\" \"npm:dev:backend\" \"npm:dev:frontend\" \"npm:dev:sdk\"",
+    "dev:backend": "cd backend && cargo watch -x run",
     "dev:frontend": "cd frontend && npm start",
     "dev:sdk": "cd websocket-sdk && npm run dev",
     "dev:backend-only": "cd backend && cargo run",
@@ -43,12 +43,5 @@
   ],
   "author": "Customer Service Team",
   "license": "MIT",
-  "dependencies": {
-    "axios": "^1.12.2",
-    "bcrypt": "^6.0.0",
-    "cors": "^2.8.5",
-    "express": "^5.1.0",
-    "jsonwebtoken": "^9.0.2",
-    "sqlite3": "^5.1.7"
-  }
+  "dependencies": {}
 }

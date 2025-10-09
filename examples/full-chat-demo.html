@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>客服双端调试面板</title>
+    <style>
+        :root {
+            color-scheme: light;
+        }
+        body {
+            margin: 0;
+            font-family: "Segoe UI", "PingFang SC", system-ui, sans-serif;
+            background: #f3f4f6;
+            color: #111827;
+        }
+        header {
+            padding: 16px 24px;
+            background: #111827;
+            color: #fff;
+        }
+        header h1 {
+            margin: 0;
+            font-size: 20px;
+        }
+        header p {
+            margin: 4px 0 0;
+            font-size: 13px;
+            color: rgba(255,255,255,0.75);
+        }
+        main {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 16px;
+            padding: 16px 24px 32px;
+        }
+        section {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 12px 32px -12px rgba(15, 23, 42, 0.25);
+            display: flex;
+            flex-direction: column;
+            min-height: 520px;
+        }
+        section h2 {
+            margin: 0;
+            padding: 18px 20px 12px;
+            border-bottom: 1px solid #e5e7eb;
+            font-size: 18px;
+        }
+        .config {
+            padding: 16px 20px 0;
+        }
+        .config label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #6b7280;
+            margin-bottom: 4px;
+        }
+        .config input,
+        .config select {
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 8px;
+            border: 1px solid #d1d5db;
+            margin-bottom: 12px;
+            font-size: 14px;
+        }
+        .config button {
+            padding: 10px 16px;
+            border-radius: 999px;
+            border: none;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .config button.primary {
+            background: #2563eb;
+            color: #fff;
+            box-shadow: 0 10px 25px -12px rgba(37, 99, 235, 0.6);
+        }
+        .config button.secondary {
+            background: #e5e7eb;
+            color: #374151;
+        }
+        .config button:disabled {
+            background: #d1d5db;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        .status-bar {
+            padding: 10px 20px;
+            font-size: 13px;
+            border-bottom: 1px solid #f3f4f6;
+            background: #f9fafb;
+            color: #6366f1;
+        }
+        .status-bar.error {
+            color: #dc2626;
+        }
+        .status-bar.success {
+            color: #059669;
+        }
+        .chat-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 16px 20px 20px;
+            gap: 12px;
+        }
+        .message-list {
+            flex: 1;
+            overflow-y: auto;
+            border-radius: 10px;
+            background: #f9fafb;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .message {
+            display: flex;
+            flex-direction: column;
+            max-width: 78%;
+            padding: 10px 14px;
+            border-radius: 16px;
+            background: #fff;
+            box-shadow: 0 8px 24px -16px rgba(15, 23, 42, 0.35);
+            position: relative;
+        }
+        .message.own {
+            align-self: flex-end;
+            background: #2563eb;
+            color: #fff;
+        }
+        .message meta {
+            font-size: 11px;
+            color: rgba(17, 24, 39, 0.55);
+            margin-top: 4px;
+        }
+        .message.own meta {
+            color: rgba(255, 255, 255, 0.75);
+        }
+        .input-row {
+            display: flex;
+            gap: 10px;
+        }
+        .input-row input,
+        .input-row select {
+            flex: 1;
+        }
+        .input-row button {
+            min-width: 88px;
+        }
+        .typing-indicator {
+            font-size: 12px;
+            color: #9ca3af;
+            padding: 0 2px;
+        }
+        .session-badge {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            font-weight: 700;
+            color: #6366f1;
+        }
+        details {
+            padding: 0 20px 16px;
+            margin: 0;
+        }
+        details summary {
+            cursor: pointer;
+            font-size: 13px;
+            color: #2563eb;
+        }
+        pre {
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 10px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+<header>
+    <h1>客服双端调试面板</h1>
+    <p>同一页面同时模拟客户 SDK 与客服坐席，便于联调消息、打字状态与多媒体元数据。</p>
+</header>
+
+<main>
+    <section id="customerPanel">
+        <h2>客户侧（嵌入独立站）</h2>
+        <div class="config">
+            <label>WebSocket 地址</label>
+            <input type="text" id="customerWsUrl" value="ws://localhost:8080" placeholder="ws://host:port">
+            <label>店铺 API Key</label>
+            <input type="text" id="customerApiKey" value="shop_api_key_12345" placeholder="后台提供的 API Key">
+            <label>客户外部 ID</label>
+            <input type="text" id="customerExternalId" placeholder="可自定义，例如 email / 用户ID">
+            <label>客户昵称</label>
+            <input type="text" id="customerName" placeholder="展示给客服的称呼" value="测试客户">
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <button class="primary" id="customerConnect">连接客服</button>
+                <button class="secondary" id="customerDisconnect" disabled>断开</button>
+            </div>
+        </div>
+        <div class="status-bar" id="customerStatus">等待连接…</div>
+        <div class="chat-area">
+            <div class="message-list" id="customerMessages"></div>
+            <div class="typing-indicator" id="customerTyping">客服正在输入…</div>
+            <div class="input-row">
+                <input type="text" id="customerMessageInput" placeholder="输入要发送的内容" disabled>
+                <button class="primary" id="customerSend" disabled>发送</button>
+            </div>
+        </div>
+    </section>
+
+    <section id="staffPanel">
+        <h2>店主/客服侧</h2>
+        <div class="config">
+            <label>WebSocket 地址</label>
+            <input type="text" id="staffWsUrl" value="ws://localhost:8080" placeholder="ws://host:port">
+            <label>客服用户 ID</label>
+            <input type="number" id="staffUserId" value="1" min="1">
+            <label>归属店铺 ID</label>
+            <input type="number" id="staffShopId" value="1" min="1">
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <button class="primary" id="staffConnect">上线</button>
+                <button class="secondary" id="staffDisconnect" disabled>下线</button>
+            </div>
+        </div>
+        <div class="status-bar" id="staffStatus">尚未上线</div>
+        <div class="chat-area">
+            <div class="message-list" id="staffMessages"></div>
+            <div class="typing-indicator" id="staffTyping"></div>
+            <div class="input-row">
+                <select id="staffSessionSelect" disabled>
+                    <option value="">请选择会话</option>
+                </select>
+                <input type="text" id="staffMessageInput" placeholder="回复内容" disabled>
+                <button class="primary" id="staffSend" disabled>发送</button>
+            </div>
+        </div>
+    </section>
+</main>
+
+<details open>
+    <summary>使用提示 / 快速调试步骤</summary>
+    <ol style="margin:12px 0 8px 18px; line-height:1.6;">
+        <li>确保后端 `cargo run` 已启动，并且数据库里存在店铺与客服账户。</li>
+        <li>客户侧点击“连接客服”，首次会话会自动创建并在客服面板出现。</li>
+        <li>客服上线后即可从会话下拉框中选择当前会话并回复消息。</li>
+        <li>面板展示的 JSON 元信息可用于排查 sessionId / customerCode / staffId 等。</li>
+    </ol>
+    <pre id="debugLog"></pre>
+</details>
+
+<script src="../websocket-sdk/dist/index.js"></script>
+<script>
+(() => {
+    const debugLog = document.getElementById('debugLog');
+    const log = (...args) => {
+        const ts = new Date().toLocaleTimeString('zh-CN');
+        debugLog.textContent += `[${ts}] ${args.map(v => typeof v === 'string' ? v : JSON.stringify(v)).join(' ')}\n`;
+        debugLog.scrollTop = debugLog.scrollHeight;
+    };
+
+    // 客户端 SDK 初始化
+    const customer = {
+        sdk: null,
+        connected: false,
+        elements: {
+            status: document.getElementById('customerStatus'),
+            messages: document.getElementById('customerMessages'),
+            typing: document.getElementById('customerTyping'),
+            connect: document.getElementById('customerConnect'),
+            disconnect: document.getElementById('customerDisconnect'),
+            send: document.getElementById('customerSend'),
+            input: document.getElementById('customerMessageInput'),
+            externalId: document.getElementById('customerExternalId'),
+            apiKey: document.getElementById('customerApiKey'),
+            name: document.getElementById('customerName'),
+            wsUrl: document.getElementById('customerWsUrl')
+        }
+    };
+
+    customer.elements.externalId.value = `customer_${Date.now()}`;
+
+    const appendMessage = (listEl, { content, meta, own }) => {
+        const wrapper = document.createElement('div');
+        wrapper.className = `message${own ? ' own' : ''}`;
+        const text = document.createElement('div');
+        text.textContent = content;
+        const metaEl = document.createElement('meta');
+        metaEl.textContent = meta;
+        wrapper.appendChild(text);
+        wrapper.appendChild(metaEl);
+        listEl.appendChild(wrapper);
+        listEl.scrollTop = listEl.scrollHeight;
+    };
+
+    const setCustomerStatus = (text, type = '') => {
+        customer.elements.status.textContent = text;
+        customer.elements.status.className = `status-bar ${type}`;
+    };
+
+    customer.elements.connect.addEventListener('click', () => {
+        if (customer.connected) return;
+
+        try {
+            customer.sdk = new CustomerServiceSDK({
+                serverUrl: customer.elements.wsUrl.value,
+                apiKey: customer.elements.apiKey.value,
+                customerId: customer.elements.externalId.value,
+                customerName: customer.elements.name.value || '匿名访客',
+                reconnectInterval: 5000,
+                maxReconnectAttempts: 3,
+            });
+        } catch (err) {
+            log('SDK init error', err);
+            setCustomerStatus('SDK 初始化失败', 'error');
+            return;
+        }
+
+        customer.sdk.on('connected', () => {
+            customer.connected = true;
+            setCustomerStatus('已连接，等待客服响应…', 'success');
+            customer.elements.connect.disabled = true;
+            customer.elements.disconnect.disabled = false;
+            customer.elements.send.disabled = false;
+            customer.elements.input.disabled = false;
+            appendMessage(customer.elements.messages, {
+                content: '连接成功，您现在可以发送消息给客服。',
+                meta: '系统提示',
+                own: false,
+            });
+        });
+
+        customer.sdk.on('message', (payload) => {
+            log('Customer received', payload);
+            const metaParts = [];
+            if (payload.senderType) metaParts.push(payload.senderType);
+            if (payload.sessionId) metaParts.push(`session #${payload.sessionId}`);
+            appendMessage(customer.elements.messages, {
+                content: payload.content || '[无内容消息]',
+                meta: metaParts.join(' | ') || '客服消息',
+                own: payload.senderType === 'customer',
+            });
+        });
+
+        customer.sdk.on('typing', (data) => {
+            customer.elements.typing.style.display = data.isTyping ? 'block' : 'none';
+        });
+
+        customer.sdk.on('disconnected', () => {
+            customer.connected = false;
+            setCustomerStatus('连接断开，可重新连接。', 'error');
+            customer.elements.connect.disabled = false;
+            customer.elements.disconnect.disabled = true;
+            customer.elements.send.disabled = true;
+            customer.elements.input.disabled = true;
+        });
+
+        customer.sdk.on('error', (err) => {
+            log('Customer error', err);
+            setCustomerStatus(`连接错误: ${err.type || err.message}`, 'error');
+        });
+
+        setCustomerStatus('正在连接…');
+        customer.sdk.connect();
+    });
+
+    customer.elements.disconnect.addEventListener('click', () => {
+        if (customer.sdk) {
+            customer.sdk.disconnect();
+            customer.sdk = null;
+        }
+        customer.connected = false;
+        setCustomerStatus('已断开', '');
+        customer.elements.connect.disabled = false;
+        customer.elements.disconnect.disabled = true;
+        customer.elements.send.disabled = true;
+        customer.elements.input.disabled = true;
+    });
+
+    customer.elements.send.addEventListener('click', () => {
+        if (!customer.connected || !customer.sdk) return;
+        const content = customer.elements.input.value.trim();
+        if (!content) return;
+        customer.sdk.sendMessage(content, {
+            customerEmail: `${customer.elements.externalId.value}@example.dev`,
+            messageType: 'text',
+        });
+        customer.elements.input.value = '';
+    });
+
+    customer.elements.input.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            customer.elements.send.click();
+        } else {
+            customer.sdk?.sendTyping(true);
+        }
+    });
+
+    // 客服侧逻辑
+    const staff = {
+        socket: null,
+        connected: false,
+        shopId: null,
+        sessions: new Map(),
+        elements: {
+            status: document.getElementById('staffStatus'),
+            messages: document.getElementById('staffMessages'),
+            typing: document.getElementById('staffTyping'),
+            connect: document.getElementById('staffConnect'),
+            disconnect: document.getElementById('staffDisconnect'),
+            send: document.getElementById('staffSend'),
+            input: document.getElementById('staffMessageInput'),
+            select: document.getElementById('staffSessionSelect'),
+            wsUrl: document.getElementById('staffWsUrl'),
+            userId: document.getElementById('staffUserId'),
+            shopIdInput: document.getElementById('staffShopId'),
+        }
+    };
+
+    const setStaffStatus = (text, type = '') => {
+        staff.elements.status.textContent = text;
+        staff.elements.status.className = `status-bar ${type}`;
+    };
+
+    const refreshSessionOptions = () => {
+        const select = staff.elements.select;
+        const current = select.value;
+        select.innerHTML = '<option value="">请选择会话</option>';
+        [...staff.sessions.entries()].forEach(([sessionId, info]) => {
+            const option = document.createElement('option');
+            const label = info.customerCode ? `${info.customerCode} (#${sessionId})` : `Session #${sessionId}`;
+            option.value = sessionId;
+            option.textContent = label;
+            if (sessionId === current) option.selected = true;
+            select.appendChild(option);
+        });
+        select.disabled = staff.sessions.size === 0;
+    };
+
+    const handleStaffMessage = (payload) => {
+        log('Staff received', payload);
+        const metaParts = [];
+        if (payload.sender_type) metaParts.push(payload.sender_type);
+        if (payload.session_id) metaParts.push(`session #${payload.session_id}`);
+        if (payload.metadata?.customerCode) metaParts.push(payload.metadata.customerCode);
+        appendMessage(staff.elements.messages, {
+            content: payload.content || `[${payload.message_type}]`,
+            meta: metaParts.join(' | ') || '系统',
+            own: payload.sender_type === 'staff',
+        });
+
+        if (payload.session_id) {
+            staff.sessions.set(String(payload.session_id), {
+                customerCode: payload.metadata?.customerCode || null,
+                customerId: payload.metadata?.customerId || null,
+            });
+            refreshSessionOptions();
+        }
+    };
+
+    staff.elements.connect.addEventListener('click', () => {
+        if (staff.connected) return;
+        const wsUrl = staff.elements.wsUrl.value.replace(/\/$/, '');
+        const userId = staff.elements.userId.value.trim();
+        const shopId = parseInt(staff.elements.shopIdInput.value, 10);
+        if (!wsUrl || !userId || Number.isNaN(shopId)) {
+            setStaffStatus('请填写完整的客服连接信息', 'error');
+            return;
+        }
+
+        staff.shopId = shopId;
+        staff.socket = new WebSocket(`${wsUrl}/ws/staff/${userId}`);
+
+        staff.socket.addEventListener('open', () => {
+            staff.connected = true;
+            staff.elements.connect.disabled = true;
+            staff.elements.disconnect.disabled = false;
+            staff.elements.send.disabled = false;
+            staff.elements.input.disabled = false;
+            staff.elements.select.disabled = false;
+            setStaffStatus('已上线，等待会话进入…', 'success');
+
+            staff.socket.send(JSON.stringify({
+                message_type: 'auth',
+                metadata: { shopId }
+            }));
+        });
+
+        staff.socket.addEventListener('message', (event) => {
+            try {
+                const payload = JSON.parse(event.data);
+                if (payload.message_type === 'typing') {
+                    staff.elements.typing.textContent = `${payload.sender_type || '访客'} 正在输入…`;
+                    setTimeout(() => { staff.elements.typing.textContent = ''; }, 1500);
+                } else {
+                    handleStaffMessage(payload);
+                }
+            } catch (err) {
+                log('Staff parse error', event.data);
+            }
+        });
+
+        staff.socket.addEventListener('close', () => {
+            staff.connected = false;
+            setStaffStatus('连接已关闭', 'error');
+            staff.elements.connect.disabled = false;
+            staff.elements.disconnect.disabled = true;
+            staff.elements.send.disabled = true;
+            staff.elements.input.disabled = true;
+        });
+
+        staff.socket.addEventListener('error', (err) => {
+            setStaffStatus('连接异常，参见控制台日志', 'error');
+            log('Staff socket error', err);
+        });
+
+        setStaffStatus('正在连接…');
+    });
+
+    staff.elements.disconnect.addEventListener('click', () => {
+        staff.socket?.close();
+        staff.socket = null;
+        staff.connected = false;
+        setStaffStatus('已下线');
+        staff.elements.connect.disabled = false;
+        staff.elements.disconnect.disabled = true;
+        staff.elements.send.disabled = true;
+        staff.elements.input.disabled = true;
+        staff.sessions.clear();
+        refreshSessionOptions();
+    });
+
+    staff.elements.send.addEventListener('click', () => {
+        if (!staff.connected || !staff.socket) return;
+        const sessionId = staff.elements.select.value;
+        const content = staff.elements.input.value.trim();
+        if (!sessionId) {
+            setStaffStatus('请选择要回复的会话', 'error');
+            return;
+        }
+        if (!content) return;
+
+        staff.socket.send(JSON.stringify({
+            message_type: 'send_message',
+            session_id: parseInt(sessionId, 10),
+            content,
+            metadata: {
+                messageType: 'text',
+                staffId: parseInt(staff.elements.userId.value, 10),
+                shopId: staff.shopId,
+            }
+        }));
+        staff.elements.input.value = '';
+    });
+
+    staff.elements.input.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            staff.elements.send.click();
+        } else if (staff.connected) {
+            const sessionId = staff.elements.select.value;
+            if (!sessionId) return;
+            staff.socket?.send(JSON.stringify({
+                message_type: 'typing',
+                session_id: parseInt(sessionId, 10),
+                content: 'staff typing',
+                metadata: { shopId: staff.shopId }
+            }));
+        }
+    });
+})();
+</script>
+</body>
+</html>

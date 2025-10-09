@@ -87,12 +87,45 @@ pub struct UnreadCount {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WebSocketMessage {
     pub message_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub content: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub session_id: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub sender_id: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub sender_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub timestamp: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub file_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub file_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub file_size: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub media_duration: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WebSocketIncomingMessage {
+    pub message_type: String,
+    #[serde(default)]
+    pub content: Option<String>,
+    #[serde(default)]
+    pub session_id: Option<i64>,
+    #[serde(default)]
+    pub metadata: Option<serde_json::Value>,
+    #[serde(default)]
+    pub file_url: Option<String>,
+    #[serde(default)]
+    pub file_name: Option<String>,
+    #[serde(default)]
+    pub file_size: Option<i64>,
+    #[serde(default)]
+    pub media_duration: Option<f64>,
 }
 
 // API 请求/响应模型

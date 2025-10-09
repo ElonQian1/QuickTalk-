@@ -189,8 +189,8 @@
         <label>服务器地址:</label>
         <input type="text" id="serverUrl" value="ws://localhost:8080" placeholder="ws://localhost:8080">
         
-        <label>店铺API密钥:</label>
-        <input type="text" id="apiKey" value="shop_api_key_12345" placeholder="从后台获取的API密钥">
+    <label>店铺标识 (ID 或 API 密钥):</label>
+    <input type="text" id="apiKey" value="a53459ad-5018-4234-8d9f-d30b7ad3a692" placeholder="例如 1 或 test-api-key-123">
         
         <label>客户ID:</label>
         <input type="text" id="customerId" value="" placeholder="唯一客户标识">
@@ -243,11 +243,53 @@
     <script src="../websocket-sdk/dist/index.js"></script>
     
     <script>
+        if (typeof window.CustomerServiceSDK === 'undefined') {
+            console.error('CustomerServiceSDK 未加载，请检查 SDK 构建输出');
+            const statusEl = document.getElementById('status');
+            if (statusEl) {
+                statusEl.textContent = 'SDK 加载失败，请刷新或重新构建 SDK';
+                statusEl.className = 'status error';
+            }
+        }
+
         let sdk = null;
         let connected = false;
 
-        // 初始化客户ID
-        document.getElementById('customerId').value = 'customer_' + Date.now();
+        function loadConfig() {
+            try {
+                const raw = localStorage.getItem('sdk-demo-config');
+                if (!raw) return;
+                const cfg = JSON.parse(raw);
+                if (cfg.serverUrl) document.getElementById('serverUrl').value = cfg.serverUrl;
+                if (cfg.apiKey) document.getElementById('apiKey').value = cfg.apiKey;
+                if (cfg.customerId) document.getElementById('customerId').value = cfg.customerId;
+                if (cfg.customerName) document.getElementById('customerName').value = cfg.customerName;
+            } catch (e) {
+                console.warn('加载本地配置失败', e);
+            }
+        }
+
+        function saveConfig() {
+            try {
+                const cfg = {
+                    serverUrl: document.getElementById('serverUrl').value,
+                    apiKey: document.getElementById('apiKey').value,
+                    customerId: document.getElementById('customerId').value,
+                    customerName: document.getElementById('customerName').value,
+                };
+                localStorage.setItem('sdk-demo-config', JSON.stringify(cfg));
+            } catch (e) {
+                console.warn('保存本地配置失败', e);
+            }
+        }
+
+        // 初始化客户ID（若本地没有保存则生成一次）
+        (function initCustomerId() {
+            const el = document.getElementById('customerId');
+            if (!el.value) {
+                el.value = 'customer_' + Date.now();
+            }
+        })();
 
         function updateStatus(message, type = 'info') {
             const statusEl = document.getElementById('status');
@@ -319,6 +361,9 @@
                     reconnectInterval: 3000,
                     maxReconnectAttempts: 5
                 });
+
+                // 持久化当前配置
+                saveConfig();
 
                 // 设置事件监听器
                 sdk.on('connected', () => {
@@ -420,6 +465,12 @@
 
         // 页面加载完成后的提示
         window.addEventListener('load', () => {
+            loadConfig();
+            // 如未保存过客户ID，则生成一次（确保刚加载时也有ID）
+            const cid = document.getElementById('customerId');
+            if (!cid.value) {
+                cid.value = 'customer_' + Date.now();
+            }
             console.log('SDK Demo loaded');
             addMessage('欢迎使用在线客服！请先配置连接信息然后点击"连接客服"按钮。', false);
         });

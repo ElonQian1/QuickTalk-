@@ -1,5 +1,5 @@
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
-use tracing::{error, warn, info};
+use tracing::{error, info, warn};
 
 use crate::{models::*, AppState};
 
@@ -12,31 +12,31 @@ pub async fn get_shops(
     // 临时返回 mock 数据用于开发测试
     info!("/api/shops 返回 MOCK 数据");
     let demo = vec![
-        ShopWithUnreadCount { 
-            shop: Shop { 
-                id: 1, 
-                owner_id: user_id, 
-                shop_name: "Demo Shop".into(), 
-                shop_url: Some("https://demo.local".into()), 
-                api_key: "demo-api-key".into(), 
-                status: 1, 
-                created_at: chrono::Utc::now(), 
-                updated_at: chrono::Utc::now() 
-            }, 
-            unread_count: 0
+        ShopWithUnreadCount {
+            shop: Shop {
+                id: 1,
+                owner_id: user_id,
+                shop_name: "Demo Shop".into(),
+                shop_url: Some("https://demo.local".into()),
+                api_key: "demo-api-key".into(),
+                status: 1,
+                created_at: chrono::Utc::now(),
+                updated_at: chrono::Utc::now(),
+            },
+            unread_count: 0,
         },
-        ShopWithUnreadCount { 
-            shop: Shop { 
-                id: 2, 
-                owner_id: user_id, 
-                shop_name: "Test Shop".into(), 
-                shop_url: None, 
-                api_key: "test-api-key".into(), 
-                status: 1, 
-                created_at: chrono::Utc::now(), 
-                updated_at: chrono::Utc::now() 
-            }, 
-            unread_count: 3
+        ShopWithUnreadCount {
+            shop: Shop {
+                id: 2,
+                owner_id: user_id,
+                shop_name: "Test Shop".into(),
+                shop_url: None,
+                api_key: "test-api-key".into(),
+                status: 1,
+                created_at: chrono::Utc::now(),
+                updated_at: chrono::Utc::now(),
+            },
+            unread_count: 3,
         },
     ];
     return Ok(Json(demo));
@@ -87,11 +87,11 @@ pub async fn create_shop(
     // TODO: 从认证中间件获取用户ID
     let user_id = 2i64;
 
-    let shop = match state.db.create_shop(
-        user_id,
-        &payload.shop_name,
-        payload.shop_url.as_deref(),
-    ).await {
+    let shop = match state
+        .db
+        .create_shop(user_id, &payload.shop_name, payload.shop_url.as_deref())
+        .await
+    {
         Ok(shop) => shop,
         Err(_) => return Err(StatusCode::INTERNAL_SERVER_ERROR),
     };

@@ -21,23 +21,24 @@ impl Database {
 
     pub async fn migrate(&self) -> Result<()> {
         info!("Running database migrations...");
-        
+
         // 读取并执行 schema
         let schema = include_str!("schema.sql");
-        
+
         // 拆分 SQL 语句并执行
         for statement in schema.split(';') {
             let statement = statement.trim();
             if !statement.is_empty() && !statement.starts_with("--") {
                 match sqlx::query(statement).execute(&self.pool).await {
-                    Ok(_) => {},
+                    Ok(_) => {}
                     Err(e) => {
                         // 忽略"already exists"类型的错误
                         let error_msg = e.to_string().to_lowercase();
-                        if !error_msg.contains("already exists") && 
-                           !error_msg.contains("duplicate") && 
-                           !error_msg.contains("table") &&
-                           !error_msg.contains("index") {
+                        if !error_msg.contains("already exists")
+                            && !error_msg.contains("duplicate")
+                            && !error_msg.contains("table")
+                            && !error_msg.contains("index")
+                        {
                             return Err(e.into());
                         }
                     }
@@ -50,7 +51,13 @@ impl Database {
     }
 
     // 用户相关操作
-    pub async fn create_user(&self, username: &str, password_hash: &str, email: Option<&str>, phone: Option<&str>) -> Result<User> {
+    pub async fn create_user(
+        &self,
+        username: &str,
+        password_hash: &str,
+        email: Option<&str>,
+        phone: Option<&str>,
+    ) -> Result<User> {
         let user = sqlx::query_as::<_, User>(
             "INSERT INTO users (username, password_hash, email, phone) VALUES (?, ?, ?, ?) RETURNING *"
         )
@@ -83,9 +90,14 @@ impl Database {
     }
 
     // 店铺相关操作
-    pub async fn create_shop(&self, owner_id: i64, shop_name: &str, shop_url: Option<&str>) -> Result<Shop> {
+    pub async fn create_shop(
+        &self,
+        owner_id: i64,
+        shop_name: &str,
+        shop_url: Option<&str>,
+    ) -> Result<Shop> {
         let api_key = uuid::Uuid::new_v4().to_string();
-        
+
         let shop = sqlx::query_as::<_, Shop>(
             "INSERT INTO shops (owner_id, shop_name, shop_url, api_key) VALUES (?, ?, ?, ?) RETURNING *"
         )
@@ -100,10 +112,12 @@ impl Database {
     }
 
     pub async fn get_shops_by_owner(&self, owner_id: i64) -> Result<Vec<Shop>> {
-        let shops = sqlx::query_as::<_, Shop>("SELECT * FROM shops WHERE owner_id = ? ORDER BY created_at DESC")
-            .bind(owner_id)
-            .fetch_all(&self.pool)
-            .await?;
+        let shops = sqlx::query_as::<_, Shop>(
+            "SELECT * FROM shops WHERE owner_id = ? ORDER BY created_at DESC",
+        )
+        .bind(owner_id)
+        .fetch_all(&self.pool)
+        .await?;
 
         Ok(shops)
     }
@@ -118,14 +132,25 @@ impl Database {
     }
 
     // 客户相关操作
-    pub async fn create_or_update_customer(&self, shop_id: i64, customer_id: &str, customer_name: Option<&str>, customer_email: Option<&str>, ip_address: Option<&str>) -> Result<Customer> {
+    pub async fn create_or_update_customer(
+        &self,
+        shop_id: i64,
+        customer_id: &str,
+        customer_name: Option<&str>,
+        customer_email: Option<&str>,
+        customer_avatar: Option<&str>,
+        ip_address: Option<&str>,
+        user_agent: Option<&str>,
+    ) -> Result<Customer> {
         // 先尝试更新
         let updated = sqlx::query(
-            "UPDATE customers SET customer_name = ?, customer_email = ?, ip_address = ?, last_active_at = CURRENT_TIMESTAMP WHERE shop_id = ? AND customer_id = ?"
+            "UPDATE customers SET customer_name = ?, customer_email = ?, customer_avatar = ?, ip_address = ?, user_agent = ?, last_active_at = CURRENT_TIMESTAMP WHERE shop_id = ? AND customer_id = ?"
         )
         .bind(customer_name)
         .bind(customer_email)
+        .bind(customer_avatar)
         .bind(ip_address)
+        .bind(user_agent)
         .bind(shop_id)
         .bind(customer_id)
         .execute(&self.pool)
@@ -134,24 +159,26 @@ impl Database {
         if updated.rows_affected() > 0 {
             // 如果更新成功，返回更新后的客户
             let customer = sqlx::query_as::<_, Customer>(
-                "SELECT * FROM customers WHERE shop_id = ? AND customer_id = ?"
+                "SELECT * FROM customers WHERE shop_id = ? AND customer_id = ?",
             )
             .bind(shop_id)
             .bind(customer_id)
             .fetch_one(&self.pool)
             .await?;
-            
+
             Ok(customer)
         } else {
             // 如果没有更新任何行，说明客户不存在，创建新客户
             let customer = sqlx::query_as::<_, Customer>(
-                "INSERT INTO customers (shop_id, customer_id, customer_name, customer_email, ip_address) VALUES (?, ?, ?, ?, ?) RETURNING *"
+                "INSERT INTO customers (shop_id, customer_id, customer_name, customer_email, customer_avatar, ip_address, user_agent) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *"
             )
             .bind(shop_id)
             .bind(customer_id)
             .bind(customer_name)
             .bind(customer_email)
+            .bind(customer_avatar)
             .bind(ip_address)
+            .bind(user_agent)
             .fetch_one(&self.pool)
             .await?;
 
@@ -161,7 +188,7 @@ impl Database {
 
     pub async fn get_customers_by_shop(&self, shop_id: i64) -> Result<Vec<Customer>> {
         let customers = sqlx::query_as::<_, Customer>(
-            "SELECT * FROM customers WHERE shop_id = ? ORDER BY last_active_at DESC"
+            "SELECT * FROM customers WHERE shop_id = ? ORDER BY last_active_at DESC",
         )
         .bind(shop_id)
         .fetch_all(&self.pool)
@@ -173,7 +200,7 @@ impl Database {
     // 会话相关操作
     pub async fn create_session(&self, shop_id: i64, customer_id: i64) -> Result<Session> {
         let session = sqlx::query_as::<_, Session>(
-            "INSERT INTO sessions (shop_id, customer_id) VALUES (?, ?) RETURNING *"
+            "INSERT INTO sessions (shop_id, customer_id) VALUES (?, ?) RETURNING *",
         )
         .bind(shop_id)
         .bind(customer_id)
@@ -183,7 +210,11 @@ impl Database {
         Ok(session)
     }
 
-    pub async fn get_session_by_shop_customer(&self, shop_id: i64, customer_id: i64) -> Result<Option<Session>> {
+    pub async fn get_session_by_shop_customer(
+        &self,
+        shop_id: i64,
+        customer_id: i64,
+    ) -> Result<Option<Session>> {
         let session = sqlx::query_as::<_, Session>(
             "SELECT * FROM sessions WHERE shop_id = ? AND customer_id = ? AND session_status = 'active' ORDER BY created_at DESC LIMIT 1"
         )
@@ -196,15 +227,24 @@ impl Database {
     }
 
     // 消息相关操作
-    pub async fn create_message(&self, session_id: i64, sender_type: &str, sender_id: Option<i64>, content: &str, message_type: &str) -> Result<Message> {
+    pub async fn create_message(
+        &self,
+        session_id: i64,
+        sender_type: &str,
+        sender_id: Option<i64>,
+        content: &str,
+        message_type: &str,
+        file_url: Option<&str>,
+    ) -> Result<Message> {
         let message = sqlx::query_as::<_, Message>(
-            "INSERT INTO messages (session_id, sender_type, sender_id, content, message_type) VALUES (?, ?, ?, ?, ?) RETURNING *"
+            "INSERT INTO messages (session_id, sender_type, sender_id, content, message_type, file_url) VALUES (?, ?, ?, ?, ?, ?) RETURNING *"
         )
         .bind(session_id)
         .bind(sender_type)
         .bind(sender_id)
         .bind(content)
         .bind(message_type)
+        .bind(file_url)
         .fetch_one(&self.pool)
         .await?;
 
@@ -217,9 +257,32 @@ impl Database {
         Ok(message)
     }
 
-    pub async fn get_messages_by_session(&self, session_id: i64, limit: Option<i64>, offset: Option<i64>) -> Result<Vec<Message>> {
+    pub async fn get_session_by_id(&self, session_id: i64) -> Result<Option<Session>> {
+        let session = sqlx::query_as::<_, Session>("SELECT * FROM sessions WHERE id = ?")
+            .bind(session_id)
+            .fetch_optional(&self.pool)
+            .await?;
+
+        Ok(session)
+    }
+
+    pub async fn get_customer_by_id(&self, customer_id: i64) -> Result<Option<Customer>> {
+        let customer = sqlx::query_as::<_, Customer>("SELECT * FROM customers WHERE id = ?")
+            .bind(customer_id)
+            .fetch_optional(&self.pool)
+            .await?;
+
+        Ok(customer)
+    }
+
+    pub async fn get_messages_by_session(
+        &self,
+        session_id: i64,
+        limit: Option<i64>,
+        offset: Option<i64>,
+    ) -> Result<Vec<Message>> {
         let messages = sqlx::query_as::<_, Message>(
-            "SELECT * FROM messages WHERE session_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?"
+            "SELECT * FROM messages WHERE session_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?",
         )
         .bind(session_id)
         .bind(limit.unwrap_or(50))
@@ -231,11 +294,16 @@ impl Database {
     }
 
     // 未读消息统计
-    pub async fn update_unread_count(&self, shop_id: i64, customer_id: i64, increment: i32) -> Result<()> {
+    pub async fn update_unread_count(
+        &self,
+        shop_id: i64,
+        customer_id: i64,
+        increment: i32,
+    ) -> Result<()> {
         sqlx::query(
             "INSERT INTO unread_counts (shop_id, customer_id, unread_count) VALUES (?, ?, ?) 
              ON CONFLICT(shop_id, customer_id) DO UPDATE SET 
-             unread_count = unread_count + ?, updated_at = CURRENT_TIMESTAMP"
+             unread_count = unread_count + ?, updated_at = CURRENT_TIMESTAMP",
         )
         .bind(shop_id)
         .bind(customer_id)
@@ -250,7 +318,7 @@ impl Database {
     pub async fn reset_unread_count(&self, shop_id: i64, customer_id: i64) -> Result<()> {
         sqlx::query(
             "UPDATE unread_counts SET unread_count = 0, updated_at = CURRENT_TIMESTAMP 
-             WHERE shop_id = ? AND customer_id = ?"
+             WHERE shop_id = ? AND customer_id = ?",
         )
         .bind(shop_id)
         .bind(customer_id)
@@ -262,7 +330,7 @@ impl Database {
 
     pub async fn get_unread_count(&self, shop_id: i64, customer_id: i64) -> Result<i32> {
         let count: Option<i32> = sqlx::query_scalar(
-            "SELECT unread_count FROM unread_counts WHERE shop_id = ? AND customer_id = ?"
+            "SELECT unread_count FROM unread_counts WHERE shop_id = ? AND customer_id = ?",
         )
         .bind(shop_id)
         .bind(customer_id)

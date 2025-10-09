@@ -338,3 +338,15 @@ export function createCustomerServiceSDK(config: SDKConfig): CustomerServiceSDK 
 
 // 默认导出
 export default CustomerServiceSDK;
+
+declare global {
+  interface Window {
+    CustomerServiceSDK?: typeof CustomerServiceSDK;
+    createCustomerServiceSDK?: typeof createCustomerServiceSDK;
+  }
+}
+
+if (typeof window !== 'undefined') {
+  window.CustomerServiceSDK = CustomerServiceSDK;
+  window.createCustomerServiceSDK = createCustomerServiceSDK;
+}

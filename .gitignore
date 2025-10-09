@@ -4,8 +4,15 @@ package-lock.json
 
 # Rust build artifacts
 backend/target/
+backend/target-temp/
+target/
 backend/Cargo.lock
 backend/*.exe
+backend/*.pdb
+*.pdb
+*.dll
+
+# (可选) 如果需要锁定依赖版本，可取消忽略 Cargo.lock 并提交；当前忽略保持现状。
 
 # Database files
 *.db
@@ -31,6 +38,26 @@ frontend/build/
 frontend/dist/
 websocket-sdk/dist/
 websocket-sdk/lib/
+websocket-sdk/build/
+
+# Examples build outputs (copy of SDK for demo)
+examples/websocket-sdk/dist/
+
+# Coverage (monorepo / 子包)
+coverage/
+frontend/coverage/
+websocket-sdk/coverage/
+
+# Caches / 工具缓存
+.cache/
+.parcel-cache/
+.turbo/
+.vite/
+frontend/.eslintcache
+websocket-sdk/.eslintcache
+
+# Type checking / TS incremental
+tsconfig.tsbuildinfo
 
 # TypeScript cache
 *.tsbuildinfo
@@ -61,6 +88,15 @@ coverage/
 *.swp
 *.swo
 *~
+*.iml
+.history/
+.VSCodeCounter/
+
+# Editor backup files
+*.$$$
+*.bak
+*.orig
+*.rej
 
 # OS generated files
 .DS_Store
@@ -78,6 +114,20 @@ Desktop.ini
 # Temporary files
 *.tmp
 *.temp
+tmp/
+temp/
+logs/
+*.cache
+*.err
+
+# Crash dumps / 调试输出
+*.dmp
+*.stackdump
+
+# Reports / 分析输出
+reports/
+*.report
+*.sarif
 
 # VS Code workspace settings (keep the workspace file but ignore settings)
 .vscode/settings.json
