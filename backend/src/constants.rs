@@ -16,11 +16,5 @@ pub mod ws_incoming {
 
 pub mod upload_policy {
     pub const MAX_SIZE_BYTES: i64 = 10 * 1024 * 1024; // 10MB
-    pub const ALLOWED_PREFIX: [&str; 5] = [
-        "image/png",
-        "image/jpeg",
-        "image/gif",
-        "application/pdf",
-        "text/plain",
-    ];
+    // 移除了 ALLOWED_PREFIX 常量，因为现在允许所有文件类型
 }
