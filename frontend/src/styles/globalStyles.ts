@@ -188,6 +188,13 @@ export const GlobalStyles = createGlobalStyle`
       transform: translateY(0);
     }
   }
+
+  /* 临时覆盖：隐藏 styled-components 生成的特定盒子
+     注意：此类名由 styled-components 生成，构建或运行时可能变化，
+     若后续类名变动，请更新本选择器或定位对应组件进行源头删除。 */
+  .sc-fPXMVe.bslgpk {
+    display: none !important;
+  }
 `;
 
 // 通用组件样式
