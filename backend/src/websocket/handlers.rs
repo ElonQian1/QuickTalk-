@@ -97,10 +97,17 @@ pub async fn handle_customer_ws_message(
                 map.insert("shopId".to_string(), json!(ctx.shop_id));
             }
 
+            // 从 metadata 中提取 mediaUrl 作为 file_url
+            let file_url = if let Some(metadata_obj) = metadata.as_object() {
+                metadata_obj.get("mediaUrl").and_then(|v| v.as_str()).map(|s| s.to_string())
+            } else {
+                None
+            }.or(incoming.file_url.clone());
+
             let payload = MessagePayload {
                 content: incoming.content.clone(),
                 message_type,
-                file_url: incoming.file_url.clone(),
+                file_url,
                 file_name: incoming.file_name.clone(),
                 file_size: incoming.file_size,
                 media_duration: incoming.media_duration,
@@ -228,10 +235,17 @@ pub async fn handle_staff_ws_message(
                 map.insert("staffId".to_string(), json!(user_id));
             }
 
+            // 从 metadata 中提取 mediaUrl 作为 file_url
+            let file_url = if let Some(metadata_obj) = metadata.as_object() {
+                metadata_obj.get("mediaUrl").and_then(|v| v.as_str()).map(|s| s.to_string())
+            } else {
+                None
+            }.or(incoming.file_url.clone());
+
             let payload = MessagePayload {
                 content: incoming.content.clone(),
                 message_type,
-                file_url: incoming.file_url.clone(),
+                file_url,
                 file_name: incoming.file_name.clone(),
                 file_size: incoming.file_size,
                 media_duration: incoming.media_duration,

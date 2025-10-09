@@ -1,5 +1,27 @@
-/* 简化版嵌入式客服 - 不依赖于SDK版本更新 */
+/* 简化版嵌入式客服 - 自动更新架构 v1.2.0 */
 (function(){
+  // 版本信息
+  var CLIENT_VERSION = '1.2.0';
+  var UPDATE_CHECK_INTERVAL = 30 * 60 * 1000; // 30分钟检查一次
+  
+  // 版本检测和自动更新
+  function checkForUpdates(serverUrl) {
+    if (!serverUrl) return;
+    
+    fetch(serverUrl + '/api/sdk/version')
+      .then(function(response) { return response.json(); })
+      .then(function(data) {
+        if (data.version && data.version !== CLIENT_VERSION) {
+          console.log('🔄 检测到新版本:', data.version, '当前版本:', CLIENT_VERSION);
+          // 可以在这里添加通知用户更新的逻辑
+          // 或者自动重新加载（谨慎使用）
+        }
+      })
+      .catch(function() {
+        // 忽略版本检查错误
+      });
+  }
+
   // 工具函数
   function onReady(fn){
     if (document.readyState === 'loading') {
@@ -41,14 +63,21 @@
         ws.onerror = function(error) { emit('error', error); };
       },
 
-      sendMessage: function(content, messageType) {
+      sendMessage: function(content, messageType, mediaUrl) {
         if (ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({
+          var messageData = {
             messageType: 'send_message',
             content: content,
             senderType: 'customer',
             metadata: { messageType: messageType || 'text' }
-          }));
+          };
+          
+          // 如果有媒体URL，添加到metadata中
+          if (mediaUrl) {
+            messageData.metadata.mediaUrl = mediaUrl;
+          }
+          
+          ws.send(JSON.stringify(messageData));
         }
       },
 
@@ -69,8 +98,8 @@
             return response.json();
           })
           .then(function(data) {
-            // 自动发送消息
-            this.sendMessage(data.original_name, messageType, data.url);
+            // 自动发送消息 - 对于图片，content应该是URL而不是文件名
+            this.sendMessage(data.url, messageType, data.url);
             resolve(data);
           }.bind(this))
           .catch(reject);
@@ -228,11 +257,14 @@
     });
 
     client.on('message', function(m) {
+      console.log('🔍 收到WebSocket消息:', JSON.stringify(m, null, 2));
       if (m && m.content) {
         if (m.metadata && m.metadata.messageType === 'image') {
-          addMsg(m.metadata.fileUrl || m.content, m.senderType === 'customer', 'image');
+          console.log('📷 图片消息 - file_url:', m.file_url, 'content:', m.content);
+          addMsg(m.file_url || m.content, m.senderType === 'customer', 'image');
         } else if (m.metadata && m.metadata.messageType === 'file') {
-          addMsg(m.metadata.fileUrl || m.content, m.senderType === 'customer', 'file');
+          console.log('📁 文件消息 - file_url:', m.file_url, 'content:', m.content);
+          addMsg(m.file_url || m.content, m.senderType === 'customer', 'file');
         } else {
           addMsg(m.content, m.senderType === 'customer');
         }
@@ -255,7 +287,12 @@
         var ui = createUI();
         wireUI(client, ui);
         client.connect();
-        console.log('QuickTalk 客服系统已初始化 (无需SDK版本更新)');
+        
+        // 启动版本检查
+        checkForUpdates(serverUrl);
+        setInterval(function() { checkForUpdates(serverUrl); }, UPDATE_CHECK_INTERVAL);
+        
+        console.log('QuickTalk 客服系统已初始化 v' + CLIENT_VERSION + ' (自动更新架构)');
       });
     }
   };
