@@ -1,3 +1,7 @@
+// Purpose: 管理 WebSocket 连接（客服/客户），提供定向发送/广播能力
+// Input: 连接上下文（user_id/shop_id/customer_id）与要发送的 WebSocketMessage
+// Output: 通过保存的 UnboundedSender<Message> 向目标连接发送消息
+// Errors: 发送失败时静默丢弃（不 panic），外部应根据业务需要进行重试或清理
 use axum::extract::ws::Message;
 use std::collections::HashMap;
 use tokio::sync::mpsc::UnboundedSender;
@@ -13,7 +17,6 @@ pub enum ConnectionUserType {
 
 #[derive(Debug)]
 pub struct ConnectionHandle {
-    pub id: String,
     pub user_type: ConnectionUserType,
     pub sender: UnboundedSender<Message>,
     pub user_id: Option<i64>,
@@ -24,9 +27,15 @@ pub struct ConnectionHandle {
 #[derive(Debug)]
 pub struct ConnectionManager {
     connections: HashMap<String, ConnectionHandle>,
-    staff_connections: HashMap<i64, Vec<String>>, // staff_user_id -> connection_ids
-    shop_staff_connections: HashMap<i64, Vec<String>>, // shop_id -> connection_ids
-    customer_connections: HashMap<(i64, String), String>, // (shop_id, customer_code) -> connection_id
+    staff_connections: HashMap<i64, Vec<String>>,          // staff_user_id -> connection_ids
+    shop_staff_connections: HashMap<i64, Vec<String>>,     // shop_id -> connection_ids
+    customer_connections: HashMap<(i64, String), String>,  // (shop_id, customer_code) -> connection_id
+}
+
+impl Default for ConnectionManager {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ConnectionManager {
@@ -48,7 +57,6 @@ impl ConnectionManager {
         let connection_id = Uuid::new_v4().to_string();
 
         let handle = ConnectionHandle {
-            id: connection_id.clone(),
             user_type: ConnectionUserType::Staff,
             sender,
             user_id: Some(user_id),
@@ -58,11 +66,11 @@ impl ConnectionManager {
 
         self.staff_connections
             .entry(user_id)
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(connection_id.clone());
         self.shop_staff_connections
             .entry(shop_id)
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(connection_id.clone());
         self.connections.insert(connection_id.clone(), handle);
 
@@ -78,7 +86,6 @@ impl ConnectionManager {
         let connection_id = Uuid::new_v4().to_string();
 
         let handle = ConnectionHandle {
-            id: connection_id.clone(),
             user_type: ConnectionUserType::Customer,
             sender,
             user_id: None,

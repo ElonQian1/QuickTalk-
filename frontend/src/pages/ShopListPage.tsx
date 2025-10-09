@@ -7,6 +7,7 @@ import { ShopManageButton, ShopManageModal } from '../components/shops';
 import { theme } from '../styles/globalStyles';
 import toast from 'react-hot-toast';
 import CreateShopModal from '../components/CreateShopModal';
+import { useWSStore } from '../stores/wsStore';
 
 const Container = styled.div`
   padding: ${theme.spacing.md};
@@ -149,6 +150,11 @@ const ShopListPage: React.FC = () => {
       const response = await api.get('/api/shops');
       console.log('📋 获取到的店铺数据:', response.data);
       setShops(response.data);
+      // 自动连接到第一个店铺的 staff WS（如存在）
+      if (response.data && response.data.length > 0) {
+        const first = response.data[0];
+        useWSStore.getState().connect(first.shop.id ?? first.id);
+      }
     } catch (error) {
       toast.error('获取店铺列表失败');
       console.error('Error fetching shops:', error);

@@ -3,7 +3,7 @@ use chrono::Utc;
 use serde_json::{Map, Value};
 
 use crate::{
-    models::{Customer, Message, Session, WebSocketMessage},
+    models::{Customer, CustomerUpsert, Message, Session, WebSocketMessage},
     AppState,
 };
 
@@ -30,8 +30,6 @@ pub struct MessagePayload {
 #[derive(Clone, Debug)]
 pub struct PersistedMessage {
     pub message: Message,
-    pub session: Session,
-    pub customer: Customer,
     pub ws_message: WebSocketMessage,
 }
 
@@ -50,18 +48,18 @@ impl<'a> ChatService<'a> {
         external_customer_id: &str,
         profile: CustomerProfile<'_>,
     ) -> Result<(Customer, Session)> {
+        let upsert = CustomerUpsert {
+            name: profile.name,
+            email: profile.email,
+            avatar: profile.avatar,
+            ip: profile.ip,
+            user_agent: profile.user_agent,
+        };
+
         let customer = self
             .state
             .db
-            .create_or_update_customer(
-                shop_id,
-                external_customer_id,
-                profile.name,
-                profile.email,
-                profile.avatar,
-                profile.ip,
-                profile.user_agent,
-            )
+            .create_or_update_customer(shop_id, external_customer_id, upsert)
             .await?;
 
         let session = match self
@@ -95,8 +93,6 @@ impl<'a> ChatService<'a> {
 
         Ok(PersistedMessage {
             message: persisted,
-            session: session.clone(),
-            customer: customer.clone(),
             ws_message: self.build_ws_message(
                 &payload,
                 Some("customer".to_string()),
@@ -124,8 +120,6 @@ impl<'a> ChatService<'a> {
 
         Ok(PersistedMessage {
             message: persisted,
-            session: session.clone(),
-            customer: customer.clone(),
             ws_message: self.build_ws_message(
                 &payload,
                 Some("staff".to_string()),
@@ -176,6 +170,7 @@ impl<'a> ChatService<'a> {
             Some(Value::Object(map)) => map,
             _ => Map::new(),
         };
+        // 内容类型保留在 metadata.messageType
         meta_map.insert(
             "messageType".to_string(),
             Value::String(payload.message_type.clone()),
@@ -190,7 +185,8 @@ impl<'a> ChatService<'a> {
         }
 
         WebSocketMessage {
-            message_type: payload.message_type.clone(),
+            // 顶层事件名统一为 new_message
+            message_type: crate::constants::ws_events::NEW_MESSAGE.to_string(),
             content: payload.content.clone(),
             session_id: Some(session_id),
             sender_id,

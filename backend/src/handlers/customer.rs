@@ -1,56 +1,74 @@
 use axum::{
     extract::{Path, State},
-    http::StatusCode,
     Json,
 };
 
-use crate::{models::*, AppState};
+use crate::{auth::AuthUser, error::AppError, models::*, AppState};
+use serde_json::json;
 
 pub async fn get_customers(
     State(state): State<AppState>,
     Path(shop_id): Path<i64>,
-) -> Result<Json<Vec<CustomerWithSession>>, StatusCode> {
-    let customers = match state.db.get_customers_by_shop(shop_id).await {
-        Ok(customers) => customers,
-        Err(_) => return Err(StatusCode::INTERNAL_SERVER_ERROR),
-    };
+) -> Result<Json<Vec<CustomerWithSession>>, AppError> {
+    let overview = state
+        .db
+        .get_customers_overview_by_shop(shop_id)
+        .await
+        .map_err(|_| AppError::Internal("获取客户列表失败"))?;
 
-    let mut customers_with_session = Vec::new();
+    Ok(Json(overview))
+}
 
-    for customer in customers {
-        // 获取会话信息
-        let session = state
-            .db
-            .get_session_by_shop_customer(shop_id, customer.id)
-            .await
-            .unwrap_or(None);
+// 标记为已读：将某店铺下某客户的未读数清零（仅店主可操作）
+pub async fn reset_unread(
+    State(state): State<AppState>,
+    AuthUser { user_id }: AuthUser,
+    Path((shop_id, customer_id)): Path<(i64, i64)>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    // 鉴权：确保该店铺属于当前用户
+    let shop = state
+        .db
+        .get_shop_by_id(shop_id)
+        .await
+        .map_err(|_| AppError::Internal("查询店铺失败"))?
+        .ok_or(AppError::NotFound)?;
 
-        // 获取最后一条消息
-        let last_message = if let Some(ref sess) = session {
-            let messages = state
-                .db
-                .get_messages_by_session(sess.id, Some(1), Some(0))
-                .await
-                .unwrap_or_default();
-            messages.into_iter().next()
-        } else {
-            None
-        };
-
-        // 获取未读消息数
-        let unread_count = state
-            .db
-            .get_unread_count(shop_id, customer.id)
-            .await
-            .unwrap_or(0);
-
-        customers_with_session.push(CustomerWithSession {
-            customer,
-            session,
-            last_message,
-            unread_count,
-        });
+    if shop.owner_id != user_id {
+        return Err(AppError::Unauthorized);
     }
 
-    Ok(Json(customers_with_session))
+    state
+        .db
+        .reset_unread_count(shop_id, customer_id)
+        .await
+        .map_err(|_| AppError::Internal("重置未读失败"))?;
+
+    Ok(Json(json!({ "success": true })))
+}
+
+// 批量标记已读：将某店铺下所有客户的未读数清零（仅店主可操作）
+pub async fn reset_unread_all(
+    State(state): State<AppState>,
+    AuthUser { user_id }: AuthUser,
+    Path(shop_id): Path<i64>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    // 鉴权：确保该店铺属于当前用户
+    let shop = state
+        .db
+        .get_shop_by_id(shop_id)
+        .await
+        .map_err(|_| AppError::Internal("查询店铺失败"))?
+        .ok_or(AppError::NotFound)?;
+
+    if shop.owner_id != user_id {
+        return Err(AppError::Unauthorized);
+    }
+
+    state
+        .db
+        .reset_unread_all_in_shop(shop_id)
+        .await
+        .map_err(|_| AppError::Internal("批量重置未读失败"))?;
+
+    Ok(Json(json!({ "success": true })))
 }

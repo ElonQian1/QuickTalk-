@@ -8,6 +8,7 @@ import { api } from '../config/api';
 import { Card, Badge, LoadingSpinner } from '../styles/globalStyles';
 import { theme } from '../styles/globalStyles';
 import toast from 'react-hot-toast';
+import { useConversationsStore } from '../stores/conversationsStore';
 
 const Container = styled.div`
   height: 100%;
@@ -252,6 +253,7 @@ const CustomerListPage: React.FC = () => {
   const [customers, setCustomers] = useState<CustomerWithSession[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const resetShopUnread = useConversationsStore(state => state.resetShopUnread);
 
   useEffect(() => {
     if (shopId) {
@@ -267,6 +269,14 @@ const CustomerListPage: React.FC = () => {
         normalizeCustomer(entry as ApiCustomer)
       );
       setCustomers(normalized);
+
+      // 进入该店铺客户列表后，批量标记为已读（一次请求）
+      const hasUnread = normalized.some(c => (c.unread_count || 0) > 0);
+      if (hasUnread) {
+        api.post(`/api/shops/${shopId}/customers/read_all`).finally(() => {
+          resetShopUnread(shopId);
+        });
+      }
     } catch (error) {
       toast.error('获取客户列表失败');
       console.error('Error fetching customers:', error);

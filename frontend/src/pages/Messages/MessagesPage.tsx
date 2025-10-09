@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { useNavigate } from 'react-router-dom';
 import { FiMessageCircle, FiUsers, FiClock } from 'react-icons/fi';
-import { api, checkApiHealth } from '../../config/api';
-import { mockApi } from '../../config/mockData';
+import { api } from '../../config/api';
 import { Card, Badge, LoadingSpinner } from '../../styles/globalStyles';
 import { theme } from '../../styles/globalStyles';
 import toast from 'react-hot-toast';
+import { useConversationsStore } from '../../stores/conversationsStore';
 
 const Container = styled.div`
   padding: ${theme.spacing.md};
@@ -200,6 +200,8 @@ const MessagesPage: React.FC = () => {
     totalCustomers: 0,
     unreadMessages: 0,
   });
+  const unreads = useConversationsStore(state => state.unreads);
+  const totalUnread = useConversationsStore(state => state.totalUnread);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -208,35 +210,6 @@ const MessagesPage: React.FC = () => {
 
   const fetchConversations = async () => {
     try {
-      // 首先检查API健康状况
-      const isApiHealthy = await checkApiHealth();
-      
-      if (!isApiHealthy) {
-        console.log('API不可用，使用离线数据');
-  // 离线数据回退：已简化，去除未使用的状态标记
-        const mockShops = await mockApi.getShops();
-        const mockConversations = await Promise.all(
-          mockShops.map(async (shop) => {
-            const customers = await mockApi.getCustomers(shop.id);
-            const unreadCount = customers.reduce((total, customer) => total + (customer.unread_count || 0), 0);
-            return {
-              shop: { ...shop, unread_count: unreadCount },
-              customer_count: customers.length,
-              last_message: customers[0]?.last_message || null,
-              unread_count: unreadCount,
-            };
-          })
-        );
-        setConversations(mockConversations);
-        const mockStats = await mockApi.getStats();
-        setStats({
-          totalShops: mockStats.total_shops,
-          totalCustomers: mockStats.total_customers,
-          unreadMessages: mockStats.total_messages,
-        });
-        return;
-      }
-
       // 获取所有店铺
       const shopsResponse = await api.get('/api/shops');
       const shops = shopsResponse.data;
@@ -285,35 +258,14 @@ const MessagesPage: React.FC = () => {
         unreadMessages: totalUnread,
       });
 
+      // 初始化全局 unread store（shopId -> unread）
+      useConversationsStore.getState().setManyUnreads(
+        conversationData.map((c: Conversation) => ({ shopId: c.shop.id, count: c.unread_count }))
+      );
+
     } catch (error) {
       console.error('Error fetching conversations:', error);
-      // 如果API失败，使用离线数据
-      console.log('API请求失败，切换到离线数据');
-  // 离线数据回退：已简化，去除未使用的状态标记
-      try {
-        const mockShops = await mockApi.getShops();
-        const mockConversations = await Promise.all(
-          mockShops.map(async (shop) => {
-            const customers = await mockApi.getCustomers(shop.id);
-            const unreadCount = customers.reduce((total, customer) => total + (customer.unread_count || 0), 0);
-            return {
-              shop: { ...shop, unread_count: unreadCount },
-              customer_count: customers.length,
-              last_message: customers[0]?.last_message || null,
-              unread_count: unreadCount,
-            };
-          })
-        );
-        setConversations(mockConversations);
-        const mockStats = await mockApi.getStats();
-        setStats({
-          totalShops: mockStats.total_shops,
-          totalCustomers: mockStats.total_customers,
-          unreadMessages: mockStats.total_messages,
-        });
-      } catch (mockError) {
-        toast.error('获取消息列表失败');
-      }
+      toast.error('获取消息列表失败');
     } finally {
       setLoading(false);
     }
@@ -372,7 +324,7 @@ const MessagesPage: React.FC = () => {
             <StatLabel>客户数量</StatLabel>
           </StatItem>
           <StatItem>
-            <StatValue>{stats.unreadMessages}</StatValue>
+            <StatValue>{totalUnread || stats.unreadMessages}</StatValue>
             <StatLabel>未读消息</StatLabel>
           </StatItem>
         </StatsGrid>
@@ -386,7 +338,9 @@ const MessagesPage: React.FC = () => {
         </EmptyState>
       ) : (
         <ConversationList>
-          {conversations.map((conversation) => (
+          {conversations.map((conversation) => {
+            const unreadFromStore = unreads[conversation.shop.id] ?? conversation.unread_count;
+            return (
             <ConversationCard
               key={conversation.shop.id}
               onClick={() => handleConversationClick(conversation)}
@@ -394,8 +348,8 @@ const MessagesPage: React.FC = () => {
               <ConversationHeader>
                 <ConversationAvatar>
                   🏪
-                  {conversation.unread_count > 0 && (
-                    <Badge count={conversation.unread_count} />
+                  {unreadFromStore > 0 && (
+                    <Badge count={unreadFromStore} />
                   )}
                 </ConversationAvatar>
                 
@@ -410,20 +364,20 @@ const MessagesPage: React.FC = () => {
                       {conversation.customer_count} 位客户
                     </div>
                     
-                    {conversation.unread_count > 0 && (
+                    {unreadFromStore > 0 && (
                       <>
                         <span>•</span>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                           <FiMessageCircle size={12} />
-                          {conversation.unread_count} 条未读
+                          {unreadFromStore} 条未读
                         </div>
                       </>
                     )}
                   </ConversationMeta>
                 </ConversationInfo>
                 
-                {conversation.unread_count > 0 && (
-                  <UnreadBadge count={conversation.unread_count} />
+                {unreadFromStore > 0 && (
+                  <UnreadBadge count={unreadFromStore} />
                 )}
               </ConversationHeader>
 
@@ -443,7 +397,7 @@ const MessagesPage: React.FC = () => {
                 </LastMessage>
               )}
             </ConversationCard>
-          ))}
+          );})}
         </ConversationList>
       )}
     </Container>

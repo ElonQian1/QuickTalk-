@@ -85,7 +85,7 @@ pub fn decode_token(token: &str, secret: &[u8]) -> Result<Claims, JwtError> {
         let exp_time = Utc
             .timestamp_opt(claims.exp as i64, 0)
             .single()
-            .unwrap_or_else(|| Utc.timestamp(0, 0));
+            .unwrap_or_else(Utc::now);
         return Err(JwtError::Expired(exp_time));
     }
 

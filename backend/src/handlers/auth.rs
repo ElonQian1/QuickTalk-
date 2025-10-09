@@ -3,12 +3,11 @@ use bcrypt::{hash, verify, DEFAULT_COST};
 use chrono::{Duration, Utc};
 
 use crate::{
+    auth::jwt_secret_from_env,
     jwt::{encode_token, Claims},
     models::*,
     AppState,
 };
-
-const JWT_SECRET: &[u8] = b"your-secret-key"; // 在生产环境中应该从环境变量读取
 
 pub async fn login(
     State(state): State<AppState>,
@@ -37,7 +36,8 @@ pub async fn login(
         exp,
     };
 
-    let token = encode_token(&claims, JWT_SECRET).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let secret = jwt_secret_from_env();
+    let token = encode_token(&claims, &secret).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     let response = AuthResponse {
         token,
@@ -88,7 +88,8 @@ pub async fn register(
         exp,
     };
 
-    let token = encode_token(&claims, JWT_SECRET).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let secret = jwt_secret_from_env();
+    let token = encode_token(&claims, &secret).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     let response = AuthResponse {
         token,

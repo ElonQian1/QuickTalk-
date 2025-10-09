@@ -85,8 +85,9 @@ pub struct UnreadCount {
 
 // WebSocket 消息格式
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct WebSocketMessage {
-    pub message_type: String,
+    pub message_type: String, // 事件名：auth_success/new_message/typing/system
     #[serde(skip_serializing_if = "Option::is_none")]
     pub content: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -110,6 +111,7 @@ pub struct WebSocketMessage {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct WebSocketIncomingMessage {
     pub message_type: String,
     #[serde(default)]
@@ -195,4 +197,14 @@ impl From<User> for UserPublic {
             avatar_url: user.avatar_url,
         }
     }
+}
+
+// 输入 DTO：用于创建/更新客户信息（减少函数参数个数）
+#[derive(Debug, Clone, Default)]
+pub struct CustomerUpsert<'a> {
+    pub name: Option<&'a str>,
+    pub email: Option<&'a str>,
+    pub avatar: Option<&'a str>,
+    pub ip: Option<&'a str>,
+    pub user_agent: Option<&'a str>,
 }

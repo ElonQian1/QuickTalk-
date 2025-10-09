@@ -3,9 +3,10 @@ import styled from 'styled-components';
 import { useNavigate } from 'react-router-dom';
 import { FiMessageSquare, FiUsers, FiTrendingUp, FiShoppingBag, FiClock } from 'react-icons/fi';
 import { useAuthStore } from '../../stores/authStore';
-import { api, checkApiHealth } from '../../config/api';
-import { mockApi } from '../../config/mockData';
+import { api } from '../../config/api';
 import { theme } from '../../styles/globalStyles';
+import toast from 'react-hot-toast';
+import { useConversationsStore } from '../../stores/conversationsStore';
 
 const Container = styled.div`
   min-height: 100vh;
@@ -32,16 +33,7 @@ const SubText = styled.p`
   margin: 0;
 `;
 
-const OfflineIndicator = styled.div`
-  background: rgba(255, 193, 7, 0.9);
-  color: #856404;
-  padding: ${theme.spacing.xs} ${theme.spacing.sm}; /* 原 8 16 */
-  border-radius: ${theme.spacing.sm}; /* 原 8px */
-  font-size: ${theme.typography.small};
-  margin-top: ${theme.spacing.smd}; /* 原 12px */
-  text-align: center;
-  font-weight: 500;
-`;
+// OfflineIndicator 已移除（不再提供离线数据模式）
 
 const StatsGrid = styled.div`
   display: grid;
@@ -177,89 +169,25 @@ const HomePage: React.FC = () => {
     totalShops: 0,
     pendingChats: 0
   });
+  const totalUnread = useConversationsStore(state => state.totalUnread);
   // 移除未使用的 isLoading 状态（此前仅设置未被消费）
   // const [isLoading, setIsLoading] = useState(true);
-  const [useOfflineData, setUseOfflineData] = useState(false);
 
   useEffect(() => {
-    // 获取真实统计数据
     const fetchStats = async () => {
-  // isLoading 已移除
       try {
-        // 首先检查API健康状况
-        const isApiHealthy = await checkApiHealth();
-        
-        if (!isApiHealthy) {
-          console.log('API不可用，使用离线数据');
-          setUseOfflineData(true);
-          const mockStats = await mockApi.getStats();
-          setStats({
-            totalMessages: mockStats.total_messages,
-            activeCustomers: mockStats.total_customers,
-            totalShops: mockStats.total_shops,
-            pendingChats: mockStats.active_sessions
-          });
-          return;
-        }
-
-        // 获取店铺数据
-        const shopsResponse = await api.get('/api/shops');
-        const shops = shopsResponse.data;
-        
-        let totalMessages = 0;
-        let activeCustomers = 0;
-        let pendingChats = 0;
-        
-        // 为每个店铺获取统计数据
-        for (const shop of shops) {
-          try {
-            const customersResponse = await api.get(`/api/shops/${shop.id}/customers`);
-            const customers = customersResponse.data;
-            
-            activeCustomers += customers.length;
-            
-            // 计算未读消息和待处理对话
-            for (const customer of customers) {
-              if (customer.unread_count) {
-                totalMessages += customer.unread_count;
-                pendingChats += 1;
-              }
-            }
-          } catch (error) {
-            console.error(`获取店铺 ${shop.id} 数据失败:`, error);
-          }
-        }
-        
+        // 调用后端聚合统计端点，避免前端N+1
+        const resp = await api.get('/api/dashboard/stats');
+        const d = resp.data as { total_shops: number; active_customers: number; unread_messages: number; pending_chats: number };
         setStats({
-          totalMessages,
-          activeCustomers,
-          totalShops: shops.length,
-          pendingChats
+          totalMessages: d.unread_messages,
+          activeCustomers: d.active_customers,
+          totalShops: d.total_shops,
+          pendingChats: d.pending_chats,
         });
       } catch (error) {
         console.error('获取统计数据失败:', error);
-        // 如果API失败，使用离线数据
-        console.log('API请求失败，切换到离线数据');
-        setUseOfflineData(true);
-        try {
-          const mockStats = await mockApi.getStats();
-          setStats({
-            totalMessages: mockStats.total_messages,
-            activeCustomers: mockStats.total_customers,
-            totalShops: mockStats.total_shops,
-            pendingChats: mockStats.active_sessions
-          });
-        } catch (mockError) {
-          // 如果mock数据也失败，显示0
-          setStats({
-            totalMessages: 0,
-            activeCustomers: 0,
-            totalShops: 0,
-            pendingChats: 0
-          });
-        }
-      } finally {
-        // isLoading 已移除
+        toast.error('获取统计数据失败，请稍后重试');
       }
     };
 
@@ -300,7 +228,7 @@ const HomePage: React.FC = () => {
   const statsData = [
     {
       icon: FiMessageSquare,
-      value: stats.totalMessages,
+      value: totalUnread || stats.totalMessages,
       label: '今日消息',
       color: '#00d4aa'
     },
@@ -329,11 +257,7 @@ const HomePage: React.FC = () => {
       <Header>
         <WelcomeText>欢迎回来，{user?.username || '管理员'}</WelcomeText>
         <SubText>今天也要为客户提供优质服务哦～</SubText>
-        {useOfflineData && (
-          <OfflineIndicator>
-            🔄 当前使用离线数据 - 后端服务暂不可用
-          </OfflineIndicator>
-        )}
+        {/* 已移除离线数据回退标识，仅显示真实 API 数据 */}
       </Header>
 
       <StatsGrid>

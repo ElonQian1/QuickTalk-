@@ -1,3 +1,44 @@
+# Rust / Cargo
+/backend/target/
+/backend/target-temp/
+**/*.rlib
+**/*.rmeta
+
+# Rust binaries (built artifacts)
+/backend/*.exe
+
+# Node / React
+/frontend/node_modules/
+/frontend/build/
+
+# Logs
+*.log
+/backend/backend.err
+/backend/backend.log
+/frontend/frontend.err
+/frontend/frontend.log
+/sdk.err
+/sdk.log
+
+# Env
+/.env
+/backend/.env
+
+# SQLite DB (local dev only)
+/backend/customer_service.db
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/
+
+# Artifacts in repo root
+/customer-service-backend.exe
+/customer-service-final.exe
+/customer-service-production.exe
+/simple-server.exe
 # Dependencies
 node_modules/
 package-lock.json

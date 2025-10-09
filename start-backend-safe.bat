@@ -17,7 +17,7 @@ echo - 主机: %SERVER_HOST%
 echo.
 
 echo 启动 Rust 服务器...
-customer-service-final.exe
+cargo run
 
 if %ERRORLEVEL% NEQ 0 (
     echo.
@@ -26,7 +26,7 @@ if %ERRORLEVEL% NEQ 0 (
     echo.
     echo 可能的解决方案:
     echo 1. 检查端口 8080 是否被占用
-    echo 2. 确认 customer-service-final.exe 文件存在
+    echo 2. 确认已安装 Rust 工具链（cargo）
     echo 3. 检查数据库文件权限
     pause
     exit /b 1

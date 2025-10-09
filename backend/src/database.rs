@@ -1,5 +1,5 @@
 use anyhow::Result;
-use sqlx::{sqlite::SqlitePoolOptions, SqlitePool};
+use sqlx::{sqlite::SqlitePoolOptions, Row, SqlitePool};
 use tracing::info;
 
 use crate::models::*;
@@ -17,6 +17,10 @@ impl Database {
             .await?;
 
         Ok(Database { pool })
+    }
+
+    pub(crate) fn pool(&self) -> &SqlitePool {
+        &self.pool
     }
 
     pub async fn migrate(&self) -> Result<()> {
@@ -131,26 +135,30 @@ impl Database {
         Ok(shop)
     }
 
+    pub async fn get_shop_by_id(&self, id: i64) -> Result<Option<Shop>> {
+        let shop = sqlx::query_as::<_, Shop>("SELECT * FROM shops WHERE id = ?")
+            .bind(id)
+            .fetch_optional(&self.pool)
+            .await?;
+        Ok(shop)
+    }
+
     // 客户相关操作
     pub async fn create_or_update_customer(
         &self,
         shop_id: i64,
         customer_id: &str,
-        customer_name: Option<&str>,
-        customer_email: Option<&str>,
-        customer_avatar: Option<&str>,
-        ip_address: Option<&str>,
-        user_agent: Option<&str>,
+        upsert: CustomerUpsert<'_>,
     ) -> Result<Customer> {
         // 先尝试更新
         let updated = sqlx::query(
             "UPDATE customers SET customer_name = ?, customer_email = ?, customer_avatar = ?, ip_address = ?, user_agent = ?, last_active_at = CURRENT_TIMESTAMP WHERE shop_id = ? AND customer_id = ?"
         )
-        .bind(customer_name)
-        .bind(customer_email)
-        .bind(customer_avatar)
-        .bind(ip_address)
-        .bind(user_agent)
+    .bind(upsert.name)
+    .bind(upsert.email)
+    .bind(upsert.avatar)
+    .bind(upsert.ip)
+    .bind(upsert.user_agent)
         .bind(shop_id)
         .bind(customer_id)
         .execute(&self.pool)
@@ -174,11 +182,11 @@ impl Database {
             )
             .bind(shop_id)
             .bind(customer_id)
-            .bind(customer_name)
-            .bind(customer_email)
-            .bind(customer_avatar)
-            .bind(ip_address)
-            .bind(user_agent)
+            .bind(upsert.name)
+            .bind(upsert.email)
+            .bind(upsert.avatar)
+            .bind(upsert.ip)
+            .bind(upsert.user_agent)
             .fetch_one(&self.pool)
             .await?;
 
@@ -195,6 +203,122 @@ impl Database {
         .await?;
 
         Ok(customers)
+    }
+
+    /// 聚合查询：返回某店铺下客户 + 其最近活跃会话 + 会话最近一条消息 + 未读数
+    pub async fn get_customers_overview_by_shop(
+        &self,
+        shop_id: i64,
+    ) -> Result<Vec<CustomerWithSession>> {
+        // 说明：
+        // - 选取每个客户最近的 active 会话（按 created_at 降序取 1 条）
+        // - 再选取该会话最近一条消息（按 created_at 降序取 1 条）
+        // - 连接未读计数表（没有则为 0）
+        // - 返回顺序按客户 last_active_at 降序
+        let rows = sqlx::query(
+            r#"
+            SELECT
+              c.*, 
+              s.id              AS s_id,
+              s.shop_id         AS s_shop_id,
+              s.customer_id     AS s_customer_id,
+              s.staff_id        AS s_staff_id,
+              s.session_status  AS s_session_status,
+              s.created_at      AS s_created_at,
+              s.closed_at       AS s_closed_at,
+              s.last_message_at AS s_last_message_at,
+              m.id              AS m_id,
+              m.session_id      AS m_session_id,
+              m.sender_type     AS m_sender_type,
+              m.sender_id       AS m_sender_id,
+              m.content         AS m_content,
+              m.message_type    AS m_message_type,
+              m.file_url        AS m_file_url,
+              m.status          AS m_status,
+              m.created_at      AS m_created_at,
+              COALESCE(uc.unread_count, 0) AS unread_count
+            FROM customers c
+            LEFT JOIN sessions s
+              ON s.id = (
+                SELECT id FROM sessions
+                 WHERE shop_id = c.shop_id AND customer_id = c.id AND session_status = 'active'
+                 ORDER BY created_at DESC LIMIT 1
+              )
+            LEFT JOIN messages m
+              ON m.id = (
+                SELECT id FROM messages
+                 WHERE session_id = s.id
+                 ORDER BY created_at DESC LIMIT 1
+              )
+            LEFT JOIN unread_counts uc
+              ON uc.shop_id = c.shop_id AND uc.customer_id = c.id
+            WHERE c.shop_id = ?
+            ORDER BY c.last_active_at DESC
+            "#,
+        )
+        .bind(shop_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let mut result = Vec::with_capacity(rows.len());
+        for row in rows {
+            // 映射 Customer
+            let customer = Customer {
+                id: row.try_get("id")?,
+                shop_id: row.try_get("shop_id")?,
+                customer_id: row.try_get("customer_id")?,
+                customer_name: row.try_get("customer_name")?,
+                customer_email: row.try_get("customer_email")?,
+                customer_avatar: row.try_get("customer_avatar")?,
+                ip_address: row.try_get("ip_address")?,
+                user_agent: row.try_get("user_agent")?,
+                first_visit_at: row.try_get("first_visit_at")?,
+                last_active_at: row.try_get("last_active_at")?,
+                status: row.try_get("status")?,
+            };
+
+            // 映射 Session（可空）
+            let session: Option<Session> = match row.try_get::<Option<i64>, _>("s_id")? {
+                Some(sid) => Some(Session {
+                    id: sid,
+                    shop_id: row.try_get("s_shop_id")?,
+                    customer_id: row.try_get("s_customer_id")?,
+                    staff_id: row.try_get("s_staff_id")?,
+                    session_status: row.try_get("s_session_status")?,
+                    created_at: row.try_get("s_created_at")?,
+                    closed_at: row.try_get("s_closed_at")?,
+                    last_message_at: row.try_get("s_last_message_at")?,
+                }),
+                None => None,
+            };
+
+            // 映射 Message（可空）
+            let last_message: Option<Message> = match row.try_get::<Option<i64>, _>("m_id")? {
+                Some(mid) => Some(Message {
+                    id: mid,
+                    session_id: row.try_get("m_session_id")?,
+                    sender_type: row.try_get("m_sender_type")?,
+                    sender_id: row.try_get("m_sender_id")?,
+                    content: row.try_get("m_content")?,
+                    message_type: row.try_get("m_message_type")?,
+                    file_url: row.try_get("m_file_url")?,
+                    status: row.try_get("m_status")?,
+                    created_at: row.try_get("m_created_at")?,
+                }),
+                None => None,
+            };
+
+            let unread_count: i32 = row.try_get("unread_count")?;
+
+            result.push(CustomerWithSession {
+                customer,
+                session,
+                last_message,
+                unread_count,
+            });
+        }
+
+        Ok(result)
     }
 
     // 会话相关操作
@@ -322,6 +446,18 @@ impl Database {
         )
         .bind(shop_id)
         .bind(customer_id)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
+    pub async fn reset_unread_all_in_shop(&self, shop_id: i64) -> Result<()> {
+        sqlx::query(
+            "UPDATE unread_counts SET unread_count = 0, updated_at = CURRENT_TIMESTAMP \
+             WHERE shop_id = ?",
+        )
+        .bind(shop_id)
         .execute(&self.pool)
         .await?;
 
