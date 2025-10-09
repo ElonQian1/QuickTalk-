@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Debug上传问题</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    .result { margin: 10px 0; padding: 10px; background: #f0f0f0; white-space: pre-wrap; }
+    .error { background: #ffe6e6; color: red; }
+    .success { background: #e6ffe6; color: green; }
+  </style>
+</head>
+<body>
+  <h1>Debug上传问题</h1>
+  
+  <div>
+    <h2>测试上传API</h2>
+    <input type="file" id="fileInput" accept="image/*">
+    <button onclick="testUpload()">测试上传</button>
+    <div id="result" class="result"></div>
+  </div>
+
+  <script>
+    function log(message, isError = false) {
+      const result = document.getElementById('result');
+      result.textContent = message;
+      result.className = 'result ' + (isError ? 'error' : 'success');
+    }
+    
+    async function testUpload() {
+      const fileInput = document.getElementById('fileInput');
+      const file = fileInput.files[0];
+      
+      if (!file) {
+        log('请先选择文件', true);
+        return;
+      }
+      
+      // 测试参数
+      const shopId = '20';
+      const customerId = 'test-customer-' + Math.random().toString(36).slice(2);
+      
+      log('开始上传...\n文件: ' + file.name + '\nshopId: ' + shopId + '\ncustomerId: ' + customerId);
+      
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('shopId', shopId);
+      formData.append('messageType', 'image');
+      formData.append('customerCode', customerId);
+      
+      try {
+        const response = await fetch('http://localhost:8080/api/customer/upload', {
+          method: 'POST',
+          body: formData
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          log('上传失败: HTTP ' + response.status + '\n错误内容: ' + errorText, true);
+          return;
+        }
+        
+        const data = await response.json();
+        log('上传成功!\n' + JSON.stringify(data, null, 2));
+        
+        // 显示图片
+        if (data.url) {
+          const img = document.createElement('img');
+          img.src = data.url;
+          img.style.maxWidth = '300px';
+          img.style.marginTop = '10px';
+          document.getElementById('result').appendChild(img);
+        }
+        
+      } catch (error) {
+        log('请求失败: ' + error.message, true);
+      }
+    }
+  </script>
+</body>
+</html>
