@@ -4,5 +4,6 @@ target = "x86_64-pc-windows-gnu"
 [target.x86_64-pc-windows-gnu]
 linker = "x86_64-w64-mingw32-gcc"
 
-[env]
-RING_PREGENERATE_ASM = "1"
+# Linux musl 目标 (静态链接，无需系统库)
+[target.x86_64-unknown-linux-musl]
+linker = "rust-lld"
