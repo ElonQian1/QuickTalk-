@@ -113,7 +113,6 @@ async fn parse_multipart(mut multipart: Multipart) -> Result<UploadData, AppErro
 // 客户端上传的文件解析逻辑（使用 API Key）
 async fn parse_customer_multipart(mut multipart: Multipart) -> Result<CustomerUploadData, AppError> {
     let mut api_key: Option<String> = None;
-    let mut customer_code: Option<String> = None;
     let mut message_type = String::from("file");
     let mut original_name: Option<String> = None;
     let mut content_type: Option<String> = None;
@@ -126,21 +125,12 @@ async fn parse_customer_multipart(mut multipart: Multipart) -> Result<CustomerUp
     {
         let name = field.name().unwrap_or_default().to_string();
         match name.as_str() {
-            "shopId" => {
-                let value = field
-                    .text()
-                    .await
-                    .map_err(|_| AppError::BadRequest("shopId 无效"))?;
-                api_key = Some(value);
-            }
             "customerCode" => {
                 let value = field
                     .text()
                     .await
                     .map_err(|_| AppError::BadRequest("customerCode 无效"))?;
-                if !value.is_empty() {
-                    customer_code = Some(value);
-                }
+                api_key = Some(value);
             }
             "messageType" => {
                 let value = field
@@ -166,13 +156,13 @@ async fn parse_customer_multipart(mut multipart: Multipart) -> Result<CustomerUp
         }
     }
 
-    let api_key = api_key.ok_or(AppError::BadRequest("缺少 shopId"))?;
+    let api_key = api_key.ok_or(AppError::BadRequest("缺少 customerCode"))?;
     let data = data.ok_or(AppError::BadRequest("缺少文件"))?;
     let original_name = original_name.unwrap_or_else(|| "upload.bin".to_string());
 
     Ok(CustomerUploadData {
         api_key,
-        customer_code,
+        customer_code: None, // 在客户端上传中不使用
         message_type,
         original_name,
         content_type,
@@ -259,15 +249,8 @@ pub async fn handle_upload(
     
     let generated_name = save_file(&upload_data).await?;
     
-    // 构建完整的服务器URL，而不是相对路径
-    let server_host = std::env::var("SERVER_HOST").unwrap_or_else(|_| "localhost".to_string());
-    let server_port = std::env::var("SERVER_PORT").unwrap_or_else(|_| "8080".to_string());
-    let base_url = if server_host == "0.0.0.0" {
-        format!("http://localhost:{}", server_port)
-    } else {
-        format!("http://{}:{}", server_host, server_port)
-    };
-    let url = format!("{}/static/uploads/{}/{}", base_url, upload_data.shop_id, generated_name);
+    // 使用相对路径，让客户端根据当前协议自动适配
+    let url = format!("/static/uploads/{}/{}", upload_data.shop_id, generated_name);
 
     Ok(Json(UploadResponse {
         url,
@@ -309,15 +292,8 @@ pub async fn handle_customer_upload(
 
     let generated_name = save_file_with_shop_id(shop.id, &upload_data.data, &upload_data.original_name, &upload_data.content_type).await?;
     
-    // 构建完整的服务器URL，而不是相对路径
-    let server_host = std::env::var("SERVER_HOST").unwrap_or_else(|_| "localhost".to_string());
-    let server_port = std::env::var("SERVER_PORT").unwrap_or_else(|_| "8080".to_string());
-    let base_url = if server_host == "0.0.0.0" {
-        format!("http://localhost:{}", server_port)
-    } else {
-        format!("http://{}:{}", server_host, server_port)
-    };
-    let url = format!("{}/static/uploads/{}/{}", base_url, shop.id, generated_name);
+    // 使用相对路径，让客户端根据当前协议自动适配
+    let url = format!("/static/uploads/{}/{}", shop.id, generated_name);
     
     tracing::info!("文件保存成功: url={}", url);
 

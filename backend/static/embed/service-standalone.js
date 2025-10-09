@@ -98,8 +98,13 @@
             return response.json();
           })
           .then(function(data) {
+            // 如果返回的是相对路径，转换为完整URL
+            var fullUrl = data.url;
+            if (data.url && data.url.startsWith('/')) {
+              fullUrl = serverUrl + data.url;
+            }
             // 自动发送消息 - 对于图片，content应该是URL而不是文件名
-            this.sendMessage(data.url, messageType, data.url);
+            this.sendMessage(fullUrl, messageType, fullUrl);
             resolve(data);
           }.bind(this))
           .catch(reject);
@@ -260,11 +265,21 @@
       console.log('🔍 收到WebSocket消息:', JSON.stringify(m, null, 2));
       if (m && m.content) {
         if (m.metadata && m.metadata.messageType === 'image') {
-          console.log('📷 图片消息 - file_url:', m.file_url, 'content:', m.content);
-          addMsg(m.file_url || m.content, m.senderType === 'customer', 'image');
+          console.log('📷 图片消息 - fileUrl:', m.fileUrl, 'content:', m.content);
+          var imageUrl = m.fileUrl || m.content;
+          // 如果是相对路径，转换为完整URL
+          if (imageUrl && imageUrl.startsWith('/')) {
+            imageUrl = serverUrl + imageUrl;
+          }
+          addMsg(imageUrl, m.senderType === 'customer', 'image');
         } else if (m.metadata && m.metadata.messageType === 'file') {
-          console.log('📁 文件消息 - file_url:', m.file_url, 'content:', m.content);
-          addMsg(m.file_url || m.content, m.senderType === 'customer', 'file');
+          console.log('📁 文件消息 - fileUrl:', m.fileUrl, 'content:', m.content);
+          var fileUrl = m.fileUrl || m.content;
+          // 如果是相对路径，转换为完整URL
+          if (fileUrl && fileUrl.startsWith('/')) {
+            fileUrl = serverUrl + fileUrl;
+          }
+          addMsg(fileUrl, m.senderType === 'customer', 'file');
         } else {
           addMsg(m.content, m.senderType === 'customer');
         }

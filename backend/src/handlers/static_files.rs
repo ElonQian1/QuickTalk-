@@ -44,3 +44,37 @@ pub async fn serve_static_file(Path(file_path): Path<String>) -> impl IntoRespon
         Err(_) => (StatusCode::NOT_FOUND, "File not found").into_response(),
     }
 }
+
+pub async fn serve_favicon() -> impl IntoResponse {
+    let favicon_path = std::path::Path::new("static/favicon.ico");
+    
+    match fs::read(favicon_path).await {
+        Ok(contents) => {
+            let mut headers = HeaderMap::new();
+            headers.insert(header::CONTENT_TYPE, "image/x-icon".parse().unwrap());
+            headers.insert(header::CACHE_CONTROL, "public, max-age=86400".parse().unwrap());
+            (headers, contents).into_response()
+        }
+        Err(_) => (StatusCode::NOT_FOUND, "Favicon not found").into_response(),
+    }
+}
+
+pub async fn serve_robots() -> impl IntoResponse {
+    let robots_path = std::path::Path::new("static/robots.txt");
+    
+    match fs::read_to_string(robots_path).await {
+        Ok(contents) => {
+            let mut headers = HeaderMap::new();
+            headers.insert(header::CONTENT_TYPE, "text/plain; charset=utf-8".parse().unwrap());
+            headers.insert(header::CACHE_CONTROL, "public, max-age=86400".parse().unwrap());
+            (headers, contents).into_response()
+        }
+        Err(_) => {
+            // 如果文件不存在，返回默认的robots.txt
+            let default_robots = "User-agent: *\nAllow: /\n";
+            let mut headers = HeaderMap::new();
+            headers.insert(header::CONTENT_TYPE, "text/plain; charset=utf-8".parse().unwrap());
+            (headers, default_robots).into_response()
+        }
+    }
+}

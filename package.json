@@ -8,7 +8,7 @@
     "dev": "concurrently -k -n \"🦀 Backend,⚛️ Frontend,📡 SDK\" -c \"yellow,cyan,green\" \"npm:dev:backend\" \"npm:dev:frontend\" \"npm:dev:sdk\"",
     "dev:backend": "cd backend && cargo watch -x run",
     "dev:frontend": "cd frontend && npm start",
-    "dev:sdk": "cd websocket-sdk && npm run dev",
+    "dev:sdk": "cd websocket-sdk && npm run dev:full",
     "dev:backend-only": "cd backend && cargo run",
     "dev:frontend-only": "cd frontend && npm start",
     "build": "npm run build:frontend && npm run build:backend",
