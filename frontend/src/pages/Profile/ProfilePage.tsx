@@ -159,11 +159,13 @@ const ProfilePage: React.FC = () => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const response = await api.get('/api/stats');
+        // 后端提供的是 /api/dashboard/stats，字段为 snake_case
+        const response = await api.get('/api/dashboard/stats');
+        const d = response.data as { unread_messages?: number; active_customers?: number; pending_chats?: number };
         setStats({
-          todayMessages: response.data.todayMessages || 0,
-          activeCustomers: response.data.activeCustomers || 0,
-          pendingChats: response.data.pendingChats || 0
+          todayMessages: d.unread_messages ?? 0,
+          activeCustomers: d.active_customers ?? 0,
+          pendingChats: d.pending_chats ?? 0,
         });
       } catch (error) {
         console.error('Failed to fetch stats:', error);

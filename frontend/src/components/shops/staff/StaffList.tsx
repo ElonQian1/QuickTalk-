@@ -9,6 +9,8 @@ interface StaffListProps {
   loading?: boolean;
   onRefresh?: () => void;
   onSelect?: (staff: StaffMember) => void;
+  onRemove?: (staff: StaffMember) => void;
+  canRemove?: boolean;
 }
 
 const List = styled.ul`
@@ -29,15 +31,35 @@ const Empty = styled.div`
   text-align:center; color:${theme.colors.text.secondary}; font-size:${theme.typography.small}; padding:24px 0;
 `;
 
-const StaffList: React.FC<StaffListProps> = ({ data, loading, onSelect }) => {
+const RemoveBtn = styled.button`
+  background: ${theme.colors.white};
+  border: 1px solid ${theme.colors.border};
+  color: ${theme.colors.danger || '#d33'};
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  &:hover { border-color: ${theme.colors.danger || '#d33'}; }
+`;
+
+const Right = styled.div`
+  display:flex; align-items:center; gap:8px;
+`;
+
+const StaffList: React.FC<StaffListProps> = ({ data, loading, onSelect, onRemove, canRemove }) => {
   if (loading) return <Empty>加载中...</Empty>;
   if (!data.length) return <Empty>暂无员工</Empty>;
   return (
     <List>
       {data.map(s => (
-        <Item key={s.id} onClick={() => onSelect?.(s)}>
-          <span>{s.username}</span>
-          <Role>{s.role || '成员'}</Role>
+        <Item key={s.id}>
+          <span onClick={() => onSelect?.(s)} style={{ cursor:'pointer' }}>{s.username}</span>
+          <Right>
+            <Role>{s.role || '成员'}</Role>
+            {canRemove && s.role !== 'owner' && (
+              <RemoveBtn onClick={() => onRemove?.(s)}>移除</RemoveBtn>
+            )}
+          </Right>
         </Item>
       ))}
     </List>

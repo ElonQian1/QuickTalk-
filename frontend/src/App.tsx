@@ -14,7 +14,16 @@ import { HomePage } from './pages/Home';
 import { useAuthStore } from './stores/authStore';
 
 function App() {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, hydrated } = useAuthStore();
+
+  if (!hydrated) {
+    return (
+      <ThemeProvider theme={theme}>
+        <GlobalStyles />
+        <div style={{padding: 24}}>加载中…</div>
+      </ThemeProvider>
+    );
+  }
 
   if (!isAuthenticated) {
     return (

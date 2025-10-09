@@ -6,7 +6,7 @@ use axum::{
     },
     http::StatusCode,
     response::{IntoResponse, Response},
-    routing::{get, post},
+    routing::{get, post, delete},
     Json, Router,
 };
 use chrono::Utc;
@@ -62,6 +62,7 @@ async fn main() -> Result<()> {
 
     let app = Router::new()
         .route("/", get(|| async { "Customer Service System API" }))
+        .route("/health", get(|| async { axum::Json(serde_json::json!({"status":"ok"})) }))
         .route("/api/auth/login", post(handlers::auth::login))
         .route("/api/auth/register", post(handlers::auth::register))
         .route("/api/shops", get(handlers::shop::get_shops))
@@ -77,6 +78,18 @@ async fn main() -> Result<()> {
         .route(
             "/api/shops/:shop_id/customers/read_all",
             post(handlers::customer::reset_unread_all),
+        )
+        .route(
+            "/api/shops/:shop_id/staff",
+            get(handlers::staff::list_staff),
+        )
+        .route(
+            "/api/shops/:shop_id/staff",
+            post(handlers::staff::add_staff),
+        )
+        .route(
+            "/api/shops/:shop_id/staff/:user_id",
+            delete(handlers::staff::remove_staff),
         )
         .route(
             "/api/sessions/:session_id/messages",

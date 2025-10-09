@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { FiPlus, FiGlobe } from 'react-icons/fi';
 import { api } from '../config/api';
+import { normalizeShopsList } from '../utils/normalize';
 import { Button, Card, LoadingSpinner } from '../styles/globalStyles';
 import { ShopManageButton, ShopManageModal } from '../components/shops';
 import { theme } from '../styles/globalStyles';
@@ -149,11 +150,11 @@ const ShopListPage: React.FC = () => {
     try {
       const response = await api.get('/api/shops');
       console.log('📋 获取到的店铺数据:', response.data);
-      setShops(response.data);
+      const normalized = normalizeShopsList(response.data) as Shop[];
+      setShops(normalized);
       // 自动连接到第一个店铺的 staff WS（如存在）
-      if (response.data && response.data.length > 0) {
-        const first = response.data[0];
-        useWSStore.getState().connect(first.shop.id ?? first.id);
+      if (normalized.length > 0 && normalized[0].id) {
+        useWSStore.getState().connect(normalized[0].id);
       }
     } catch (error) {
       toast.error('获取店铺列表失败');
@@ -226,7 +227,7 @@ const ShopListPage: React.FC = () => {
           {shops.map((shop) => {
             console.log('🏪 渲染店铺:', shop.shop_name, '未读消息:', shop.unread_count, 'API Key:', shop.api_key);
             return (
-              <ShopCard key={shop.id} className="fade-in">
+              <ShopCard key={shop.id ?? `${shop.shop_name}-${shop.api_key || 'no-key'}`} className="fade-in">
                 <ShopHeader>
                   <ShopIcon style={{ position: 'relative' }}>
                     🏪

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { theme } from '../../../styles/globalStyles';
-import { api } from '../../../config/api';
+import { addShopStaff } from '../../../services/staff';
 import toast from 'react-hot-toast';
 
 interface AddStaffModalProps {
@@ -30,11 +30,6 @@ const Input = styled.input`
   font-size:${theme.typography.body}; background:${theme.colors.white};
   &:focus{outline:none; border-color:${theme.colors.primary};}
 `;
-const Select = styled.select`
-  padding:10px 14px; border:1px solid ${theme.colors.border}; border-radius:${theme.borderRadius.small};
-  font-size:${theme.typography.body}; background:${theme.colors.white};
-  &:focus{outline:none; border-color:${theme.colors.primary};}
-`;
 
 const Actions = styled.div`display:flex; justify-content:flex-end; gap:12px; margin-top:8px;`;
 
@@ -49,13 +44,11 @@ const ErrorText = styled.div`color:${theme.colors.danger}; font-size:12px;`;
 
 const AddStaffModal: React.FC<AddStaffModalProps> = ({ open, onClose, shopId, onAdded }) => {
   const [username, setUsername] = useState('');
-  const [role, setRole] = useState('staff');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   const reset = () => {
     setUsername('');
-    setRole('staff');
     setError('');
   };
 
@@ -69,8 +62,7 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({ open, onClose, shopId, on
     setSubmitting(true);
     setError('');
     try {
-      // 真实后端接口假设: POST /api/shops/:id/staff  body: { username, role }
-      await api.post(`/api/shops/${shopId}/staff`, { username: username.trim(), role });
+  await addShopStaff(shopId, username.trim());
       toast.success('员工已添加');
       onAdded();
       reset();
@@ -96,13 +88,7 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({ open, onClose, shopId, on
             <Label>用户名</Label>
             <Input value={username} onChange={e => setUsername(e.target.value)} placeholder="输入系统已注册的用户名" disabled={submitting} />
           </Field>
-          <Field>
-            <Label>角色</Label>
-            <Select value={role} onChange={e => setRole(e.target.value)} disabled={submitting}>
-              <option value="staff">普通员工</option>
-              <option value="manager">管理员</option>
-            </Select>
-          </Field>
+          {/* 角色固定为普通员工，去掉下拉 */}
           {error && <ErrorText>{error}</ErrorText>}
           <Actions>
             <Button type="button" onClick={onClose} disabled={submitting}>取消</Button>

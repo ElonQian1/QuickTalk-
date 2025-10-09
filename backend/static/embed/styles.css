@@ -1,0 +1,10 @@
+.qt-fab{position:fixed;right:18px;bottom:18px;background:#07C160;color:#fff;border-radius:999px;padding:12px 16px;box-shadow:0 10px 25px -12px rgba(7,193,96,.6);cursor:pointer;user-select:none;font:600 14px/1.2 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;z-index:2147483647}
+.qt-fab:hover{filter:brightness(0.95)}
+.qt-panel{position:fixed;right:18px;bottom:68px;width:320px;height:440px;background:#fff;border-radius:12px;box-shadow:0 16px 48px -12px rgba(15,23,42,.35);display:none;flex-direction:column;overflow:hidden;z-index:2147483647}
+.qt-header{padding:12px 14px;border-bottom:1px solid #eee;font-weight:700;background:#f9fafb}
+.qt-body{flex:1;padding:10px 12px;overflow:auto;background:#fafafa}
+.qt-msg{background:#fff;margin:6px 0;padding:8px 10px;border-radius:10px;box-shadow:0 8px 24px -16px rgba(15,23,42,.25);max-width:78%}
+.qt-msg.own{background:#2563eb;color:#fff;align-self:flex-end}
+.qt-input{display:flex;gap:8px;padding:10px;border-top:1px solid #eee;background:#fff}
+.qt-input input{flex:1;padding:8px 10px;border:1px solid #ddd;border-radius:8px}
+.qt-input button{padding:8px 12px;border-radius:8px;background:#2563eb;color:#fff;border:none;cursor:pointer}

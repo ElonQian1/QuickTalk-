@@ -16,6 +16,8 @@ interface AuthState {
   isAuthenticated: boolean;
   user: User | null;
   token: string | null;
+  hydrated: boolean; // 标识持久化恢复是否完成
+  setHasHydrated: (value: boolean) => void;
   login: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
   register: (username: string, password: string, email?: string, phone?: string) => Promise<boolean>;
@@ -27,6 +29,8 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       user: null,
       token: null,
+      hydrated: false,
+  setHasHydrated: (value: boolean) => set({ hydrated: value }),
 
       login: async (username: string, password: string) => {
         try {
@@ -143,11 +147,14 @@ export const useAuthStore = create<AuthState>()(
         user: state.user,
         token: state.token,
       }),
-      onRehydrateStorage: () => (state) => {
-        // 恢复时设置 Authorization header
+      onRehydrateStorage: () => (state: any) => {
+        // 恢复完成：同步 Authorization 头
         if (state?.token) {
           setAuthToken(state.token || undefined);
+        } else {
+          setAuthToken(undefined);
         }
+        state?.setHasHydrated?.(true);
       },
     }
   )

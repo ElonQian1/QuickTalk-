@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { useNavigate } from 'react-router-dom';
+import { normalizeShopsList } from '../../utils/normalize';
 import { FiMessageCircle, FiUsers, FiClock } from 'react-icons/fi';
 import { api } from '../../config/api';
 import { Card, Badge, LoadingSpinner } from '../../styles/globalStyles';
@@ -212,7 +213,7 @@ const MessagesPage: React.FC = () => {
     try {
       // 获取所有店铺
       const shopsResponse = await api.get('/api/shops');
-      const shops = shopsResponse.data;
+      const shops = normalizeShopsList(shopsResponse.data).map(s => ({ id: s.id, shop_name: s.shop_name, unread_count: s.unread_count })) as Shop[];
 
       // 为每个店铺获取对话数据
       const conversationData = await Promise.all(

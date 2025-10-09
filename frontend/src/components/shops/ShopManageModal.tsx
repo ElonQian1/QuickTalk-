@@ -4,8 +4,10 @@ import { theme } from '../../styles/globalStyles';
 import type { ShopBasicInfo } from './ShopManageButton';
 import { FiX, FiUsers, FiKey, FiInfo, FiCopy, FiPlus } from 'react-icons/fi';
 import { StaffList, AddStaffModal, StaffMember } from './staff';
+import { listShopStaff, removeShopStaff } from '../../services/staff';
 import toast from 'react-hot-toast';
-import { api } from '../../config/api';
+import { API_BASE } from '../../config/api';
+import { useAuthStore } from '../../stores/authStore';
 
 interface ShopManageModalProps {
   open: boolean;
@@ -148,6 +150,7 @@ const ShopManageModal: React.FC<ShopManageModalProps> = ({ open, onClose, shop, 
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [loadingStaff, setLoadingStaff] = useState(false);
+  const { user } = useAuthStore();
 
   useEffect(() => {
     if (open) setActiveTab(initialTab);
@@ -164,10 +167,8 @@ const ShopManageModal: React.FC<ShopManageModalProps> = ({ open, onClose, shop, 
     if (!shop) return;
     setLoadingStaff(true);
     try {
-      // 真实实现需后端提供接口，如 /api/shops/:id/staff
-      // 这里先尝试请求，若 404 则提示可后续实现
-      const res = await api.get(`/api/shops/${shop.id}/staff`);
-      setStaff(res.data || []);
+  const res = await listShopStaff(shop.id);
+  setStaff(res.map(s => ({ id: s.id, username: s.username, role: s.role })));
     } catch (err: any) {
       console.warn('获取员工列表失败(可能尚未实现后端接口):', err?.response?.status);
       if (err?.response?.status === 404) {
@@ -180,11 +181,49 @@ const ShopManageModal: React.FC<ShopManageModalProps> = ({ open, onClose, shop, 
     }
   };
 
+  const handleRemove = async (member: StaffMember) => {
+    if (!shop) return;
+    if (!window.confirm(`确认将 ${member.username} 从该店铺移除吗？`)) return;
+    try {
+      await removeShopStaff(shop.id, member.id);
+      toast.success('已移除');
+      fetchStaff();
+    } catch (err: any) {
+      const code = err?.response?.data?.error || err?.response?.status;
+      if (code === 'cannot_remove_owner') {
+        toast.error('不能移除店主');
+      } else if (err?.response?.status === 401) {
+        toast.error('无权限执行此操作');
+      } else if (err?.response?.status === 404) {
+        toast.error('员工不存在');
+      } else {
+        toast.error('移除失败');
+      }
+    }
+  };
+
   if (!shop) return null;
 
   const copyKey = () => {
     if (!shop.api_key) return;
     navigator.clipboard.writeText(shop.api_key).then(() => toast.success('API Key 已复制'));
+  };
+
+  const copyEmbedCode = async () => {
+    if (!shop?.api_key) {
+      toast.error('该店铺暂无 API Key');
+      return;
+    }
+    const serverUrl = API_BASE.replace(/\/$/, '');
+  const embed = `\
+<script>(function(){\n  var CONFIG = {\n    serverUrl: '${serverUrl}',\n    shopId: '${shop.api_key}',\n    authorizedDomain: '',\n    cache: Date.now()\n  };\n  var host = window.location.hostname;\n  if (CONFIG.authorizedDomain && host !== CONFIG.authorizedDomain && !host.endsWith('.' + CONFIG.authorizedDomain) && host !== 'localhost') {\n    console.error('❌ 域名未授权:', host, '期望:', CONFIG.authorizedDomain);\n    return;\n  }\n  var BASE = (CONFIG.serverUrl && CONFIG.serverUrl.endsWith('/')) ? CONFIG.serverUrl.slice(0, -1) : CONFIG.serverUrl;\n  var link = document.createElement('link');\n  link.rel = 'stylesheet';\n  link.href = BASE + '/static/embed/styles.css?v=' + CONFIG.cache;\n  link.onerror = function(){ console.error('❌ 客服样式加载失败'); };\n  document.head.appendChild(link);\n  var s = document.createElement('script');\n  s.src = BASE + '/static/embed/service.js?v=' + CONFIG.cache;\n  s.onload = function(){\n    if (window.QuickTalkCustomerService) {\n      window.QuickTalkCustomerService.init({ shopId: CONFIG.shopId, serverUrl: CONFIG.serverUrl });\n      console.log('✅ 客服浮窗已初始化');\n    } else {\n      console.error('❌ 客服兼容层未就绪');\n    }\n  };\n  s.onerror = function(){ console.error('❌ 客服脚本加载失败'); };\n  document.head.appendChild(s);\n})();</script>`;
+    try {
+      await navigator.clipboard.writeText(embed);
+      toast.success('嵌入代码已复制');
+    } catch (e) {
+      console.error(e);
+      toast.error('复制失败');
+    }
   };
 
   return (
@@ -218,12 +257,14 @@ const ShopManageModal: React.FC<ShopManageModalProps> = ({ open, onClose, shop, 
           )}
           {activeTab === 'staff' && (
             <Section>
-              <div style={{ display:'flex', justifyContent:'flex-end' }}>
-                <InlineButton onClick={() => setShowAdd(true)}><FiPlus /> 添加员工</InlineButton>
-              </div>
+              {staff.some(s => s.role === 'owner' && s.id === (user?.id ?? -1)) && (
+                <div style={{ display:'flex', justifyContent:'flex-end' }}>
+                  <InlineButton onClick={() => setShowAdd(true)}><FiPlus /> 添加员工</InlineButton>
+                </div>
+              )}
               {loadingStaff ? <Empty>加载中...</Empty> : (
                 staff.length ? (
-                  <StaffList data={staff} />
+                  <StaffList data={staff} onRemove={handleRemove} canRemove={staff.some(s => s.role === 'owner' && s.id === (user?.id ?? -1))} />
                 ) : <Empty>暂无员工</Empty>
               )}
             </Section>
@@ -237,6 +278,9 @@ const ShopManageModal: React.FC<ShopManageModalProps> = ({ open, onClose, shop, 
                   {shop.api_key && <InlineButton onClick={copyKey}><FiCopy /> 复制</InlineButton>}
                 </ApiKeyBox>
                 <Muted>请妥善保管，后续可添加重置功能。</Muted>
+                <div style={{ marginTop: 8 }}>
+                  <InlineButton onClick={copyEmbedCode}><FiCopy /> 复制嵌入代码</InlineButton>
+                </div>
               </FieldRow>
             </Section>
           )}
