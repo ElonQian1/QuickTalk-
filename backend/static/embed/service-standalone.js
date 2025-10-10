@@ -303,29 +303,291 @@
     }
   }
 
+  // 动态视口检测和自适应管理器
+  function ViewportManager() {
+    var currentBreakpoint = '';
+    var listeners = [];
+    
+    // 定义断点
+    var breakpoints = {
+      'ultra-small': 360,
+      'small': 480,
+      'medium': 768,
+      'large': 1024,
+      'extra-large': 1200
+    };
+    
+    function detectBreakpoint() {
+      var width = window.innerWidth;
+      var height = window.innerHeight;
+      var isLandscape = width > height;
+      
+      var breakpoint = 'extra-large';
+      if (width <= breakpoints['ultra-small']) {
+        breakpoint = 'ultra-small';
+      } else if (width <= breakpoints['small']) {
+        breakpoint = 'small';
+      } else if (width <= breakpoints['medium']) {
+        breakpoint = 'medium';
+      } else if (width <= breakpoints['large']) {
+        breakpoint = 'large';
+      }
+      
+      return {
+        breakpoint: breakpoint,
+        width: width,
+        height: height,
+        isLandscape: isLandscape,
+        isMobile: width <= breakpoints['medium'],
+        isTouch: 'ontouchstart' in window || navigator.maxTouchPoints > 0
+      };
+    }
+    
+    function notifyChange(viewport) {
+      listeners.forEach(function(listener) {
+        try {
+          listener(viewport);
+        } catch(e) {
+          console.error('视口变化监听器错误:', e);
+        }
+      });
+    }
+    
+    function updateViewport() {
+      var viewport = detectBreakpoint();
+      var breakpointChanged = viewport.breakpoint !== currentBreakpoint;
+      
+      if (breakpointChanged) {
+        currentBreakpoint = viewport.breakpoint;
+        console.log('📱 动态视口适配:', viewport.breakpoint, viewport.width + 'x' + viewport.height, 
+          viewport.isMobile ? '(移动端)' : '(桌面端)', 
+          viewport.isTouch ? '(触摸)' : '(鼠标)',
+          viewport.isLandscape ? '(横屏)' : '(竖屏)');
+        notifyChange(viewport);
+      }
+      
+      return viewport;
+    }
+    
+    // 初始检测
+    updateViewport();
+    
+    // 监听窗口大小变化
+    var resizeTimeout;
+    window.addEventListener('resize', function() {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(updateViewport, 150);
+    });
+    
+    // 监听方向变化
+    window.addEventListener('orientationchange', function() {
+      setTimeout(updateViewport, 500);
+    });
+    
+    return {
+      getCurrentViewport: function() {
+        return detectBreakpoint();
+      },
+      onViewportChange: function(callback) {
+        listeners.push(callback);
+      },
+      removeViewportListener: function(callback) {
+        var index = listeners.indexOf(callback);
+        if (index > -1) {
+          listeners.splice(index, 1);
+        }
+      }
+    };
+  }
+
   function createUI() {
     if (document.getElementById('qt-fab')) {
       return {
         btn: document.getElementById('qt-fab'),
-        panel: document.getElementById('qt-panel')
+        panel: document.getElementById('qt-panel'),
+        closeBtn: document.querySelector('.qt-close-btn')
       };
+    }
+
+    // 初始化视口管理器
+    var viewportManager = ViewportManager();
+    
+    // 添加调试信息
+    console.log('🔧 动态视口适配系统已启动');
+    var initialViewport = viewportManager.getCurrentViewport();
+    console.log('📊 初始视口状态:', initialViewport.breakpoint, initialViewport.width + 'x' + initialViewport.height);
+    
+    // 检查并加载 CSS 样式
+    var cssId = 'qt-customer-service-styles';
+    if (!document.getElementById(cssId)) {
+      var cssLink = document.createElement('link');
+      cssLink.id = cssId;
+      cssLink.rel = 'stylesheet';
+      cssLink.type = 'text/css';
+      
+      // 智能检测CSS路径
+      var currentUrl = window.location;
+      var cssUrl = currentUrl.protocol + '//' + currentUrl.host + '/static/embed/styles.css';
+      
+      cssLink.href = cssUrl;
+      document.head.appendChild(cssLink);
     }
 
     var btn = document.createElement('div');
     btn.id = 'qt-fab';
     btn.className = 'qt-fab';
     btn.textContent = '客服';
-    btn.style.cssText = 'position:fixed;right:18px;bottom:18px;background:#07C160;color:#fff;border-radius:999px;padding:12px 16px;box-shadow:0 10px 25px -12px rgba(7,193,96,.6);cursor:pointer;user-select:none;font:600 14px/1.2 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;z-index:2147483647';
 
     var panel = document.createElement('div');
     panel.id = 'qt-panel';
     panel.className = 'qt-panel';
-    panel.style.cssText = 'position:fixed;right:18px;bottom:68px;width:320px;height:440px;background:#fff;border-radius:12px;box-shadow:0 16px 48px -12px rgba(15,23,42,.35);display:none;flex-direction:column;overflow:hidden;z-index:2147483647';
-    panel.innerHTML = '<div class="qt-header" style="padding:12px 14px;border-bottom:1px solid #eee;font-weight:700;background:#f9fafb">在线客服</div><div class="qt-body" style="flex:1;padding:10px 12px;overflow:auto;background:#fafafa"></div><div class="qt-input" style="display:flex;gap:8px;padding:10px;border-top:1px solid #eee;background:#fff"><button class="qt-image-btn" title="发送图片" style="padding:8px;border-radius:8px;background:#fff;border:1px solid #ddd;cursor:pointer;font-size:16px">📷</button><button class="qt-file-btn" title="发送文件" style="padding:8px;border-radius:8px;background:#fff;border:1px solid #ddd;cursor:pointer;font-size:16px">📎</button><button class="qt-voice-btn" title="发送语音" style="padding:8px;border-radius:8px;background:#fff;border:1px solid #ddd;cursor:pointer;font-size:16px">🎤</button><input type="text" placeholder="输入消息..." style="flex:1;padding:8px 10px;border:1px solid #ddd;border-radius:8px"/><button class="qt-send-btn" style="padding:8px 12px;border-radius:8px;background:#2563eb;color:#fff;border:none;cursor:pointer">发送</button><input type="file" class="qt-image-input" accept="image/*" style="display:none"/><input type="file" class="qt-file-input" style="display:none"/></div>';
+    panel.innerHTML = '<div class="qt-header">💬 在线客服</div><div class="qt-body"></div><div class="qt-input"><button class="qt-image-btn" title="发送图片">📷</button><button class="qt-file-btn" title="发送文件">📎</button><button class="qt-voice-btn" title="发送语音">🎤</button><input type="text" placeholder="输入消息..." autocomplete="off"/><button class="qt-send-btn">发送</button><input type="file" class="qt-image-input" accept="image/*" style="display:none"/><input type="file" class="qt-file-input" style="display:none"/></div>';
 
     document.body.appendChild(btn);
     document.body.appendChild(panel);
-    return { btn: btn, panel: panel };
+    
+    // 添加关闭按钮（移动端友好）
+    var closeBtn = document.createElement('button');
+    closeBtn.className = 'qt-close-btn';
+    closeBtn.innerHTML = '×';
+    panel.querySelector('.qt-header').appendChild(closeBtn);
+    
+    // 动态适配函数
+    function adaptToViewport(viewport) {
+      // 动态添加视口类名
+      var body = document.body;
+      body.className = body.className.replace(/qt-viewport-\w+/g, '');
+      body.classList.add('qt-viewport-' + viewport.breakpoint);
+      
+      if (viewport.isMobile) {
+        body.classList.add('qt-mobile');
+      } else {
+        body.classList.remove('qt-mobile');
+      }
+      
+      if (viewport.isTouch) {
+        body.classList.add('qt-touch');
+      } else {
+        body.classList.remove('qt-touch');
+      }
+      
+      if (viewport.isLandscape && viewport.isMobile) {
+        body.classList.add('qt-mobile-landscape');
+      } else {
+        body.classList.remove('qt-mobile-landscape');
+      }
+      
+      // 动态调整组件样式
+      adaptComponentStyles(btn, panel, viewport);
+    }
+    
+    function adaptComponentStyles(fabBtn, chatPanel, viewport) {
+      var style = document.getElementById('qt-dynamic-styles');
+      if (!style) {
+        style = document.createElement('style');
+        style.id = 'qt-dynamic-styles';
+        document.head.appendChild(style);
+      }
+      
+      var css = '';
+      var lastCss = style.getAttribute('data-last-css') || '';
+      
+      if (viewport.breakpoint === 'ultra-small') {
+        css = `
+          .qt-fab { 
+            padding: 26px 30px !important; 
+            font-size: 22px !important; 
+            min-width: 85px !important; 
+            min-height: 85px !important; 
+          }
+          .qt-panel { 
+            height: 85vh !important; 
+            border-radius: 28px !important; 
+            right: 4px !important; 
+            left: 4px !important; 
+            bottom: 4px !important; 
+          }
+          .qt-input input[type="text"] { 
+            font-size: 20px !important; 
+            min-height: 60px !important; 
+          }
+          .qt-input button { 
+            min-width: 60px !important; 
+            height: 60px !important; 
+          }
+        `;
+      } else if (viewport.breakpoint === 'small') {
+        css = `
+          .qt-fab { 
+            padding: 24px 28px !important; 
+            font-size: 20px !important; 
+            min-width: 80px !important; 
+            min-height: 80px !important; 
+          }
+          .qt-panel { 
+            height: 80vh !important; 
+            border-radius: 24px !important; 
+            right: 6px !important; 
+            left: 6px !important; 
+            bottom: 6px !important; 
+          }
+          .qt-input input[type="text"] { 
+            font-size: 19px !important; 
+            min-height: 56px !important; 
+          }
+        `;
+      } else if (viewport.breakpoint === 'medium' && viewport.isMobile) {
+        css = `
+          .qt-fab { 
+            padding: 20px 24px !important; 
+            font-size: 18px !important; 
+            min-width: 72px !important; 
+            min-height: 72px !important; 
+          }
+          .qt-panel { 
+            height: 75vh !important; 
+            border-radius: 20px !important; 
+            right: 8px !important; 
+            left: 8px !important; 
+            bottom: 8px !important; 
+          }
+          .qt-input input[type="text"] { 
+            font-size: 18px !important; 
+            min-height: 52px !important; 
+          }
+        `;
+      }
+      
+      // 横屏模式特殊处理
+      if (viewport.isLandscape && viewport.isMobile) {
+        css += `
+          .qt-panel { 
+            height: 85vh !important; 
+            max-height: 450px !important; 
+          }
+        `;
+      }
+      
+      // 性能优化：只在CSS内容改变时才更新
+      if (css !== lastCss) {
+        style.textContent = css;
+        style.setAttribute('data-last-css', css);
+        console.log('🎨 动态样式已更新:', viewport.breakpoint);
+      }
+    }
+    
+    // 监听视口变化
+    viewportManager.onViewportChange(adaptToViewport);
+    
+    // 初始适配
+    adaptToViewport(viewportManager.getCurrentViewport());
+    
+    return { 
+      btn: btn, 
+      panel: panel, 
+      closeBtn: closeBtn,
+      viewportManager: viewportManager
+    };
   }
 
   function wireUI(client, ui) {
@@ -338,7 +600,9 @@
     var imageInput = ui.panel.querySelector('.qt-image-input');
     var fileInput = ui.panel.querySelector('.qt-file-input');
     var body = ui.panel.querySelector('.qt-body');
+    var closeBtn = ui.closeBtn;
     var uploading = false;
+    var viewportManager = ui.viewportManager;
     
     // 语音录制相关变量
     var recording = false;
@@ -346,9 +610,46 @@
     var audioChunks = [];
     var stream = null;
 
+    // 发送消息函数
+    function sendMessage() {
+      var txt = input.value.trim();
+      if (!txt || uploading) return;
+      
+      // 移动端：发送后立即失焦避免键盘遮挡
+      var viewport = viewportManager.getCurrentViewport();
+      if (viewport.isMobile) {
+        input.blur();
+      }
+      
+      client.sendMessage(txt, 'text');
+      addMsg(txt, true);
+      input.value = '';
+    }
+
     function toggle() {
       open = !open;
       ui.panel.style.display = open ? 'flex' : 'none';
+      if (open) {
+        // 获取当前视口信息进行优化
+        var viewport = viewportManager.getCurrentViewport();
+        
+        setTimeout(function() {
+          if (viewport.isMobile) {
+            // 移动端：滚动到输入框位置并智能聚焦
+            input.scrollIntoView({ behavior: 'smooth', block: 'end' });
+            setTimeout(function() {
+              input.focus();
+            }, 100);
+          } else {
+            input.focus();
+          }
+        }, 300);
+      }
+    }
+    
+    function close() {
+      open = false;
+      ui.panel.style.display = 'none';
     }
 
     function setUploading(state) {
@@ -462,12 +763,11 @@
 
     function addMsg(text, own, type) {
       var item = document.createElement('div');
-      item.style.cssText = 'background:' + (own ? '#2563eb' : '#fff') + ';color:' + (own ? '#fff' : '#333') + ';margin:6px 0;padding:8px 10px;border-radius:10px;max-width:78%;' + (own ? 'margin-left:auto;' : '');
+      item.className = 'qt-msg' + (own ? ' own' : '');
       
       if (type === 'image') {
         var img = document.createElement('img');
         img.src = text;
-        img.style.cssText = 'max-width:200px;max-height:200px;border-radius:8px;cursor:pointer';
         img.onclick = function() { window.open(text, '_blank'); };
         item.appendChild(img);
       } else if (type === 'file') {
@@ -475,7 +775,6 @@
         link.href = text;
         link.target = '_blank';
         link.textContent = '📎 ' + (text.split('/').pop() || '下载文件');
-        link.style.cssText = 'color:inherit;text-decoration:underline';
         item.appendChild(link);
       } else if (type === 'voice') {
         var audioContainer = document.createElement('div');
@@ -483,11 +782,13 @@
         
         var playButton = document.createElement('button');
         playButton.textContent = '▶️';
-        playButton.style.cssText = 'background:none;border:none;cursor:pointer;font-size:16px;';
+        playButton.style.cssText = 'background:none;border:none;cursor:pointer;font-size:18px;padding:4px;border-radius:50%;transition:background 0.2s ease;';
+        playButton.onmouseover = function() { this.style.background = 'rgba(0,0,0,0.1)'; };
+        playButton.onmouseout = function() { this.style.background = 'none'; };
         
         var duration = document.createElement('span');
         duration.textContent = '00:00';
-        duration.style.cssText = 'font-size:12px;';
+        duration.style.cssText = 'font-size:12px;color:inherit;opacity:0.8;';
         
         var audio = document.createElement('audio');
         audio.src = text;
@@ -528,27 +829,99 @@
       
       body.appendChild(item);
       body.scrollTop = body.scrollHeight;
+      
+      // 添加进入动画
+      item.style.opacity = '0';
+      item.style.transform = 'translateY(10px)';
+      setTimeout(function() {
+        item.style.transition = 'all 0.3s ease';
+        item.style.opacity = '1';
+        item.style.transform = 'translateY(0)';
+      }, 10);
+    }
+
+    // 动态触摸反馈函数 - 根据当前视口状态调整
+    function addTouchFeedback(element) {
+      function updateTouchBehavior() {
+        var viewport = viewportManager.getCurrentViewport();
+        
+        // 移除旧的事件监听器（避免重复绑定）
+        element.removeEventListener('touchstart', element._touchStartHandler);
+        element.removeEventListener('touchend', element._touchEndHandler);
+        element.removeEventListener('touchcancel', element._touchCancelHandler);
+        
+        if (viewport.isTouch) {
+          // 根据屏幕大小调整触摸反馈强度
+          var scaleIntensity = viewport.breakpoint === 'ultra-small' ? 0.92 : 
+                              viewport.breakpoint === 'small' ? 0.94 : 0.95;
+          
+          element._touchStartHandler = function() {
+            this.style.transform = 'scale(' + scaleIntensity + ')';
+            this.style.transition = 'transform 0.1s ease';
+          };
+          
+          element._touchEndHandler = function() {
+            var self = this;
+            setTimeout(function() {
+              self.style.transform = 'scale(1)';
+            }, 100);
+          };
+          
+          element._touchCancelHandler = function() {
+            this.style.transform = 'scale(1)';
+          };
+          
+          element.addEventListener('touchstart', element._touchStartHandler);
+          element.addEventListener('touchend', element._touchEndHandler);
+          element.addEventListener('touchcancel', element._touchCancelHandler);
+        }
+      }
+      
+      // 初始设置
+      updateTouchBehavior();
+      
+      // 监听视口变化以更新触摸行为
+      viewportManager.onViewportChange(updateTouchBehavior);
+    }
+    
+    // 动态调整发送行为
+    function sendMessage() {
+      var txt = input.value.trim();
+      if (!txt || uploading) return;
+      
+      var viewport = viewportManager.getCurrentViewport();
+      
+      // 移动端：发送后立即失焦避免键盘遮挡
+      if (viewport.isMobile) {
+        input.blur();
+      }
+      
+      client.sendMessage(txt, 'text');
+      addMsg(txt, true);
+      input.value = '';
     }
 
     ui.btn.addEventListener('click', toggle);
     
-    send.addEventListener('click', function() {
-      var txt = input.value.trim();
-      if (!txt || uploading) return;
-      client.sendMessage(txt, 'text');
-      addMsg(txt, true);
-      input.value = '';
-    });
+    // 添加客服按钮触摸反馈
+    addTouchFeedback(ui.btn);
+    
+    // 添加关闭按钮事件
+    if (closeBtn) {
+      closeBtn.addEventListener('click', close);
+      addTouchFeedback(closeBtn);
+    }
+    
+    send.addEventListener('click', sendMessage);
+
+    // 添加发送按钮触摸反馈
+    addTouchFeedback(send);
 
     // 添加回车键发送消息功能
     input.addEventListener('keypress', function(e) {
       if (e.key === 'Enter' || e.keyCode === 13) {
         e.preventDefault();
-        var txt = input.value.trim();
-        if (!txt || uploading) return;
-        client.sendMessage(txt, 'text');
-        addMsg(txt, true);
-        input.value = '';
+        sendMessage();
       }
     });
 
@@ -556,11 +929,13 @@
       if (uploading) return;
       imageInput.click();
     });
+    addTouchFeedback(imageBtn);
 
     fileBtn.addEventListener('click', function() {
       if (uploading) return;
       fileInput.click();
     });
+    addTouchFeedback(fileBtn);
     
     voiceBtn.addEventListener('click', function() {
       if (uploading) return;
@@ -570,6 +945,7 @@
         startRecording();
       }
     });
+    addTouchFeedback(voiceBtn);
 
     imageInput.addEventListener('change', function(e) {
       var file = e.target.files[0];
@@ -646,14 +1022,20 @@
         wireUI(client, ui);
         client.connect();
         
-        // 暴露客户端实例供测试使用
-        window.quickTalkClient = client;
+        // 移动端优化提示
+        var isMobile = window.innerWidth <= 768 || /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        if (isMobile) {
+          console.log('📱 移动端客服已优化: 动态视口适配、触摸反馈、全屏对话');
+        } else {
+          console.log('🖥️ 桌面端客服已优化: 响应式设计、智能适配');
+        }
         
         // 启动版本检查
         checkForUpdates(serverUrl);
         setInterval(function() { checkForUpdates(serverUrl); }, UPDATE_CHECK_INTERVAL);
         
-        console.log('QuickTalk 客服系统已初始化 v' + CLIENT_VERSION + ' (自动更新架构)');
+        console.log('✅ QuickTalk 客服系统已初始化 v' + CLIENT_VERSION + ' (动态视口适配版)');
+        console.log('🔧 功能特性: 智能断点检测、实时适配、触摸优化、性能优化');
       });
     }
   };

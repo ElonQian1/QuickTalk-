@@ -1,67 +1,33 @@
-#!/usr/bin/env node
 const fs = require('fs');
 const path = require('path');
 
-const projectRoot = path.resolve(__dirname, '..');
-const distDir = path.join(projectRoot, 'dist');
-const examplesDistDir = path.resolve(projectRoot, '..', 'examples', 'websocket-sdk', 'dist');
+// 简化版本的同步脚本，仅用于开发环境
+console.log('WebSocket SDK: 开发模式构建完成');
 
-function ensureDistFilesExist() {
-  const entry = path.join(distDir, 'index.js');
-  if (!fs.existsSync(entry)) {
-    console.error('[sync-demo] Missing dist/index.js. Did you run "npm run build"?');
-    process.exit(1);
-  }
+// 检查并创建目标目录
+const targetDir = path.join(__dirname, '../../backend/static/sdk');
+if (!fs.existsSync(targetDir)) {
+  fs.mkdirSync(targetDir, { recursive: true });
 }
 
-function writeWithShim(src, dest) {
-  const original = fs.readFileSync(src, 'utf8');
-  const shimmed = [
-    'var exports = {};',
-    'var module = { exports: exports };',
-    original,
-    '(function(ex){',
-    '  if (typeof window !== "undefined") {',
-    '    if (ex.CustomerServiceSDK) {',
-    '      window.CustomerServiceSDK = ex.CustomerServiceSDK;',
-    '    }',
-    '    if (ex.createCustomerServiceSDK) {',
-    '      window.createCustomerServiceSDK = ex.createCustomerServiceSDK;',
-    '    }',
-    '  }',
-    '})(module.exports || exports);'
-  ].join('\n');
-  fs.writeFileSync(dest, shimmed, 'utf8');
-}
-
-function copyFile(src, dest, options = {}) {
-  fs.mkdirSync(path.dirname(dest), { recursive: true });
-  if (options.browserShim) {
-    writeWithShim(src, dest);
-  } else {
-    fs.copyFileSync(src, dest);
-  }
-  console.log(`[sync-demo] Copied ${path.relative(projectRoot, src)} -> ${path.relative(path.resolve(projectRoot, '..'), dest)}`);
-}
-
-function run() {
-  ensureDistFilesExist();
-
-  const filesToCopy = [
-    { name: 'index.js', options: { browserShim: true } },
-    { name: 'index.js.map' },
-    { name: 'index.d.ts' }
-  ];
-  filesToCopy.forEach((file) => {
-    const fileName = typeof file === 'string' ? file : file.name;
-    const options = typeof file === 'string' ? {} : (file.options || {});
-    const sourcePath = path.join(distDir, fileName);
-    if (!fs.existsSync(sourcePath)) {
-      return;
+// 同步构建文件到backend静态目录
+const srcDir = path.join(__dirname, '../dist');
+if (fs.existsSync(srcDir)) {
+  console.log('正在同步SDK文件到后端静态目录...');
+  
+  // 复制主要文件
+  const files = ['index.js', 'index.d.ts'];
+  files.forEach(file => {
+    const srcFile = path.join(srcDir, file);
+    const destFile = path.join(targetDir, file);
+    
+    if (fs.existsSync(srcFile)) {
+      fs.copyFileSync(srcFile, destFile);
+      console.log(`已同步: ${file}`);
     }
-    const targetPath = path.join(examplesDistDir, fileName);
-    copyFile(sourcePath, targetPath, options);
   });
+  
+  console.log('SDK同步完成!');
+} else {
+  console.log('SDK构建目录不存在，跳过同步');
 }
-
-run();

@@ -1,13 +1,16 @@
 export interface ChatMessage {
     id?: number;
     content: string;
-    messageType: 'text' | 'image' | 'file' | 'system';
+    messageType: 'text' | 'image' | 'file' | 'voice' | 'system';
     senderId?: number;
     senderType: 'customer' | 'staff';
     timestamp: Date;
     sessionId?: number;
     fileUrl?: string;
+    fileName?: string;
 }
+export { VoicePlayer } from './voice-player';
+export { VoiceMessageRenderer } from './voice-message';
 export interface WebSocketMessage {
     messageType: string;
     content?: string;
@@ -18,7 +21,7 @@ export interface WebSocketMessage {
     metadata?: any;
 }
 export interface SDKConfig {
-    serverUrl: string;
+    serverUrl?: string;
     apiKey: string;
     customerId: string;
     customerName?: string;
@@ -26,6 +29,30 @@ export interface SDKConfig {
     customerAvatar?: string;
     reconnectInterval?: number;
     maxReconnectAttempts?: number;
+    autoDetectServer?: boolean;
+}
+export interface ServerConfig {
+    version: string;
+    serverUrl: string;
+    wsUrl: string;
+    config: {
+        protocol: string;
+        wsProtocol: string;
+        configuredHost: string;
+        configuredPort: string;
+        detectedHost?: string;
+        forwardedHost?: string;
+        clientIp: string;
+    };
+    endpoints: {
+        api: string;
+        websocket: {
+            customer: string;
+            staff: string;
+        };
+        upload: string;
+    };
+    timestamp: number;
 }
 export type EventType = 'connected' | 'disconnected' | 'message' | 'typing' | 'error' | 'reconnecting' | 'staffOnline' | 'staffOffline';
 export type EventListener = (data?: any) => void;
@@ -45,7 +72,16 @@ export declare class CustomerServiceSDK {
     private reconnectTimer;
     private isConnecting;
     private sessionId;
+    private serverConfig;
     constructor(config: SDKConfig);
+    /**
+     * 自动检测可用的服务器地址
+     */
+    private detectServerUrl;
+    /**
+     * 获取服务器URL
+     */
+    private getServerUrl;
     /**
      * 连接到服务器
      */
@@ -57,11 +93,15 @@ export declare class CustomerServiceSDK {
     /**
      * 发送消息
      */
-    sendMessage(content: string, messageType?: 'text' | 'image' | 'file', fileUrl?: string): void;
+    sendMessage(content: string, messageType?: 'text' | 'image' | 'file' | 'voice', fileUrl?: string): void;
     /**
      * 上传文件并发送消息
      */
-    uploadFile(file: File, messageType?: 'image' | 'file'): Promise<void>;
+    uploadFile(file: File, messageType?: 'image' | 'file' | 'voice'): Promise<void>;
+    /**
+     * 上传语音文件
+     */
+    uploadVoice(audioBlob: Blob, fileName?: string): Promise<void>;
     /**
      * 上传图片
      */
