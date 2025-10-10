@@ -730,19 +730,42 @@ class StyleSystem {
      */
     calculateStyleConfig(viewport) {
         const { width, height, breakpoint, isMobile, devicePixelRatio } = viewport;
-        // 基础字体大小计算 - 简单常规的响应式算法
+        // 基础字体大小计算 - 高分辨率友好的响应式算法
         let baseFontSize;
-        if (width < 768) {
-            // 移动端：基于宽度的简单计算
-            baseFontSize = Math.max(16, Math.min(20, 14 + width / 200));
+        // 计算设备的实际使用场景和分辨率
+        const isRealMobile = width < 600 || isMobile;
+        const isRealTablet = width >= 600 && width <= 1200 && height >= 800;
+        const isRealDesktop = width > 1200 || (width > 1000 && height < 900);
+        // 高分辨率检测
+        const isHighRes = height > 1500 || (devicePixelRatio > 2 && height > 1200);
+        if (isRealMobile) {
+            // 移动端：特别照顾高分辨率设备
+            if (isHighRes) {
+                // 高分辨率移动端：基于高度的激进算法
+                const heightFactor = Math.max(1.2, Math.min(3.0, height / 800));
+                baseFontSize = Math.round(20 * heightFactor * Math.max(1, devicePixelRatio / 2));
+                baseFontSize = Math.max(35, Math.min(60, baseFontSize));
+            }
+            else {
+                // 普通移动端：温和的响应式
+                const heightFactor = Math.max(1.0, Math.min(2.0, height / 800));
+                baseFontSize = Math.round(18 * heightFactor);
+                baseFontSize = Math.max(20, Math.min(35, baseFontSize));
+            }
         }
-        else if (width < 1024) {
-            // 平板：固定中等大小
-            baseFontSize = 18;
+        else if (isRealTablet) {
+            // 平板：基于屏幕面积和分辨率
+            const sizeFactor = Math.max(1.0, Math.min(2.0, Math.sqrt(width * height) / 1000));
+            const dpiFactor = Math.max(1, Math.min(1.5, devicePixelRatio / 1.5));
+            baseFontSize = Math.round(22 * sizeFactor * dpiFactor);
+            baseFontSize = Math.max(26, Math.min(45, baseFontSize));
         }
         else {
-            // 桌面端：基于宽度的保守计算
-            baseFontSize = Math.max(14, Math.min(18, 12 + width / 400));
+            // 桌面端：相对保守但考虑高分辨率显示器
+            const sizeFactor = Math.max(0.9, Math.min(1.8, Math.sqrt(width * height) / 1200));
+            const dpiFactor = Math.max(1, Math.min(1.3, devicePixelRatio / 1.5));
+            baseFontSize = Math.round(18 * sizeFactor * dpiFactor);
+            baseFontSize = Math.max(18, Math.min(32, baseFontSize));
         }
         // 其他尺寸基于基础字体按比例计算
         const scale = baseFontSize / 16; // 以16px为基准的缩放比例
@@ -751,40 +774,51 @@ class StyleSystem {
             baseLineHeight: 1.5,
             // FAB按钮尺寸 - 确保足够大以便点击，但不能过大
             fabSize: Math.max(56, Math.min(120, Math.round(baseFontSize * 3))), // 限制在56-120px之间
-            // 面板尺寸 - 常规响应式算法
+            // 面板尺寸 - 基于字体大小和真实设备类型智能计算
             panelWidth: (() => {
-                if (width < 768) {
-                    // 移动端：占用大部分宽度
-                    return Math.min(width - 32, width * 0.9);
+                if (isRealMobile) {
+                    // 移动端：考虑左右边距，基于字体大小
+                    const margin = Math.round(baseFontSize * 1.5) * 2;
+                    return Math.min(width - margin, width * 0.9);
                 }
-                else if (width < 1024) {
-                    // 平板：固定合适宽度
-                    return 400;
+                else if (isRealTablet || (width >= 1000 && width <= 1200)) {
+                    // 平板或类平板设备：根据字体大小适配，更宽的窗口以容纳大字体
+                    const baseWidth = Math.max(450, baseFontSize * 14);
+                    return Math.min(baseWidth, width * 0.5);
                 }
                 else {
-                    // 桌面端：基于屏幕宽度的比例
-                    return Math.max(350, Math.min(450, width * 0.3));
+                    // 桌面端：根据字体大小适配，但有合理上限
+                    const baseWidth = Math.max(400, baseFontSize * 12);
+                    return Math.min(baseWidth, Math.max(420, width * 0.35));
                 }
             })(),
             panelHeight: (() => {
-                if (width < 768) {
-                    // 移动端：占用大部分高度
-                    return Math.min(height - 100, height * 0.8);
+                if (isRealMobile) {
+                    // 移动端：基于字体大小和屏幕高度
+                    const minHeight = Math.max(400, baseFontSize * 12);
+                    return Math.min(height - 100, Math.max(minHeight, height * 0.8));
                 }
-                else if (width < 1024) {
-                    // 平板：固定合适高度
-                    return 500;
+                else if (isRealTablet || (width >= 1000 && width <= 1200)) {
+                    // 平板或类平板设备：根据组件需求计算最小高度，确保有足够空间
+                    const headerHeight = Math.round(baseFontSize * 1.25) + Math.round(baseFontSize * 1) * 2;
+                    const toolbarHeight = Math.round(baseFontSize * 0.55) * 4;
+                    const inputAreaHeight = Math.max(80, Math.round(baseFontSize * 0.55) * 3) + 40;
+                    const minMessagesHeight = Math.max(300, baseFontSize * 8);
+                    const calculatedHeight = headerHeight + toolbarHeight + inputAreaHeight + minMessagesHeight;
+                    const minTotalHeight = Math.max(calculatedHeight, baseFontSize * 18);
+                    return Math.min(minTotalHeight, height * 0.85);
                 }
                 else {
-                    // 桌面端：基于屏幕高度的比例
-                    return Math.max(400, Math.min(600, height * 0.7));
+                    // 桌面端：根据字体大小适配
+                    const minHeight = Math.max(500, baseFontSize * 16);
+                    return Math.min(minHeight, height * 0.75);
                 }
             })(),
-            // 字体尺寸 - 常规的比例缩放
-            titleSize: Math.round(baseFontSize * 1.3), // 标题稍大
-            messageSize: baseFontSize, // 消息使用基础字体
-            inputSize: baseFontSize, // 输入框使用基础字体
-            buttonSize: Math.round(baseFontSize * 0.9), // 按钮稍小
+            // 字体尺寸 - 都基于基础字体按比例缩放
+            titleSize: Math.round(baseFontSize * 1.25), // 标题更大
+            messageSize: Math.round(baseFontSize * 0.6), // 消息字体更小，适合阅读
+            inputSize: Math.round(baseFontSize * 0.65), // 输入框字体
+            buttonSize: Math.round(baseFontSize * 0.55), // 按钮字体更小
             // 间距系统 - 基于字体大小等比缩放，但要有合理上限
             spacing: {
                 xs: Math.max(4, Math.min(8, Math.round(baseFontSize * 0.25))), // 4-8px
@@ -1006,6 +1040,8 @@ class StyleSystem {
   margin: 0 !important;
   justify-content: flex-start !important;
   align-items: center !important;
+  min-height: ${Math.max(60, Math.round(config.buttonSize * 3.5))}px !important;
+  box-sizing: border-box !important;
 }
 
 /* 工具栏按钮 */
@@ -1024,8 +1060,8 @@ class StyleSystem {
   font-family: inherit !important;
   background: #ffffff !important;
   color: #656d76 !important;
-  min-width: ${config.spacing.xl}px !important;
-  height: ${config.spacing.xl}px !important;
+  min-width: ${Math.max(40, Math.round(config.buttonSize * 2.5))}px !important;
+  height: ${Math.max(40, Math.round(config.buttonSize * 2.5))}px !important;
   flex-shrink: 0 !important;
 }
 
