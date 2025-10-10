@@ -99,33 +99,19 @@ export class StyleSystem {
   calculateStyleConfig(viewport: ViewportInfo): StyleConfig {
     const { width, height, breakpoint, isMobile, devicePixelRatio } = viewport;
 
-    // 基础字体大小计算 - 确保在高分辨率设备上足够大
-    // 对于1920px高度的手机，基础字体应该达到50px左右
+    // 基础字体大小计算 - 简单常规的响应式算法
     let baseFontSize: number;
     
-    if (isMobile) {
-      // 移动端：基于视口宽度和高度综合计算
-      // 对于高分辨率设备（如iPhone Pro Max 1290x2796），需要更大的字体
-      const viewportScore = Math.sqrt(width * height) / 100; // 视口面积分数
-      baseFontSize = Math.max(
-        20, // 最小字体
-        Math.min(
-          60, // 最大字体
-          viewportScore * devicePixelRatio * 1.2 // 考虑设备像素比
-        )
-      );
-      
-      // 针对高分辨率设备进一步调整
-      if (height > 1500) {
-        baseFontSize = Math.max(baseFontSize, 45); // 高分辨率设备最小45px
-      }
+    if (width < 768) {
+      // 移动端：基于宽度的简单计算
+      baseFontSize = Math.max(16, Math.min(20, 14 + width / 200));
+    } else if (width < 1024) {
+      // 平板：固定中等大小
+      baseFontSize = 18;
     } else {
-      // 桌面端：基于宽度计算，相对保守
-      baseFontSize = Math.max(16, Math.min(24, width / 80));
+      // 桌面端：基于宽度的保守计算
+      baseFontSize = Math.max(14, Math.min(18, 12 + width / 400));
     }
-
-    // 确保字体大小是整数，避免模糊
-    baseFontSize = Math.round(baseFontSize);
 
     // 其他尺寸基于基础字体按比例计算
     const scale = baseFontSize / 16; // 以16px为基准的缩放比例
@@ -134,33 +120,51 @@ export class StyleSystem {
       baseFontSize,
       baseLineHeight: 1.5,
       
-      // FAB按钮尺寸 - 确保足够大以便点击
-      fabSize: Math.round(baseFontSize * 3.5), // 约56-210px
+      // FAB按钮尺寸 - 确保足够大以便点击，但不能过大
+      fabSize: Math.max(56, Math.min(120, Math.round(baseFontSize * 3))), // 限制在56-120px之间
       
-      // 面板尺寸
-      panelWidth: isMobile ? 
-        Math.min(width - 32, width * 0.95) : // 移动端占满屏幕减去边距
-        Math.max(360, Math.min(420, width * 0.3)), // 桌面端固定范围
-      panelHeight: isMobile ?
-        Math.min(height - 100, height * 0.8) : // 移动端高度适配
-        Math.max(500, Math.min(700, height * 0.75)), // 桌面端固定范围
+      // 面板尺寸 - 常规响应式算法
+      panelWidth: (() => {
+        if (width < 768) {
+          // 移动端：占用大部分宽度
+          return Math.min(width - 32, width * 0.9);
+        } else if (width < 1024) {
+          // 平板：固定合适宽度
+          return 400;
+        } else {
+          // 桌面端：基于屏幕宽度的比例
+          return Math.max(350, Math.min(450, width * 0.3));
+        }
+      })(),
+      panelHeight: (() => {
+        if (width < 768) {
+          // 移动端：占用大部分高度
+          return Math.min(height - 100, height * 0.8);
+        } else if (width < 1024) {
+          // 平板：固定合适高度
+          return 500;
+        } else {
+          // 桌面端：基于屏幕高度的比例
+          return Math.max(400, Math.min(600, height * 0.7));
+        }
+      })(),
       
-      // 字体尺寸 - 都基于基础字体按比例缩放
-      titleSize: Math.round(baseFontSize * 1.25),   // 标题更大
-      messageSize: Math.round(baseFontSize * 0.9),  // 消息稍小
-      inputSize: Math.round(baseFontSize * 0.95),   // 输入框合适
-      buttonSize: Math.round(baseFontSize * 0.85),  // 按钮稍小
+      // 字体尺寸 - 常规的比例缩放
+      titleSize: Math.round(baseFontSize * 1.3),   // 标题稍大
+      messageSize: baseFontSize,                   // 消息使用基础字体
+      inputSize: baseFontSize,                     // 输入框使用基础字体
+      buttonSize: Math.round(baseFontSize * 0.9),  // 按钮稍小
       
-      // 间距系统 - 基于字体大小等比缩放
+      // 间距系统 - 基于字体大小等比缩放，但要有合理上限
       spacing: {
-        xs: Math.round(baseFontSize * 0.25),   // 4-15px
-        sm: Math.round(baseFontSize * 0.5),    // 8-30px
-        md: Math.round(baseFontSize * 0.75),   // 12-45px
-        lg: Math.round(baseFontSize * 1),      // 16-60px
-        xl: Math.round(baseFontSize * 1.5),    // 24-90px
+        xs: Math.max(4, Math.min(8, Math.round(baseFontSize * 0.25))),     // 4-8px
+        sm: Math.max(8, Math.min(16, Math.round(baseFontSize * 0.5))),     // 8-16px
+        md: Math.max(12, Math.min(24, Math.round(baseFontSize * 0.75))),   // 12-24px
+        lg: Math.max(16, Math.min(32, Math.round(baseFontSize * 1))),      // 16-32px
+        xl: Math.max(24, Math.min(48, Math.round(baseFontSize * 1.5))),    // 24-48px
       },
       
-      borderRadius: Math.round(baseFontSize * 0.5), // 8-30px
+      borderRadius: Math.max(8, Math.min(16, Math.round(baseFontSize * 0.5))), // 8-16px
       zIndex: 999999 // 确保在最上层
     };
 
@@ -171,6 +175,19 @@ export class StyleSystem {
       baseFontSize: `${baseFontSize}px`,
       fabSize: `${config.fabSize}px`,
       panelSize: `${config.panelWidth}x${config.panelHeight}px`,
+      spacingXL: `${config.spacing.xl}px`,
+      inputArea: {
+        buttonSize: `${config.buttonSize}px`,
+        inputSize: `${config.inputSize}px`,
+        buttonMinWidth: `${Math.max(60, Math.min(120, config.buttonSize * 4))}px`,
+        inputMinHeight: `${Math.max(36, config.inputSize * 1.8)}px`,
+        areaMinHeight: `${Math.max(60, config.buttonSize * 2.5)}px`
+      },
+      panelPosition: {
+        right: `${config.spacing.xl}px`,
+        maxWidth: `calc(100vw - ${config.spacing.xl * 2}px)`,
+        wouldExceedLeft: (config.panelWidth + config.spacing.xl) > width
+      },
       isMobile
     });
 
@@ -207,13 +224,19 @@ export class StyleSystem {
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  font-size: ${config.buttonSize}px !important;
+  font-size: ${Math.round(config.fabSize * 0.4)}px !important;
   color: #ffffff !important;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
   transform: scale(1) !important;
   outline: none !important;
   margin: 0 !important;
   padding: 0 !important;
+}
+
+/* FAB按钮中的SVG图标 */
+.${this.namespace} .${p}fab svg {
+  fill: currentColor !important;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
 .${this.namespace} .${p}fab:hover {
@@ -239,11 +262,14 @@ export class StyleSystem {
   display: none !important;
   flex-direction: column !important;
   overflow: hidden !important;
-  font-size: ${config.baseFontSize}px !important;
+  font-size: ${config.messageSize}px !important;
   line-height: ${config.baseLineHeight} !important;
   margin: 0 !important;
   padding: 0 !important;
   border: none !important;
+  /* 确保面板不会超出视口边界 */
+  max-width: calc(100vw - ${config.spacing.xl * 2}px) !important;
+  min-width: 300px !important;
 }
 
 .${this.namespace} .${p}panel.${p}open {
@@ -291,6 +317,12 @@ export class StyleSystem {
   margin: 0 !important;
   padding: 0 !important;
   outline: none !important;
+}
+
+/* 关闭按钮中的SVG图标 */
+.${this.namespace} .${p}close-btn svg {
+  fill: currentColor !important;
+  transition: transform 0.2s ease !important;
 }
 
 .${this.namespace} .${p}close-btn:hover {
@@ -354,7 +386,7 @@ export class StyleSystem {
 /* 工具栏按钮 */
 .${this.namespace} .${p}btn-toolbar {
   padding: ${config.spacing.sm}px ${config.spacing.md}px !important;
-  font-size: ${Math.max(config.buttonSize - 2, 14)}px !important;
+  font-size: ${Math.round(config.buttonSize * 1.4)}px !important;
   border: 1px solid #d0d7de !important;
   border-radius: ${config.borderRadius}px !important;
   cursor: pointer !important;
@@ -383,6 +415,18 @@ export class StyleSystem {
   transform: scale(0.95) !important;
 }
 
+/* 工具栏按钮中的SVG图标样式 */
+.${this.namespace} .${p}btn-toolbar svg {
+  display: block !important;
+  transition: color 0.2s ease !important;
+  fill: currentColor !important;
+  flex-shrink: 0 !important;
+}
+
+.${this.namespace} .${p}btn-toolbar:hover svg {
+  fill: currentColor !important;
+}
+
 /* 输入区域 */
 .${this.namespace} .${p}input-area {
   display: flex !important;
@@ -393,6 +437,9 @@ export class StyleSystem {
   border-radius: 0 0 ${config.borderRadius}px ${config.borderRadius}px !important;
   flex-shrink: 0 !important;
   margin: 0 !important;
+  align-items: center !important;
+  min-height: ${Math.max(60, config.buttonSize * 2.5)}px !important;
+  box-sizing: border-box !important;
 }
 
 .${this.namespace} .${p}input {
@@ -406,6 +453,9 @@ export class StyleSystem {
   outline: none !important;
   margin: 0 !important;
   font-family: inherit !important;
+  min-height: ${Math.max(36, config.inputSize * 1.8)}px !important;
+  box-sizing: border-box !important;
+  max-width: none !important;
 }
 
 .${this.namespace} .${p}input:focus {
@@ -431,7 +481,9 @@ export class StyleSystem {
   margin: 0 !important;
   outline: none !important;
   font-family: inherit !important;
-  min-width: ${config.spacing.xl * 2}px !important;
+  min-width: ${Math.max(60, Math.min(120, config.buttonSize * 4))}px !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
 }
 
 .${this.namespace} .${p}btn-primary {

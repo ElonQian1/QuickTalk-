@@ -79,6 +79,27 @@ export class UIManager {
   private buildUIComponents(): UIComponents {
     const namespace = this.styleSystem.getNamespace();
     const prefix = this.styleSystem.getCSSPrefix();
+    
+    // 获取响应式配置用于图标尺寸计算
+    const viewport = this.styleSystem.detectViewport();
+    const styleConfig = this.styleSystem.calculateStyleConfig(viewport);
+    
+    // 基于响应式配置计算各种图标尺寸
+    const toolbarIconSize = Math.round(styleConfig.buttonSize * 1.2); // 工具栏图标大小
+    const fabIconSize = Math.round(styleConfig.fabSize * 0.45); // FAB图标大小  
+    const closeIconSize = Math.round(styleConfig.buttonSize * 0.9); // 关闭按钮图标大小
+    
+    console.log('🎨 响应式图标尺寸计算:', {
+      viewport: `${viewport.width}x${viewport.height}`,
+      baseFontSize: `${styleConfig.baseFontSize}px`,
+      buttonSize: `${styleConfig.buttonSize}px`,
+      fabSize: `${styleConfig.fabSize}px`,
+      iconSizes: {
+        toolbar: `${toolbarIconSize}px`,
+        fab: `${fabIconSize}px`, 
+        close: `${closeIconSize}px`
+      }
+    });
 
     // 创建根容器
     const container = document.createElement('div');
@@ -88,6 +109,7 @@ export class UIManager {
     // 创建FAB按钮
     const fab = document.createElement('button');
     fab.className = `${prefix}fab`;
+    // 使用更好看的emoji图标
     fab.innerHTML = '💬';
     fab.title = '打开客服';
     fab.style.pointerEvents = 'auto';
@@ -107,7 +129,8 @@ export class UIManager {
 
     const closeBtn = document.createElement('button');
     closeBtn.className = `${prefix}close-btn`;
-    closeBtn.innerHTML = '✕';
+    // 使用清晰的关闭符号
+    closeBtn.innerHTML = '✖️';
     closeBtn.title = '关闭';
 
     header.appendChild(headerTitle);
@@ -121,25 +144,29 @@ export class UIManager {
     const toolbarArea = document.createElement('div');
     toolbarArea.className = `${prefix}toolbar`;
 
-    // 创建工具按钮
+    // 创建图片按钮
     const imageBtn = document.createElement('button');
     imageBtn.className = `${prefix}btn ${prefix}btn-toolbar`;
-    imageBtn.innerHTML = '📷';
+    // 使用更好看的图片emoji
+    imageBtn.innerHTML = '🖼️';
     imageBtn.title = '发送图片';
 
     const fileBtn = document.createElement('button');
     fileBtn.className = `${prefix}btn ${prefix}btn-toolbar`;
-    fileBtn.innerHTML = '�';
+    // 使用更好看的文件emoji
+    fileBtn.innerHTML = '📎';
     fileBtn.title = '发送文件';
 
     const voiceBtn = document.createElement('button');
     voiceBtn.className = `${prefix}btn ${prefix}btn-toolbar`;
-    voiceBtn.innerHTML = '🎤';
+    // 使用更好看的语音emoji
+    voiceBtn.innerHTML = '🎙️';
     voiceBtn.title = '发送语音';
 
     const emojiBtn = document.createElement('button');
     emojiBtn.className = `${prefix}btn ${prefix}btn-toolbar`;
-    emojiBtn.innerHTML = '😊';
+    // 使用更好看的表情emoji
+    emojiBtn.innerHTML = '😄';
     emojiBtn.title = '发送表情';
 
     // 组装工具栏
