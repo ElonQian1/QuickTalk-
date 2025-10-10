@@ -156,6 +156,15 @@ export class QuickTalkSDK extends EventEmitter<SDKEvents> {
       senderType: 'customer',
       timestamp: new Date()
     };
+
+    // 如果是文件或图片消息，设置fileUrl
+    if (messageType === 'image' || messageType === 'file') {
+      message.fileUrl = content;
+      // 从URL中提取文件名
+      const urlParts = content.split('/');
+      message.fileName = urlParts[urlParts.length - 1];
+    }
+
     this.uiManager.addMessage(message);
 
     // 通过WebSocket发送
@@ -189,6 +198,22 @@ export class QuickTalkSDK extends EventEmitter<SDKEvents> {
 
       // 上传文件
       const result = await this.wsClient.uploadFile(processedFile, messageType);
+      
+      // 清除上传状态
+      this.uiManager.clearUploadStatus();
+      
+      // 注意：WebSocketClient.uploadFile已经自动发送了消息，这里只需要添加到界面
+      const fileMessage: ChatMessage = {
+        content: messageType === 'image' ? result.fileName : result.url, // 图片显示文件名，其他显示URL
+        messageType,
+        senderType: 'customer',
+        timestamp: new Date(),
+        fileUrl: result.url,
+        fileName: result.fileName
+      };
+      
+      // 添加文件消息到界面
+      this.uiManager.addMessage(fileMessage);
       
       this.emit('upload-complete', { 
         url: result.url, 

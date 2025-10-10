@@ -49,12 +49,15 @@ export const useWSStore = create<WSState>((set, get) => ({
       try {
         const data = JSON.parse(ev.data);
         const type = data.messageType as string;
+        console.log('🔄 wsStore接收到消息:', { type, data });
+        
         // 分发到全局会话 store
         if (type === 'new_message') {
           // 仅客户发来的消息计入未读
           const senderType = (data.senderType || data.sender_type) as string | undefined;
           const state = get();
           const shopId = state.activeShopId;
+          console.log('📊 更新未读计数:', { shopId, senderType });
           if (shopId && senderType === 'customer') {
             useConversationsStore.getState().incrementUnread(shopId, 1);
           }
@@ -62,7 +65,7 @@ export const useWSStore = create<WSState>((set, get) => ({
           // typing 事件可在未来用于 UI 提示，这里暂不处理
         }
       } catch (e) {
-        // ignore
+        console.error('❌ wsStore消息处理失败:', e);
       }
     };
 

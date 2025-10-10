@@ -211,8 +211,13 @@ export class WebSocketClient {
           senderId: message.senderId
         };
 
-        console.log('📨 收到消息:', chatMessage);
-        this.notifyMessage(chatMessage);
+        // 只处理来自客服人员的消息，忽略客户自己发送的消息回显
+        if (chatMessage.senderType === 'staff') {
+          console.log('📨 收到消息:', chatMessage);
+          this.notifyMessage(chatMessage);
+        } else {
+          console.log('🔄 忽略客户消息回显:', chatMessage.content);
+        }
       }
     } catch (error) {
       console.error('消息解析错误:', error);
@@ -237,6 +242,30 @@ export class WebSocketClient {
 
     this.ws.send(JSON.stringify(messageData));
     console.log('📤 发送消息:', content);
+  }
+
+  /**
+   * 发送文件消息（图片、文件、语音等）
+   */
+  sendFileMessage(fileUrl: string, fileName: string, messageType: ChatMessage['messageType']): void {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      console.warn('⚠️ WebSocket未连接，无法发送文件消息');
+      return;
+    }
+
+    const messageData = {
+      messageType: 'send_message',
+      content: messageType === 'image' ? fileName : fileUrl, // 图片消息显示文件名，其他显示URL
+      senderType: 'customer',
+      metadata: { 
+        messageType,
+        mediaUrl: fileUrl, // 文件URL放在metadata中
+        fileName: fileName
+      }
+    };
+
+    this.ws.send(JSON.stringify(messageData));
+    console.log('📤 发送文件消息:', { fileUrl, fileName, messageType });
   }
 
   /**
@@ -270,7 +299,7 @@ export class WebSocketClient {
       const result = await response.json();
       
       // 自动发送文件消息
-      this.sendMessage(result.url, messageType);
+      this.sendFileMessage(result.url, file.name, messageType);
       
       console.log('📎 文件上传成功:', result);
       return {

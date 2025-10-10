@@ -228,7 +228,8 @@ export class CustomerServiceSDK {
       timestamp: new Date(),
       metadata: {
         messageType,
-        fileUrl,
+        mediaUrl: fileUrl, // 改用mediaUrl，与后端处理逻辑一致
+        fileUrl, // 保留fileUrl以兼容
       }
     };
 

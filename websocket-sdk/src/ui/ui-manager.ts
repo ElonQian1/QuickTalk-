@@ -33,6 +33,7 @@ export class UIManager {
   private components: UIComponents | null = null;
   private isOpen = false;
   private currentConfig: StyleConfig | null = null;
+  private statusMessageElement: HTMLElement | null = null; // 用于跟踪状态消息
 
   static getInstance(): UIManager {
     if (!UIManager.instance) {
@@ -452,31 +453,284 @@ export class UIManager {
    * 处理表情按钮点击
    */
   private handleEmojiClick(): void {
-    // 常用表情列表
-    const emojis = ['😊', '😂', '😍', '🤔', '😢', '😎', '👍', '❤️', '🎉', '👋'];
-    const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
+    // 创建表情选择器
+    this.showEmojiPicker();
+  }
+
+  /**
+   * 显示表情选择器
+   */
+  private showEmojiPicker(): void {
+    if (!this.components) return;
+
+    const { panel } = this.components;
+    const prefix = this.styleSystem.getCSSPrefix();
+
+    // 检查是否已存在表情选择器
+    const existingPicker = document.querySelector(`.${prefix}emoji-picker`);
+    if (existingPicker) {
+      existingPicker.remove();
+      return;
+    }
+
+    // 常用表情分类
+    const emojiCategories = {
+      '😊': ['😊', '😂', '😁', '😍', '🤔', '😎', '😢', '😮', '😴', '😵'],
+      '👋': ['�', '👍', '👎', '👌', '✌️', '🤝', '👏', '🙏', '💪', '🤞'],
+      '❤️': ['❤️', '💙', '💚', '💛', '🧡', '💜', '🖤', '🤍', '🤎', '💖'],
+      '🎉': ['🎉', '🎊', '🎈', '🎁', '🎂', '⭐', '✨', '�', '💫', '🌟']
+    };
+
+    // 创建表情选择器容器
+    const emojiPicker = document.createElement('div');
+    emojiPicker.className = `${prefix}emoji-picker`;
     
-    // 发送表情消息
-    const event = new CustomEvent('qt-send-message', {
-      detail: { content: randomEmoji, messageType: 'text' }
+    // 计算面板位置，确保表情选择器完全在视口内
+    const panelRect = panel.getBoundingClientRect();
+    
+    // 获取当前响应式样式配置
+    const viewport = this.styleSystem.detectViewport();
+    const styleConfig = this.styleSystem.calculateStyleConfig(viewport);
+    
+    // 基于响应式配置计算表情选择器尺寸
+    const pickerWidth = Math.max(280, Math.min(380, viewport.width * 0.85)); // 宽度适配视口
+    const pickerHeight = Math.max(250, Math.min(400, viewport.height * 0.4)); // 高度适配视口
+    const emojiSize = Math.round(styleConfig.baseFontSize * 1.8); // 表情大小基于基础字体
+    const categoryFontSize = Math.round(styleConfig.baseFontSize * 0.9); // 分类标题字体
+    const margin = styleConfig.spacing.md; // 使用响应式边距
+    
+    // 可用视口区域
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    
+    let pickerTop: number;
+    let pickerLeft: number;
+    
+    // 水平位置计算 - 确保完全在视口内
+    pickerLeft = panelRect.left;
+    if (pickerLeft + pickerWidth + margin > viewportWidth) {
+      // 右边超出，从右边对齐
+      pickerLeft = viewportWidth - pickerWidth - margin;
+    }
+    if (pickerLeft < margin) {
+      // 左边超出，从左边对齐
+      pickerLeft = margin;
+    }
+    
+    // 垂直位置计算 - 优先显示在面板上方
+    pickerTop = panelRect.top - pickerHeight - margin;
+    if (pickerTop < margin) {
+      // 上方空间不够，尝试下方
+      pickerTop = panelRect.bottom + margin;
+      if (pickerTop + pickerHeight + margin > viewportHeight) {
+        // 下方也不够，强制在视口内最佳位置
+        pickerTop = Math.max(margin, viewportHeight - pickerHeight - margin);
+      }
+    }
+    
+    console.log('🎭 表情选择器响应式计算:', {
+      viewport: { width: viewport.width, height: viewport.height, isMobile: viewport.isMobile },
+      styleConfig: { 
+        baseFontSize: styleConfig.baseFontSize,
+        spacing: styleConfig.spacing.md
+      },
+      picker: { 
+        width: pickerWidth, 
+        height: pickerHeight, 
+        emojiSize, 
+        categoryFontSize 
+      },
+      position: { top: pickerTop, left: pickerLeft },
+      bounds: {
+        wouldExceedRight: (pickerLeft + pickerWidth) > viewportWidth,
+        wouldExceedBottom: (pickerTop + pickerHeight) > viewportHeight,
+        wouldExceedLeft: pickerLeft < 0,
+        wouldExceedTop: pickerTop < 0
+      }
     });
-    document.dispatchEvent(event);
     
-    console.log(`📱 发送表情: ${randomEmoji}`);
+    emojiPicker.style.cssText = `
+      position: fixed !important;
+      top: ${pickerTop}px !important;
+      left: ${pickerLeft}px !important;
+      width: ${pickerWidth}px !important;
+      height: ${pickerHeight}px !important;
+      background: white !important;
+      border: 1px solid #e5e5e5 !important;
+      border-radius: ${styleConfig.borderRadius}px !important;
+      padding: ${styleConfig.spacing.md}px !important;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.15) !important;
+      z-index: ${styleConfig.zIndex} !important;
+      overflow-y: auto !important;
+      font-size: ${emojiSize}px !important;
+      pointer-events: auto !important;
+      transform: translateZ(0) !important;
+      box-sizing: border-box !important;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif !important;
+    `;
+
+    // 创建表情网格
+    Object.entries(emojiCategories).forEach(([categoryIcon, emojis]) => {
+      // 分类标题
+      const categoryTitle = document.createElement('div');
+      categoryTitle.textContent = categoryIcon;
+      categoryTitle.style.cssText = `
+        font-size: ${categoryFontSize}px !important;
+        margin: ${styleConfig.spacing.sm}px 0 ${styleConfig.spacing.xs}px 0 !important;
+        color: #666 !important;
+        border-bottom: 1px solid #f0f0f0 !important;
+        padding-bottom: ${styleConfig.spacing.xs}px !important;
+        font-family: inherit !important;
+      `;
+      emojiPicker.appendChild(categoryTitle);
+
+      // 表情网格
+      const emojiGrid = document.createElement('div');
+      emojiGrid.style.cssText = `
+        display: grid !important;
+        grid-template-columns: repeat(5, 1fr) !important;
+        gap: ${styleConfig.spacing.sm}px !important;
+        margin-bottom: ${styleConfig.spacing.md}px !important;
+      `;
+
+      emojis.forEach(emoji => {
+        const emojiBtn = document.createElement('button');
+        emojiBtn.textContent = emoji;
+        emojiBtn.className = `${prefix}emoji-btn`;
+        
+        const buttonSize = Math.round(emojiSize * 1.5); // 按钮大小基于表情大小
+        emojiBtn.style.cssText = `
+          border: none !important;
+          background: transparent !important;
+          font-size: ${emojiSize}px !important;
+          cursor: pointer !important;
+          padding: ${styleConfig.spacing.xs}px !important;
+          border-radius: ${Math.round(styleConfig.borderRadius * 0.5)}px !important;
+          transition: background 0.2s ease !important;
+          width: ${buttonSize}px !important;
+          height: ${buttonSize}px !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          font-family: inherit !important;
+        `;
+
+        emojiBtn.addEventListener('mouseenter', () => {
+          emojiBtn.style.background = '#f0f0f0';
+        });
+
+        emojiBtn.addEventListener('mouseleave', () => {
+          emojiBtn.style.background = 'transparent';
+        });
+
+        emojiBtn.addEventListener('click', () => {
+          // 发送表情消息
+          const event = new CustomEvent('qt-send-message', {
+            detail: { content: emoji, messageType: 'text' }
+          });
+          document.dispatchEvent(event);
+          
+          console.log(`📱 发送表情: ${emoji}`);
+          
+          // 关闭表情选择器
+          emojiPicker.remove();
+        });
+
+        emojiGrid.appendChild(emojiBtn);
+      });
+
+      emojiPicker.appendChild(emojiGrid);
+    });
+
+    // 添加关闭按钮
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '✕';
+    const closeBtnSize = Math.round(styleConfig.baseFontSize * 1.5);
+    closeBtn.style.cssText = `
+      position: absolute !important;
+      top: ${styleConfig.spacing.sm}px !important;
+      right: ${styleConfig.spacing.sm}px !important;
+      border: none !important;
+      background: transparent !important;
+      font-size: ${Math.round(styleConfig.baseFontSize * 1.1)}px !important;
+      cursor: pointer !important;
+      color: #999 !important;
+      width: ${closeBtnSize}px !important;
+      height: ${closeBtnSize}px !important;
+      border-radius: 50% !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      font-family: inherit !important;
+    `;
+
+    closeBtn.addEventListener('click', () => {
+      emojiPicker.remove();
+    });
+
+    emojiPicker.appendChild(closeBtn);
+
+    // 阻止滚动事件冒泡，防止宿主页面滚动干扰
+    emojiPicker.addEventListener('wheel', (e) => {
+      e.stopPropagation();
+    });
+    
+    emojiPicker.addEventListener('touchmove', (e) => {
+      e.stopPropagation();
+    });
+
+    // 添加到body（确保正确显示）
+    document.body.appendChild(emojiPicker);
+
+    // 点击外部关闭
+    const handleOutsideClick = (event: Event) => {
+      if (!emojiPicker.contains(event.target as Node)) {
+        emojiPicker.remove();
+        document.removeEventListener('click', handleOutsideClick);
+      }
+    };
+
+    setTimeout(() => {
+      document.addEventListener('click', handleOutsideClick);
+    }, 100);
   }
 
   /**
    * 显示上传状态
    */
   showUploadStatus(message: string): void {
-    const statusMessage: ChatMessage = {
-      content: message,
-      messageType: 'system',
-      senderType: 'customer',
-      timestamp: new Date()
-    };
+    if (!this.components) return;
+
+    const { messagesContainer } = this.components;
+    const prefix = this.styleSystem.getCSSPrefix();
     
-    this.addMessage(statusMessage);
+    // 如果有之前的状态消息，先移除
+    if (this.statusMessageElement) {
+      this.statusMessageElement.remove();
+      this.statusMessageElement = null;
+    }
+    
+    // 创建新的状态消息
+    this.statusMessageElement = document.createElement('div');
+    this.statusMessageElement.className = `${prefix}message ${prefix}customer ${prefix}status`;
+    this.statusMessageElement.textContent = message;
+    this.statusMessageElement.style.opacity = '0.7';
+    this.statusMessageElement.style.fontStyle = 'italic';
+    
+    messagesContainer.appendChild(this.statusMessageElement);
+    
+    // 滚动到底部
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  }
+
+  /**
+   * 清除上传状态
+   */
+  clearUploadStatus(): void {
+    if (this.statusMessageElement) {
+      this.statusMessageElement.remove();
+      this.statusMessageElement = null;
+    }
   }
 
   /**

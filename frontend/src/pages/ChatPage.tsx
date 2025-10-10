@@ -10,6 +10,7 @@ import { theme } from '../styles/globalStyles';
 import toast from 'react-hot-toast';
 import VoiceRecorder from '../components/VoiceRecorder';
 import VoiceMessage from '../components/VoiceMessage';
+import { useWSStore } from '../stores/wsStore';
 
 const Container = styled.div`
   display: flex;
@@ -244,6 +245,7 @@ const FileName = styled.span`
 
 interface Message {
   id: number;
+  session_id?: number;
   content: string;
   message_type: string;
   sender_type: 'customer' | 'staff';
@@ -251,10 +253,12 @@ interface Message {
   created_at: string;
   file_url?: string;
   file_name?: string;
+  status?: string;
 }
 
 const ChatPage: React.FC = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
+  const { socket, connect } = useWSStore();
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [inputValue, setInputValue] = useState('');
@@ -283,9 +287,13 @@ const ChatPage: React.FC = () => {
         const response = await api.get('/api/shops');
         console.log('🏪 用户店铺列表:', response.data);
         if (response.data && response.data.length > 0) {
-          const shopId = response.data[0].shop.id.toString();
-          setUserShopId(shopId);
+          const shopId = response.data[0].shop.id;
+          setUserShopId(shopId.toString());
           console.log('✅ 设置用户的shopId:', shopId);
+          
+          // 建立WebSocket连接
+          connect(shopId);
+          console.log('🔌 WebSocket连接已建立，shopId:', shopId);
         } else {
           console.warn('⚠️ 用户没有任何店铺');
         }
@@ -298,11 +306,94 @@ const ChatPage: React.FC = () => {
     };
 
     fetchUserShop();
-  }, []);
+  }, [connect]);
 
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // 检查WebSocket连接状态
+  useEffect(() => {
+    console.log('🔌 WebSocket状态检查:', {
+      socket: !!socket,
+      readyState: socket?.readyState,
+      sessionId,
+      userShopId
+    });
+  }, [socket, sessionId, userShopId]);
+
+  // 监听WebSocket消息，实时更新聊天界面
+  useEffect(() => {
+    if (!socket || !sessionId) {
+      console.log('⚠️ WebSocket监听未启动:', { socket: !!socket, sessionId });
+      return;
+    }
+
+    console.log('🔌 开始监听WebSocket消息，sessionId:', sessionId);
+
+    const handleMessage = (event: MessageEvent) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log('📨 收到WebSocket消息:', data);
+        
+        // 只处理新消息事件
+        if (data.messageType === 'new_message') {
+          // 检查消息是否属于当前会话
+          const messageSessionId = data.session_id || data.sessionId;
+          console.log('🔍 检查消息会话ID:', { messageSessionId, currentSessionId: sessionId });
+          
+          if (messageSessionId && messageSessionId.toString() === sessionId) {
+            // 构造消息对象
+            const newMessage: Message = {
+              id: Date.now(), // 临时ID，实际应该从服务器获取
+              session_id: messageSessionId,
+              sender_type: data.sender_type || data.senderType || 'customer',
+              sender_id: data.sender_id || data.senderId,
+              content: data.content || '',
+              message_type: data.metadata?.messageType || 'text',
+              file_url: data.file_url || data.fileUrl,
+              file_name: data.file_name || data.fileName,
+              status: 'sent',
+              created_at: data.timestamp || new Date().toISOString(),
+            };
+
+            console.log('✅ 添加新消息到界面:', newMessage);
+
+            // 添加到消息列表（避免重复）
+            setMessages(prev => {
+              const exists = prev.some(msg => 
+                msg.content === newMessage.content && 
+                msg.sender_type === newMessage.sender_type &&
+                Math.abs(new Date(msg.created_at).getTime() - new Date(newMessage.created_at).getTime()) < 5000
+              );
+              
+              if (exists) {
+                console.log('⚠️ 消息已存在，跳过');
+                return prev;
+              }
+              
+              return [...prev, newMessage];
+            });
+          } else {
+            console.log('⏭️ 消息不属于当前会话，忽略');
+          }
+        } else {
+          console.log('📝 非新消息事件，类型:', data.messageType);
+        }
+      } catch (error) {
+        console.error('❌ 解析WebSocket消息失败:', error);
+      }
+    };
+
+    socket.addEventListener('message', handleMessage);
+    console.log('👂 WebSocket消息监听器已添加');
+
+    // 清理事件监听器
+    return () => {
+      socket.removeEventListener('message', handleMessage);
+      console.log('🧹 WebSocket消息监听器已移除');
+    };
+  }, [socket, sessionId]);
 
   const fetchMessages = async (sessionId: number) => {
     try {
