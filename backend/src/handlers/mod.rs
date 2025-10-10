@@ -1,4 +1,5 @@
 pub mod auth;
+pub mod config;
 pub mod customer;
 pub mod message;
 pub mod shop;

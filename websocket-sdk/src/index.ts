@@ -28,7 +28,7 @@ export interface WebSocketMessage {
 
 // SDK 配置
 export interface SDKConfig {
-  serverUrl: string;
+  serverUrl?: string; // 改为可选，支持自动检测
   apiKey: string;
   customerId: string;
   customerName?: string;
@@ -36,6 +36,32 @@ export interface SDKConfig {
   customerAvatar?: string;
   reconnectInterval?: number;
   maxReconnectAttempts?: number;
+  autoDetectServer?: boolean; // 是否启用自动服务器检测
+}
+
+// 服务器配置响应
+export interface ServerConfig {
+  version: string;
+  serverUrl: string;
+  wsUrl: string;
+  config: {
+    protocol: string;
+    wsProtocol: string;
+    configuredHost: string;
+    configuredPort: string;
+    detectedHost?: string;
+    forwardedHost?: string;
+    clientIp: string;
+  };
+  endpoints: {
+    api: string;
+    websocket: {
+      customer: string;
+      staff: string;
+    };
+    upload: string;
+  };
+  timestamp: number;
 }
 
 // 事件类型
@@ -70,11 +96,13 @@ export class CustomerServiceSDK {
   private reconnectTimer: NodeJS.Timeout | null = null;
   private isConnecting = false;
   private sessionId: number | null = null;
+  private serverConfig: ServerConfig | null = null;
 
   constructor(config: SDKConfig) {
     this.config = {
       reconnectInterval: 3000,
       maxReconnectAttempts: 5,
+      autoDetectServer: true,
       ...config,
     };
 
@@ -82,6 +110,63 @@ export class CustomerServiceSDK {
     ['connected', 'disconnected', 'message', 'typing', 'error', 'reconnecting', 'staffOnline', 'staffOffline'].forEach(eventType => {
       this.eventListeners.set(eventType as EventType, []);
     });
+  }
+
+  /**
+   * 自动检测可用的服务器地址
+   */
+  private async detectServerUrl(): Promise<ServerConfig> {
+    const currentUrl = window.location;
+    const candidates = [
+      // 优先尝试当前域名的标准端口
+      `${currentUrl.protocol}//${currentUrl.hostname}:8080`,
+      // 尝试相同协议和端口
+      `${currentUrl.protocol}//${currentUrl.host}`,
+      // 开发环境后备选项
+      'http://localhost:8080',
+      'http://127.0.0.1:8080'
+    ];
+
+    // 去重
+    const uniqueCandidates = [...new Set(candidates)];
+
+    for (const serverUrl of uniqueCandidates) {
+      try {
+        const response = await fetch(`${serverUrl}/api/config`, {
+          method: 'GET',
+          mode: 'cors',
+          signal: AbortSignal.timeout(5000)
+        });
+
+        if (response.ok) {
+          const config = await response.json() as ServerConfig;
+          console.log('✅ 检测到可用服务器:', serverUrl);
+          return config;
+        }
+      } catch (error) {
+        console.warn(`❌ 服务器 ${serverUrl} 不可用:`, error);
+      }
+    }
+
+    throw new Error('无法检测到可用的服务器地址');
+  }
+
+  /**
+   * 获取服务器URL
+   */
+  private async getServerUrl(): Promise<string> {
+    if (this.config.serverUrl) {
+      return this.config.serverUrl;
+    }
+
+    if (this.config.autoDetectServer) {
+      if (!this.serverConfig) {
+        this.serverConfig = await this.detectServerUrl();
+      }
+      return this.serverConfig.serverUrl;
+    }
+
+    throw new Error('未配置服务器地址且未启用自动检测');
   }
 
   /**
@@ -95,7 +180,7 @@ export class CustomerServiceSDK {
     this.isConnecting = true;
     
     try {
-      const wsUrl = this.buildWebSocketUrl();
+      const wsUrl = await this.buildWebSocketUrl();
       this.ws = new WebSocket(wsUrl);
 
       this.ws.onopen = this.handleOpen.bind(this);
@@ -159,13 +244,15 @@ export class CustomerServiceSDK {
     }
 
     try {
+      const serverUrl = await this.getServerUrl();
       const formData = new FormData();
       formData.append('file', file);
       formData.append('shopId', this.config.apiKey); // 使用 apiKey 作为 shopId
       formData.append('messageType', messageType);
       formData.append('customerCode', this.config.customerId);
 
-      const uploadResponse = await fetch(`${this.config.serverUrl.replace('ws', 'http')}/api/customer/upload`, {
+      const uploadUrl = this.serverConfig?.endpoints?.upload || `${serverUrl}/api/customer/upload`;
+      const uploadResponse = await fetch(uploadUrl, {
         method: 'POST',
         body: formData
       });
@@ -228,7 +315,9 @@ export class CustomerServiceSDK {
     }
 
     try {
-      const response = await fetch(`${this.config.serverUrl.replace('ws', 'http')}/api/sessions/${this.sessionId}/messages?limit=${limit}&offset=${offset}`, {
+      const serverUrl = await this.getServerUrl();
+      const apiUrl = this.serverConfig?.endpoints?.api || serverUrl;
+      const response = await fetch(`${apiUrl}/sessions/${this.sessionId}/messages?limit=${limit}&offset=${offset}`, {
         headers: {
           'Authorization': `Bearer ${this.config.apiKey}`,
         }
@@ -286,9 +375,14 @@ export class CustomerServiceSDK {
 
   // 私有方法
 
-  private buildWebSocketUrl(): string {
-    const baseUrl = this.config.serverUrl.replace(/^http/, 'ws');
-    return `${baseUrl}/ws/customer/${this.config.apiKey}/${this.config.customerId}`;
+  private async buildWebSocketUrl(): Promise<string> {
+    if (this.serverConfig?.endpoints?.websocket?.customer) {
+      return `${this.serverConfig.endpoints.websocket.customer}/${this.config.apiKey}/${this.config.customerId}`;
+    }
+    
+    const serverUrl = await this.getServerUrl();
+    const wsUrl = serverUrl.replace(/^http/, 'ws');
+    return `${wsUrl}/ws/customer/${this.config.apiKey}/${this.config.customerId}`;
   }
 
   private handleOpen(): void {

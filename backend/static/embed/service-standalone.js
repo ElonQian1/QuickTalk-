@@ -1,8 +1,96 @@
-/* 简化版嵌入式客服 - 自动更新架构 v1.2.0 */
+/* 简化版嵌入式客服 - 智能自适应地址检测 v1.3.0 */
 (function(){
   // 版本信息
-  var CLIENT_VERSION = '1.2.0';
+  var CLIENT_VERSION = '1.3.0';
   var UPDATE_CHECK_INTERVAL = 30 * 60 * 1000; // 30分钟检查一次
+  
+  // 缓存服务器配置
+  var SERVER_CONFIG_CACHE = null;
+  var CONFIG_CACHE_TIME = 10 * 60 * 1000; // 10分钟缓存
+  var LAST_CONFIG_FETCH = 0;
+  
+  // 智能服务器地址检测
+  function detectServerUrl() {
+    var currentUrl = window.location;
+    var candidates = [
+      // 优先尝试当前域名的标准端口
+      currentUrl.protocol + '//' + currentUrl.hostname + ':8080',
+      // 如果是HTTPS，也尝试8080端口
+      currentUrl.protocol + '//' + currentUrl.hostname + ':8080',
+      // 尝试相同协议和端口
+      currentUrl.protocol + '//' + currentUrl.host,
+      // 开发环境后备选项
+      'http://localhost:8080',
+      'http://127.0.0.1:8080'
+    ];
+    
+    // 去重
+    var uniqueCandidates = [];
+    candidates.forEach(function(url) {
+      if (uniqueCandidates.indexOf(url) === -1) {
+        uniqueCandidates.push(url);
+      }
+    });
+    
+    return uniqueCandidates;
+  }
+  
+  // 异步检测可用的服务器地址
+  function findAvailableServer(onSuccess, onError) {
+    var candidates = detectServerUrl();
+    var tested = 0;
+    var errors = [];
+    
+    function testServer(url, callback) {
+      fetch(url + '/api/config', {
+        method: 'GET',
+        mode: 'cors',
+        timeout: 5000
+      })
+      .then(function(response) {
+        if (response.ok) {
+          return response.json();
+        }
+        throw new Error('HTTP ' + response.status);
+      })
+      .then(function(config) {
+        // 成功获取配置，缓存结果
+        SERVER_CONFIG_CACHE = config;
+        LAST_CONFIG_FETCH = Date.now();
+        callback(null, config);
+      })
+      .catch(function(error) {
+        callback(error, null);
+      });
+    }
+    
+    function tryNext() {
+      if (tested >= candidates.length) {
+        onError('所有服务器候选地址都无法连接: ' + errors.join(', '));
+        return;
+      }
+      
+      var url = candidates[tested];
+      tested++;
+      
+      testServer(url, function(error, config) {
+        if (error) {
+          errors.push(url + ': ' + error.message);
+          setTimeout(tryNext, 100); // 短暂延迟后尝试下一个
+        } else {
+          onSuccess(config);
+        }
+      });
+    }
+    
+    // 检查缓存
+    if (SERVER_CONFIG_CACHE && (Date.now() - LAST_CONFIG_FETCH) < CONFIG_CACHE_TIME) {
+      setTimeout(function() { onSuccess(SERVER_CONFIG_CACHE); }, 0);
+      return;
+    }
+    
+    tryNext();
+  }
   
   // 版本检测和自动更新
   function checkForUpdates(serverUrl) {
@@ -14,7 +102,6 @@
         if (data.version && data.version !== CLIENT_VERSION) {
           console.log('🔄 检测到新版本:', data.version, '当前版本:', CLIENT_VERSION);
           // 可以在这里添加通知用户更新的逻辑
-          // 或者自动重新加载（谨慎使用）
         }
       })
       .catch(function() {
@@ -31,39 +118,85 @@
     }
   }
 
-  // 直接通过fetch API与后端通信，不依赖SDK
+  // 智能客服客户端 - 支持自动服务器检测
   function createChatClient(config) {
-    var serverUrl = config.serverUrl || (location.protocol + '//' + location.host);
     var shopId = config.shopId;
     var customerId = 'guest-' + Math.random().toString(36).slice(2);
     var ws = null;
     var eventHandlers = {};
-
+    var serverConfig = null;
+    var isConnecting = false;
+    
     return {
-      serverUrl: serverUrl,
       shopId: shopId,
       sessionId: customerId,
+      serverConfig: null,
+      
+      // 智能连接 - 自动检测服务器地址
       connect: function() {
-        var wsUrl = serverUrl.replace(/^http/, 'ws') + '/ws/customer/' + shopId + '/' + customerId;
-        ws = new WebSocket(wsUrl);
+        if (isConnecting) return;
+        isConnecting = true;
         
-        ws.onopen = function() {
-          ws.send(JSON.stringify({
-            messageType: 'auth',
-            metadata: { apiKey: shopId, customerId: customerId }
-          }));
-          emit('connected');
-        };
+        var self = this;
         
-        ws.onmessage = function(event) {
-          var message = JSON.parse(event.data);
-          if (message.messageType === 'new_message') {
-            emit('message', message);
+        // 如果用户指定了服务器地址，直接使用
+        if (config.serverUrl) {
+          self.serverConfig = { serverUrl: config.serverUrl };
+          connectWithConfig(self.serverConfig);
+          return;
+        }
+        
+        // 智能检测可用服务器
+        findAvailableServer(
+          function(detectedConfig) {
+            self.serverConfig = detectedConfig;
+            connectWithConfig(detectedConfig);
+          },
+          function(error) {
+            console.error('❌ 无法检测到可用的服务器:', error);
+            emit('error', new Error('服务器连接失败: ' + error));
+            isConnecting = false;
           }
-        };
+        );
         
-        ws.onclose = function() { emit('disconnected'); };
-        ws.onerror = function(error) { emit('error', error); };
+        function connectWithConfig(config) {
+          var wsUrl = config.wsUrl + '/customer/' + shopId + '/' + customerId;
+          console.log('🔗 连接到WebSocket:', wsUrl);
+          
+          ws = new WebSocket(wsUrl);
+          
+          ws.onopen = function() {
+            console.log('✅ WebSocket连接成功');
+            ws.send(JSON.stringify({
+              messageType: 'auth',
+              metadata: { apiKey: shopId, customerId: customerId }
+            }));
+            emit('connected', { serverConfig: config });
+            isConnecting = false;
+            
+            // 定期检查更新
+            checkForUpdates(config.serverUrl);
+          };
+          
+          ws.onmessage = function(event) {
+            var message = JSON.parse(event.data);
+            if (message.messageType === 'new_message') {
+              emit('message', message);
+            }
+          };
+          
+          ws.onclose = function() {
+            console.log('🔌 WebSocket连接关闭');
+            emit('disconnected');
+            isConnecting = false;
+          };
+          
+          ws.onerror = function(error) {
+            console.error('❌ WebSocket错误:', error);
+            emit('error', error);
+            isConnecting = false;
+          };
+        }
       },
 
       sendMessage: function(content, messageType, mediaUrl) {
@@ -81,18 +214,26 @@
           }
           
           ws.send(JSON.stringify(messageData));
+        } else {
+          console.warn('⚠️ WebSocket未连接，无法发送消息');
         }
       },
 
       uploadFile: function(file, messageType) {
+        var self = this;
         return new Promise(function(resolve, reject) {
+          if (!self.serverConfig || !self.serverConfig.endpoints) {
+            reject(new Error('服务器配置未加载'));
+            return;
+          }
+          
           var formData = new FormData();
           formData.append('file', file);
           formData.append('shopId', shopId);
           formData.append('messageType', messageType || 'file');
           formData.append('customerCode', customerId);
 
-          fetch(serverUrl + '/api/customer/upload', {
+          fetch(self.serverConfig.endpoints.upload, {
             method: 'POST',
             body: formData
           })
@@ -101,12 +242,26 @@
             return response.json();
           })
           .then(function(data) {
-            // 自动发送消息 - 对于图片，content应该是URL而不是文件名
-            this.sendMessage(data.url, messageType, data.url);
+            // 自动发送消息
+            self.sendMessage(data.url, messageType, data.url);
             resolve(data);
-          }.bind(this))
+          })
           .catch(reject);
-        }.bind(this));
+        });
+      },
+
+      // 获取当前服务器信息
+      getServerInfo: function() {
+        return this.serverConfig || null;
+      },
+
+      // 手动重新检测服务器
+      reconnect: function() {
+        if (ws) {
+          ws.close();
+        }
+        SERVER_CONFIG_CACHE = null; // 清除缓存
+        this.connect();
       },
 
       on: function(event, handler) {
