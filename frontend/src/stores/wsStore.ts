@@ -5,18 +5,25 @@ import { useConversationsStore } from './conversationsStore';
 
 type WSStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 
+// 消息监听器类型定义
+type MessageListener = (data: any) => void;
+
 interface WSState {
   status: WSStatus;
   socket?: WebSocket;
   activeShopId?: number;
+  messageListeners: MessageListener[];
   connect: (shopId: number) => void;
   disconnect: () => void;
+  addMessageListener: (listener: MessageListener) => void;
+  removeMessageListener: (listener: MessageListener) => void;
 }
 
 export const useWSStore = create<WSState>((set, get) => ({
   status: 'disconnected',
   socket: undefined,
   activeShopId: undefined,
+  messageListeners: [],
 
   connect: (shopId: number) => {
     const { user } = useAuthStore.getState();
@@ -43,6 +50,7 @@ export const useWSStore = create<WSState>((set, get) => ({
       };
       ws.send(JSON.stringify(authMsg));
       set({ status: 'connected' });
+      console.log('✅ WebSocket 连接已建立并认证');
     };
 
     ws.onmessage = (ev: MessageEvent) => {
@@ -51,12 +59,24 @@ export const useWSStore = create<WSState>((set, get) => ({
         const type = data.messageType as string;
         console.log('🔄 wsStore接收到消息:', { type, data });
         
+        // 立即分发给所有监听器
+        const currentState = get();
+        console.log('📋 当前监听器数量:', currentState.messageListeners.length);
+        
+        currentState.messageListeners.forEach((listener, index) => {
+          try {
+            console.log(`📤 分发消息给监听器 ${index}:`, data);
+            listener(data);
+          } catch (error) {
+            console.error(`❌ 监听器 ${index} 处理失败:`, error);
+          }
+        });
+        
         // 分发到全局会话 store
         if (type === 'new_message') {
           // 仅客户发来的消息计入未读
           const senderType = (data.senderType || data.sender_type) as string | undefined;
-          const state = get();
-          const shopId = state.activeShopId;
+          const shopId = currentState.activeShopId;
           console.log('📊 更新未读计数:', { shopId, senderType });
           if (shopId && senderType === 'customer') {
             useConversationsStore.getState().incrementUnread(shopId, 1);
@@ -71,10 +91,12 @@ export const useWSStore = create<WSState>((set, get) => ({
 
     ws.onerror = () => {
       set({ status: 'error' });
+      console.error('❌ WebSocket 连接错误');
     };
 
     ws.onclose = () => {
       set({ status: 'disconnected', socket: undefined });
+      console.log('🔌 WebSocket 连接已关闭');
     };
 
     set({ socket: ws });
@@ -86,5 +108,24 @@ export const useWSStore = create<WSState>((set, get) => ({
       try { sock.close(); } catch {}
     }
     set({ socket: undefined, status: 'disconnected', activeShopId: undefined });
+  },
+
+  addMessageListener: (listener: MessageListener) => {
+    const { messageListeners } = get();
+    // 避免重复添加
+    if (messageListeners.includes(listener)) {
+      console.log('⚠️ 监听器已存在，跳过添加');
+      return;
+    }
+    const newListeners = [...messageListeners, listener];
+    set({ messageListeners: newListeners });
+    console.log('✅ 消息监听器已添加，当前数量:', newListeners.length);
+  },
+
+  removeMessageListener: (listener: MessageListener) => {
+    const { messageListeners } = get();
+    const newListeners = messageListeners.filter(l => l !== listener);
+    set({ messageListeners: newListeners });
+    console.log('🗑️ 消息监听器已移除，当前数量:', newListeners.length);
   },
 }));

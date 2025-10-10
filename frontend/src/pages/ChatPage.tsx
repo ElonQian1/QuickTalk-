@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import styled from 'styled-components';
 import { useParams } from 'react-router-dom';
 import { FiSend, FiImage, FiPaperclip, FiFile, FiMic } from 'react-icons/fi';
@@ -258,7 +258,7 @@ interface Message {
 
 const ChatPage: React.FC = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
-  const { socket, connect } = useWSStore();
+  const { socket, connect, addMessageListener, removeMessageListener } = useWSStore();
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [inputValue, setInputValue] = useState('');
@@ -272,6 +272,60 @@ const ChatPage: React.FC = () => {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // 使用useCallback来稳定函数引用
+  const handleMessage = useCallback((data: any) => {
+    try {
+      console.log('📨 收到WebSocket消息:', data);
+      
+      // 只处理新消息事件
+      if (data.messageType === 'new_message') {
+        // 检查消息是否属于当前会话
+        const messageSessionId = data.session_id || data.sessionId;
+        console.log('🔍 检查消息会话ID:', { messageSessionId, currentSessionId: sessionId });
+        
+        if (messageSessionId && messageSessionId.toString() === sessionId) {
+          // 构造消息对象
+          const newMessage: Message = {
+            id: Date.now(), // 临时ID，实际应该从服务器获取
+            session_id: messageSessionId,
+            sender_type: data.sender_type || data.senderType || 'customer',
+            sender_id: data.sender_id || data.senderId,
+            content: data.content || '',
+            message_type: data.metadata?.messageType || 'text',
+            file_url: data.file_url || data.fileUrl,
+            file_name: data.file_name || data.fileName,
+            status: 'sent',
+            created_at: data.timestamp || new Date().toISOString(),
+          };
+
+          console.log('✅ 添加新消息到界面:', newMessage);
+
+          // 添加到消息列表（避免重复）
+          setMessages(prev => {
+            const exists = prev.some(msg => 
+              msg.content === newMessage.content && 
+              msg.sender_type === newMessage.sender_type &&
+              Math.abs(new Date(msg.created_at).getTime() - new Date(newMessage.created_at).getTime()) < 5000
+            );
+            
+            if (exists) {
+              console.log('⚠️ 消息已存在，跳过');
+              return prev;
+            }
+            
+            return [...prev, newMessage];
+          });
+        } else {
+          console.log('⏭️ 消息不属于当前会话，忽略');
+        }
+      } else {
+        console.log('📝 非新消息事件，类型:', data.messageType);
+      }
+    } catch (error) {
+      console.error('❌ 解析WebSocket消息失败:', error);
+    }
+  }, [sessionId]);
 
   useEffect(() => {
     if (sessionId) {
@@ -324,76 +378,23 @@ const ChatPage: React.FC = () => {
 
   // 监听WebSocket消息，实时更新聊天界面
   useEffect(() => {
-    if (!socket || !sessionId) {
-      console.log('⚠️ WebSocket监听未启动:', { socket: !!socket, sessionId });
+    if (!sessionId) {
+      console.log('⚠️ WebSocket监听未启动: sessionId 不存在');
       return;
     }
 
     console.log('🔌 开始监听WebSocket消息，sessionId:', sessionId);
 
-    const handleMessage = (event: MessageEvent) => {
-      try {
-        const data = JSON.parse(event.data);
-        console.log('📨 收到WebSocket消息:', data);
-        
-        // 只处理新消息事件
-        if (data.messageType === 'new_message') {
-          // 检查消息是否属于当前会话
-          const messageSessionId = data.session_id || data.sessionId;
-          console.log('🔍 检查消息会话ID:', { messageSessionId, currentSessionId: sessionId });
-          
-          if (messageSessionId && messageSessionId.toString() === sessionId) {
-            // 构造消息对象
-            const newMessage: Message = {
-              id: Date.now(), // 临时ID，实际应该从服务器获取
-              session_id: messageSessionId,
-              sender_type: data.sender_type || data.senderType || 'customer',
-              sender_id: data.sender_id || data.senderId,
-              content: data.content || '',
-              message_type: data.metadata?.messageType || 'text',
-              file_url: data.file_url || data.fileUrl,
-              file_name: data.file_name || data.fileName,
-              status: 'sent',
-              created_at: data.timestamp || new Date().toISOString(),
-            };
-
-            console.log('✅ 添加新消息到界面:', newMessage);
-
-            // 添加到消息列表（避免重复）
-            setMessages(prev => {
-              const exists = prev.some(msg => 
-                msg.content === newMessage.content && 
-                msg.sender_type === newMessage.sender_type &&
-                Math.abs(new Date(msg.created_at).getTime() - new Date(newMessage.created_at).getTime()) < 5000
-              );
-              
-              if (exists) {
-                console.log('⚠️ 消息已存在，跳过');
-                return prev;
-              }
-              
-              return [...prev, newMessage];
-            });
-          } else {
-            console.log('⏭️ 消息不属于当前会话，忽略');
-          }
-        } else {
-          console.log('📝 非新消息事件，类型:', data.messageType);
-        }
-      } catch (error) {
-        console.error('❌ 解析WebSocket消息失败:', error);
-      }
-    };
-
-    socket.addEventListener('message', handleMessage);
+    // 添加消息监听器
+    addMessageListener(handleMessage);
     console.log('👂 WebSocket消息监听器已添加');
 
     // 清理事件监听器
     return () => {
-      socket.removeEventListener('message', handleMessage);
+      removeMessageListener(handleMessage);
       console.log('🧹 WebSocket消息监听器已移除');
     };
-  }, [socket, sessionId]);
+  }, [sessionId, handleMessage, addMessageListener, removeMessageListener]);
 
   const fetchMessages = async (sessionId: number) => {
     try {

@@ -1788,11 +1788,32 @@ class UIManager {
         const viewport = this.styleSystem.detectViewport();
         const styleConfig = this.styleSystem.calculateStyleConfig(viewport);
         // 基于响应式配置计算表情选择器尺寸
-        const pickerWidth = Math.max(280, Math.min(380, viewport.width * 0.85)); // 宽度适配视口
-        const pickerHeight = Math.max(250, Math.min(400, viewport.height * 0.4)); // 高度适配视口
-        const emojiSize = Math.round(styleConfig.baseFontSize * 1.8); // 表情大小基于基础字体
+        const emojiSize = Math.round(styleConfig.baseFontSize * 1.5); // 调整表情大小比例
+        const buttonSize = Math.round(emojiSize * 1.3); // 按钮大小基于表情大小
         const categoryFontSize = Math.round(styleConfig.baseFontSize * 0.9); // 分类标题字体
         const margin = styleConfig.spacing.md; // 使用响应式边距
+        // 动态计算网格列数，确保能显示完整的表情
+        let gridColumns;
+        if (viewport.isMobile) {
+            // 移动端：基于按钮大小计算能放几列
+            const availableWidth = Math.min(viewport.width * 0.9, 400); // 最大可用宽度
+            const spacingBetween = styleConfig.spacing.sm; // 间距
+            const totalPadding = styleConfig.spacing.md * 2; // 左右内边距
+            const maxButtonsPerRow = Math.floor((availableWidth - totalPadding + spacingBetween) / (buttonSize + spacingBetween));
+            gridColumns = Math.max(3, Math.min(5, maxButtonsPerRow)); // 3-5列之间
+        }
+        else {
+            gridColumns = 5; // 桌面端固定5列
+        }
+        // 重新计算容器尺寸，基于网格布局
+        const contentWidth = gridColumns * buttonSize + (gridColumns - 1) * styleConfig.spacing.sm + styleConfig.spacing.md * 2;
+        const pickerWidth = Math.max(contentWidth, 250); // 确保最小宽度
+        // 计算需要的高度：4个分类 × (标题 + 2行表情 + 间距)
+        const rowsPerCategory = Math.ceil(10 / gridColumns); // 每个分类的行数
+        const categoryTitleHeight = categoryFontSize + styleConfig.spacing.sm + styleConfig.spacing.xs;
+        const categoryContentHeight = rowsPerCategory * buttonSize + (rowsPerCategory - 1) * styleConfig.spacing.sm + styleConfig.spacing.md;
+        const totalContentHeight = 4 * (categoryTitleHeight + categoryContentHeight) + styleConfig.spacing.md * 2;
+        const pickerHeight = Math.min(totalContentHeight, viewport.height * 0.7); // 限制最大高度
         // 可用视口区域
         const viewportWidth = window.innerWidth;
         const viewportHeight = window.innerHeight;
@@ -1828,6 +1849,8 @@ class UIManager {
                 width: pickerWidth,
                 height: pickerHeight,
                 emojiSize,
+                buttonSize,
+                gridColumns,
                 categoryFontSize
             },
             position: { top: pickerTop, left: pickerLeft },
@@ -1875,21 +1898,21 @@ class UIManager {
             const emojiGrid = document.createElement('div');
             emojiGrid.style.cssText = `
         display: grid !important;
-        grid-template-columns: repeat(5, 1fr) !important;
+        grid-template-columns: repeat(${gridColumns}, 1fr) !important;
         gap: ${styleConfig.spacing.sm}px !important;
         margin-bottom: ${styleConfig.spacing.md}px !important;
+        justify-items: center !important;
       `;
             emojis.forEach(emoji => {
                 const emojiBtn = document.createElement('button');
                 emojiBtn.textContent = emoji;
                 emojiBtn.className = `${prefix}emoji-btn`;
-                const buttonSize = Math.round(emojiSize * 1.5); // 按钮大小基于表情大小
                 emojiBtn.style.cssText = `
           border: none !important;
           background: transparent !important;
           font-size: ${emojiSize}px !important;
           cursor: pointer !important;
-          padding: ${styleConfig.spacing.xs}px !important;
+          padding: ${Math.round(styleConfig.spacing.xs / 2)}px !important;
           border-radius: ${Math.round(styleConfig.borderRadius * 0.5)}px !important;
           transition: background 0.2s ease !important;
           width: ${buttonSize}px !important;
@@ -1898,6 +1921,7 @@ class UIManager {
           align-items: center !important;
           justify-content: center !important;
           font-family: inherit !important;
+          flex-shrink: 0 !important;
         `;
                 emojiBtn.addEventListener('mouseenter', () => {
                     emojiBtn.style.background = '#f0f0f0';
