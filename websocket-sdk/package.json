@@ -1,14 +1,17 @@
 {
   "name": "customer-service-sdk",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "WebSocket SDK for customer service integration",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsc && node scripts/sync-demo.cjs",
+    "build": "npm run build:modules && npm run build:standalone && node scripts/sync-demo.cjs",
+    "build:modules": "tsc",
+    "build:standalone": "node scripts/build-standalone.cjs",
     "dev": "tsc --watch --preserveWatchOutput",
     "dev:full": "concurrently \"npm run dev\" \"npm run watch:sync\"",
-    "watch:sync": "nodemon --watch dist --exec \"node scripts/sync-demo.cjs\""
+    "watch:sync": "nodemon --watch dist --exec \"node scripts/sync-demo.cjs\"",
+    "clean": "rimraf dist"
   },
   "keywords": ["websocket", "customer-service", "chat", "sdk"],
   "author": "Your Name",
@@ -17,6 +20,7 @@
     "typescript": "^5.0.0",
     "@types/node": "^20.0.0",
     "nodemon": "^3.0.0",
-    "concurrently": "^7.6.0"
+    "concurrently": "^7.6.0",
+    "rimraf": "^5.0.0"
   }
 }

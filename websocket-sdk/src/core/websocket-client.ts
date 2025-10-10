@@ -1,0 +1,444 @@
+/**
+ * WebSocket 客户端模块
+ * 负责WebSocket连接管理、消息处理、文件上传
+ */
+
+import { ConfigManager, ServerConfig } from '../core/config';
+
+export interface ChatMessage {
+  id?: number;
+  content: string;
+  messageType: 'text' | 'image' | 'file' | 'voice' | 'system';
+  senderId?: number;
+  senderType: 'customer' | 'staff';
+  timestamp: Date;
+  sessionId?: number;
+  fileUrl?: string;
+  fileName?: string;
+}
+
+export interface WebSocketMessage {
+  messageType: string;
+  content?: string;
+  sessionId?: number;
+  senderId?: number;
+  senderType?: string;
+  timestamp?: Date;
+  metadata?: any;
+  file_url?: string;
+}
+
+export type MessageHandler = (message: ChatMessage) => void;
+export type ConnectionHandler = (config: ServerConfig) => void;
+export type ErrorHandler = (error: Error) => void;
+export type DisconnectHandler = () => void;
+
+export class WebSocketClient {
+  private ws: WebSocket | null = null;
+  private shopId: string;
+  private customerId: string;
+  private serverConfig: ServerConfig | null = null;
+  private configManager: ConfigManager;
+  
+  // 事件处理器
+  private messageHandlers: MessageHandler[] = [];
+  private connectHandlers: ConnectionHandler[] = [];
+  private errorHandlers: ErrorHandler[] = [];
+  private disconnectHandlers: DisconnectHandler[] = [];
+  
+  // 连接状态
+  private isConnecting = false;
+  private reconnectAttempts = 0;
+  private maxReconnectAttempts = 5;
+  private reconnectDelay = 1000;
+
+  constructor(shopId: string, customerId?: string) {
+    this.shopId = shopId;
+    this.customerId = customerId || this.generateCustomerId();
+    this.configManager = ConfigManager.getInstance();
+  }
+
+  /**
+   * 生成随机客户ID
+   */
+  private generateCustomerId(): string {
+    return this.configManager.generateCustomerId();
+  }
+
+  /**
+   * 连接到WebSocket服务器
+   */
+  async connect(serverUrl?: string): Promise<void> {
+    if (this.isConnecting || (this.ws && this.ws.readyState === WebSocket.OPEN)) {
+      return;
+    }
+
+    this.isConnecting = true;
+
+    try {
+      // 获取服务器配置
+      if (serverUrl) {
+        // 使用指定的服务器地址
+        this.serverConfig = {
+          serverUrl,
+          wsUrl: serverUrl.replace(/^https?/, serverUrl.startsWith('https') ? 'wss' : 'ws'),
+          version: 'manual'
+        };
+      } else {
+        // 自动检测服务器
+        this.serverConfig = await this.configManager.findAvailableServer();
+      }
+
+      await this.connectWebSocket();
+      
+    } catch (error) {
+      this.isConnecting = false;
+      const errorMsg = error instanceof Error ? error.message : '连接失败';
+      this.notifyError(new Error(`WebSocket连接失败: ${errorMsg}`));
+      throw error;
+    }
+  }
+
+  /**
+   * 建立WebSocket连接
+   */
+  private async connectWebSocket(): Promise<void> {
+    if (!this.serverConfig) {
+      throw new Error('服务器配置未找到');
+    }
+
+    // 构建WebSocket URL
+    let wsUrl: string;
+    if (this.serverConfig.endpoints?.websocket?.customer) {
+      wsUrl = `${this.serverConfig.endpoints.websocket.customer}/${this.shopId}/${this.customerId}`;
+    } else {
+      const wsBase = this.serverConfig.wsUrl || 
+        this.serverConfig.serverUrl.replace(/^https?/, this.serverConfig.serverUrl.startsWith('https') ? 'wss' : 'ws');
+      wsUrl = `${wsBase}/ws/customer/${this.shopId}/${this.customerId}`;
+    }
+
+    console.log(`🔗 连接WebSocket: ${wsUrl}`);
+
+    return new Promise((resolve, reject) => {
+      try {
+        this.ws = new WebSocket(wsUrl);
+
+        this.ws.onopen = () => {
+          console.log('✅ WebSocket连接成功');
+          this.isConnecting = false;
+          this.reconnectAttempts = 0;
+          
+          // 发送认证消息
+          this.sendAuthMessage();
+          
+          // 通知连接成功
+          this.notifyConnect(this.serverConfig!);
+          
+          // 开始版本检查
+          this.configManager.checkForUpdates(this.serverConfig!.serverUrl);
+          
+          resolve();
+        };
+
+        this.ws.onmessage = (event) => {
+          this.handleMessage(event.data);
+        };
+
+        this.ws.onclose = (event) => {
+          console.log('🔌 WebSocket连接关闭', event.code, event.reason);
+          this.isConnecting = false;
+          this.notifyDisconnect();
+          
+          // 如果不是正常关闭，尝试重连
+          if (event.code !== 1000 && this.reconnectAttempts < this.maxReconnectAttempts) {
+            this.scheduleReconnect();
+          }
+        };
+
+        this.ws.onerror = (error) => {
+          console.error('❌ WebSocket错误:', error);
+          this.isConnecting = false;
+          this.notifyError(new Error('WebSocket连接错误'));
+          reject(error);
+        };
+
+        // 连接超时处理
+        setTimeout(() => {
+          if (this.ws && this.ws.readyState === WebSocket.CONNECTING) {
+            this.ws.close();
+            reject(new Error('WebSocket连接超时'));
+          }
+        }, 10000);
+
+      } catch (error) {
+        this.isConnecting = false;
+        reject(error);
+      }
+    });
+  }
+
+  /**
+   * 发送认证消息
+   */
+  private sendAuthMessage(): void {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      const authMessage = {
+        messageType: 'auth',
+        metadata: { 
+          apiKey: this.shopId, 
+          customerId: this.customerId 
+        }
+      };
+      this.ws.send(JSON.stringify(authMessage));
+    }
+  }
+
+  /**
+   * 处理接收到的消息
+   */
+  private handleMessage(data: string): void {
+    try {
+      const message: WebSocketMessage = JSON.parse(data);
+      
+      if (message.messageType === 'new_message' && message.content) {
+        const chatMessage: ChatMessage = {
+          content: message.content,
+          messageType: (message.metadata?.messageType as ChatMessage['messageType']) || 'text',
+          senderType: (message.senderType as ChatMessage['senderType']) || 'staff',
+          timestamp: message.timestamp ? new Date(message.timestamp) : new Date(),
+          fileUrl: message.file_url,
+          sessionId: message.sessionId,
+          senderId: message.senderId
+        };
+
+        console.log('📨 收到消息:', chatMessage);
+        this.notifyMessage(chatMessage);
+      }
+    } catch (error) {
+      console.error('消息解析错误:', error);
+    }
+  }
+
+  /**
+   * 发送文本消息
+   */
+  sendMessage(content: string, messageType: ChatMessage['messageType'] = 'text'): void {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      console.warn('⚠️ WebSocket未连接，无法发送消息');
+      return;
+    }
+
+    const messageData = {
+      messageType: 'send_message',
+      content,
+      senderType: 'customer',
+      metadata: { messageType }
+    };
+
+    this.ws.send(JSON.stringify(messageData));
+    console.log('📤 发送消息:', content);
+  }
+
+  /**
+   * 上传文件
+   */
+  async uploadFile(file: File, messageType: ChatMessage['messageType'] = 'file'): Promise<{ url: string; fileName: string }> {
+    if (!this.serverConfig) {
+      throw new Error('服务器配置未加载');
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('shopId', this.shopId);
+    formData.append('messageType', messageType);
+    formData.append('customerCode', this.customerId);
+
+    // 构建上传URL
+    const uploadUrl = this.serverConfig.endpoints?.upload || 
+      `${this.serverConfig.serverUrl}/api/customer/upload`;
+
+    try {
+      const response = await fetch(uploadUrl, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error(`上传失败: HTTP ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      // 自动发送文件消息
+      this.sendMessage(result.url, messageType);
+      
+      console.log('📎 文件上传成功:', result);
+      return {
+        url: result.url,
+        fileName: file.name
+      };
+    } catch (error) {
+      console.error('📎 文件上传失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 计划重连
+   */
+  private scheduleReconnect(): void {
+    this.reconnectAttempts++;
+    const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1); // 指数退避
+    
+    console.log(`🔄 ${delay}ms后尝试第${this.reconnectAttempts}次重连...`);
+    
+    setTimeout(() => {
+      if (this.reconnectAttempts <= this.maxReconnectAttempts) {
+        this.connect();
+      } else {
+        console.error('❌ 达到最大重连次数，停止重连');
+        this.notifyError(new Error('连接失败，请刷新页面重试'));
+      }
+    }, delay);
+  }
+
+  /**
+   * 手动重连
+   */
+  reconnect(): void {
+    this.disconnect();
+    this.reconnectAttempts = 0;
+    this.configManager.clearCache(); // 清除配置缓存
+    this.connect();
+  }
+
+  /**
+   * 断开连接
+   */
+  disconnect(): void {
+    if (this.ws) {
+      this.ws.close(1000, '用户主动断开');
+      this.ws = null;
+    }
+    this.isConnecting = false;
+  }
+
+  /**
+   * 获取连接状态
+   */
+  getConnectionState(): 'connecting' | 'open' | 'closing' | 'closed' {
+    if (!this.ws) return 'closed';
+    
+    switch (this.ws.readyState) {
+      case WebSocket.CONNECTING: return 'connecting';
+      case WebSocket.OPEN: return 'open';
+      case WebSocket.CLOSING: return 'closing';
+      case WebSocket.CLOSED: return 'closed';
+      default: return 'closed';
+    }
+  }
+
+  /**
+   * 获取服务器配置
+   */
+  getServerConfig(): ServerConfig | null {
+    return this.serverConfig;
+  }
+
+  /**
+   * 获取客户ID
+   */
+  getCustomerId(): string {
+    return this.customerId;
+  }
+
+  // 事件监听器管理
+  onMessage(handler: MessageHandler): void {
+    this.messageHandlers.push(handler);
+  }
+
+  onConnect(handler: ConnectionHandler): void {
+    this.connectHandlers.push(handler);
+  }
+
+  onError(handler: ErrorHandler): void {
+    this.errorHandlers.push(handler);
+  }
+
+  onDisconnect(handler: DisconnectHandler): void {
+    this.disconnectHandlers.push(handler);
+  }
+
+  // 移除事件监听器
+  removeMessageHandler(handler: MessageHandler): void {
+    const index = this.messageHandlers.indexOf(handler);
+    if (index > -1) this.messageHandlers.splice(index, 1);
+  }
+
+  removeConnectHandler(handler: ConnectionHandler): void {
+    const index = this.connectHandlers.indexOf(handler);
+    if (index > -1) this.connectHandlers.splice(index, 1);
+  }
+
+  removeErrorHandler(handler: ErrorHandler): void {
+    const index = this.errorHandlers.indexOf(handler);
+    if (index > -1) this.errorHandlers.splice(index, 1);
+  }
+
+  removeDisconnectHandler(handler: DisconnectHandler): void {
+    const index = this.disconnectHandlers.indexOf(handler);
+    if (index > -1) this.disconnectHandlers.splice(index, 1);
+  }
+
+  // 事件通知方法
+  private notifyMessage(message: ChatMessage): void {
+    this.messageHandlers.forEach(handler => {
+      try {
+        handler(message);
+      } catch (error) {
+        console.error('消息处理器错误:', error);
+      }
+    });
+  }
+
+  private notifyConnect(config: ServerConfig): void {
+    this.connectHandlers.forEach(handler => {
+      try {
+        handler(config);
+      } catch (error) {
+        console.error('连接处理器错误:', error);
+      }
+    });
+  }
+
+  private notifyError(error: Error): void {
+    this.errorHandlers.forEach(handler => {
+      try {
+        handler(error);
+      } catch (error) {
+        console.error('错误处理器错误:', error);
+      }
+    });
+  }
+
+  private notifyDisconnect(): void {
+    this.disconnectHandlers.forEach(handler => {
+      try {
+        handler();
+      } catch (error) {
+        console.error('断开处理器错误:', error);
+      }
+    });
+  }
+
+  /**
+   * 清理资源
+   */
+  cleanup(): void {
+    this.disconnect();
+    this.messageHandlers = [];
+    this.connectHandlers = [];
+    this.errorHandlers = [];
+    this.disconnectHandlers = [];
+  }
+}
