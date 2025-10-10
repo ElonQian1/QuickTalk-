@@ -68,7 +68,7 @@ pub async fn get_server_config(
     let ws_url = best_server_url.replace(protocol, ws_protocol);
     
     Json(json!({
-        "version": "1.2.0",
+        "version": "1.3.1",
         "serverUrl": best_server_url,
         "wsUrl": ws_url,
         "config": {
@@ -95,7 +95,7 @@ pub async fn get_server_config(
 /// 获取SDK版本信息（兼容现有版本检查）
 pub async fn get_sdk_version() -> Json<Value> {
     Json(json!({
-        "version": "1.2.0",
+        "version": "1.3.1",
         "buildTime": chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC").to_string(),
         "features": [
             "auto-server-detection",

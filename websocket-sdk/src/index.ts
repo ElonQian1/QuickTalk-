@@ -376,10 +376,19 @@ export class CustomerServiceSDK {
   // 私有方法
 
   private async buildWebSocketUrl(): Promise<string> {
+    // 确保服务器配置已加载
+    if (!this.serverConfig) {
+      if (this.config.autoDetectServer) {
+        this.serverConfig = await this.detectServerUrl();
+      }
+    }
+    
+    // 优先使用服务器配置中的 WebSocket 端点
     if (this.serverConfig?.endpoints?.websocket?.customer) {
       return `${this.serverConfig.endpoints.websocket.customer}/${this.config.apiKey}/${this.config.customerId}`;
     }
     
+    // 兜底方案：从 serverUrl 构建
     const serverUrl = await this.getServerUrl();
     const wsUrl = serverUrl.replace(/^http/, 'ws');
     return `${wsUrl}/ws/customer/${this.config.apiKey}/${this.config.customerId}`;
