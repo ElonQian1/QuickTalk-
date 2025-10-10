@@ -5,14 +5,167 @@
     bottom: 18px;
     background: #07C160;
     color: #fff;
-    border-radius: 999px;
-    padding: 12px 16px;
+    border-radius: 50px;
+    padding: 20px 24px;
     box-shadow: 0 10px 25px -12px rgba(7,193,96,.6);
     cursor: pointer;
     user-select: none;
-    font: 600 14px/1.2 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;
+    font: 600 18px/1.2 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;
     z-index: 2147483647;
     transition: all 0.3s ease;
+    min-width: 72px;
+    min-height: 72px;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 即时移动端检测 - 优先级最高 */
+@media screen and (max-width: 768px) and (pointer: coarse) {
+    .qt-fab {
+        right: 16px !important;
+        bottom: 16px !important;
+        padding: 20px 24px !important;
+        font-size: 18px !important;
+        border-radius: 50px !important;
+        min-width: 72px !important;
+        min-height: 72px !important;
+        text-align: center !important;
+        box-shadow: 0 8px 30px -8px rgba(7,193,96,.7) !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+    
+    .qt-panel {
+        right: 8px !important;
+        bottom: 8px !important;
+        left: 8px !important;
+        width: auto !important;
+        height: 75vh !important;
+        max-height: 600px !important;
+        min-height: 450px !important;
+        border-radius: 20px !important;
+        box-shadow: 0 20px 60px -15px rgba(15,23,42,.4) !important;
+    }
+    
+    .qt-header {
+        padding: 20px 22px !important;
+        font-size: 18px !important;
+        background: linear-gradient(135deg, #07C160 0%, #06A94D 100%) !important;
+        color: #fff !important;
+        border-bottom: none !important;
+    }
+    
+    .qt-close-btn {
+        color: #fff !important;
+        top: 16px !important;
+        right: 20px !important;
+        font-size: 32px !important;
+        width: 40px !important;
+        height: 40px !important;
+    }
+    
+    .qt-body {
+        padding: 16px 20px !important;
+    }
+    
+    .qt-msg {
+        padding: 16px 18px !important;
+        font-size: 17px !important;
+        line-height: 1.5 !important;
+        margin: 12px 0 !important;
+        border-radius: 18px !important;
+        max-width: 85% !important;
+    }
+    
+    .qt-input {
+        padding: 16px 20px !important;
+        gap: 12px !important;
+        background: #fff !important;
+    }
+    
+    .qt-input input[type="text"] {
+        padding: 16px 18px !important;
+        font-size: 18px !important;
+        border-radius: 14px !important;
+        border: 2px solid #ddd !important;
+        min-height: 52px !important;
+    }
+    
+    .qt-input button {
+        padding: 16px 18px !important;
+        font-size: 18px !important;
+        border-radius: 14px !important;
+        min-width: 52px !important;
+        height: 52px !important;
+    }
+    
+    .qt-send-btn {
+        padding: 16px 22px !important;
+        font-weight: 600 !important;
+        min-width: 80px !important;
+    }
+    
+    .qt-image-btn, .qt-file-btn, .qt-voice-btn {
+        font-size: 20px !important;
+        border: 2px solid #ddd !important;
+    }
+}
+
+/* 额外的触摸设备检测 */
+@media screen and (max-width: 768px) {
+    .qt-fab {
+        right: 16px !important;
+        bottom: 16px !important;
+        padding: 20px 24px !important;
+        font-size: 18px !important;
+        border-radius: 50px !important;
+        min-width: 72px !important;
+        min-height: 72px !important;
+        text-align: center !important;
+        box-shadow: 0 8px 30px -8px rgba(7,193,96,.7) !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+    
+    .qt-panel {
+        right: 8px !important;
+        bottom: 8px !important;
+        left: 8px !important;
+        width: auto !important;
+        height: 75vh !important;
+        max-height: 600px !important;
+        min-height: 450px !important;
+        border-radius: 20px !important;
+        box-shadow: 0 20px 60px -15px rgba(15,23,42,.4) !important;
+    }
+    
+    .qt-header {
+        padding: 20px 22px !important;
+        font-size: 18px !important;
+        background: linear-gradient(135deg, #07C160 0%, #06A94D 100%) !important;
+        color: #fff !important;
+        border-bottom: none !important;
+    }
+    
+    .qt-input input[type="text"] {
+        padding: 16px 18px !important;
+        font-size: 18px !important;
+        border-radius: 14px !important;
+        border: 2px solid #ddd !important;
+        min-height: 52px !important;
+    }
+    
+    .qt-input button {
+        padding: 16px 18px !important;
+        font-size: 18px !important;
+        border-radius: 14px !important;
+        min-width: 52px !important;
+        height: 52px !important;
+    }
 }
 
 .qt-fab:hover {
@@ -23,11 +176,11 @@
 .qt-panel {
     position: fixed;
     right: 18px;
-    bottom: 68px;
-    width: 320px;
-    height: 440px;
+    bottom: 88px;
+    width: 380px;
+    height: 520px;
     background: #fff;
-    border-radius: 12px;
+    border-radius: 20px;
     box-shadow: 0 16px 48px -12px rgba(15,23,42,.35);
     display: none;
     flex-direction: column;
@@ -37,11 +190,11 @@
 }
 
 .qt-header {
-    padding: 12px 14px;
+    padding: 18px 20px;
     border-bottom: 1px solid #eee;
     font-weight: 700;
     background: #f9fafb;
-    font-size: 14px;
+    font-size: 16px;
     position: relative;
     display: flex;
     align-items: center;
@@ -50,15 +203,15 @@
 
 .qt-close-btn {
     position: absolute;
-    top: 8px;
-    right: 12px;
+    top: 12px;
+    right: 16px;
     background: none;
     border: none;
-    font-size: 24px;
+    font-size: 28px;
     color: #666;
     cursor: pointer;
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -72,7 +225,7 @@
 
 .qt-body {
     flex: 1;
-    padding: 10px 12px;
+    padding: 14px 16px;
     overflow: auto;
     background: #fafafa;
     display: flex;
@@ -81,12 +234,12 @@
 
 .qt-msg {
     background: #fff;
-    margin: 6px 0;
-    padding: 8px 10px;
-    border-radius: 10px;
+    margin: 8px 0;
+    padding: 12px 14px;
+    border-radius: 14px;
     box-shadow: 0 8px 24px -16px rgba(15,23,42,.25);
-    max-width: 78%;
-    font-size: 14px;
+    max-width: 80%;
+    font-size: 16px;
     line-height: 1.4;
     transition: all 0.3s ease;
 }
@@ -116,8 +269,8 @@
 
 .qt-input {
     display: flex;
-    gap: 8px;
-    padding: 10px;
+    gap: 10px;
+    padding: 14px 16px;
     border-top: 1px solid #eee;
     background: #fff;
     align-items: center;
@@ -125,12 +278,13 @@
 
 .qt-input input[type="text"] {
     flex: 1;
-    padding: 8px 10px;
+    padding: 12px 14px;
     border: 1px solid #ddd;
-    border-radius: 8px;
-    font-size: 14px;
+    border-radius: 10px;
+    font-size: 16px;
     outline: none;
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    min-height: 44px;
 }
 
 .qt-input input[type="text"]:focus {
@@ -139,25 +293,30 @@
 }
 
 .qt-input button {
-    padding: 8px 12px;
-    border-radius: 8px;
+    padding: 12px 14px;
+    border-radius: 10px;
     border: none;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 16px;
     transition: all 0.2s ease;
+    min-width: 44px;
+    height: 44px;
 }
 
 .qt-send-btn {
     background: #2563eb;
     color: #fff;
+    padding: 12px 18px;
+    font-weight: 600;
+    min-width: 70px;
 }
 
 .qt-image-btn, .qt-file-btn, .qt-voice-btn {
     background: #fff;
     border: 1px solid #ddd;
-    font-size: 16px;
-    min-width: 36px;
-    height: 36px;
+    font-size: 18px;
+    min-width: 44px;
+    height: 44px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -546,4 +705,142 @@
     opacity: 0;
     transform: translateY(10px);
     animation: slideInUp 0.3s ease forwards;
+}
+
+/* 强制移动端样式 - 针对误检测问题 */
+.qt-force-mobile .qt-fab,
+body.qt-force-mobile .qt-fab,
+.qt-mobile-fab,
+#qt-fab.qt-mobile-fab {
+    right: 16px !important;
+    bottom: 16px !important;
+    padding: 20px 24px !important;
+    font-size: 18px !important;
+    border-radius: 50px !important;
+    min-width: 72px !important;
+    min-height: 72px !important;
+    text-align: center !important;
+    box-shadow: 0 8px 30px -8px rgba(7,193,96,.7) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+.qt-force-mobile .qt-panel,
+body.qt-force-mobile .qt-panel,
+.qt-mobile-panel,
+#qt-panel.qt-mobile-panel {
+    right: 8px !important;
+    bottom: 8px !important;
+    left: 8px !important;
+    width: auto !important;
+    height: 75vh !important;
+    max-height: 600px !important;
+    min-height: 450px !important;
+    border-radius: 20px !important;
+    box-shadow: 0 20px 60px -15px rgba(15,23,42,.4) !important;
+    font-size: 16px !important; /* 强制设置面板字体 */
+}
+
+.qt-force-mobile .qt-header,
+body.qt-force-mobile .qt-header,
+.qt-mobile-panel .qt-header,
+#qt-panel.qt-mobile-panel .qt-header {
+    padding: 20px 22px !important;
+    font-size: 18px !important;
+    background: linear-gradient(135deg, #07C160 0%, #06A94D 100%) !important;
+    color: #fff !important;
+    border-bottom: none !important;
+}
+
+.qt-force-mobile .qt-close-btn,
+body.qt-force-mobile .qt-close-btn,
+.qt-mobile-panel .qt-close-btn,
+#qt-panel.qt-mobile-panel .qt-close-btn {
+    color: #fff !important;
+    top: 16px !important;
+    right: 20px !important;
+    font-size: 32px !important;
+    width: 40px !important;
+    height: 40px !important;
+}
+
+.qt-force-mobile .qt-body,
+body.qt-force-mobile .qt-body,
+.qt-mobile-panel .qt-body,
+#qt-panel.qt-mobile-panel .qt-body {
+    padding: 16px 20px !important;
+    font-size: 16px !important; /* 强制设置消息区域字体 */
+}
+
+.qt-force-mobile .qt-msg,
+body.qt-force-mobile .qt-msg,
+.qt-mobile-panel .qt-msg,
+#qt-panel.qt-mobile-panel .qt-msg {
+    padding: 16px 18px !important;
+    font-size: 17px !important;
+    line-height: 1.5 !important;
+    margin: 12px 0 !important;
+    border-radius: 18px !important;
+    max-width: 85% !important;
+}
+
+.qt-force-mobile .qt-input,
+body.qt-force-mobile .qt-input,
+.qt-mobile-panel .qt-input,
+#qt-panel.qt-mobile-panel .qt-input {
+    padding: 16px 20px !important;
+    gap: 12px !important;
+    background: #fff !important;
+    font-size: 16px !important; /* 强制设置输入区域字体 */
+}
+
+.qt-force-mobile .qt-input input[type="text"],
+body.qt-force-mobile .qt-input input[type="text"],
+.qt-mobile-panel .qt-input input[type="text"],
+#qt-panel.qt-mobile-panel .qt-input input[type="text"] {
+    padding: 16px 18px !important;
+    font-size: 18px !important;
+    border-radius: 14px !important;
+    border: 2px solid #ddd !important;
+    min-height: 52px !important;
+    font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif !important;
+}
+
+.qt-force-mobile .qt-input button,
+body.qt-force-mobile .qt-input button,
+.qt-mobile-panel .qt-input button,
+#qt-panel.qt-mobile-panel .qt-input button {
+    padding: 16px 18px !important;
+    font-size: 18px !important;
+    border-radius: 14px !important;
+    min-width: 52px !important;
+    height: 52px !important;
+    font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif !important;
+}
+
+.qt-force-mobile .qt-send-btn,
+body.qt-force-mobile .qt-send-btn,
+.qt-mobile-panel .qt-send-btn,
+#qt-panel.qt-mobile-panel .qt-send-btn {
+    padding: 16px 22px !important;
+    font-weight: 600 !important;
+    min-width: 80px !important;
+    font-size: 18px !important;
+}
+
+.qt-force-mobile .qt-image-btn,
+.qt-force-mobile .qt-file-btn,
+.qt-force-mobile .qt-voice-btn,
+body.qt-force-mobile .qt-image-btn,
+body.qt-force-mobile .qt-file-btn,
+body.qt-force-mobile .qt-voice-btn,
+.qt-mobile-panel .qt-image-btn,
+.qt-mobile-panel .qt-file-btn,
+.qt-mobile-panel .qt-voice-btn,
+#qt-panel.qt-mobile-panel .qt-image-btn,
+#qt-panel.qt-mobile-panel .qt-file-btn,
+#qt-panel.qt-mobile-panel .qt-voice-btn {
+    font-size: 20px !important;
+    border: 2px solid #ddd !important;
 }

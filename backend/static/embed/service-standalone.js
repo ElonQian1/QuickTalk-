@@ -320,26 +320,75 @@
     function detectBreakpoint() {
       var width = window.innerWidth;
       var height = window.innerHeight;
+      var screenWidth = window.screen ? window.screen.width : width;
+      var screenHeight = window.screen ? window.screen.height : height;
+      var dpr = window.devicePixelRatio || 1;
+      
+      // 获取真实的物理尺寸
+      var physicalWidth = width * dpr;
+      var physicalHeight = height * dpr;
+      
       var isLandscape = width > height;
       
-      var breakpoint = 'extra-large';
-      if (width <= breakpoints['ultra-small']) {
+      // 更准确的移动设备检测
+      var isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+      var isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      
+      // 修正异常高度检测（开发者工具模拟器可能导致）
+      var normalizedHeight = height;
+      if (height > 1500 && width < 500) {
+        // 可能是开发者工具模拟器异常，使用合理的比例
+        normalizedHeight = Math.floor(width * 2.1); // 典型手机比例 (~9:21)
+        console.log('🔧 检测到异常视口高度，自动修正:', height + ' -> ' + normalizedHeight);
+      }
+      
+      // 智能移动设备判断
+      var isMobileScreen = width <= breakpoints['medium']; // <= 768px
+      var isRealMobile = isMobileUA || (isTouchDevice && width <= 480) || (screenWidth <= 480);
+      
+      // 综合判断是否为移动设备
+      var isMobile = isRealMobile || (isTouchDevice && isMobileScreen);
+      
+      // 修正断点检测逻辑 - 考虑真实设备特征
+      var breakpoint;
+      if (width <= breakpoints['ultra-small']) { // <= 360
         breakpoint = 'ultra-small';
-      } else if (width <= breakpoints['small']) {
+      } else if (width <= breakpoints['small']) { // <= 480  
         breakpoint = 'small';
-      } else if (width <= breakpoints['medium']) {
+      } else if (width <= breakpoints['medium']) { // <= 768
         breakpoint = 'medium';
-      } else if (width <= breakpoints['large']) {
+      } else if (width <= breakpoints['large']) { // <= 1024
         breakpoint = 'large';
+      } else { // > 1024
+        breakpoint = 'extra-large';
+      }
+      
+      // 对于移动设备，强制使用移动断点且更精确判断
+      if (isMobileUA) {
+        if (width <= 360) {
+          breakpoint = 'ultra-small';
+        } else if (width <= 480) {
+          breakpoint = 'small';
+        } else if (width <= 768) {
+          breakpoint = 'medium';
+        }
       }
       
       return {
         breakpoint: breakpoint,
         width: width,
-        height: height,
+        height: normalizedHeight,
+        originalHeight: height,
+        screenWidth: screenWidth,
+        screenHeight: screenHeight,
+        physicalWidth: physicalWidth,
+        physicalHeight: physicalHeight,
         isLandscape: isLandscape,
-        isMobile: width <= breakpoints['medium'],
-        isTouch: 'ontouchstart' in window || navigator.maxTouchPoints > 0
+        isMobile: isMobile,
+        isRealMobile: isRealMobile,
+        isTouch: isTouchDevice,
+        isMobileUA: isMobileUA,
+        actualDevicePixelRatio: dpr
       };
     }
     
@@ -353,35 +402,159 @@
       });
     }
     
+    var lastViewportUpdate = 0;
+    var stableViewport = null;
+    var viewportChangeCount = 0;
+    var forceStableMode = false; // 新增强制稳定标志
+    
     function updateViewport() {
+      var now = Date.now();
       var viewport = detectBreakpoint();
+      
+      // 如果已经进入强制稳定模式且检测到移动设备，保持稳定
+      if (forceStableMode && (viewport.isMobileUA || viewport.isRealMobile)) {
+        return stableViewport || viewport;
+      }
+      
+      // 检测是否在快速切换中
+      if (now - lastViewportUpdate < 100) {
+        viewportChangeCount++;
+      } else {
+        viewportChangeCount = 0;
+      }
+      lastViewportUpdate = now;
+      
+      // 如果检测到快速切换，优先使用移动端UA或真实移动设备判断
+      if (viewportChangeCount > 1 && (viewport.isMobileUA || viewport.isRealMobile)) {
+        console.log('🚨 检测到快速视口切换，启用强制稳定模式');
+        forceStableMode = true;
+        
+        // 根据实际宽度更精确地设置断点
+        var stableBreakpoint;
+        if (viewport.width <= 360) {
+          stableBreakpoint = 'ultra-small';
+        } else if (viewport.width <= 480) {
+          stableBreakpoint = 'small';
+        } else if (viewport.width <= 768) {
+          stableBreakpoint = 'medium';
+        } else {
+          // 对于高分辨率移动设备，根据DPR调整
+          stableBreakpoint = viewport.actualDevicePixelRatio >= 2 ? 'medium' : 'large';
+        }
+        
+        viewport = {
+          ...viewport,
+          breakpoint: stableBreakpoint,
+          isMobile: true,
+          forceStable: true
+        };
+        viewportChangeCount = 0; // 重置计数器
+      }
+      
       var breakpointChanged = viewport.breakpoint !== currentBreakpoint;
       
-      if (breakpointChanged) {
+      // 稳定性检查：如果是相同的断点且在短时间内，跳过更新
+      if (stableViewport && 
+          viewport.breakpoint === stableViewport.breakpoint && 
+          now - lastViewportUpdate < 200 && 
+          !viewport.forceStable &&
+          !forceStableMode) {
+        return stableViewport;
+      }
+      
+      if (breakpointChanged || viewport.forceStable) {
         currentBreakpoint = viewport.breakpoint;
-        console.log('📱 动态视口适配:', viewport.breakpoint, viewport.width + 'x' + viewport.height, 
-          viewport.isMobile ? '(移动端)' : '(桌面端)', 
+        stableViewport = viewport;
+        
+        console.log('📱 动态视口适配:', 
+          viewport.breakpoint, 
+          '📏 ' + viewport.width + 'x' + viewport.height + 
+          (viewport.originalHeight !== viewport.height ? ' (修正自' + viewport.originalHeight + ')' : ''),
+          viewport.isRealMobile ? '(真实移动端)' : viewport.isMobile ? '(移动端)' : '(桌面端)', 
           viewport.isTouch ? '(触摸)' : '(鼠标)',
-          viewport.isLandscape ? '(横屏)' : '(竖屏)');
-        notifyChange(viewport);
+          viewport.isLandscape ? '(横屏)' : '(竖屏)',
+          viewport.isMobileUA ? '[UA检测:移动]' : '[UA检测:桌面]',
+          'DPR:' + viewport.actualDevicePixelRatio,
+          '物理:' + Math.round(viewport.physicalWidth) + 'x' + Math.round(viewport.physicalHeight),
+          viewport.forceStable ? '[强制稳定]' : '',
+          forceStableMode ? '[稳定模式]' : '');
+        
+        // 延迟通知，避免连续触发
+        setTimeout(function() {
+          notifyChange(viewport);
+        }, 50);
       }
       
       return viewport;
     }
     
-    // 初始检测
-    updateViewport();
+    // 初始检测 - 优化稳定性
+    console.log('🔧 启动初始视口检测...');
     
-    // 监听窗口大小变化
+    // 立即检测一次
+    var initialViewport = updateViewport();
+    
+    // 如果检测到移动设备UA或真实移动设备，立即强制稳定
+    if (initialViewport && (initialViewport.isMobileUA || initialViewport.isRealMobile)) {
+      console.log('🎯 检测到移动设备，强制稳定模式');
+      
+      // 根据实际宽度和设备特征更精确地设置断点
+      var stableBreakpoint;
+      if (initialViewport.width <= 360) {
+        stableBreakpoint = 'ultra-small';
+      } else if (initialViewport.width <= 480) {
+        stableBreakpoint = 'small';
+      } else if (initialViewport.width <= 768) {
+        stableBreakpoint = 'medium';
+      } else {
+        // 对于高分辨率移动设备（如iPhone Pro Max），考虑DPR
+        stableBreakpoint = initialViewport.actualDevicePixelRatio >= 2 ? 'medium' : 'large';
+      }
+      
+      var forcedViewport = {
+        ...initialViewport,
+        breakpoint: stableBreakpoint,
+        isMobile: true,
+        forceStable: true
+      };
+      stableViewport = forcedViewport;
+      currentBreakpoint = forcedViewport.breakpoint;
+      
+      setTimeout(function() {
+        notifyChange(forcedViewport);
+      }, 100);
+    } else {
+      // 非移动设备的延迟稳定检测
+      setTimeout(function() {
+        console.log('🔄 执行稳定性检测...');
+        updateViewport();
+      }, 400);
+    }
+    
+    // 监听窗口大小变化 - 增加防抖延迟
     var resizeTimeout;
     window.addEventListener('resize', function() {
       clearTimeout(resizeTimeout);
-      resizeTimeout = setTimeout(updateViewport, 150);
+      resizeTimeout = setTimeout(function() {
+        console.log('🔄 窗口大小变化触发检测');
+        updateViewport();
+      }, 300); // 增加延迟到300ms
     });
     
-    // 监听方向变化
+    // 监听方向变化 - 增加延迟
     window.addEventListener('orientationchange', function() {
-      setTimeout(updateViewport, 500);
+      console.log('🔄 屏幕方向变化触发检测');
+      setTimeout(function() {
+        updateViewport();
+      }, 800); // 增加延迟到800ms
+    });
+    
+    // 监听页面可见性变化，避免后台切换导致的问题
+    document.addEventListener('visibilitychange', function() {
+      if (!document.hidden) {
+        console.log('🔄 页面重新可见，重新检测视口');
+        setTimeout(updateViewport, 500);
+      }
     });
     
     return {
@@ -416,6 +589,18 @@
     console.log('🔧 动态视口适配系统已启动');
     var initialViewport = viewportManager.getCurrentViewport();
     console.log('📊 初始视口状态:', initialViewport.breakpoint, initialViewport.width + 'x' + initialViewport.height);
+    console.log('🔍 设备信息详情:', {
+      userAgent: navigator.userAgent,
+      isMobileUA: initialViewport.isMobileUA,
+      isTouch: initialViewport.isTouch,
+      devicePixelRatio: initialViewport.actualDevicePixelRatio,
+      screenSize: screen.width + 'x' + screen.height,
+      availableSize: screen.availWidth + 'x' + screen.availHeight,
+      innerSize: window.innerWidth + 'x' + window.innerHeight,
+      outerSize: window.outerWidth + 'x' + window.outerHeight,
+      viewport: '📏 ' + initialViewport.width + 'x' + initialViewport.height + ' → ' + initialViewport.breakpoint,
+      orientation: window.orientation !== undefined ? window.orientation + '°' : 'unknown'
+    });
     
     // 检查并加载 CSS 样式
     var cssId = 'qt-customer-service-styles';
@@ -454,15 +639,202 @@
     
     // 动态适配函数
     function adaptToViewport(viewport) {
+      console.log('🎨 开始适配视口:', viewport.breakpoint, viewport.forceStable ? '[强制模式]' : '');
+      
       // 动态添加视口类名
       var body = document.body;
       body.className = body.className.replace(/qt-viewport-\w+/g, '');
       body.classList.add('qt-viewport-' + viewport.breakpoint);
       
-      if (viewport.isMobile) {
+      // 强制移动端样式检测 - 优先使用真实移动设备检测
+      var shouldUseMobileStyles = viewport.isRealMobile || 
+        viewport.isMobileUA || 
+        viewport.forceStable ||
+        (viewport.isTouch && viewport.width <= 768) ||
+        viewport.width <= 480;
+      
+      if (shouldUseMobileStyles) {
         body.classList.add('qt-mobile');
+        body.classList.add('qt-force-mobile');
+        // 为面板添加移动端类名
+        panel.classList.add('qt-mobile-panel');
+        btn.classList.add('qt-mobile-fab');
+        
+        // 计算相对于视口的合适尺寸
+        var viewportWidth = viewport.width;
+        var viewportHeight = viewport.height;
+        
+        // 基于视口宽度和高度计算合适的字体大小和间距 - 大幅增大基础尺寸
+        // 考虑到移动端的高DPI，使用更大的基础字体
+        var baseFontSize = Math.max(28, Math.min(50, viewportWidth / 12)); // 28-50px (大幅增大)
+        
+        // 如果高度异常大（可能是开发工具），进一步放大字体
+        if (viewportHeight > 1500) {
+          baseFontSize = Math.max(35, Math.min(60, viewportWidth / 10)); // 35-60px
+        }
+        
+        var basePadding = Math.max(18, Math.min(30, viewportWidth / 15)); // 18-30px (增大)
+        var baseMargin = Math.max(12, Math.min(24, viewportWidth / 25)); // 12-24px (增大)
+        
+        // 计算面板高度（占视口的70-80%）
+        var panelHeight = Math.min(viewportHeight * 0.75, viewportHeight - 100);
+        
+        // 强制注入内联样式确保生效
+        panel.style.cssText += `
+          font-size: ${baseFontSize}px !important;
+          right: ${baseMargin}px !important;
+          bottom: ${baseMargin}px !important;
+          left: ${baseMargin}px !important;
+          width: auto !important;
+          height: ${panelHeight}px !important;
+          max-height: ${panelHeight}px !important;
+          border-radius: ${Math.max(16, basePadding)}px !important;
+        `;
+        
+        // 强制设置输入框样式
+        var inputText = panel.querySelector('input[type="text"]');
+        if (inputText) {
+          inputText.style.cssText += `
+            font-size: ${baseFontSize + 4}px !important;
+            padding: ${basePadding + 4}px ${basePadding + 6}px !important;
+            min-height: ${baseFontSize * 2.8}px !important;
+            border-radius: ${basePadding + 2}px !important;
+          `;
+        }
+        
+        // 强制设置按钮样式
+        var buttons = panel.querySelectorAll('button');
+        buttons.forEach(function(button) {
+          // 特别处理发送按钮
+          if (button.textContent.includes('发送') || button.className.includes('send')) {
+            button.style.cssText += `
+              font-size: ${baseFontSize + 2}px !important;
+              padding: ${basePadding + 6}px ${basePadding + 10}px !important;
+              min-width: ${baseFontSize * 3.5}px !important;
+              height: ${baseFontSize * 2.8}px !important;
+              border-radius: ${basePadding + 2}px !important;
+            `;
+          } else {
+            button.style.cssText += `
+              font-size: ${baseFontSize + 1}px !important;
+              padding: ${basePadding + 4}px ${basePadding + 6}px !important;
+              min-width: ${baseFontSize * 2.8}px !important;
+              height: ${baseFontSize * 2.8}px !important;
+              border-radius: ${basePadding + 2}px !important;
+            `;
+          }
+        });
+        
+        // 强制设置头部样式
+        var header = panel.querySelector('.qt-header');
+        if (header) {
+          header.style.cssText += `
+            font-size: ${baseFontSize + 3}px !important;
+            padding: ${basePadding + 8}px ${basePadding + 10}px !important;
+            background: linear-gradient(135deg, #07C160 0%, #06A94D 100%) !important;
+            color: #fff !important;
+          `;
+        }
+        
+        // 强制设置头部样式
+        var header = panel.querySelector('.qt-header');
+        if (header) {
+          header.style.cssText += `
+            font-size: ${baseFontSize + 2}px !important;
+            padding: ${basePadding + 6}px ${basePadding + 8}px !important;
+            background: linear-gradient(135deg, #07C160 0%, #06A94D 100%) !important;
+            color: #fff !important;
+          `;
+        }
+        
+        // 设置消息区域样式
+        var messagesArea = panel.querySelector('.qt-messages');
+        if (messagesArea) {
+          messagesArea.style.cssText += `
+            font-size: ${baseFontSize + 2}px !important;
+            padding: ${basePadding + 2}px !important;
+            max-height: ${panelHeight - 200}px !important;
+            line-height: 1.6 !important;
+          `;
+          
+          // 设置消息项的字体大小
+          var messageItems = messagesArea.querySelectorAll('.qt-message, .message');
+          messageItems.forEach(function(item) {
+            item.style.cssText += `
+              font-size: ${baseFontSize + 2}px !important;
+              line-height: 1.6 !important;
+              margin-bottom: ${Math.max(12, basePadding)}px !important;
+              padding: ${basePadding}px ${basePadding + 2}px !important;
+            `;
+          });
+        }
+        
+        // 动态设置FAB按钮样式 - 大幅增大尺寸
+        var fabSize = Math.max(80, Math.min(120, viewportWidth / 4.5)); // 80-120px (大幅增大)
+        btn.style.cssText += `
+          width: ${fabSize}px !important;
+          height: ${fabSize}px !important;
+          font-size: ${Math.max(24, fabSize / 2.5)}px !important;
+          right: ${baseMargin}px !important;
+          bottom: ${baseMargin + panelHeight + 30}px !important;
+          border-radius: ${fabSize / 2}px !important;
+          padding: 0 !important;
+        `;
+        
+        console.log('✅ 已应用移动端样式 + 动态尺寸适配');
+        console.log('📏 尺寸详情:', {
+          基础字体: baseFontSize + 'px',
+          输入框字体: (baseFontSize + 4) + 'px', 
+          按钮字体: (baseFontSize + 1) + 'px',
+          发送按钮字体: (baseFontSize + 2) + 'px',
+          标题字体: (baseFontSize + 3) + 'px',
+          消息字体: (baseFontSize + 2) + 'px',
+          面板高度: panelHeight + 'px',
+          FAB尺寸: fabSize + 'px',
+          FAB字体: Math.max(24, fabSize / 2.5) + 'px',
+          间距: basePadding + 'px',
+          边距: baseMargin + 'px'
+        });
       } else {
-        body.classList.remove('qt-mobile');
+        body.classList.remove('qt-mobile', 'qt-force-mobile');
+        panel.classList.remove('qt-mobile-panel');
+        btn.classList.remove('qt-mobile-fab');
+        
+        // 清除移动端强制样式
+        var elementsToClean = [panel].concat(
+          Array.from(panel.querySelectorAll('input, button, .qt-header, .qt-messages, .qt-message, .message'))
+        );
+        
+        elementsToClean.forEach(function(element) {
+          if (element && element.style) {
+            element.style.cssText = element.style.cssText.replace(/font-size:[^;]*!important;?/g, '');
+            element.style.cssText = element.style.cssText.replace(/padding:[^;]*!important;?/g, '');
+            element.style.cssText = element.style.cssText.replace(/min-height:[^;]*!important;?/g, '');
+            element.style.cssText = element.style.cssText.replace(/min-width:[^;]*!important;?/g, '');
+            element.style.cssText = element.style.cssText.replace(/height:[^;]*!important;?/g, '');
+            element.style.cssText = element.style.cssText.replace(/max-height:[^;]*!important;?/g, '');
+            element.style.cssText = element.style.cssText.replace(/line-height:[^;]*!important;?/g, '');
+            element.style.cssText = element.style.cssText.replace(/margin-bottom:[^;]*!important;?/g, '');
+          }
+        });
+        
+        // 清除面板位置样式
+        panel.style.cssText = panel.style.cssText.replace(/right:[^;]*!important;?/g, '');
+        panel.style.cssText = panel.style.cssText.replace(/bottom:[^;]*!important;?/g, '');
+        panel.style.cssText = panel.style.cssText.replace(/left:[^;]*!important;?/g, '');
+        panel.style.cssText = panel.style.cssText.replace(/width:[^;]*!important;?/g, '');
+        panel.style.cssText = panel.style.cssText.replace(/border-radius:[^;]*!important;?/g, '');
+        
+        // 清除FAB按钮的移动端样式
+        btn.style.cssText = btn.style.cssText.replace(/width:[^;]*!important;?/g, '');
+        btn.style.cssText = btn.style.cssText.replace(/height:[^;]*!important;?/g, '');
+        btn.style.cssText = btn.style.cssText.replace(/font-size:[^;]*!important;?/g, '');
+        btn.style.cssText = btn.style.cssText.replace(/right:[^;]*!important;?/g, '');
+        btn.style.cssText = btn.style.cssText.replace(/bottom:[^;]*!important;?/g, '');
+        btn.style.cssText = btn.style.cssText.replace(/border-radius:[^;]*!important;?/g, '');
+        btn.style.cssText = btn.style.cssText.replace(/padding:[^;]*!important;?/g, '');
+        
+        console.log('✅ 已应用桌面端样式，清除所有移动端强制样式');
       }
       
       if (viewport.isTouch) {
@@ -471,7 +843,7 @@
         body.classList.remove('qt-touch');
       }
       
-      if (viewport.isLandscape && viewport.isMobile) {
+      if (viewport.isLandscape && shouldUseMobileStyles) {
         body.classList.add('qt-mobile-landscape');
       } else {
         body.classList.remove('qt-mobile-landscape');
@@ -492,87 +864,55 @@
       var css = '';
       var lastCss = style.getAttribute('data-last-css') || '';
       
-      if (viewport.breakpoint === 'ultra-small') {
+      // 为移动设备添加补充样式（主要处理边缘情况）
+      if (viewport.isRealMobile || viewport.isMobileUA) {
+        // 基础移动端样式优化
         css = `
-          .qt-fab { 
-            padding: 26px 30px !important; 
-            font-size: 22px !important; 
-            min-width: 85px !important; 
-            min-height: 85px !important; 
+          .qt-mobile .qt-panel {
+            transform: none !important;
+            transition: all 0.3s ease !important;
           }
-          .qt-panel { 
-            height: 85vh !important; 
-            border-radius: 28px !important; 
-            right: 4px !important; 
-            left: 4px !important; 
-            bottom: 4px !important; 
+          .qt-mobile .qt-fab {
+            transform: none !important;
+            transition: all 0.3s ease !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
           }
-          .qt-input input[type="text"] { 
-            font-size: 20px !important; 
-            min-height: 60px !important; 
+          .qt-mobile .qt-messages {
+            overflow-y: auto !important;
+            -webkit-overflow-scrolling: touch !important;
           }
-          .qt-input button { 
-            min-width: 60px !important; 
-            height: 60px !important; 
+          .qt-mobile .qt-input {
+            flex-shrink: 0 !important;
           }
         `;
-      } else if (viewport.breakpoint === 'small') {
-        css = `
-          .qt-fab { 
-            padding: 24px 28px !important; 
-            font-size: 20px !important; 
-            min-width: 80px !important; 
-            min-height: 80px !important; 
-          }
-          .qt-panel { 
-            height: 80vh !important; 
-            border-radius: 24px !important; 
-            right: 6px !important; 
-            left: 6px !important; 
-            bottom: 6px !important; 
-          }
-          .qt-input input[type="text"] { 
-            font-size: 19px !important; 
-            min-height: 56px !important; 
-          }
-        `;
-      } else if (viewport.breakpoint === 'medium' && viewport.isMobile) {
-        css = `
-          .qt-fab { 
-            padding: 20px 24px !important; 
-            font-size: 18px !important; 
-            min-width: 72px !important; 
-            min-height: 72px !important; 
-          }
-          .qt-panel { 
-            height: 75vh !important; 
-            border-radius: 20px !important; 
-            right: 8px !important; 
-            left: 8px !important; 
-            bottom: 8px !important; 
-          }
-          .qt-input input[type="text"] { 
-            font-size: 18px !important; 
-            min-height: 52px !important; 
-          }
-        `;
-      }
-      
-      // 横屏模式特殊处理
-      if (viewport.isLandscape && viewport.isMobile) {
-        css += `
-          .qt-panel { 
-            height: 85vh !important; 
-            max-height: 450px !important; 
-          }
-        `;
+        
+        // 横屏模式特殊处理
+        if (viewport.isLandscape) {
+          css += `
+            .qt-mobile-landscape .qt-panel { 
+              max-height: min(85vh, 400px) !important; 
+            }
+          `;
+        }
+        
+        // 超小屏幕特殊优化
+        if (viewport.breakpoint === 'ultra-small') {
+          css += `
+            .qt-viewport-ultra-small .qt-panel {
+              border-radius: min(20px, 5vw) !important;
+            }
+            .qt-viewport-ultra-small .qt-fab {
+              border-radius: 50% !important;
+            }
+          `;
+        }
       }
       
       // 性能优化：只在CSS内容改变时才更新
       if (css !== lastCss) {
         style.textContent = css;
         style.setAttribute('data-last-css', css);
-        console.log('🎨 动态样式已更新:', viewport.breakpoint);
+        console.log('🎨 动态补充样式已更新:', viewport.breakpoint, viewport.isRealMobile ? '[真实移动设备]' : '');
       }
     }
     
