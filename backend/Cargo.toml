@@ -26,3 +26,6 @@ tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
 futures-util = "0.3"
 dotenvy = "0.15"
 thiserror = "1.0"
+tokio-rustls = "0.24"
+rustls = "0.21"
+rustls-pemfile = "1.0"

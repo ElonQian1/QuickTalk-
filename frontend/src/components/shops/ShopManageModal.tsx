@@ -145,6 +145,34 @@ const ApiKeyBox = styled(ValueBox)`
 
 // StaffMember 类型来自 staff 子模块
 
+const copyToClipboard = async (text: string) => {
+  // 优先使用现代 Clipboard API（仅在 HTTPS 或 localhost 可用）
+  if (typeof navigator !== 'undefined' && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  // 回退方案：使用临时 textarea + execCommand
+  if (typeof document === 'undefined') {
+    throw new Error('Clipboard API 不可用');
+  }
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.style.position = 'fixed';
+  textarea.style.opacity = '0';
+  textarea.style.pointerEvents = 'none';
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+
+  const successful = document.execCommand('copy');
+  document.body.removeChild(textarea);
+
+  if (!successful) {
+    throw new Error('Fallback copy failed');
+  }
+};
+
 const ShopManageModal: React.FC<ShopManageModalProps> = ({ open, onClose, shop, initialTab='info' }) => {
   const [showAdd, setShowAdd] = useState(false);
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
@@ -204,9 +232,15 @@ const ShopManageModal: React.FC<ShopManageModalProps> = ({ open, onClose, shop, 
 
   if (!shop) return null;
 
-  const copyKey = () => {
+  const copyKey = async () => {
     if (!shop.api_key) return;
-    navigator.clipboard.writeText(shop.api_key).then(() => toast.success('API Key 已复制'));
+    try {
+      await copyToClipboard(shop.api_key);
+      toast.success('API Key 已复制');
+    } catch (err) {
+      console.error('复制 API Key 失败', err);
+      toast.error('复制失败');
+    }
   };
 
   const copyEmbedCode = async () => {
@@ -218,10 +252,10 @@ const ShopManageModal: React.FC<ShopManageModalProps> = ({ open, onClose, shop, 
   const embed = `\
 <script>(function(){\n  var CONFIG = {\n    serverUrl: '${serverUrl}',\n    shopId: '${shop.api_key}',\n    authorizedDomain: '',\n    cache: Date.now()\n  };\n  var host = window.location.hostname;\n  if (CONFIG.authorizedDomain && host !== CONFIG.authorizedDomain && !host.endsWith('.' + CONFIG.authorizedDomain) && host !== 'localhost') {\n    console.error('❌ 域名未授权:', host, '期望:', CONFIG.authorizedDomain);\n    return;\n  }\n  var BASE = (CONFIG.serverUrl && CONFIG.serverUrl.endsWith('/')) ? CONFIG.serverUrl.slice(0, -1) : CONFIG.serverUrl;\n  var link = document.createElement('link');\n  link.rel = 'stylesheet';\n  link.href = BASE + '/static/embed/styles.css?v=' + CONFIG.cache;\n  link.charset = 'utf-8';\n  link.onerror = function(){ console.error('❌ 客服样式加载失败'); };\n  document.head.appendChild(link);\n  var s = document.createElement('script');\n  s.src = BASE + '/static/embed/service-standalone.js?v=' + CONFIG.cache;\n  s.charset = 'utf-8';\n  s.onload = function(){\n    if (window.QuickTalkCustomerService) {\n      window.QuickTalkCustomerService.init({ shopId: CONFIG.shopId, serverUrl: CONFIG.serverUrl });\n      console.log('✅ 客服浮窗已初始化');\n    } else {\n      console.error('❌ 客服兼容层未就绪');\n    }\n  };\n  s.onerror = function(){ console.error('❌ 客服脚本加载失败'); };\n  document.head.appendChild(s);\n})();</script>`;
     try {
-      await navigator.clipboard.writeText(embed);
+      await copyToClipboard(embed);
       toast.success('嵌入代码已复制');
     } catch (e) {
-      console.error(e);
+      console.error('复制嵌入代码失败', e);
       toast.error('复制失败');
     }
   };
