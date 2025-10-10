@@ -54,8 +54,8 @@ export class WebSocketClient {
 
   constructor(shopId: string, customerId?: string) {
     this.shopId = shopId;
-    this.customerId = customerId || this.generateCustomerId();
     this.configManager = ConfigManager.getInstance();
+    this.customerId = customerId || this.generateCustomerId();
   }
 
   /**

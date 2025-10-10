@@ -1,17 +1,11 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.CustomerServiceSDK = exports.VoiceMessageRenderer = exports.VoicePlayer = void 0;
-exports.createCustomerServiceSDK = createCustomerServiceSDK;
 // 导出语音相关组件
-var voice_player_1 = require("./voice-player");
-Object.defineProperty(exports, "VoicePlayer", { enumerable: true, get: function () { return voice_player_1.VoicePlayer; } });
-var voice_message_1 = require("./voice-message");
-Object.defineProperty(exports, "VoiceMessageRenderer", { enumerable: true, get: function () { return voice_message_1.VoiceMessageRenderer; } });
+export { VoicePlayer } from './voice-player';
+export { VoiceMessageRenderer } from './voice-message';
 /**
  * 客服系统 WebSocket SDK
  * 供独立站前端集成使用
  */
-class CustomerServiceSDK {
+export class CustomerServiceSDK {
     constructor(config) {
         this.ws = null;
         this.eventListeners = new Map();
@@ -365,13 +359,12 @@ class CustomerServiceSDK {
         });
     }
 }
-exports.CustomerServiceSDK = CustomerServiceSDK;
 // 导出默认实例创建函数
-function createCustomerServiceSDK(config) {
+export function createCustomerServiceSDK(config) {
     return new CustomerServiceSDK(config);
 }
 // 默认导出
-exports.default = CustomerServiceSDK;
+export default CustomerServiceSDK;
 if (typeof window !== 'undefined') {
     window.CustomerServiceSDK = CustomerServiceSDK;
     window.createCustomerServiceSDK = createCustomerServiceSDK;

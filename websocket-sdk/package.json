@@ -13,14 +13,19 @@
     "watch:sync": "nodemon --watch dist --exec \"node scripts/sync-demo.cjs\"",
     "clean": "rimraf dist"
   },
-  "keywords": ["websocket", "customer-service", "chat", "sdk"],
+  "keywords": [
+    "websocket",
+    "customer-service",
+    "chat",
+    "sdk"
+  ],
   "author": "Your Name",
   "license": "MIT",
   "devDependencies": {
-    "typescript": "^5.0.0",
     "@types/node": "^20.0.0",
-    "nodemon": "^3.0.0",
     "concurrently": "^7.6.0",
-    "rimraf": "^5.0.0"
+    "nodemon": "^3.0.0",
+    "rimraf": "^5.0.10",
+    "typescript": "^5.0.0"
   }
 }

@@ -14,12 +14,14 @@ export interface UIComponents {
   header: HTMLElement;
   closeBtn: HTMLButtonElement;
   messagesContainer: HTMLElement;
+  toolbarArea: HTMLElement;
   inputArea: HTMLElement;
   messageInput: HTMLInputElement;
   sendBtn: HTMLButtonElement;
   imageBtn: HTMLButtonElement;
   fileBtn: HTMLButtonElement;
   voiceBtn: HTMLButtonElement;
+  emojiBtn: HTMLButtonElement;
   imageInput: HTMLInputElement;
   fileInput: HTMLInputElement;
 }
@@ -114,6 +116,37 @@ export class UIManager {
     const messagesContainer = document.createElement('div');
     messagesContainer.className = `${prefix}messages`;
 
+    // 创建工具栏区域（图片、文件、语音、表情按钮）
+    const toolbarArea = document.createElement('div');
+    toolbarArea.className = `${prefix}toolbar`;
+
+    // 创建工具按钮
+    const imageBtn = document.createElement('button');
+    imageBtn.className = `${prefix}btn ${prefix}btn-toolbar`;
+    imageBtn.innerHTML = '📷';
+    imageBtn.title = '发送图片';
+
+    const fileBtn = document.createElement('button');
+    fileBtn.className = `${prefix}btn ${prefix}btn-toolbar`;
+    fileBtn.innerHTML = '�';
+    fileBtn.title = '发送文件';
+
+    const voiceBtn = document.createElement('button');
+    voiceBtn.className = `${prefix}btn ${prefix}btn-toolbar`;
+    voiceBtn.innerHTML = '🎤';
+    voiceBtn.title = '发送语音';
+
+    const emojiBtn = document.createElement('button');
+    emojiBtn.className = `${prefix}btn ${prefix}btn-toolbar`;
+    emojiBtn.innerHTML = '😊';
+    emojiBtn.title = '发送表情';
+
+    // 组装工具栏
+    toolbarArea.appendChild(imageBtn);
+    toolbarArea.appendChild(fileBtn);
+    toolbarArea.appendChild(voiceBtn);
+    toolbarArea.appendChild(emojiBtn);
+
     // 创建输入区域
     const inputArea = document.createElement('div');
     inputArea.className = `${prefix}input-area`;
@@ -124,22 +157,7 @@ export class UIManager {
     messageInput.className = `${prefix}input`;
     messageInput.placeholder = '输入消息...';
 
-    // 创建按钮组
-    const imageBtn = document.createElement('button');
-    imageBtn.className = `${prefix}btn ${prefix}btn-secondary`;
-    imageBtn.innerHTML = '📷';
-    imageBtn.title = '发送图片';
-
-    const fileBtn = document.createElement('button');
-    fileBtn.className = `${prefix}btn ${prefix}btn-secondary`;
-    fileBtn.innerHTML = '📎';
-    fileBtn.title = '发送文件';
-
-    const voiceBtn = document.createElement('button');
-    voiceBtn.className = `${prefix}btn ${prefix}btn-secondary`;
-    voiceBtn.innerHTML = '🎤';
-    voiceBtn.title = '发送语音';
-
+    // 创建发送按钮
     const sendBtn = document.createElement('button');
     sendBtn.className = `${prefix}btn ${prefix}btn-primary`;
     sendBtn.textContent = '发送';
@@ -156,9 +174,6 @@ export class UIManager {
 
     // 组装输入区域
     inputArea.appendChild(messageInput);
-    inputArea.appendChild(imageBtn);
-    inputArea.appendChild(fileBtn);
-    inputArea.appendChild(voiceBtn);
     inputArea.appendChild(sendBtn);
     inputArea.appendChild(imageInput);
     inputArea.appendChild(fileInput);
@@ -166,6 +181,7 @@ export class UIManager {
     // 组装面板
     panel.appendChild(header);
     panel.appendChild(messagesContainer);
+    panel.appendChild(toolbarArea);
     panel.appendChild(inputArea);
 
     // 组装根容器
@@ -185,12 +201,14 @@ export class UIManager {
       header,
       closeBtn,
       messagesContainer,
+      toolbarArea,
       inputArea,
       messageInput,
       sendBtn,
       imageBtn,
       fileBtn,
       voiceBtn,
+      emojiBtn,
       imageInput,
       fileInput
     };
@@ -216,7 +234,7 @@ export class UIManager {
   private bindEvents(): void {
     if (!this.components) return;
 
-    const { fab, closeBtn, messageInput, sendBtn, imageBtn, fileBtn, voiceBtn, imageInput, fileInput } = this.components;
+    const { fab, closeBtn, messageInput, sendBtn, imageBtn, fileBtn, voiceBtn, emojiBtn, imageInput, fileInput } = this.components;
 
     // FAB按钮点击
     fab.addEventListener('click', () => this.toggle());
@@ -235,7 +253,7 @@ export class UIManager {
       }
     });
 
-    // 文件按钮点击
+    // 工具栏按钮点击
     imageBtn.addEventListener('click', () => imageInput.click());
     fileBtn.addEventListener('click', () => fileInput.click());
     
@@ -243,6 +261,9 @@ export class UIManager {
     voiceBtn.addEventListener('click', () => {
       console.log('语音功能暂未实现');
     });
+
+    // 表情按钮点击
+    emojiBtn.addEventListener('click', () => this.handleEmojiClick());
 
     // 文件选择
     imageInput.addEventListener('change', (e) => this.handleFileSelect(e, 'image'));
@@ -255,6 +276,7 @@ export class UIManager {
     this.addTouchFeedback(imageBtn);
     this.addTouchFeedback(fileBtn);
     this.addTouchFeedback(voiceBtn);
+    this.addTouchFeedback(emojiBtn);
   }
 
   /**
@@ -424,6 +446,23 @@ export class UIManager {
 
     // 清空输入
     input.value = '';
+  }
+
+  /**
+   * 处理表情按钮点击
+   */
+  private handleEmojiClick(): void {
+    // 常用表情列表
+    const emojis = ['😊', '😂', '😍', '🤔', '😢', '😎', '👍', '❤️', '🎉', '👋'];
+    const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
+    
+    // 发送表情消息
+    const event = new CustomEvent('qt-send-message', {
+      detail: { content: randomEmoji, messageType: 'text' }
+    });
+    document.dispatchEvent(event);
+    
+    console.log(`📱 发送表情: ${randomEmoji}`);
   }
 
   /**

@@ -337,6 +337,52 @@ export class StyleSystem {
   margin-right: auto !important;
 }
 
+/* 工具栏区域 */
+.${this.namespace} .${p}toolbar {
+  display: flex !important;
+  gap: ${config.spacing.sm}px !important;
+  padding: ${config.spacing.md}px ${config.spacing.lg}px !important;
+  background: #f8f9fa !important;
+  border-top: 1px solid #e5e5e5 !important;
+  border-bottom: 1px solid #e5e5e5 !important;
+  flex-shrink: 0 !important;
+  margin: 0 !important;
+  justify-content: flex-start !important;
+  align-items: center !important;
+}
+
+/* 工具栏按钮 */
+.${this.namespace} .${p}btn-toolbar {
+  padding: ${config.spacing.sm}px ${config.spacing.md}px !important;
+  font-size: ${Math.max(config.buttonSize - 2, 14)}px !important;
+  border: 1px solid #d0d7de !important;
+  border-radius: ${config.borderRadius}px !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.2s ease !important;
+  margin: 0 !important;
+  outline: none !important;
+  font-family: inherit !important;
+  background: #ffffff !important;
+  color: #656d76 !important;
+  min-width: ${config.spacing.xl}px !important;
+  height: ${config.spacing.xl}px !important;
+  flex-shrink: 0 !important;
+}
+
+.${this.namespace} .${p}btn-toolbar:hover {
+  background: #f3f4f6 !important;
+  border-color: #b1bac4 !important;
+  color: #24292f !important;
+}
+
+.${this.namespace} .${p}btn-toolbar:active {
+  background: #e9ecef !important;
+  transform: scale(0.95) !important;
+}
+
 /* 输入区域 */
 .${this.namespace} .${p}input-area {
   display: flex !important;
@@ -425,6 +471,24 @@ export class StyleSystem {
   .${this.namespace} .${p}fab {
     right: ${config.spacing.lg}px !important;
     bottom: ${config.spacing.lg}px !important;
+  }
+  
+  /* 移动端工具栏适配 */
+  .${this.namespace} .${p}toolbar {
+    padding: ${config.spacing.sm}px ${config.spacing.md}px !important;
+    gap: ${config.spacing.xs}px !important;
+  }
+  
+  .${this.namespace} .${p}btn-toolbar {
+    min-width: ${config.spacing.lg}px !important;
+    height: ${config.spacing.lg}px !important;
+    padding: ${config.spacing.xs}px !important;
+    font-size: ${Math.max(config.buttonSize - 4, 12)}px !important;
+  }
+  
+  .${this.namespace} .${p}input-area {
+    padding: ${config.spacing.md}px !important;
+    gap: ${config.spacing.xs}px !important;
   }
 }
 
