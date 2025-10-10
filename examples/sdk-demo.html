@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>客服聊天示例</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: #07C160;
+            color: white;
+            padding: 16px;
+            text-align: center;
+        }
+        
+        .chat-container {
+            height: 400px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .messages {
+            flex: 1;
+            padding: 16px;
+            overflow-y: auto;
+            background: #f8f9fa;
+        }
+        
+        .message {
+            margin-bottom: 12px;
+            display: flex;
+            align-items: flex-end;
+        }
+        
+        .message.own {
+            justify-content: flex-end;
+        }
+        
+        .message-bubble {
+            max-width: 80%;
+            padding: 8px 12px;
+            border-radius: 18px;
+            word-wrap: break-word;
+            font-size: 14px;
+        }
+        
+        .message.own .message-bubble {
+            background: #07C160;
+            color: white;
+            border-bottom-right-radius: 6px;
+        }
+        
+        .message:not(.own) .message-bubble {
+            background: white;
+            color: #333;
+            border-bottom-left-radius: 6px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+        
+        .message-time {
+            font-size: 12px;
+            color: #999;
+            margin: 0 8px;
+        }
+        
+        .input-container {
+            padding: 16px;
+            border-top: 1px solid #e5e5e5;
+            background: white;
+        }
+        
+        .input-row {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .message-input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #e5e5e5;
+            border-radius: 20px;
+            outline: none;
+            font-size: 14px;
+        }
+        
+        .send-button {
+            padding: 8px 16px;
+            background: #07C160;
+            color: white;
+            border: none;
+            border-radius: 16px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .send-button:hover {
+            background: #06A94D;
+        }
+        
+        .send-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .status {
+            padding: 8px 16px;
+            background: #f0f0f0;
+            font-size: 12px;
+            color: #666;
+            text-align: center;
+        }
+        
+        .status.connected {
+            background: #e8f5e8;
+            color: #07C160;
+        }
+        
+        .status.error {
+            background: #ffeaea;
+            color: #d32f2f;
+        }
+        
+        .typing-indicator {
+            font-style: italic;
+            color: #999;
+            font-size: 12px;
+            padding: 8px 16px;
+            display: none;
+        }
+        
+        .config {
+            background: white;
+            padding: 16px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .config input {
+            width: 100%;
+            padding: 8px;
+            margin: 4px 0 8px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        
+        .config button {
+            background: #07C160;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .demo-info {
+            background: #e3f2fd;
+            padding: 12px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            color: #0277bd;
+        }
+        
+        /* 移动端优化 */
+        @media screen and (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            
+            .container {
+                border-radius: 16px;
+                max-width: none;
+                margin: 10px 0;
+            }
+            
+            .header {
+                padding: 20px;
+                font-size: 18px;
+            }
+            
+            .chat-container {
+                height: 60vh;
+                min-height: 300px;
+            }
+            
+            .messages {
+                padding: 12px;
+            }
+            
+            .message-bubble {
+                font-size: 15px;
+                padding: 10px 14px;
+                border-radius: 16px;
+                max-width: 90%;
+            }
+            
+            .input-container {
+                padding: 12px;
+            }
+            
+            .message-input {
+                padding: 12px 16px;
+                font-size: 16px;
+                border-radius: 12px;
+            }
+            
+            .send-button {
+                padding: 12px 20px;
+                font-size: 16px;
+                border-radius: 12px;
+            }
+            
+            .config {
+                padding: 12px;
+                margin-bottom: 15px;
+            }
+            
+            .config input {
+                padding: 12px;
+                font-size: 16px;
+                border-radius: 8px;
+            }
+            
+            .config button {
+                padding: 12px 20px;
+                font-size: 16px;
+                border-radius: 8px;
+            }
+        }
+        
+        /* 超小屏设备 */
+        @media screen and (max-width: 480px) {
+            .container {
+                margin: 5px 0;
+                border-radius: 12px;
+            }
+            
+            .chat-container {
+                height: 65vh;
+            }
+            
+            .message-bubble {
+                font-size: 16px;
+                padding: 12px 16px;
+                border-radius: 18px;
+            }
+            
+            .message-input {
+                padding: 14px 18px;
+                font-size: 17px;
+            }
+            
+            .send-button {
+                padding: 14px 22px;
+                font-size: 17px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-info">
+        <strong>演示说明：</strong>这是客服SDK的集成演示页面，展示了如何在独立站中集成客服聊天功能。
+    </div>
+
+    <div class="config">
+        <h3>连接配置</h3>
+        <label>服务器地址:</label>
+        <input type="text" id="serverUrl" value="ws://localhost:8080" placeholder="ws://localhost:8080">
+        
+    <label>店铺标识 (ID 或 API 密钥):</label>
+    <input type="text" id="apiKey" value="a53459ad-5018-4234-8d9f-d30b7ad3a692" placeholder="例如 1 或 test-api-key-123">
+        
+        <label>客户ID:</label>
+        <input type="text" id="customerId" value="" placeholder="唯一客户标识">
+        
+        <label>客户姓名:</label>
+        <input type="text" id="customerName" value="" placeholder="可选">
+        
+        <button onclick="connectChat()">连接客服</button>
+        <button onclick="disconnectChat()">断开连接</button>
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <h3 style="margin: 0;">在线客服</h3>
+        </div>
+        
+        <div class="status" id="status">未连接</div>
+        
+        <div class="chat-container">
+            <div class="messages" id="messages">
+                <!-- 消息将显示在这里 -->
+            </div>
+            
+            <div class="typing-indicator" id="typing">客服正在输入...</div>
+            
+            <div class="input-container">
+                <div class="input-row">
+                    <input 
+                        type="text" 
+                        class="message-input" 
+                        id="messageInput" 
+                        placeholder="输入消息..." 
+                        onkeypress="handleKeyPress(event)"
+                        disabled
+                    >
+                    <button 
+                        class="send-button" 
+                        id="sendButton" 
+                        onclick="sendMessage()"
+                        disabled
+                    >
+                        发送
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 加载SDK -->
+    <script src="../websocket-sdk/dist/index.js"></script>
+    
+    <script>
+        if (typeof window.CustomerServiceSDK === 'undefined') {
+            console.error('CustomerServiceSDK 未加载，请检查 SDK 构建输出');
+            const statusEl = document.getElementById('status');
+            if (statusEl) {
+                statusEl.textContent = 'SDK 加载失败，请刷新或重新构建 SDK';
+                statusEl.className = 'status error';
+            }
+        }
+
+        let sdk = null;
+        let connected = false;
+
+        function loadConfig() {
+            try {
+                const raw = localStorage.getItem('sdk-demo-config');
+                if (!raw) return;
+                const cfg = JSON.parse(raw);
+                if (cfg.serverUrl) document.getElementById('serverUrl').value = cfg.serverUrl;
+                if (cfg.apiKey) document.getElementById('apiKey').value = cfg.apiKey;
+                if (cfg.customerId) document.getElementById('customerId').value = cfg.customerId;
+                if (cfg.customerName) document.getElementById('customerName').value = cfg.customerName;
+            } catch (e) {
+                console.warn('加载本地配置失败', e);
+            }
+        }
+
+        function saveConfig() {
+            try {
+                const cfg = {
+                    serverUrl: document.getElementById('serverUrl').value,
+                    apiKey: document.getElementById('apiKey').value,
+                    customerId: document.getElementById('customerId').value,
+                    customerName: document.getElementById('customerName').value,
+                };
+                localStorage.setItem('sdk-demo-config', JSON.stringify(cfg));
+            } catch (e) {
+                console.warn('保存本地配置失败', e);
+            }
+        }
+
+        // 初始化客户ID（若本地没有保存则生成一次）
+        (function initCustomerId() {
+            const el = document.getElementById('customerId');
+            if (!el.value) {
+                el.value = 'customer_' + Date.now();
+            }
+        })();
+
+        function updateStatus(message, type = 'info') {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = 'status' + (type ? ' ' + type : '');
+        }
+
+        function addMessage(content, isOwn = false, timestamp = new Date()) {
+            const messagesEl = document.getElementById('messages');
+            
+            const messageEl = document.createElement('div');
+            messageEl.className = 'message' + (isOwn ? ' own' : '');
+            
+            const bubbleEl = document.createElement('div');
+            bubbleEl.className = 'message-bubble';
+            bubbleEl.textContent = content;
+            
+            const timeEl = document.createElement('div');
+            timeEl.className = 'message-time';
+            timeEl.textContent = formatTime(timestamp);
+            
+            if (isOwn) {
+                messageEl.appendChild(timeEl);
+                messageEl.appendChild(bubbleEl);
+            } else {
+                messageEl.appendChild(bubbleEl);
+                messageEl.appendChild(timeEl);
+            }
+            
+            messagesEl.appendChild(messageEl);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+        }
+
+        function formatTime(date) {
+            return date.toLocaleTimeString('zh-CN', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+        }
+
+        function showTyping(show) {
+            const typingEl = document.getElementById('typing');
+            typingEl.style.display = show ? 'block' : 'none';
+        }
+
+        function connectChat() {
+            if (connected) {
+                console.log('Already connected');
+                return;
+            }
+
+            const serverUrl = document.getElementById('serverUrl').value;
+            const apiKey = document.getElementById('apiKey').value;
+            const customerId = document.getElementById('customerId').value;
+            const customerName = document.getElementById('customerName').value;
+
+            if (!serverUrl || !apiKey || !customerId) {
+                alert('请填写完整的连接信息');
+                return;
+            }
+
+            try {
+                // 创建SDK实例
+                sdk = new CustomerServiceSDK({
+                    serverUrl: serverUrl,
+                    apiKey: apiKey,
+                    customerId: customerId,
+                    customerName: customerName || '匿名用户',
+                    reconnectInterval: 3000,
+                    maxReconnectAttempts: 5
+                });
+
+                // 持久化当前配置
+                saveConfig();
+
+                // 设置事件监听器
+                sdk.on('connected', () => {
+                    connected = true;
+                    updateStatus('已连接到客服系统', 'connected');
+                    document.getElementById('messageInput').disabled = false;
+                    document.getElementById('sendButton').disabled = false;
+                    addMessage('已连接到客服系统，客服人员将为您服务', false);
+                });
+
+                sdk.on('disconnected', () => {
+                    connected = false;
+                    updateStatus('连接已断开', 'error');
+                    document.getElementById('messageInput').disabled = true;
+                    document.getElementById('sendButton').disabled = true;
+                });
+
+                sdk.on('message', (message) => {
+                    console.log('Received message:', message);
+                    addMessage(
+                        message.content, 
+                        message.senderType === 'customer',
+                        message.timestamp
+                    );
+                });
+
+                sdk.on('typing', (data) => {
+                    showTyping(data.isTyping);
+                });
+
+                sdk.on('staffOnline', () => {
+                    addMessage('客服人员已上线', false);
+                });
+
+                sdk.on('staffOffline', () => {
+                    addMessage('客服人员已离线', false);
+                });
+
+                sdk.on('error', (error) => {
+                    console.error('SDK Error:', error);
+                    updateStatus('连接错误: ' + error.type, 'error');
+                });
+
+                sdk.on('reconnecting', (data) => {
+                    updateStatus(`重新连接中... (${data.attempt}/5)`, 'info');
+                });
+
+                // 开始连接
+                updateStatus('正在连接...', 'info');
+                sdk.connect();
+
+            } catch (error) {
+                console.error('Connection error:', error);
+                updateStatus('连接失败: ' + error.message, 'error');
+            }
+        }
+
+        function disconnectChat() {
+            if (sdk) {
+                sdk.disconnect();
+                sdk = null;
+            }
+            connected = false;
+            updateStatus('未连接');
+            document.getElementById('messageInput').disabled = true;
+            document.getElementById('sendButton').disabled = true;
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (!message || !connected) {
+                return;
+            }
+
+            try {
+                sdk.sendMessage(message);
+                addMessage(message, true);
+                input.value = '';
+            } catch (error) {
+                console.error('Send message error:', error);
+                updateStatus('发送失败: ' + error.message, 'error');
+            }
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        // 页面卸载时断开连接
+        window.addEventListener('beforeunload', () => {
+            if (sdk) {
+                sdk.disconnect();
+            }
+        });
+
+        // 页面加载完成后的提示
+        window.addEventListener('load', () => {
+            loadConfig();
+            // 如未保存过客户ID，则生成一次（确保刚加载时也有ID）
+            const cid = document.getElementById('customerId');
+            if (!cid.value) {
+                cid.value = 'customer_' + Date.now();
+            }
+            console.log('SDK Demo loaded');
+            addMessage('欢迎使用在线客服！请先配置连接信息然后点击"连接客服"按钮。', false);
+        });
+    </script>
+</body>
+</html>

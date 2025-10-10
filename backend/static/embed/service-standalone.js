@@ -637,32 +637,357 @@
     closeBtn.innerHTML = '×';
     panel.querySelector('.qt-header').appendChild(closeBtn);
     
-    // 动态适配函数
-    function adaptToViewport(viewport) {
-      console.log('🎨 开始适配视口:', viewport.breakpoint, viewport.forceStable ? '[强制模式]' : '');
+    // 创建统一的样式系统
+    function createUnifiedStyleSystem() {
+      // 移除旧的样式标签
+      var oldStyle = document.getElementById('qt-responsive-styles');
+      if (oldStyle) {
+        oldStyle.remove();
+      }
       
-      // 动态添加视口类名
-      var body = document.body;
-      body.className = body.className.replace(/qt-viewport-\w+/g, '');
-      body.classList.add('qt-viewport-' + viewport.breakpoint);
-      
-      // 强制移动端样式检测 - 优先使用真实移动设备检测
-      var shouldUseMobileStyles = viewport.isRealMobile || 
-        viewport.isMobileUA || 
-        viewport.forceStable ||
-        (viewport.isTouch && viewport.width <= 768) ||
-        viewport.width <= 480;
-      
-      if (shouldUseMobileStyles) {
-        body.classList.add('qt-mobile');
-        body.classList.add('qt-force-mobile');
-        // 为面板添加移动端类名
-        panel.classList.add('qt-mobile-panel');
-        btn.classList.add('qt-mobile-fab');
+      var styleElement = document.createElement('style');
+      styleElement.id = 'qt-responsive-styles';
+      styleElement.textContent = `
+        /* QuickTalk 完全独立的样式系统 - 防止外部样式干扰 */
         
-        // 计算相对于视口的合适尺寸
-        var viewportWidth = viewport.width;
-        var viewportHeight = viewport.height;
+        /* 重置所有QuickTalk元素的样式 */
+        #qt-fab, #qt-panel, #qt-panel *, 
+        .qt-fab, .qt-panel, .qt-panel * {
+          all: initial !important;
+          box-sizing: border-box !important;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+        }
+        
+        /* 基础动画定义 */
+        @keyframes slideInUp {
+          from { transform: translateY(100%); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+        
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+      `;
+      
+      document.head.appendChild(styleElement);
+      return styleElement;
+    }
+    
+    // 响应式样式计算函数
+    function calculateResponsiveStyles(viewport) {
+      var vw = viewport.width;
+      var vh = viewport.height;
+      var dpr = viewport.actualDevicePixelRatio || 1;
+      var isMobile = viewport.isRealMobile || viewport.isMobileUA;
+      
+      // 基准字体大小计算
+      var baseFontSize;
+      if (isMobile) {
+        if (vw <= 360) {
+          baseFontSize = Math.max(28, vw / 9);        // 28-40px
+        } else if (vw <= 480) {
+          baseFontSize = Math.max(32, vw / 11);       // 32-44px  
+        } else if (vw <= 768) {
+          baseFontSize = Math.max(36, vw / 13);       // 36-59px
+        } else {
+          baseFontSize = Math.max(40, vw / 15);       // 40-67px
+        }
+        
+        // 高DPR设备调整
+        if (dpr >= 3) baseFontSize *= 1.05;
+      } else {
+        baseFontSize = 16; // 桌面端固定
+      }
+      
+      // 计算衍生尺寸
+      return {
+        baseFontSize: Math.round(baseFontSize),
+        titleSize: Math.round(baseFontSize * 1.15),
+        inputSize: Math.round(baseFontSize * 1.1),
+        buttonSize: Math.round(baseFontSize * 1.05),
+        messageSize: Math.round(baseFontSize * 1.05),
+        fabSize: Math.round(baseFontSize * 2.8),
+        fabFontSize: Math.round(baseFontSize * 1.6),
+        
+        spacing: {
+          xs: Math.round(baseFontSize * 0.3),
+          sm: Math.round(baseFontSize * 0.5),
+          md: Math.round(baseFontSize * 0.75),
+          lg: Math.round(baseFontSize * 1),
+          xl: Math.round(baseFontSize * 1.25)
+        },
+        
+        borderRadius: Math.round(baseFontSize * 0.5),
+        buttonHeight: Math.round(baseFontSize * 2.5),
+        inputHeight: Math.round(baseFontSize * 2.5),
+        
+        panelWidth: isMobile ? (vw - Math.round(baseFontSize * 1.5)) : 400,
+        panelHeight: isMobile ? Math.min(vh * 0.75, vh - 80) : 600,
+        panelMargin: isMobile ? Math.round(baseFontSize * 0.75) : 20
+      };
+    }
+    
+    // 动态适配函数 - 完全重构
+    function adaptToViewport(viewport) {
+      console.log('🎨 开始自适应样式系统:', viewport.breakpoint);
+      
+      var styles = calculateResponsiveStyles(viewport);
+      var isMobile = viewport.isRealMobile || viewport.isMobileUA;
+      
+      // 获取或创建样式元素
+      var styleElement = document.getElementById('qt-responsive-styles') || createUnifiedStyleSystem();
+      
+      // 生成完整的响应式CSS
+      var css = `
+        /* QuickTalk 完全独立的样式系统 - 防止外部样式干扰 */
+        
+        /* 重置所有QuickTalk元素的样式 */
+        #qt-fab, #qt-panel, #qt-panel *, 
+        .qt-fab, .qt-panel, .qt-panel * {
+          all: initial !important;
+          box-sizing: border-box !important;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+        }
+        
+        /* FAB 按钮样式 */
+        #qt-fab {
+          position: fixed !important;
+          z-index: 2147483646 !important;
+          right: ${styles.panelMargin}px !important;
+          bottom: ${styles.panelMargin + styles.panelHeight + styles.spacing.lg}px !important;
+          width: ${styles.fabSize}px !important;
+          height: ${styles.fabSize}px !important;
+          
+          background: #07C160 !important;
+          color: #ffffff !important;
+          border: none !important;
+          border-radius: 50% !important;
+          font-size: ${styles.fabFontSize}px !important;
+          font-weight: 600 !important;
+          cursor: pointer !important;
+          
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          
+          box-shadow: 0 8px 32px rgba(7,193,96,0.3) !important;
+          transition: all 0.3s ease !important;
+          animation: fadeIn 0.5s ease !important;
+        }
+        
+        #qt-fab:hover {
+          transform: scale(1.05) !important;
+          box-shadow: 0 12px 40px rgba(7,193,96,0.4) !important;
+        }
+        
+        /* 面板样式 */
+        #qt-panel {
+          position: fixed !important;
+          z-index: 2147483647 !important;
+          ${isMobile ? `
+          left: ${styles.panelMargin}px !important;
+          right: ${styles.panelMargin}px !important;
+          ` : `
+          right: ${styles.panelMargin}px !important;
+          width: ${styles.panelWidth}px !important;
+          `}
+          bottom: ${styles.panelMargin}px !important;
+          height: ${styles.panelHeight}px !important;
+          
+          background: #1f2937 !important;
+          color: #f9fafb !important;
+          border-radius: ${styles.borderRadius}px !important;
+          box-shadow: 0 20px 60px -15px rgba(15,23,42,.4) !important;
+          
+          display: flex !important;
+          flex-direction: column !important;
+          overflow: hidden !important;
+          
+          font-size: ${styles.baseFontSize}px !important;
+          line-height: 1.5 !important;
+          
+          animation: slideInUp 0.3s ease !important;
+          transition: all 0.3s ease !important;
+        }
+        
+        /* 头部样式 */
+        #qt-panel .qt-header {
+          display: flex !important;
+          justify-content: space-between !important;
+          align-items: center !important;
+          padding: ${styles.spacing.lg}px ${styles.spacing.xl}px !important;
+          background: linear-gradient(135deg, #07C160 0%, #06A94D 100%) !important;
+          color: #ffffff !important;
+          font-size: ${styles.titleSize}px !important;
+          font-weight: 600 !important;
+          border-radius: ${styles.borderRadius}px ${styles.borderRadius}px 0 0 !important;
+          flex-shrink: 0 !important;
+        }
+        
+        /* 关闭按钮 */
+        #qt-panel .qt-close-btn {
+          background: rgba(255,255,255,0.2) !important;
+          color: #ffffff !important;
+          border: none !important;
+          border-radius: 50% !important;
+          width: ${styles.buttonHeight}px !important;
+          height: ${styles.buttonHeight}px !important;
+          font-size: ${styles.buttonSize}px !important;
+          cursor: pointer !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          transition: background 0.2s ease !important;
+        }
+        
+        #qt-panel .qt-close-btn:hover {
+          background: rgba(255,255,255,0.3) !important;
+        }
+        
+        /* 主体区域 */
+        #qt-panel .qt-body {
+          flex: 1 !important;
+          display: flex !important;
+          flex-direction: column !important;
+          overflow: hidden !important;
+        }
+        
+        /* 消息区域 */
+        #qt-panel .qt-messages {
+          flex: 1 !important;
+          padding: ${styles.spacing.lg}px !important;
+          overflow-y: auto !important;
+          -webkit-overflow-scrolling: touch !important;
+          font-size: ${styles.messageSize}px !important;
+          line-height: 1.6 !important;
+        }
+        
+        /* 输入区域 */
+        #qt-panel .qt-input {
+          display: flex !important;
+          gap: ${styles.spacing.sm}px !important;
+          padding: ${styles.spacing.lg}px !important;
+          background: rgba(0,0,0,0.1) !important;
+          border-radius: 0 0 ${styles.borderRadius}px ${styles.borderRadius}px !important;
+          flex-shrink: 0 !important;
+        }
+        
+        /* 输入框 */
+        #qt-panel .qt-input input[type="text"] {
+          flex: 1 !important;
+          padding: ${styles.spacing.md}px ${styles.spacing.lg}px !important;
+          font-size: ${styles.inputSize}px !important;
+          height: ${styles.inputHeight}px !important;
+          border: 1px solid rgba(255,255,255,0.2) !important;
+          border-radius: ${styles.borderRadius}px !important;
+          background: rgba(255,255,255,0.1) !important;
+          color: #ffffff !important;
+          outline: none !important;
+        }
+        
+        #qt-panel .qt-input input[type="text"]::placeholder {
+          color: rgba(255,255,255,0.6) !important;
+        }
+        
+        #qt-panel .qt-input input[type="text"]:focus {
+          border-color: #07C160 !important;
+          background: rgba(255,255,255,0.15) !important;
+        }
+        
+        /* 按钮样式 */
+        #qt-panel .qt-input button {
+          padding: ${styles.spacing.md}px ${styles.spacing.lg}px !important;
+          font-size: ${styles.buttonSize}px !important;
+          height: ${styles.buttonHeight}px !important;
+          min-width: ${styles.buttonHeight}px !important;
+          border: none !important;
+          border-radius: ${styles.borderRadius}px !important;
+          background: rgba(255,255,255,0.2) !important;
+          color: #ffffff !important;
+          cursor: pointer !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          transition: all 0.2s ease !important;
+        }
+        
+        #qt-panel .qt-input button:hover {
+          background: rgba(255,255,255,0.3) !important;
+          transform: scale(1.02) !important;
+        }
+        
+        /* 发送按钮特殊样式 */
+        #qt-panel .qt-send-btn {
+          background: #07C160 !important;
+          color: #ffffff !important;
+          font-weight: 600 !important;
+          min-width: ${styles.buttonHeight * 1.5}px !important;
+        }
+        
+        #qt-panel .qt-send-btn:hover {
+          background: #06A94D !important;
+        }
+        
+        /* 隐藏文件输入 */
+        #qt-panel .qt-image-input,
+        #qt-panel .qt-file-input {
+          display: none !important;
+        }
+        
+        /* 消息样式 */
+        #qt-panel .qt-message,
+        #qt-panel .message {
+          margin-bottom: ${styles.spacing.md}px !important;
+          padding: ${styles.spacing.md}px ${styles.spacing.lg}px !important;
+          border-radius: ${styles.borderRadius}px !important;
+          font-size: ${styles.messageSize}px !important;
+          line-height: 1.6 !important;
+          max-width: 85% !important;
+          word-wrap: break-word !important;
+        }
+        
+        /* 响应式媒体查询 */
+        @media (max-width: 768px) {
+          #qt-panel {
+            left: ${Math.max(8, styles.panelMargin / 2)}px !important;
+            right: ${Math.max(8, styles.panelMargin / 2)}px !important;
+          }
+          
+          #qt-fab {
+            right: ${Math.max(8, styles.panelMargin / 2)}px !important;
+          }
+        }
+        
+        /* 动画定义 */
+        @keyframes slideInUp {
+          from { transform: translateY(100%); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+        
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+      `;
+      
+      // 应用样式
+      styleElement.textContent = css;
+      
+      console.log('✅ 统一样式系统已应用');
+      console.log('📏 样式详情:', {
+        设备类型: isMobile ? '移动端' : '桌面端',
+        基础字体: styles.baseFontSize + 'px',
+        标题字体: styles.titleSize + 'px',
+        输入框字体: styles.inputSize + 'px',
+        FAB尺寸: styles.fabSize + 'px',
+        面板尺寸: styles.panelWidth + 'x' + styles.panelHeight + 'px',
+        断点: viewport.breakpoint,
+        视口: viewport.width + 'x' + viewport.height
+      });
+    }
+    
+    function adaptComponentStyles(fabBtn, chatPanel, viewport) {
         
         // 基于视口宽度和高度计算合适的字体大小和间距 - 大幅增大基础尺寸
         // 考虑到移动端的高DPI，使用更大的基础字体
@@ -822,57 +1147,14 @@
         panel.style.cssText = panel.style.cssText.replace(/right:[^;]*!important;?/g, '');
         panel.style.cssText = panel.style.cssText.replace(/bottom:[^;]*!important;?/g, '');
         panel.style.cssText = panel.style.cssText.replace(/left:[^;]*!important;?/g, '');
-        panel.style.cssText = panel.style.cssText.replace(/width:[^;]*!important;?/g, '');
-        panel.style.cssText = panel.style.cssText.replace(/border-radius:[^;]*!important;?/g, '');
-        
-        // 清除FAB按钮的移动端样式
-        btn.style.cssText = btn.style.cssText.replace(/width:[^;]*!important;?/g, '');
-        btn.style.cssText = btn.style.cssText.replace(/height:[^;]*!important;?/g, '');
-        btn.style.cssText = btn.style.cssText.replace(/font-size:[^;]*!important;?/g, '');
-        btn.style.cssText = btn.style.cssText.replace(/right:[^;]*!important;?/g, '');
-        btn.style.cssText = btn.style.cssText.replace(/bottom:[^;]*!important;?/g, '');
-        btn.style.cssText = btn.style.cssText.replace(/border-radius:[^;]*!important;?/g, '');
-        btn.style.cssText = btn.style.cssText.replace(/padding:[^;]*!important;?/g, '');
-        
-        console.log('✅ 已应用桌面端样式，清除所有移动端强制样式');
-      }
-      
-      if (viewport.isTouch) {
-        body.classList.add('qt-touch');
-      } else {
-        body.classList.remove('qt-touch');
-      }
-      
-      if (viewport.isLandscape && shouldUseMobileStyles) {
-        body.classList.add('qt-mobile-landscape');
-      } else {
-        body.classList.remove('qt-mobile-landscape');
-      }
-      
-      // 动态调整组件样式
-      adaptComponentStyles(btn, panel, viewport);
-    }
+    // 监听视口变化
+    viewportManager.onChange(adaptToViewport);
     
-    function adaptComponentStyles(fabBtn, chatPanel, viewport) {
-      var style = document.getElementById('qt-dynamic-styles');
-      if (!style) {
-        style = document.createElement('style');
-        style.id = 'qt-dynamic-styles';
-        document.head.appendChild(style);
-      }
-      
-      var css = '';
-      var lastCss = style.getAttribute('data-last-css') || '';
-      
-      // 为移动设备添加补充样式（主要处理边缘情况）
-      if (viewport.isRealMobile || viewport.isMobileUA) {
-        // 基础移动端样式优化
-        css = `
-          .qt-mobile .qt-panel {
-            transform: none !important;
-            transition: all 0.3s ease !important;
-          }
-          .qt-mobile .qt-fab {
+    // 立即应用当前视口样式
+    var currentViewport = viewportManager.getCurrentViewport();
+    if (currentViewport) {
+      adaptToViewport(currentViewport);
+    }
             transform: none !important;
             transition: all 0.3s ease !important;
             box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
