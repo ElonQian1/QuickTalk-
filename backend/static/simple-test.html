@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>快速ImageViewer测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        button {
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        #chat-widget { 
+            border: 1px dashed #ccc; 
+            min-height: 300px; 
+            padding: 20px; 
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🖼️ ImageViewer快速测试</h1>
+    
+    <div id="status" class="status info">⏳ 正在加载SDK...</div>
+    
+    <button onclick="testImageViewer()" id="testBtn" disabled>🔍 测试ImageViewer</button>
+    <button onclick="showDemoImage()" id="demoBtn" disabled>📸 显示示例图片</button>
+    
+    <div id="chat-widget"></div>
+
+    <script src="./embed/service-standalone.js"></script>
+    <script>
+        const statusDiv = document.getElementById('status');
+        const testBtn = document.getElementById('testBtn');
+        const demoBtn = document.getElementById('demoBtn');
+        
+        let sdk = null;
+
+        function updateStatus(message, type = 'info') {
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+        }
+
+        function testImageViewer() {
+            if (!sdk) {
+                updateStatus('❌ SDK未初始化', 'error');
+                return;
+            }
+            
+            try {
+                const uiManager = sdk.getUIManager();
+                const imageViewer = uiManager.getImageViewer();
+                updateStatus('✅ ImageViewer获取成功！可以使用预览功能', 'success');
+                console.log('ImageViewer实例:', imageViewer);
+            } catch (error) {
+                updateStatus('❌ ImageViewer测试失败: ' + error.message, 'error');
+                console.error('错误详情:', error);
+            }
+        }
+
+        function showDemoImage() {
+            if (!sdk) {
+                updateStatus('❌ SDK未初始化', 'error');
+                return;
+            }
+            
+            try {
+                const uiManager = sdk.getUIManager();
+                const imageViewer = uiManager.getImageViewer();
+                imageViewer.show({
+                    src: 'https://via.placeholder.com/600x400/FF6B6B/white?text=Demo+Image',
+                    alt: 'Demo Image',
+                    title: '演示图片'
+                });
+                updateStatus('✅ 图片预览已打开', 'success');
+            } catch (error) {
+                updateStatus('❌ 图片预览失败: ' + error.message, 'error');
+                console.error('错误详情:', error);
+            }
+        }
+
+        // 初始化SDK
+        if (typeof QuickTalkSDK !== 'undefined') {
+            try {
+                sdk = new QuickTalkSDK({
+                    shopId: 'test-shop',
+                    customerId: 'test-customer',
+                    wsUrl: 'ws://localhost:8080',
+                    apiUrl: 'http://localhost:8080',
+                    containerId: 'chat-widget'
+                });
+                
+                sdk.init().then(() => {
+                    updateStatus('✅ SDK初始化成功', 'success');
+                    testBtn.disabled = false;
+                    demoBtn.disabled = false;
+                }).catch(error => {
+                    updateStatus('❌ SDK初始化失败: ' + error.message, 'error');
+                    console.error('初始化错误:', error);
+                });
+                
+            } catch (error) {
+                updateStatus('❌ SDK创建失败: ' + error.message, 'error');
+                console.error('创建错误:', error);
+            }
+        } else {
+            updateStatus('❌ QuickTalkSDK未定义，请检查service-standalone.js是否加载', 'error');
+        }
+    </script>
+</body>
+</html>
