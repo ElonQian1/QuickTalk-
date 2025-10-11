@@ -408,9 +408,13 @@ export class UIManager {
     } else if (message.messageType === 'file' && message.fileUrl) {
       const link = document.createElement('a');
       link.href = message.fileUrl;
-      link.textContent = message.fileName || '下载文件';
+      
+      // 构建显示文本：图标 + 下载文件 + 文件名
+      const fileName = message.fileName || message.content || '未知文件';
+      link.innerHTML = `📎 下载文件：${fileName}`;
+      
       link.target = '_blank';
-      link.style.cssText = 'color: inherit; text-decoration: underline;';
+      link.style.cssText = 'color: inherit; text-decoration: underline; display: inline-block; word-break: break-all;';
       messageElement.appendChild(link);
     } else {
       messageElement.textContent = message.content;
