@@ -31,7 +31,7 @@ export class UIManager {
   private static instance: UIManager;
   private styleSystem: StyleSystem;
   private viewportManager: ViewportManager;
-  private imageViewer: ImageViewer;
+  private imageViewer: ImageViewer | null = null; // 延迟初始化
   private components: UIComponents | null = null;
   private isOpen = false;
   private currentConfig: StyleConfig | null = null;
@@ -47,10 +47,20 @@ export class UIManager {
   constructor() {
     this.styleSystem = StyleSystem.getInstance();
     this.viewportManager = ViewportManager.getInstance();
-    this.imageViewer = ImageViewer.getInstance();
+    // ImageViewer 延迟初始化，避免循环依赖
     
     // 监听视口变化，动态调整UI
     this.viewportManager.onViewportChange(this.handleViewportChange.bind(this));
+  }
+
+  /**
+   * 获取ImageViewer实例（延迟初始化）
+   */
+  private getImageViewer(): ImageViewer {
+    if (!this.imageViewer) {
+      this.imageViewer = ImageViewer.getInstance();
+    }
+    return this.imageViewer;
   }
 
   /**
@@ -459,7 +469,7 @@ export class UIManager {
       
       // 点击图片查看大图
       imageContainer.addEventListener('click', () => {
-        this.imageViewer.show({
+        this.getImageViewer().show({
           src: message.fileUrl!,
           alt: '图片',
           title: message.fileName || 'image'
