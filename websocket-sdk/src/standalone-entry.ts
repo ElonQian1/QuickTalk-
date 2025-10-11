@@ -8,6 +8,7 @@ import { WebSocketClient, ChatMessage } from './core/websocket-client';
 import { StyleSystem } from './ui/style-system';
 import { ViewportManager } from './ui/viewport-manager';
 import { UIManager } from './ui/ui-manager';
+import { ImageViewer } from './ui/image-viewer';
 import { MediaHandler, VoiceRecorder } from './media/media-handler';
 import { EventEmitter, onReady } from './utils/event-utils';
 
@@ -55,6 +56,9 @@ export class QuickTalkSDK extends EventEmitter<SDKEvents> {
     this.styleSystem = StyleSystem.getInstance();
     this.mediaHandler = MediaHandler.getInstance();
     this.voiceRecorder = new VoiceRecorder();
+    
+    // 确保ImageViewer被初始化
+    ImageViewer.getInstance();
 
     console.log(`🚀 QuickTalk SDK 初始化 - 店铺ID: ${this.config.shopId}`);
   }
