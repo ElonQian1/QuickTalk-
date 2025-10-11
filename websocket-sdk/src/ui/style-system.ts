@@ -103,12 +103,13 @@ export class StyleSystem {
     let baseFontSize: number;
     
     // 计算设备的实际使用场景和分辨率
-    const isRealMobile = width < 600 || isMobile;
-    const isRealTablet = width >= 600 && width <= 1200 && height >= 800;
-    const isRealDesktop = width > 1200 || (width > 1000 && height < 900);
+    const isRealMobile = width < 600 || (isMobile && width < 900);
+    const isRealTablet = (width >= 600 && width <= 1300 && height >= 800) || 
+                        (width >= 1000 && width <= 1100 && height >= 1300); // 包含1024x1366这类平板
+    const isRealDesktop = width > 1300 || (width > 1100 && height < 900);
     
-    // 高分辨率检测
-    const isHighRes = height > 1500 || (devicePixelRatio > 2 && height > 1200);
+    // 高分辨率检测 - 降低阈值，包含更多设备
+    const isHighRes = height > 1200 || (devicePixelRatio >= 2 && height > 1000);
     
     if (isRealMobile) {
       // 移动端：特别照顾高分辨率设备
@@ -153,10 +154,10 @@ export class StyleSystem {
           // 移动端：考虑左右边距，基于字体大小
           const margin = Math.round(baseFontSize * 1.5) * 2;
           return Math.min(width - margin, width * 0.9);
-        } else if (isRealTablet || (width >= 1000 && width <= 1200)) {
-          // 平板或类平板设备：根据字体大小适配，更宽的窗口以容纳大字体
-          const baseWidth = Math.max(450, baseFontSize * 14);
-          return Math.min(baseWidth, width * 0.5);
+        } else if (isRealTablet) {
+          // 平板设备：基于字体大小的更大窗口
+          const baseWidth = Math.max(500, baseFontSize * 16); // 增加倍数
+          return Math.min(baseWidth, width * 0.6); // 允许占用更多屏幕
         } else {
           // 桌面端：根据字体大小适配，但有合理上限
           const baseWidth = Math.max(400, baseFontSize * 12);
@@ -168,15 +169,15 @@ export class StyleSystem {
           // 移动端：基于字体大小和屏幕高度
           const minHeight = Math.max(400, baseFontSize * 12);
           return Math.min(height - 100, Math.max(minHeight, height * 0.8));
-        } else if (isRealTablet || (width >= 1000 && width <= 1200)) {
-          // 平板或类平板设备：根据组件需求计算最小高度，确保有足够空间
+        } else if (isRealTablet) {
+          // 平板设备：基于组件需求计算，给予更充裕的空间
           const headerHeight = Math.round(baseFontSize * 1.25) + Math.round(baseFontSize * 1) * 2;
-          const toolbarHeight = Math.round(baseFontSize * 0.55) * 4;
-          const inputAreaHeight = Math.max(80, Math.round(baseFontSize * 0.55) * 3) + 40;
-          const minMessagesHeight = Math.max(300, baseFontSize * 8);
+          const toolbarHeight = Math.round(baseFontSize * 0.55) * 5; // 增加工具栏空间
+          const inputAreaHeight = Math.max(90, Math.round(baseFontSize * 0.55) * 4) + 50; // 增加输入区空间
+          const minMessagesHeight = Math.max(350, baseFontSize * 10); // 增加消息区空间
           const calculatedHeight = headerHeight + toolbarHeight + inputAreaHeight + minMessagesHeight;
           
-          const minTotalHeight = Math.max(calculatedHeight, baseFontSize * 18);
+          const minTotalHeight = Math.max(calculatedHeight, baseFontSize * 20); // 增加最小倍数
           return Math.min(minTotalHeight, height * 0.85);
         } else {
           // 桌面端：根据字体大小适配
