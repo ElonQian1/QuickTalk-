@@ -56,9 +56,6 @@ export class QuickTalkSDK extends EventEmitter<SDKEvents> {
     this.styleSystem = StyleSystem.getInstance();
     this.mediaHandler = MediaHandler.getInstance();
     this.voiceRecorder = new VoiceRecorder();
-    
-    // 确保ImageViewer被初始化
-    ImageViewer.getInstance();
 
     console.log(`🚀 QuickTalk SDK 初始化 - 店铺ID: ${this.config.shopId}`);
   }
@@ -75,6 +72,9 @@ export class QuickTalkSDK extends EventEmitter<SDKEvents> {
     try {
       // 等待DOM准备
       await new Promise<void>(resolve => onReady(resolve));
+
+      // 确保ImageViewer在DOM准备后初始化
+      ImageViewer.getInstance();
 
       // 初始化WebSocket客户端
       this.wsClient = new WebSocketClient(
