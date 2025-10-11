@@ -73,9 +73,6 @@ export class QuickTalkSDK extends EventEmitter<SDKEvents> {
       // 等待DOM准备
       await new Promise<void>(resolve => onReady(resolve));
 
-      // 确保ImageViewer在DOM准备后初始化
-      ImageViewer.getInstance();
-
       // 初始化WebSocket客户端
       this.wsClient = new WebSocketClient(
         this.config.shopId, 
