@@ -29,3 +29,5 @@ thiserror = "1.0"
 tokio-rustls = "0.24"
 rustls = "0.21"
 rustls-pemfile = "1.0"
+# 网络接口检测（轻量级，交叉编译友好）
+if-addrs = "0.10"
