@@ -328,6 +328,13 @@ export class QuickTalkSDK extends EventEmitter<SDKEvents> {
   }
 
   /**
+   * 获取UI管理器实例（用于高级功能访问）
+   */
+  getUIManager(): UIManager {
+    return this.uiManager;
+  }
+
+  /**
    * 设置调试模式
    */
   setDebugMode(enabled: boolean): void {
