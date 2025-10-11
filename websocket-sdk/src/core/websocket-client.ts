@@ -25,8 +25,10 @@ export interface WebSocketMessage {
   senderType?: string;
   timestamp?: Date;
   metadata?: any;
-  file_url?: string;
-  file_name?: string;
+  file_url?: string;      // 保持下划线命名作为备用
+  fileUrl?: string;       // 驼峰命名（Rust后端序列化后的实际字段名）
+  file_name?: string;     // 保持下划线命名作为备用
+  fileName?: string;      // 驼峰命名（Rust后端序列化后的实际字段名）
 }
 
 export type MessageHandler = (message: ChatMessage) => void;
@@ -207,6 +209,9 @@ export class WebSocketClient {
         content: message.content,
         senderType: message.senderType,
         file_url: message.file_url,
+        fileUrl: message.fileUrl, // 检查驼峰命名
+        file_name: message.file_name,
+        fileName: message.fileName,
         metadata: message.metadata
       });
       
@@ -216,8 +221,8 @@ export class WebSocketClient {
           messageType: (message.metadata?.messageType as ChatMessage['messageType']) || 'text',
           senderType: (message.senderType as ChatMessage['senderType']) || 'staff',
           timestamp: message.timestamp ? new Date(message.timestamp) : new Date(),
-          fileUrl: message.file_url,
-          fileName: message.file_name, // 添加文件名字段
+          fileUrl: message.fileUrl || message.file_url, // 优先使用驼峰命名，备用下划线命名
+          fileName: message.fileName || message.file_name, // 优先使用驼峰命名，备用下划线命名
           sessionId: message.sessionId,
           senderId: message.senderId
         };
