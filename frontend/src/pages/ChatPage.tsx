@@ -73,12 +73,15 @@ const MessageGroup = styled.div<{ isOwn?: boolean }>`
 `;
 
 const MessageBubble = styled.div<{ isOwn?: boolean }>`
-  max-width: 70%;
+  max-width: 85%;
+  min-width: fit-content;
   padding: ${theme.spacing.sm} ${theme.spacing.md};
   border-radius: 18px;
   background: ${props => props.isOwn ? theme.colors.primary : theme.colors.white};
   color: ${props => props.isOwn ? theme.colors.white : theme.colors.text.primary};
   word-wrap: break-word;
+  word-break: break-word;
+  white-space: pre-wrap;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
   
   ${props => props.isOwn && `
@@ -436,13 +439,12 @@ const ChatPage: React.FC = () => {
     setSending(true);
     
     try {
-  const response = await api.post(`/api/sessions/${sessionId}/messages`, {
+      await api.post(`/api/sessions/${sessionId}/messages`, {
         content,
         message_type: 'text',
       });
 
-      // 添加新消息到列表
-      setMessages(prev => [...prev, response.data]);
+      // 消息会通过WebSocket推送更新，不需要手动添加
       setInputValue('');
       
       // 重置输入框高度
@@ -490,15 +492,14 @@ const ChatPage: React.FC = () => {
       const uploadResponse = await api.post('/api/upload', formData);
 
       // 发送包含文件信息的消息
-      const messageResponse = await api.post(`/api/sessions/${sessionId}/messages`, {
+      await api.post(`/api/sessions/${sessionId}/messages`, {
         content: uploadResponse.data.original_name,
         message_type: messageType,
         file_url: uploadResponse.data.url,
         file_name: uploadResponse.data.file_name,
       });
 
-      // 添加新消息到列表
-      setMessages(prev => [...prev, messageResponse.data]);
+      // 消息会通过WebSocket推送更新，不需要手动添加
       
       toast.success('文件上传成功');
     } catch (error: any) {
