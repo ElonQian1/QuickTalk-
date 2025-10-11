@@ -23,6 +23,7 @@ export interface StyleConfig {
   fabSize: number;
   panelWidth: number;
   panelHeight: number;
+  toolbarHeight: number;
   
   // 字体尺寸
   titleSize: number;
@@ -73,10 +74,20 @@ export class StyleSystem {
     else if (width < 1440) breakpoint = 'lg'; // 小屏桌面
     else breakpoint = 'xl';                   // 大屏桌面
 
-    // 设备类型判断
-    const isMobile = width < 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    const isTablet = width >= 768 && width < 1024;
-    const isDesktop = width >= 1024;
+    // 设备类型判断 - 与calculateStyleConfig保持一致
+    const userAgent = navigator.userAgent;
+    const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
+    
+    // 使用与calculateStyleConfig相同的逻辑
+    const isRealMobile = width < 600 || (isMobileUA && width < 900);
+    const isRealTablet = (width >= 600 && width <= 1300 && height >= 800) || 
+                        (width >= 1000 && width <= 1100 && height >= 1300);
+    const isRealDesktop = width > 1300 || (width > 1100 && height < 900);
+    
+    // 最终设备类型
+    const isMobile = isRealMobile;
+    const isTablet = isRealTablet && !isRealMobile;
+    const isDesktop = isRealDesktop && !isRealMobile && !isRealTablet;
     
     const orientation = width > height ? 'landscape' : 'portrait';
 
@@ -103,10 +114,15 @@ export class StyleSystem {
     let baseFontSize: number;
     
     // 计算设备的实际使用场景和分辨率
-    const isRealMobile = width < 600 || (isMobile && width < 900);
-    const isRealTablet = (width >= 600 && width <= 1300 && height >= 800) || 
-                        (width >= 1000 && width <= 1100 && height >= 1300); // 包含1024x1366这类平板
-    const isRealDesktop = width > 1300 || (width > 1100 && height < 900);
+    // 优化移动设备检测，特别针对F12模拟器场景
+    const isRealMobile = width < 600 || (isMobile && width < 900) || 
+                         (width <= 480); // F12模拟器中的小屏设备
+    const isRealTablet = !isRealMobile && (
+      (width >= 600 && width <= 1300 && height >= 800) || 
+      (width >= 1000 && width <= 1100 && height >= 1300)
+    );
+    const isRealDesktop = !isRealMobile && !isRealTablet && 
+                         (width > 1300 || (width > 1100 && height < 900));
     
     // 高分辨率检测 - 降低阈值，包含更多设备
     const isHighRes = height > 1200 || (devicePixelRatio >= 2 && height > 1000);
@@ -148,41 +164,37 @@ export class StyleSystem {
       // FAB按钮尺寸 - 确保足够大以便点击，但不能过大
       fabSize: Math.max(56, Math.min(120, Math.round(baseFontSize * 3))), // 限制在56-120px之间
       
-      // 面板尺寸 - 基于字体大小和真实设备类型智能计算
+      // 面板尺寸 - 基于视口大小动态计算，分别处理X/Y维度
       panelWidth: (() => {
+        // X维度计算：根据视口宽度的百分比，不设上限
         if (isRealMobile) {
-          // 移动端：考虑左右边距，基于字体大小
-          const margin = Math.round(baseFontSize * 1.5) * 2;
-          return Math.min(width - margin, width * 0.9);
+          // 移动端：占用视口宽度的90-95%
+          const widthRatio = width <= 480 ? 0.95 : 0.90;
+          return Math.floor(width * widthRatio);
         } else if (isRealTablet) {
-          // 平板设备：基于字体大小的更大窗口
-          const baseWidth = Math.max(500, baseFontSize * 16); // 增加倍数
-          return Math.min(baseWidth, width * 0.6); // 允许占用更多屏幕
+          // 平板端：占用视口宽度的75-85%
+          const widthRatio = width <= 1024 ? 0.85 : 0.75;
+          return Math.floor(width * widthRatio);
         } else {
-          // 桌面端：根据字体大小适配，但有合理上限
-          const baseWidth = Math.max(400, baseFontSize * 12);
-          return Math.min(baseWidth, Math.max(420, width * 0.35));
+          // 桌面端：占用视口宽度的40-60%
+          const widthRatio = width <= 1440 ? 0.60 : 0.50;
+          return Math.floor(width * widthRatio);
         }
       })(),
       panelHeight: (() => {
+        // Y维度计算：根据视口高度的百分比，不设上限
         if (isRealMobile) {
-          // 移动端：基于字体大小和屏幕高度
-          const minHeight = Math.max(400, baseFontSize * 12);
-          return Math.min(height - 100, Math.max(minHeight, height * 0.8));
+          // 移动端：占用视口高度的80-90%
+          const heightRatio = height <= 800 ? 0.90 : 0.85;
+          return Math.floor(height * heightRatio);
         } else if (isRealTablet) {
-          // 平板设备：基于组件需求计算，给予更充裕的空间
-          const headerHeight = Math.round(baseFontSize * 1.25) + Math.round(baseFontSize * 1) * 2;
-          const toolbarHeight = Math.round(baseFontSize * 0.55) * 5; // 增加工具栏空间
-          const inputAreaHeight = Math.max(90, Math.round(baseFontSize * 0.55) * 4) + 50; // 增加输入区空间
-          const minMessagesHeight = Math.max(350, baseFontSize * 10); // 增加消息区空间
-          const calculatedHeight = headerHeight + toolbarHeight + inputAreaHeight + minMessagesHeight;
-          
-          const minTotalHeight = Math.max(calculatedHeight, baseFontSize * 20); // 增加最小倍数
-          return Math.min(minTotalHeight, height * 0.85);
+          // 平板端：占用视口高度的75-85%
+          const heightRatio = height <= 1024 ? 0.85 : 0.80;
+          return Math.floor(height * heightRatio);
         } else {
-          // 桌面端：根据字体大小适配
-          const minHeight = Math.max(500, baseFontSize * 16);
-          return Math.min(minHeight, height * 0.75);
+          // 桌面端：占用视口高度的60-75%
+          const heightRatio = height <= 900 ? 0.75 : 0.70;
+          return Math.floor(height * heightRatio);
         }
       })(),
       
@@ -191,6 +203,24 @@ export class StyleSystem {
       messageSize: Math.round(baseFontSize * 0.6),  // 消息字体更小，适合阅读
       inputSize: Math.round(baseFontSize * 0.65),   // 输入框字体
       buttonSize: Math.round(baseFontSize * 0.55),  // 按钮字体更小
+      
+      // 工具栏尺寸 - 基于面板高度和设备类型动态计算
+      toolbarHeight: (() => {
+        // 根据设备类型和面板高度计算工具栏高度
+        let heightRatio;
+        if (isRealMobile) {
+          heightRatio = 0.06; // 移动端：面板高度的6%
+        } else if (isRealTablet) {
+          heightRatio = 0.05; // 平板端：面板高度的5%
+        } else {
+          heightRatio = 0.04; // 桌面端：面板高度的4%
+        }
+        
+        const baseHeight = Math.round(baseFontSize * 3); // 基于字体的基础高度
+        const dynamicHeight = Math.round((height * heightRatio)); // 基于视口高度的动态高度
+        
+        return Math.max(baseHeight, dynamicHeight);
+      })(),
       
       // 间距系统 - 基于字体大小等比缩放，但要有合理上限
       spacing: {
@@ -207,11 +237,21 @@ export class StyleSystem {
 
     console.log(`📱 响应式样式计算完成:`, {
       viewport: `${width}x${height}`,
+      deviceType: isRealMobile ? 'mobile' : isRealTablet ? 'tablet' : 'desktop',
       breakpoint,
       devicePixelRatio,
+      panelDimensions: {
+        width: `${config.panelWidth}px (${((config.panelWidth / width) * 100).toFixed(1)}% of viewport)`,
+        height: `${config.panelHeight}px (${((config.panelHeight / height) * 100).toFixed(1)}% of viewport)`,
+        size: `${config.panelWidth}x${config.panelHeight}px`
+      },
+      toolbarDimensions: {
+        height: `${config.toolbarHeight}px (${((config.toolbarHeight / config.panelHeight) * 100).toFixed(1)}% of panel)`,
+        buttonSize: `${Math.round(config.toolbarHeight * 0.8)}x${Math.round(config.toolbarHeight * 0.6)}px`,
+        iconSize: `${Math.round(config.toolbarHeight * 0.35)}px`
+      },
       baseFontSize: `${baseFontSize}px`,
       fabSize: `${config.fabSize}px`,
-      panelSize: `${config.panelWidth}x${config.panelHeight}px`,
       spacingXL: `${config.spacing.xl}px`,
       inputArea: {
         buttonSize: `${config.buttonSize}px`,
@@ -418,20 +458,22 @@ export class StyleSystem {
   margin: 0 !important;
   justify-content: flex-start !important;
   align-items: center !important;
-  min-height: ${Math.max(60, Math.round(config.buttonSize * 3.5))}px !important;
+  min-height: ${config.toolbarHeight}px !important;
   box-sizing: border-box !important;
 }
 
 /* 工具栏按钮 */
 .${this.namespace} .${p}btn-toolbar {
   padding: ${config.spacing.sm}px ${config.spacing.md}px !important;
-  font-size: ${Math.round(config.buttonSize * 1.4)}px !important;
+  font-size: ${Math.round(config.toolbarHeight * 0.25)}px !important;
   border: 1px solid #d0d7de !important;
   border-radius: ${config.borderRadius}px !important;
   cursor: pointer !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
+  min-width: ${Math.round(config.toolbarHeight * 0.8)}px !important;
+  min-height: ${Math.round(config.toolbarHeight * 0.6)}px !important;
   transition: all 0.2s ease !important;
   margin: 0 !important;
   outline: none !important;
@@ -460,6 +502,8 @@ export class StyleSystem {
   transition: color 0.2s ease !important;
   fill: currentColor !important;
   flex-shrink: 0 !important;
+  width: ${Math.round(config.toolbarHeight * 0.35)}px !important;
+  height: ${Math.round(config.toolbarHeight * 0.35)}px !important;
 }
 
 .${this.namespace} .${p}btn-toolbar:hover svg {

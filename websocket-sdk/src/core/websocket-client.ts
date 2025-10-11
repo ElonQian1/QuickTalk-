@@ -26,6 +26,7 @@ export interface WebSocketMessage {
   timestamp?: Date;
   metadata?: any;
   file_url?: string;
+  file_name?: string;
 }
 
 export type MessageHandler = (message: ChatMessage) => void;
@@ -200,6 +201,15 @@ export class WebSocketClient {
     try {
       const message: WebSocketMessage = JSON.parse(data);
       
+      // 添加调试日志
+      console.log('🔍 收到原始WebSocket消息:', {
+        messageType: message.messageType,
+        content: message.content,
+        senderType: message.senderType,
+        file_url: message.file_url,
+        metadata: message.metadata
+      });
+      
       if (message.messageType === 'new_message' && message.content) {
         const chatMessage: ChatMessage = {
           content: message.content,
@@ -207,13 +217,23 @@ export class WebSocketClient {
           senderType: (message.senderType as ChatMessage['senderType']) || 'staff',
           timestamp: message.timestamp ? new Date(message.timestamp) : new Date(),
           fileUrl: message.file_url,
+          fileName: message.file_name, // 添加文件名字段
           sessionId: message.sessionId,
           senderId: message.senderId
         };
 
+        // 添加解析后的消息调试日志
+        console.log('📨 解析后的聊天消息:', {
+          content: chatMessage.content,
+          messageType: chatMessage.messageType,
+          senderType: chatMessage.senderType,
+          fileUrl: chatMessage.fileUrl,
+          fileName: chatMessage.fileName
+        });
+
         // 只处理来自客服人员的消息，忽略客户自己发送的消息回显
         if (chatMessage.senderType === 'staff') {
-          console.log('📨 收到消息:', chatMessage);
+          console.log('✅ 处理客服消息');
           this.notifyMessage(chatMessage);
         } else {
           console.log('🔄 忽略客户消息回显:', chatMessage.content);
