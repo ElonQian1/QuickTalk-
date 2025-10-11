@@ -5,6 +5,7 @@
 
 import { StyleSystem, ViewportInfo, StyleConfig } from './style-system';
 import { ViewportManager } from './viewport-manager';
+import { ImageViewer } from './image-viewer';
 import { ChatMessage } from '../core/websocket-client';
 
 export interface UIComponents {
@@ -30,6 +31,7 @@ export class UIManager {
   private static instance: UIManager;
   private styleSystem: StyleSystem;
   private viewportManager: ViewportManager;
+  private imageViewer: ImageViewer;
   private components: UIComponents | null = null;
   private isOpen = false;
   private currentConfig: StyleConfig | null = null;
@@ -45,6 +47,7 @@ export class UIManager {
   constructor() {
     this.styleSystem = StyleSystem.getInstance();
     this.viewportManager = ViewportManager.getInstance();
+    this.imageViewer = ImageViewer.getInstance();
     
     // 监听视口变化，动态调整UI
     this.viewportManager.onViewportChange(this.handleViewportChange.bind(this));
@@ -400,11 +403,73 @@ export class UIManager {
     messageElement.className = `${prefix}message ${prefix}${message.senderType}`;
     
     if (message.messageType === 'image' && message.fileUrl) {
+      const imageContainer = document.createElement('div');
+      imageContainer.className = `${prefix}image-message`;
+      imageContainer.style.cssText = 'position: relative; display: inline-block; cursor: pointer;';
+      
       const img = document.createElement('img');
       img.src = message.fileUrl;
       img.alt = '图片';
-      img.style.cssText = 'max-width: 100%; height: auto; border-radius: 8px;';
-      messageElement.appendChild(img);
+      img.style.cssText = 'max-width: 100%; height: auto; border-radius: 8px; transition: all 0.3s ease;';
+      
+      // 添加加载状态
+      const loadingOverlay = document.createElement('div');
+      loadingOverlay.className = `${prefix}image-loading-overlay`;
+      loadingOverlay.style.cssText = `
+        position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.1); border-radius: 8px;
+        display: flex; align-items: center; justify-content: center;
+        color: #666; font-size: 12px;
+      `;
+      loadingOverlay.textContent = '📷 加载中...';
+      
+      // 添加点击预览提示
+      const clickHint = document.createElement('div');
+      clickHint.className = `${prefix}image-click-hint`;
+      clickHint.style.cssText = `
+        position: absolute; top: 5px; right: 5px;
+        background: rgba(0,0,0,0.6); color: white;
+        padding: 2px 6px; border-radius: 10px;
+        font-size: 10px; opacity: 0;
+        transition: opacity 0.3s ease;
+      `;
+      clickHint.textContent = '点击查看';
+      
+      // 图片加载完成后隐藏加载提示
+      img.onload = () => {
+        loadingOverlay.style.display = 'none';
+      };
+      
+      // 图片加载失败处理
+      img.onerror = () => {
+        loadingOverlay.textContent = '❌ 加载失败';
+        loadingOverlay.style.color = '#ff6b6b';
+      };
+      
+      // 鼠标悬停显示提示
+      imageContainer.addEventListener('mouseenter', () => {
+        clickHint.style.opacity = '1';
+        img.style.transform = 'scale(1.02)';
+      });
+      
+      imageContainer.addEventListener('mouseleave', () => {
+        clickHint.style.opacity = '0';
+        img.style.transform = 'scale(1)';
+      });
+      
+      // 点击图片查看大图
+      imageContainer.addEventListener('click', () => {
+        this.imageViewer.show({
+          src: message.fileUrl!,
+          alt: '图片',
+          title: message.fileName || 'image'
+        });
+      });
+      
+      imageContainer.appendChild(img);
+      imageContainer.appendChild(loadingOverlay);
+      imageContainer.appendChild(clickHint);
+      messageElement.appendChild(imageContainer);
     } else if (message.messageType === 'file' && message.fileUrl) {
       const link = document.createElement('a');
       link.href = message.fileUrl;
