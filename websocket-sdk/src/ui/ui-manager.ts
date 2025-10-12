@@ -6,6 +6,7 @@
 import { StyleSystem, ViewportInfo, StyleConfig } from './style-system';
 import { ViewportManager } from './viewport-manager';
 import { ImageViewer } from './image-viewer';
+import { setFormattedTextContent } from '../utils/text-formatter';
 import { ChatMessage } from '../core/websocket-client';
 
 export interface UIComponents {
@@ -490,7 +491,8 @@ export class UIManager {
       link.style.cssText = 'color: inherit; text-decoration: underline; display: inline-block; word-break: break-all;';
       messageElement.appendChild(link);
     } else {
-      messageElement.textContent = message.content;
+      // 使用文本格式化工具设置内容，支持换行和表情优化显示
+      setFormattedTextContent(messageElement, message.content);
     }
     
     messagesContainer.appendChild(messageElement);

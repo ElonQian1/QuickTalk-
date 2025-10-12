@@ -10,6 +10,8 @@ import { theme } from '../styles/globalStyles';
 import toast from 'react-hot-toast';
 import VoiceRecorder from '../components/VoiceRecorder';
 import VoiceMessage from '../components/VoiceMessage';
+import EmojiButton from '../components/EmojiButton';
+import { MessageText } from '../utils/textFormatter';
 import { useWSStore } from '../stores/wsStore';
 
 const Container = styled.div`
@@ -244,6 +246,8 @@ const FileName = styled.span`
   text-decoration: underline;
 `;
 
+// 移除EmojiMessage样式，使用textFormatter中的组件
+
 // TypingIndicator / TypingDots 组件暂未使用，已移除以保持零未使用变量警告。
 
 interface Message {
@@ -460,6 +464,27 @@ const ChatPage: React.FC = () => {
     }
   };
 
+  const handleEmojiSelect = async (emoji: string) => {
+    if (!sessionId || sending) return;
+
+    setSending(true);
+
+    try {
+      await api.post(`/api/sessions/${sessionId}/messages`, {
+        content: emoji,
+        message_type: 'text',
+      });
+
+      console.log('😊 发送表情:', emoji);
+      
+    } catch (error) {
+      toast.error('发送表情失败');
+      console.error('Error sending emoji:', error);
+    } finally {
+      setSending(false);
+    }
+  };
+
   const handleImageUpload = () => {
     if (uploading) return;
     imageInputRef.current?.click();
@@ -625,7 +650,8 @@ const ChatPage: React.FC = () => {
           <div>语音消息加载失败</div>
         );
       default:
-        return message.content;
+        // 使用统一的文本格式化组件
+        return <MessageText content={message.content} />;
     }
   };
 
@@ -740,6 +766,11 @@ const ChatPage: React.FC = () => {
           >
             <FiMic />
           </ActionButton>
+          
+          <EmojiButton 
+            onEmojiSelect={handleEmojiSelect}
+            disabled={sending || uploading}
+          />
           
           <InputWrapper>
             <MessageInput
