@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ImageViewer功能验证</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        button {
+            background: #007bff;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px;
+            font-size: 14px;
+        }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #6c757d; cursor: not-allowed; }
+        #chat-widget { 
+            border: 2px dashed #ccc; 
+            min-height: 300px; 
+            padding: 20px; 
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🖼️ ImageViewer功能最终验证</h1>
+        
+        <div id="status" class="status info">⏳ 正在初始化SDK...</div>
+        
+        <div>
+            <button onclick="verifyImageViewer()" id="verifyBtn" disabled>🔍 验证ImageViewer类</button>
+            <button onclick="testImagePreview()" id="previewBtn" disabled>📸 测试图片预览</button>
+            <button onclick="addImageMessage()" id="messageBtn" disabled>💬 添加图片消息</button>
+        </div>
+        
+        <div id="chat-widget"></div>
+        
+        <div id="details" style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 5px; font-family: monospace; font-size: 12px;"></div>
+    </div>
+
+    <script src="./embed/service-standalone.js"></script>
+    <script>
+        const statusDiv = document.getElementById('status');
+        const detailsDiv = document.getElementById('details');
+        const buttons = ['verifyBtn', 'previewBtn', 'messageBtn'].map(id => document.getElementById(id));
+        
+        let sdk = null;
+
+        function updateStatus(message, type = 'info') {
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+        }
+
+        function addDetails(message) {
+            detailsDiv.innerHTML += message + '<br>';
+        }
+
+        function verifyImageViewer() {
+            addDetails('🔍 开始验证ImageViewer...');
+            
+            try {
+                // 检查QuickTalkSDK是否可用
+                addDetails('✓ QuickTalkSDK可用: ' + (typeof QuickTalkSDK !== 'undefined'));
+                
+                // 检查SDK实例
+                addDetails('✓ SDK实例存在: ' + (sdk !== null));
+                
+                // 检查UIManager
+                const uiManager = sdk.getUIManager();
+                addDetails('✓ UIManager获取成功: ' + (uiManager !== null));
+                
+                // 检查ImageViewer
+                const imageViewer = uiManager.getImageViewer();
+                addDetails('✓ ImageViewer获取成功: ' + (imageViewer !== null));
+                
+                // 检查ImageViewer方法
+                addDetails('✓ ImageViewer.show方法: ' + (typeof imageViewer.show === 'function'));
+                addDetails('✓ ImageViewer.close方法: ' + (typeof imageViewer.close === 'function'));
+                
+                // 检查ImageViewer类型
+                addDetails('✓ ImageViewer构造函数: ' + (imageViewer.constructor.name));
+                
+                updateStatus('✅ ImageViewer功能验证通过！', 'success');
+            } catch (error) {
+                addDetails('❌ 验证失败: ' + error.message);
+                updateStatus('❌ ImageViewer验证失败: ' + error.message, 'error');
+                console.error('验证错误:', error);
+            }
+        }
+
+        function testImagePreview() {
+            try {
+                const uiManager = sdk.getUIManager();
+                const imageViewer = uiManager.getImageViewer();
+                
+                imageViewer.show({
+                    src: 'https://via.placeholder.com/600x400/4CAF50/white?text=ImageViewer+Success!',
+                    alt: '成功测试图片',
+                    title: 'ImageViewer功能验证成功'
+                });
+                
+                addDetails('✓ 图片预览已打开，请测试点击、下载、关闭功能');
+                updateStatus('✅ 图片预览功能正常工作', 'success');
+            } catch (error) {
+                addDetails('❌ 图片预览失败: ' + error.message);
+                updateStatus('❌ 图片预览失败: ' + error.message, 'error');
+            }
+        }
+
+        function addImageMessage() {
+            try {
+                const uiManager = sdk.getUIManager();
+                
+                const imageMessage = {
+                    id: 'verify-msg-' + Date.now(),
+                    type: 'image',
+                    content: '验证图片消息',
+                    fileUrl: 'https://via.placeholder.com/300x200/FF6B6B/white?text=Click+Me!',
+                    fileName: 'verification-image.jpg',
+                    senderId: 'system',
+                    timestamp: new Date().toISOString(),
+                    senderType: 'customer'
+                };
+                
+                uiManager.addMessage(imageMessage);
+                
+                addDetails('✓ 图片消息已添加，点击图片应该能打开预览');
+                updateStatus('✅ 图片消息添加成功，点击测试预览', 'success');
+            } catch (error) {
+                addDetails('❌ 添加图片消息失败: ' + error.message);
+                updateStatus('❌ 添加图片消息失败: ' + error.message, 'error');
+            }
+        }
+
+        // 初始化SDK
+        if (typeof QuickTalkSDK !== 'undefined') {
+            try {
+                addDetails('🚀 开始创建SDK实例...');
+                
+                sdk = new QuickTalkSDK({
+                    shopId: 'verification-test',
+                    customerId: 'verify-customer',
+                    wsUrl: 'ws://localhost:8080',
+                    apiUrl: 'http://localhost:8080',
+                    containerId: 'chat-widget'
+                });
+                
+                addDetails('✓ SDK实例创建成功');
+                
+                sdk.init().then(() => {
+                    addDetails('✓ SDK初始化完成');
+                    updateStatus('✅ SDK初始化成功，可以开始验证', 'success');
+                    
+                    // 启用所有按钮
+                    buttons.forEach(btn => btn.disabled = false);
+                    
+                    // 自动执行验证
+                    setTimeout(() => {
+                        verifyImageViewer();
+                    }, 1000);
+                    
+                }).catch(error => {
+                    addDetails('❌ SDK初始化失败: ' + error.message);
+                    updateStatus('❌ SDK初始化失败: ' + error.message, 'error');
+                });
+                
+            } catch (error) {
+                addDetails('❌ SDK创建失败: ' + error.message);
+                updateStatus('❌ SDK创建失败: ' + error.message, 'error');
+            }
+        } else {
+            addDetails('❌ QuickTalkSDK未定义');
+            updateStatus('❌ QuickTalkSDK未定义，请检查service-standalone.js', 'error');
+        }
+    </script>
+</body>
+</html>
