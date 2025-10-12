@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { FiPlus, FiGlobe } from 'react-icons/fi';
 import { api } from '../config/api';
+import { listStaffShops } from '../services/shops';
 import { normalizeShopsList } from '../utils/normalize';
 import { Button, Card, LoadingSpinner } from '../styles/globalStyles';
 import { EmptyState, EmptyIcon, EmptyTitle, EmptyDescription } from '../components/UI';
@@ -35,10 +36,18 @@ const ShopList = styled.div`
   gap: ${theme.spacing.md};
 `;
 
-const ShopCard = styled(Card)`
+const ShopCard = styled(Card)<{ $role?: 'owner' | 'staff' }>`
   padding: ${theme.spacing.md};
   cursor: pointer;
   transition: all 0.2s ease;
+  position: relative;
+
+  /* 员工店铺：左侧角色强调条 */
+  ${p => p.$role === 'staff' && `
+    box-shadow: inset 4px 0 0 ${theme.colors.secondary};
+    background: #f6f8ff; /* 略带蓝灰底色，区分 owner */
+    border: 1px dashed ${theme.colors.border};
+  `}
   
   &:hover {
     transform: translateY(-2px);
@@ -57,11 +66,11 @@ const ShopHeader = styled.div`
   margin-bottom: ${theme.spacing.sm};
 `;
 
-const ShopIcon = styled.div`
+const ShopIcon = styled.div<{ $role?: 'owner' | 'staff' }>`
   position: relative;
   width: 48px;
   height: 48px;
-  background: ${theme.colors.primary};
+  background: ${p => (p.$role === 'staff' ? theme.colors.secondary : theme.colors.primary)};
   border-radius: ${theme.borderRadius.medium};
   display: flex;
   align-items: center;
@@ -84,6 +93,19 @@ const ShopName = styled.h3`
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+`;
+
+const RolePill = styled.span`
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  margin-left: 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  color: ${theme.colors.secondary};
+  background: rgba(87, 107, 149, 0.12);
+  border: 1px solid rgba(87, 107, 149, 0.25);
+  flex-shrink: 0;
 `;
 
 const ShopUrl = styled.p`
@@ -113,6 +135,7 @@ interface Shop {
   api_key: string; // 仍从后端获取但不在卡片直接展示
   created_at: string;
   unread_count?: number; // 仍获取但不显示
+  my_role?: 'owner' | 'staff';
 }
 
 const ShopListPage: React.FC = () => {
@@ -130,12 +153,34 @@ const ShopListPage: React.FC = () => {
 
   const fetchShops = async () => {
     try {
-      const response = await api.get('/api/shops');
-      const normalized = normalizeShopsList(response.data) as Shop[];
-      setShops(normalized);
+      // 同时获取“我拥有的店铺”和“我作为员工加入的店铺”，合并展示
+      const [ownerRes, staffList] = await Promise.all([
+        api.get('/api/shops'),
+        listStaffShops().catch(() => []),
+      ]);
+
+      const ownerNormalized = (normalizeShopsList(ownerRes.data) as Shop[])
+        .map(s => ({ ...s, my_role: 'owner' as const }));
+
+      const staffNormalized: Shop[] = (staffList || []).map(s => ({
+        id: s.id,
+        shop_name: s.shop_name,
+        shop_url: s.shop_url || undefined,
+        api_key: s.api_key,
+        created_at: s.created_at,
+        unread_count: s.unread_count,
+        my_role: 'staff' as const,
+      }));
+
+      const map = new Map<number, Shop>();
+      for (const item of [...ownerNormalized, ...staffNormalized]) {
+        if (!map.has(item.id)) map.set(item.id, item);
+      }
+      const merged = Array.from(map.values()).sort((a, b) => (new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+      setShops(merged);
       // 自动连接到第一个店铺的 staff WS（如存在）
-      if (normalized.length > 0 && normalized[0].id) {
-        useWSStore.getState().connect(normalized[0].id);
+      if (merged.length > 0 && merged[0].id) {
+        useWSStore.getState().connect(merged[0].id);
       }
     } catch (error) {
       toast.error('获取店铺列表失败');
@@ -206,15 +251,19 @@ const ShopListPage: React.FC = () => {
       ) : (
         <ShopList>
           {shops.map((shop) => {
+            const isStaff = shop.my_role === 'staff';
             return (
-              <ShopCard key={shop.id ?? `${shop.shop_name}-${shop.api_key || 'no-key'}`} className="fade-in">
+              <ShopCard key={shop.id ?? `${shop.shop_name}-${shop.api_key || 'no-key'}`} className="fade-in" $role={shop.my_role}>
                 <ShopHeader>
-                  <ShopIcon style={{ position: 'relative' }}>
+                  <ShopIcon style={{ position: 'relative' }} $role={shop.my_role}>
                     🏪
                   </ShopIcon>
 
                   <ShopInfo>
-                    <ShopName>{shop.shop_name}</ShopName>
+                    <ShopName>
+                      {shop.shop_name}
+                      {isStaff && <RolePill>员工</RolePill>}
+                    </ShopName>
                     {shop.shop_url && (
                       <ShopUrl>
                         <FiGlobe />
@@ -243,6 +292,7 @@ const ShopListPage: React.FC = () => {
         onClose={() => setManageOpen(false)}
         shop={activeShop}
         initialTab={initialTab}
+        mode={activeShop?.my_role === 'staff' ? 'staff' : 'owner'}
       />
       
       <CreateShopModal

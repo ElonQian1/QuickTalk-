@@ -14,6 +14,7 @@ interface ShopManageModalProps {
   onClose: () => void;
   shop?: ShopBasicInfo; // 若为空不渲染内容
   initialTab?: TabKey;
+  mode?: 'owner' | 'staff'; // 权限模式：staff 模式隐藏敏感功能
 }
 
 type TabKey = 'info' | 'staff' | 'apiKey';
@@ -173,7 +174,7 @@ const copyToClipboard = async (text: string) => {
   }
 };
 
-const ShopManageModal: React.FC<ShopManageModalProps> = ({ open, onClose, shop, initialTab='info' }) => {
+const ShopManageModal: React.FC<ShopManageModalProps> = ({ open, onClose, shop, initialTab='info', mode='owner' }) => {
   const [showAdd, setShowAdd] = useState(false);
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
   const [staff, setStaff] = useState<StaffMember[]>([]);
@@ -181,15 +182,19 @@ const ShopManageModal: React.FC<ShopManageModalProps> = ({ open, onClose, shop, 
   const { user } = useAuthStore();
 
   useEffect(() => {
-    if (open) setActiveTab(initialTab);
-  }, [open, initialTab]);
+    if (open) {
+      // 员工模式下，强制落在 info 页签
+      const next = mode === 'staff' ? 'info' : initialTab;
+      setActiveTab(next);
+    }
+  }, [open, initialTab, mode]);
 
   useEffect(() => {
-    if (open && activeTab === 'staff' && shop) {
+    if (open && mode !== 'staff' && activeTab === 'staff' && shop) {
       fetchStaff();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, open, shop?.id]);
+  }, [activeTab, open, shop?.id, mode]);
 
   const fetchStaff = async () => {
     if (!shop) return;
@@ -269,8 +274,12 @@ const ShopManageModal: React.FC<ShopManageModalProps> = ({ open, onClose, shop, 
         </Header>
         <Tabs>
           <TabButton active={activeTab==='info'} onClick={() => setActiveTab('info')}><FiInfo /> 店铺信息</TabButton>
-          <TabButton active={activeTab==='staff'} onClick={() => setActiveTab('staff')}><FiUsers /> 员工管理</TabButton>
-          <TabButton active={activeTab==='apiKey'} onClick={() => setActiveTab('apiKey')}><FiKey /> API Key</TabButton>
+          {mode !== 'staff' && (
+            <TabButton active={activeTab==='staff'} onClick={() => setActiveTab('staff')}><FiUsers /> 员工管理</TabButton>
+          )}
+          {mode !== 'staff' && (
+            <TabButton active={activeTab==='apiKey'} onClick={() => setActiveTab('apiKey')}><FiKey /> API Key</TabButton>
+          )}
         </Tabs>
         <Body>
           {activeTab === 'info' && (
@@ -289,7 +298,7 @@ const ShopManageModal: React.FC<ShopManageModalProps> = ({ open, onClose, shop, 
               </FieldRow>
             </Section>
           )}
-          {activeTab === 'staff' && (
+          {mode !== 'staff' && activeTab === 'staff' && (
             <Section>
               {staff.some(s => s.role === 'owner' && s.id === (user?.id ?? -1)) && (
                 <div style={{ display:'flex', justifyContent:'flex-end' }}>
@@ -303,7 +312,7 @@ const ShopManageModal: React.FC<ShopManageModalProps> = ({ open, onClose, shop, 
               )}
             </Section>
           )}
-          {activeTab === 'apiKey' && (
+          {mode !== 'staff' && activeTab === 'apiKey' && (
             <Section>
               <FieldRow>
                 <Label>当前 API Key</Label>
@@ -320,12 +329,14 @@ const ShopManageModal: React.FC<ShopManageModalProps> = ({ open, onClose, shop, 
           )}
         </Body>
       </Modal>
-      <AddStaffModal
-        open={showAdd}
-        onClose={() => setShowAdd(false)}
-        shopId={shop?.id}
-        onAdded={() => fetchStaff()}
-      />
+      {mode !== 'staff' && (
+        <AddStaffModal
+          open={showAdd}
+          onClose={() => setShowAdd(false)}
+          shopId={shop?.id}
+          onAdded={() => fetchStaff()}
+        />
+      )}
     </Overlay>
   );
 };

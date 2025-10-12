@@ -49,13 +49,24 @@ const Right = styled.div`
 const StaffList: React.FC<StaffListProps> = ({ data, loading, onSelect, onRemove, canRemove }) => {
   if (loading) return <Empty>加载中...</Empty>;
   if (!data.length) return <Empty>暂无员工</Empty>;
+  const roleLabel = (role?: string) => {
+    if (!role) return '成员';
+    switch (role) {
+      case 'owner':
+        return '店主';
+      case 'staff':
+        return '员工';
+      default:
+        return role;
+    }
+  };
   return (
     <List>
       {data.map(s => (
         <Item key={s.id}>
           <span onClick={() => onSelect?.(s)} style={{ cursor:'pointer' }}>{s.username}</span>
           <Right>
-            <Role>{s.role || '成员'}</Role>
+            <Role>{roleLabel(s.role)}</Role>
             {canRemove && s.role !== 'owner' && (
               <RemoveBtn onClick={() => onRemove?.(s)}>移除</RemoveBtn>
             )}

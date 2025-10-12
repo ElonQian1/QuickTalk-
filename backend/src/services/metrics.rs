@@ -63,3 +63,48 @@ pub async fn fetch_shops_with_unread_by_owner(
 
     Ok(result)
 }
+
+// Purpose: 获取“作为员工加入的店铺”列表（含未读汇总）
+// Input: staff_user_id
+// Output: Vec<ShopWithUnreadCount>
+// Errors: 数据库查询失败
+pub async fn fetch_shops_with_unread_by_staff(
+    db: &Database,
+    staff_user_id: i64,
+) -> Result<Vec<ShopWithUnreadCount>> {
+    let sql = r#"
+        SELECT 
+            s.id, s.owner_id, s.shop_name, s.shop_url, s.api_key, s.status, s.created_at, s.updated_at,
+            COALESCE(SUM(uc.unread_count), 0) AS unread_total
+        FROM shop_staffs ss
+        JOIN shops s ON s.id = ss.shop_id
+        LEFT JOIN unread_counts uc ON uc.shop_id = s.id
+        WHERE ss.user_id = ?
+        GROUP BY s.id
+        ORDER BY s.created_at DESC
+    "#;
+
+    let rows = sqlx::query_as::<_, ShopWithUnreadProjection>(sql)
+        .bind(staff_user_id)
+        .fetch_all(db.pool())
+        .await?;
+
+    let result = rows
+        .into_iter()
+        .map(|row| ShopWithUnreadCount {
+            shop: Shop {
+                id: row.id,
+                owner_id: row.owner_id,
+                shop_name: row.shop_name,
+                shop_url: row.shop_url,
+                api_key: row.api_key,
+                status: row.status,
+                created_at: row.created_at,
+                updated_at: row.updated_at,
+            },
+            unread_count: (row.unread_total.unwrap_or(0)) as i32,
+        })
+        .collect();
+
+    Ok(result)
+}

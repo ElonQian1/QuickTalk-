@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { useNavigate } from 'react-router-dom';
-import { normalizeShopsList } from '../../utils/normalize';
+import { loadConversationsForMessagesPage, Conversation } from '../../modules/messages/conversations';
 import { ConversationCard as ModularConversationCard } from '../../components/Messages';
 import { EmptyState, EmptyIcon, EmptyTitle, EmptyDescription } from '../../components/UI';
 import { api } from '../../config/api';
@@ -41,22 +41,7 @@ const ConversationList = styled.div`
   overflow: hidden;
 `;
 
-interface Shop {
-  id: number;
-  shop_name: string;
-  unread_count?: number;
-}
-
-interface Conversation {
-  shop: Shop;
-  customer_count: number;
-  last_message?: {
-    content: string;
-    created_at: string;
-    sender_type: string;
-  };
-  unread_count: number;
-}
+// Conversation 类型改为从模块导入，复用逻辑
 
 const MessagesPage: React.FC = () => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -70,50 +55,13 @@ const MessagesPage: React.FC = () => {
 
   const fetchConversations = async () => {
     try {
-      // 获取所有店铺
-      const shopsResponse = await api.get('/api/shops');
-      const shops = normalizeShopsList(shopsResponse.data).map(s => ({ id: s.id, shop_name: s.shop_name, unread_count: s.unread_count })) as Shop[];
-
-      // 为每个店铺获取对话数据
-      const conversationData = await Promise.all(
-        shops.map(async (shop: Shop) => {
-          try {
-            const customersResponse = await api.get(`/api/shops/${shop.id}/customers`);
-            const customers = customersResponse.data;
-            
-            const unreadCount = customers.reduce((total: number, customer: any) => {
-              return total + (customer.unread_count || 0);
-            }, 0);
-
-            const lastMessage = customers.length > 0 && customers[0].last_message 
-              ? customers[0].last_message 
-              : null;
-
-            return {
-              shop: { ...shop, unread_count: unreadCount },
-              customer_count: customers.length,
-              last_message: lastMessage,
-              unread_count: unreadCount,
-            };
-          } catch (error) {
-            return {
-              shop: { ...shop, unread_count: 0 },
-              customer_count: 0,
-              last_message: null,
-              unread_count: 0,
-            };
-          }
-        })
-      );
-
+      const conversationData = await loadConversationsForMessagesPage();
       setConversations(conversationData);
 
       // 统计数据在页面顶部卡片已移除，故不再计算聚合统计
 
       // 初始化全局 unread store（shopId -> unread）
-      useConversationsStore.getState().setManyUnreads(
-        conversationData.map((c: Conversation) => ({ shopId: c.shop.id, count: c.unread_count }))
-      );
+      useConversationsStore.getState().setManyUnreads(conversationData.map((c) => ({ shopId: c.shop.id, count: c.unread_count })));
 
     } catch (error) {
       console.error('Error fetching conversations:', error);

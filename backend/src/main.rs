@@ -138,6 +138,7 @@ fn create_router(state: AppState) -> Router {
         .route("/api/auth/register", post(handlers::auth::register))
         .route("/api/shops", get(handlers::shop::get_shops))
         .route("/api/shops", post(handlers::shop::create_shop))
+    .route("/api/staff/shops", get(handlers::shop::get_staff_shops))
         .route(
             "/api/shops/:shop_id/customers",
             get(handlers::customer::get_customers),
