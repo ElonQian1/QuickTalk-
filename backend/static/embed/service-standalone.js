@@ -371,7 +371,7 @@ class ConfigManager {
  */
 class WebSocketClient {
     /**
-     * 协议适配工具函数 - 只在必要时进行协议适配
+     * 协议适配工具函数 - 统一的协议适配策略
      */
     adaptUrlProtocol(url) {
         if (!url || typeof url !== 'string') {
@@ -384,55 +384,37 @@ class WebSocketClient {
         // 判断是否为开发环境：当前页面域名是localhost或127.0.0.1
         const isCurrentHostDev = window.location.hostname === 'localhost' ||
             window.location.hostname === '127.0.0.1';
-        // 判断目标URL是否为开发环境
-        const isTargetUrlDev = url.includes('localhost') || url.includes('127.0.0.1');
+        // 判断目标URL是否为localhost开发服务器
+        const isTargetLocalhost = url.includes('localhost:') || url.includes('127.0.0.1:');
         // 如果当前页面是HTTPS且URL是HTTP，需要转换
         if (window.location.protocol === 'https:' && url.startsWith('http://')) {
-            // 如果都是开发环境，保持原样避免SSL错误
-            if (isCurrentHostDev && isTargetUrlDev) {
-                console.log('🔧 开发环境，保持HTTP:', {
+            // 特殊处理：如果目标是localhost开发服务器，保持HTTP避免SSL错误
+            if (isTargetLocalhost) {
+                console.log('🔧 WebSocketClient检测到localhost开发服务器，保持HTTP:', {
                     url,
                     currentProtocol: window.location.protocol,
-                    reason: '本地开发环境，避免SSL错误'
+                    currentHost: window.location.hostname,
+                    reason: 'localhost开发服务器通常不支持HTTPS，保持HTTP以避免SSL错误'
                 });
                 return url;
             }
-            // 特殊情况：生产HTTPS页面访问开发环境HTTP资源
-            if (!isCurrentHostDev && isTargetUrlDev) {
-                console.warn('⚠️ Mixed Content警告:', {
-                    message: 'HTTPS页面尝试访问开发环境HTTP资源',
-                    suggestion: '建议在开发环境中测试，或配置HTTPS开发服务器',
-                    original: url,
-                    currentHost: window.location.hostname
-                });
-                // 提供用户选择：可以通过配置决定是否强制转换
-                if (window.location.search.includes('force-https') ||
-                    localStorage.getItem('force-https-adaptation') === 'true') {
-                    const adaptedUrl = url.replace('http://', 'https://');
-                    console.log('🔒 强制协议适配:', { original: url, adapted: adaptedUrl });
-                    return adaptedUrl;
-                }
-                else {
-                    console.log('🌐 保持原始URL (可能导致Mixed Content警告)');
-                    return url;
-                }
-            }
-            // 生产环境HTTPS页面访问HTTP资源，需要转换
+            // 生产环境HTTPS页面访问外部HTTP资源，需要转换
             const adaptedUrl = url.replace('http://', 'https://');
-            console.log('🔒 协议适配:', {
+            console.log('🔧 WebSocketClient协议适配:', {
                 original: url,
                 adapted: adaptedUrl,
-                reason: 'HTTPS页面访问HTTP资源',
+                reason: 'HTTPS页面访问外部HTTP资源',
                 currentHost: window.location.hostname,
                 isCurrentHostDev,
-                isTargetUrlDev
+                isTargetLocalhost
             });
             return adaptedUrl;
         }
         // HTTP页面或无需转换
-        console.log('🌐 URL保持原样:', {
+        console.log('🔧 WebSocketClient URL保持原样:', {
             url,
             currentProtocol: window.location.protocol,
+            currentHost: window.location.hostname,
             reason: 'HTTP页面或无需转换'
         });
         return url;
@@ -1749,28 +1731,29 @@ class ImageViewer {
         // 判断是否为开发环境：当前页面域名是localhost或127.0.0.1
         const isCurrentHostDev = window.location.hostname === 'localhost' ||
             window.location.hostname === '127.0.0.1';
-        // 判断目标URL是否为开发环境
-        const isTargetUrlDev = url.includes('localhost') || url.includes('127.0.0.1');
+        // 判断目标URL是否为localhost开发服务器
+        const isTargetLocalhost = url.includes('localhost:') || url.includes('127.0.0.1:');
         // 如果当前页面是HTTPS且URL是HTTP，需要转换
         if (window.location.protocol === 'https:' && url.startsWith('http://')) {
-            // 如果都是开发环境，保持原样避免SSL错误
-            if (isCurrentHostDev && isTargetUrlDev) {
-                console.log('🖼️ ImageViewer开发环境，保持HTTP:', {
+            // 特殊处理：如果目标是localhost开发服务器，保持HTTP避免SSL错误
+            if (isTargetLocalhost) {
+                console.log('🖼️ ImageViewer检测到localhost开发服务器，保持HTTP:', {
                     url,
                     currentProtocol: window.location.protocol,
-                    reason: '本地开发环境，避免SSL错误'
+                    currentHost: window.location.hostname,
+                    reason: 'localhost开发服务器通常不支持HTTPS，保持HTTP以避免SSL错误'
                 });
                 return url;
             }
-            // 生产环境HTTPS页面访问HTTP资源，需要转换
+            // 生产环境HTTPS页面访问外部HTTP资源，需要转换
             const adaptedUrl = url.replace('http://', 'https://');
             console.log('🖼️ ImageViewer协议适配:', {
                 original: url,
                 adapted: adaptedUrl,
-                reason: 'HTTPS页面访问HTTP图片',
+                reason: 'HTTPS页面访问外部HTTP图片',
                 currentHost: window.location.hostname,
                 isCurrentHostDev,
-                isTargetUrlDev
+                isTargetLocalhost
             });
             return adaptedUrl;
         }
@@ -2074,6 +2057,268 @@ class ImageViewer {
 }
 
   
+  // ===== 图片消息组件模块 =====
+  /**
+ * 图片消息组件模块
+ * 处理图片消息的显示、下载和预览功能
+ */
+class ImageMessageComponent {
+    constructor(config, cssPrefix = 'qt-') {
+        this.config = config;
+        this.prefix = cssPrefix;
+        this.element = this.createElement();
+    }
+    createElement() {
+        const container = document.createElement('div');
+        container.className = `${this.prefix}image-message-container`;
+        // 设置容器样式
+        container.style.cssText = `
+      position: relative;
+      display: inline-block;
+      max-width: 250px;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #f5f5f5;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    `;
+        // 创建图片元素
+        const imageWrapper = this.createImageWrapper();
+        container.appendChild(imageWrapper);
+        // 创建操作栏
+        if (this.config.showDownloadButton || this.config.content) {
+            const actionBar = this.createActionBar();
+            container.appendChild(actionBar);
+        }
+        return container;
+    }
+    createImageWrapper() {
+        const wrapper = document.createElement('div');
+        wrapper.className = `${this.prefix}image-wrapper`;
+        wrapper.style.cssText = `
+      position: relative;
+      background: #f0f0f0;
+      min-height: 100px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    `;
+        const img = document.createElement('img');
+        img.src = this.config.fileUrl;
+        img.alt = this.config.fileName || '图片';
+        img.style.cssText = `
+      max-width: 100%;
+      height: auto;
+      display: block;
+      cursor: ${this.config.enablePreview ? 'pointer' : 'default'};
+    `;
+        // 添加加载状态
+        const loadingElement = this.createLoadingElement();
+        wrapper.appendChild(loadingElement);
+        // 图片加载完成后隐藏加载状态
+        img.onload = () => {
+            loadingElement.style.display = 'none';
+        };
+        // 图片加载失败处理
+        img.onerror = () => {
+            this.showError(wrapper, '图片加载失败');
+        };
+        // 添加预览功能
+        if (this.config.enablePreview) {
+            img.addEventListener('click', () => {
+                this.showImagePreview();
+            });
+            // 添加预览提示
+            const previewHint = this.createPreviewHint();
+            wrapper.appendChild(previewHint);
+            // 悬停效果
+            wrapper.addEventListener('mouseenter', () => {
+                previewHint.style.opacity = '1';
+                img.style.transform = 'scale(1.02)';
+                img.style.transition = 'transform 0.2s ease';
+            });
+            wrapper.addEventListener('mouseleave', () => {
+                previewHint.style.opacity = '0';
+                img.style.transform = 'scale(1)';
+            });
+        }
+        wrapper.appendChild(img);
+        return wrapper;
+    }
+    createLoadingElement() {
+        const loading = document.createElement('div');
+        loading.className = `${this.prefix}image-loading`;
+        loading.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(255,255,255,0.9);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      color: #666;
+    `;
+        loading.textContent = '📷 加载中...';
+        return loading;
+    }
+    createPreviewHint() {
+        const hint = document.createElement('div');
+        hint.className = `${this.prefix}image-preview-hint`;
+        hint.style.cssText = `
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: rgba(0,0,0,0.7);
+      color: white;
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-size: 10px;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      pointer-events: none;
+    `;
+        hint.textContent = '点击查看';
+        return hint;
+    }
+    createActionBar() {
+        const actionBar = document.createElement('div');
+        actionBar.className = `${this.prefix}image-action-bar`;
+        actionBar.style.cssText = `
+      padding: 8px 12px;
+      background: rgba(255,255,255,0.95);
+      border-top: 1px solid #e5e5e5;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    `;
+        // 文件名或描述
+        if (this.config.content || this.config.fileName) {
+            const textElement = document.createElement('div');
+            textElement.className = `${this.prefix}image-text`;
+            textElement.style.cssText = `
+        flex: 1;
+        font-size: 12px;
+        color: #666;
+        word-break: break-all;
+        line-height: 1.3;
+      `;
+            textElement.textContent = this.config.content || this.config.fileName || '';
+            actionBar.appendChild(textElement);
+        }
+        // 下载按钮
+        if (this.config.showDownloadButton) {
+            const downloadButton = this.createDownloadButton();
+            actionBar.appendChild(downloadButton);
+        }
+        return actionBar;
+    }
+    createDownloadButton() {
+        const button = document.createElement('button');
+        button.className = `${this.prefix}image-download-btn`;
+        button.style.cssText = `
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: background 0.2s ease;
+      flex-shrink: 0;
+    `;
+        button.innerHTML = '📥 下载';
+        button.addEventListener('mouseenter', () => {
+            button.style.background = '#0056b3';
+        });
+        button.addEventListener('mouseleave', () => {
+            button.style.background = '#007bff';
+        });
+        button.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.downloadImage();
+        });
+        return button;
+    }
+    showError(container, message) {
+        container.innerHTML = `
+      <div style="
+        padding: 20px;
+        text-align: center;
+        color: #666;
+        font-size: 12px;
+      ">
+        ❌ ${message}
+      </div>
+    `;
+    }
+    showImagePreview() {
+        // 触发预览事件，由外部处理（如使用ImageViewer）
+        const event = new CustomEvent('image-preview', {
+            detail: {
+                src: this.config.fileUrl,
+                alt: this.config.fileName || '图片',
+                title: this.config.fileName || 'image'
+            }
+        });
+        this.element.dispatchEvent(event);
+    }
+    downloadImage() {
+        try {
+            const link = document.createElement('a');
+            link.href = this.config.fileUrl;
+            link.download = this.config.fileName || 'image';
+            link.target = '_blank';
+            // 触发下载
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            // 触发下载事件
+            const event = new CustomEvent('image-download', {
+                detail: {
+                    fileUrl: this.config.fileUrl,
+                    fileName: this.config.fileName
+                }
+            });
+            this.element.dispatchEvent(event);
+        }
+        catch (error) {
+            console.error('图片下载失败:', error);
+        }
+    }
+    // 公共方法
+    getElement() {
+        return this.element;
+    }
+    updateConfig(newConfig) {
+        var _a;
+        this.config = { ...this.config, ...newConfig };
+        // 重新创建元素
+        const newElement = this.createElement();
+        (_a = this.element.parentNode) === null || _a === void 0 ? void 0 : _a.replaceChild(newElement, this.element);
+        this.element = newElement;
+    }
+    destroy() {
+        if (this.element.parentNode) {
+            this.element.parentNode.removeChild(this.element);
+        }
+    }
+}
+/**
+ * 创建图片消息的便捷函数
+ */
+function createImageMessage(config, cssPrefix = 'qt-') {
+    const component = new ImageMessageComponent(config, cssPrefix);
+    return component.getElement();
+}
+
+  
   // ===== UI管理模块 =====
   /**
  * UI组件管理器
@@ -2099,7 +2344,7 @@ class UIManager {
         this.viewportManager.onViewportChange(this.handleViewportChange.bind(this));
     }
     /**
-     * 协议适配工具函数 - 只在必要时进行协议适配
+     * 协议适配工具函数 - 与WebSocketClient保持一致的策略
      */
     adaptUrlProtocol(url) {
         if (!url || typeof url !== 'string') {
@@ -2112,28 +2357,29 @@ class UIManager {
         // 判断是否为开发环境：当前页面域名是localhost或127.0.0.1
         const isCurrentHostDev = window.location.hostname === 'localhost' ||
             window.location.hostname === '127.0.0.1';
-        // 判断目标URL是否为开发环境
-        const isTargetUrlDev = url.includes('localhost') || url.includes('127.0.0.1');
+        // 判断目标URL是否为localhost开发服务器
+        const isTargetLocalhost = url.includes('localhost:') || url.includes('127.0.0.1:');
         // 如果当前页面是HTTPS且URL是HTTP，需要转换
         if (window.location.protocol === 'https:' && url.startsWith('http://')) {
-            // 如果都是开发环境，保持原样避免SSL错误
-            if (isCurrentHostDev && isTargetUrlDev) {
-                console.log('🔧 UIManager开发环境，保持HTTP:', {
+            // 特殊处理：如果目标是localhost开发服务器，保持HTTP避免SSL错误
+            if (isTargetLocalhost) {
+                console.log('🔧 UIManager检测到localhost开发服务器，保持HTTP:', {
                     url,
                     currentProtocol: window.location.protocol,
-                    reason: '本地开发环境，避免SSL错误'
+                    currentHost: window.location.hostname,
+                    reason: 'localhost开发服务器通常不支持HTTPS，保持HTTP以避免SSL错误'
                 });
                 return url;
             }
-            // 生产环境HTTPS页面访问HTTP资源，需要转换
+            // 生产环境HTTPS页面访问外部HTTP资源，需要转换
             const adaptedUrl = url.replace('http://', 'https://');
             console.log('🔧 UIManager协议适配:', {
                 original: url,
                 adapted: adaptedUrl,
-                reason: 'HTTPS页面访问HTTP资源',
+                reason: 'HTTPS页面访问外部HTTP资源',
                 currentHost: window.location.hostname,
                 isCurrentHostDev,
-                isTargetUrlDev
+                isTargetLocalhost
             });
             return adaptedUrl;
         }
@@ -2141,6 +2387,7 @@ class UIManager {
         console.log('🔧 UIManager URL保持原样:', {
             url,
             currentProtocol: window.location.protocol,
+            currentHost: window.location.hostname,
             reason: 'HTTP页面或无需转换'
         });
         return url;
@@ -2443,64 +2690,24 @@ class UIManager {
         if (message.messageType === 'image' && message.fileUrl) {
             // 协议适配
             const adaptedFileUrl = this.adaptUrlProtocol(message.fileUrl);
-            const imageContainer = document.createElement('div');
-            imageContainer.className = `${prefix}image-message`;
-            imageContainer.style.cssText = 'position: relative; display: inline-block; cursor: pointer;';
-            const img = document.createElement('img');
-            img.src = adaptedFileUrl; // 使用协议适配后的URL
-            img.alt = '图片';
-            img.style.cssText = 'max-width: 100%; height: auto; border-radius: 8px; transition: all 0.3s ease;';
-            // 添加加载状态
-            const loadingOverlay = document.createElement('div');
-            loadingOverlay.className = `${prefix}image-loading-overlay`;
-            loadingOverlay.style.cssText = `
-        position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-        background: rgba(0,0,0,0.1); border-radius: 8px;
-        display: flex; align-items: center; justify-content: center;
-        color: #666; font-size: 12px;
-      `;
-            loadingOverlay.textContent = '📷 加载中...';
-            // 添加点击预览提示
-            const clickHint = document.createElement('div');
-            clickHint.className = `${prefix}image-click-hint`;
-            clickHint.style.cssText = `
-        position: absolute; top: 5px; right: 5px;
-        background: rgba(0,0,0,0.6); color: white;
-        padding: 2px 6px; border-radius: 10px;
-        font-size: 10px; opacity: 0;
-        transition: opacity 0.3s ease;
-      `;
-            clickHint.textContent = '点击查看';
-            // 图片加载完成后隐藏加载提示
-            img.onload = () => {
-                loadingOverlay.style.display = 'none';
+            // 创建图片消息组件
+            const imageConfig = {
+                fileUrl: adaptedFileUrl,
+                fileName: message.fileName || message.content,
+                content: message.content !== message.fileName ? message.content : undefined,
+                showDownloadButton: true,
+                enablePreview: true
             };
-            // 图片加载失败处理
-            img.onerror = () => {
-                loadingOverlay.textContent = '❌ 加载失败';
-                loadingOverlay.style.color = '#ff6b6b';
-            };
-            // 鼠标悬停显示提示
-            imageContainer.addEventListener('mouseenter', () => {
-                clickHint.style.opacity = '1';
-                img.style.transform = 'scale(1.02)';
+            const imageElement = createImageMessage(imageConfig, this.styleSystem.getCSSPrefix());
+            // 监听预览事件
+            imageElement.addEventListener('image-preview', (e) => {
+                this.getImageViewer().show(e.detail);
             });
-            imageContainer.addEventListener('mouseleave', () => {
-                clickHint.style.opacity = '0';
-                img.style.transform = 'scale(1)';
+            // 监听下载事件
+            imageElement.addEventListener('image-download', (e) => {
+                console.log('📥 图片下载:', e.detail);
             });
-            // 点击图片查看大图
-            imageContainer.addEventListener('click', () => {
-                this.getImageViewer().show({
-                    src: adaptedFileUrl, // 使用协议适配后的URL
-                    alt: '图片',
-                    title: message.fileName || 'image'
-                });
-            });
-            imageContainer.appendChild(img);
-            imageContainer.appendChild(loadingOverlay);
-            imageContainer.appendChild(clickHint);
-            messageElement.appendChild(imageContainer);
+            messageElement.appendChild(imageElement);
         }
         else if (message.messageType === 'file' && message.fileUrl) {
             const link = document.createElement('a');

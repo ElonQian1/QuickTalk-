@@ -64,6 +64,7 @@ try {
   modules.viewportManager = readModuleFile(path.join(srcDir, 'ui', 'viewport-manager.js'));
   modules.uiManager = readModuleFile(path.join(srcDir, 'ui', 'ui-manager.js'));
   modules.imageViewer = readModuleFile(path.join(srcDir, 'ui', 'image-viewer.js'));
+  modules.imageMessage = readModuleFile(path.join(srcDir, 'ui', 'image-message.js'));
   
   // 媒体模块
   modules.mediaHandler = readModuleFile(path.join(srcDir, 'media', 'media-handler.js'));
@@ -110,6 +111,9 @@ try {
   
   // ===== 图片查看器模块 =====
   ${processedModules.imageViewer || '// 图片查看器模块未找到'}
+  
+  // ===== 图片消息组件模块 =====
+  ${processedModules.imageMessage || '// 图片消息组件模块未找到'}
   
   // ===== UI管理模块 =====
   ${processedModules.uiManager || '// UI管理模块未找到'}
