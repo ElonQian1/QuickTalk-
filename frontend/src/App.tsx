@@ -10,6 +10,7 @@ import ChatPage from './pages/ChatPage';
 import { MessagesPage } from './pages/Messages';
 import { ProfilePage } from './pages/Profile';
 import { HomePage } from './pages/Home';
+import { StatisticsPage } from './pages/Statistics';
 import { useAuthStore } from './stores/authStore';
 
 function App() {
@@ -42,6 +43,7 @@ function App() {
           <Route path="/home" element={<HomePage />} />
           <Route path="/shops" element={<ShopListPage />} />
           <Route path="/messages" element={<MessagesPage />} />
+          <Route path="/statistics" element={<StatisticsPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/shops/:shopId/customers" element={<CustomerListPage />} />
           <Route path="/chat/:sessionId" element={<ChatPage />} />

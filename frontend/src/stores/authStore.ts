@@ -18,6 +18,7 @@ interface AuthState {
   token: string | null;
   hydrated: boolean; // 标识持久化恢复是否完成
   setHasHydrated: (value: boolean) => void;
+  setUser: (patch: Partial<User> | User) => void;
   login: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
   register: (username: string, password: string, email?: string, phone?: string) => Promise<boolean>;
@@ -30,6 +31,9 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       token: null,
       hydrated: false,
+      setUser: (patch: Partial<User> | User) => set((state: AuthState) => ({
+        user: state.user ? { ...state.user, ...patch } as User : (patch as User),
+      })),
   setHasHydrated: (value: boolean) => set({ hydrated: value }),
 
       login: async (username: string, password: string) => {

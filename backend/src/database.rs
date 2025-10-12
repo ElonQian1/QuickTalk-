@@ -29,20 +29,46 @@ impl Database {
         // 读取并执行 schema
         let schema = include_str!("schema.sql");
 
-        // 拆分 SQL 语句并执行
-        for statement in schema.split(';') {
+        // 先创建所有表，然后创建索引
+        let statements: Vec<&str> = schema.split(';').collect();
+        
+        // 第一轮：只执行 CREATE TABLE 语句
+        for statement in &statements {
             let statement = statement.trim();
-            if !statement.is_empty() && !statement.starts_with("--") {
+            if !statement.is_empty() && !statement.starts_with("--") && statement.to_uppercase().contains("CREATE TABLE") {
+                tracing::info!("Creating table: {}", statement.lines().nth(0).unwrap_or(""));
                 match sqlx::query(statement).execute(&self.pool).await {
-                    Ok(_) => {}
+                    Ok(_) => {
+                        tracing::debug!("Table created successfully");
+                    }
                     Err(e) => {
-                        // 忽略"already exists"类型的错误
                         let error_msg = e.to_string().to_lowercase();
-                        if !error_msg.contains("already exists")
-                            && !error_msg.contains("duplicate")
-                            && !error_msg.contains("table")
-                            && !error_msg.contains("index")
-                        {
+                        if error_msg.contains("already exists") {
+                            tracing::debug!("Table already exists, skipping");
+                        } else {
+                            tracing::error!("Failed to create table: {} for statement: {}", e, statement);
+                            return Err(e.into());
+                        }
+                    }
+                }
+            }
+        }
+        
+        // 第二轮：执行 CREATE INDEX 语句
+        for statement in &statements {
+            let statement = statement.trim();
+            if !statement.is_empty() && !statement.starts_with("--") && statement.to_uppercase().contains("CREATE INDEX") {
+                tracing::info!("Creating index: {}", statement.lines().nth(0).unwrap_or(""));
+                match sqlx::query(statement).execute(&self.pool).await {
+                    Ok(_) => {
+                        tracing::debug!("Index created successfully");
+                    }
+                    Err(e) => {
+                        let error_msg = e.to_string().to_lowercase();
+                        if error_msg.contains("already exists") {
+                            tracing::debug!("Index already exists, skipping");
+                        } else {
+                            tracing::error!("Failed to create index: {} for statement: {}", e, statement);
                             return Err(e.into());
                         }
                     }
@@ -50,7 +76,36 @@ impl Database {
             }
         }
 
+        // 验证关键表是否存在
+        self.verify_tables().await?;
+
         info!("Database migrations completed");
+        Ok(())
+    }
+
+    async fn verify_tables(&self) -> Result<()> {
+        let required_tables = vec![
+            "users", "shops", "customers", "sessions", 
+            "messages", "unread_counts", "online_status", "shop_staffs"
+        ];
+
+        for table in required_tables {
+            let exists: bool = sqlx::query_scalar(
+                "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type='table' AND name=?"
+            )
+            .bind(table)
+            .fetch_one(&self.pool)
+            .await?;
+
+            if !exists {
+                tracing::error!("Required table '{}' does not exist after migration", table);
+                anyhow::bail!("Missing required table: {}", table);
+            } else {
+                tracing::debug!("✅ Table '{}' exists", table);
+            }
+        }
+
+        tracing::info!("All required tables verified");
         Ok(())
     }
 
@@ -91,6 +146,45 @@ impl Database {
             .await?;
 
         Ok(user)
+    }
+
+    pub async fn update_user_profile(
+        &self,
+        user_id: i64,
+        req: &crate::models::UpdateProfileRequest,
+    ) -> Result<User> {
+        let user = sqlx::query_as::<_, User>(
+            r#"UPDATE users
+               SET email      = COALESCE(?, email),
+                   phone      = COALESCE(?, phone),
+                   avatar_url = COALESCE(?, avatar_url),
+                   updated_at = CURRENT_TIMESTAMP
+             WHERE id = ?
+          RETURNING *"#,
+        )
+        .bind(req.email.as_deref())
+        .bind(req.phone.as_deref())
+        .bind(req.avatar_url.as_deref())
+        .bind(user_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(user)
+    }
+
+    pub async fn change_user_password(&self, user_id: i64, new_password_hash: &str) -> Result<()> {
+        sqlx::query(
+            r#"UPDATE users
+               SET password_hash = ?,
+                   updated_at    = CURRENT_TIMESTAMP
+             WHERE id = ?"#,
+        )
+        .bind(new_password_hash)
+        .bind(user_id)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
     }
 
     // 店铺相关操作
@@ -449,11 +543,18 @@ impl Database {
     }
 
     pub async fn add_shop_staff_by_username(&self, shop_id: i64, username: &str, role: Option<&str>) -> Result<()> {
+        tracing::info!(target: "database", "add_shop_staff_by_username: shop_id={}, username={}", shop_id, username);
+        
         let user = sqlx::query_as::<_, User>("SELECT * FROM users WHERE username = ?")
             .bind(username)
             .fetch_optional(&self.pool)
             .await?;
-        let Some(user) = user else { anyhow::bail!("user_not_found"); };
+        let Some(user) = user else { 
+            tracing::error!(target: "database", "user_not_found: username={}", username);
+            anyhow::bail!("user_not_found"); 
+        };
+        
+        tracing::info!(target: "database", "found user: id={}, username={}", user.id, user.username);
 
         // 防止把店主重复加入员工表
         let owner_id: Option<i64> = sqlx::query_scalar("SELECT owner_id FROM shops WHERE id = ?")
@@ -462,21 +563,80 @@ impl Database {
             .await?;
         if let Some(oid) = owner_id {
             if oid == user.id {
+                tracing::info!(target: "database", "user {} is already owner of shop {}, skipping", user.id, shop_id);
                 // 店主天然拥有权限，无需加入员工表
                 return Ok(());
             }
+        } else {
+            tracing::error!(target: "database", "shop {} not found", shop_id);
+            anyhow::bail!("shop_not_found");
+        }
+
+        // 若已是成员，则返回明确错误，前端可友好提示（容错：表缺失时尝试迁移）
+        let exists: Option<i64> = match sqlx::query_scalar(
+            "SELECT id FROM shop_staffs WHERE shop_id = ? AND user_id = ? LIMIT 1",
+        )
+        .bind(shop_id)
+        .bind(user.id)
+        .fetch_optional(&self.pool)
+        .await {
+            Ok(v) => v,
+            Err(e) => {
+                let msg = e.to_string().to_lowercase();
+                if msg.contains("no such table") && msg.contains("shop_staffs") {
+                    tracing::warn!(target: "database", "shop_staffs table missing, creating it");
+                    // 表缺失：直接创建表
+                    let create_table_sql = r#"
+                        CREATE TABLE IF NOT EXISTS shop_staffs (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            shop_id INTEGER NOT NULL,
+                            user_id INTEGER NOT NULL,
+                            role VARCHAR(20) NOT NULL DEFAULT 'staff',
+                            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            UNIQUE(shop_id, user_id),
+                            FOREIGN KEY (shop_id) REFERENCES shops(id),
+                            FOREIGN KEY (user_id) REFERENCES users(id)
+                        )
+                    "#;
+                    sqlx::query(create_table_sql).execute(&self.pool).await?;
+                    tracing::info!(target: "database", "shop_staffs table created successfully");
+                    None
+                } else {
+                    return Err(e.into());
+                }
+            }
+        };
+        if exists.is_some() {
+            anyhow::bail!("already_member");
         }
 
         let the_role = role.unwrap_or("staff");
-        // 插入或忽略（若已存在）
-        let _ = sqlx::query(
+        // 插入或忽略（若已存在），容错：表缺失时迁移后重试
+        let insert_res = sqlx::query(
             "INSERT OR IGNORE INTO shop_staffs (shop_id, user_id, role) VALUES (?, ?, ?)"
         )
         .bind(shop_id)
         .bind(user.id)
         .bind(the_role)
         .execute(&self.pool)
-        .await?;
+        .await;
+
+        if let Err(e) = insert_res {
+            let msg = e.to_string().to_lowercase();
+            if msg.contains("no such table") && msg.contains("shop_staffs") {
+                self.migrate().await?;
+                sqlx::query(
+                    "INSERT OR IGNORE INTO shop_staffs (shop_id, user_id, role) VALUES (?, ?, ?)"
+                )
+                .bind(shop_id)
+                .bind(user.id)
+                .bind(the_role)
+                .execute(&self.pool)
+                .await?;
+            } else {
+                return Err(e.into());
+            }
+        }
 
         Ok(())
     }

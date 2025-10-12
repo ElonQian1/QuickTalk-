@@ -69,10 +69,30 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({ open, onClose, shopId, on
       onClose();
     } catch (err: any) {
       console.error('添加员工失败', err);
-      if (err?.response?.data?.message) {
-        setError(err.response.data.message);
+      console.log('🔍 错误响应详情:', {
+        status: err?.response?.status,
+        data: err?.response?.data,
+        code: err?.response?.data?.code,
+        message: err?.response?.data?.message
+      });
+      
+      const code = err?.response?.data?.code || '';
+      const msg = err?.response?.data?.message || '';
+      
+      if (code === 'BAD_REQUEST' && msg === 'user_not_found') {
+        setError('用户不存在，请确认用户名');
+      } else if (code === 'BAD_REQUEST' && msg === 'already_member') {
+        setError('该用户已是本店员工');
+      } else if (code === 'BAD_REQUEST' && msg === 'username_required') {
+        setError('请输入用户名');
+      } else if (code === 'BAD_REQUEST' && msg === 'invalid_shop_or_user') {
+        setError('店铺不存在或用户数据无效');
+      } else if ((code === 'BAD_REQUEST' || code === 'INTERNAL_ERROR') && msg === 'add_staff_failed') {
+        setError('添加失败，请稍后重试');
+      } else if (code === 'UNAUTHORIZED') {
+        setError('暂无权限进行此操作');
       } else {
-        setError('添加失败');
+        setError(`添加失败: ${msg || '未知错误'}`);
       }
     } finally {
       setSubmitting(false);

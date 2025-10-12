@@ -101,6 +101,7 @@ const LoginPage: React.FC = () => {
   const [formData, setFormData] = useState({
     username: '',
     password: '',
+    confirmPassword: '',
     email: '',
     phone: '',
   });
@@ -123,6 +124,17 @@ const LoginPage: React.FC = () => {
     if (!formData.username || !formData.password) {
       setError('请填写用户名和密码');
       return;
+    }
+
+    if (activeTab === 'register') {
+      if (!formData.confirmPassword) {
+        setError('请再次输入密码进行确认');
+        return;
+      }
+      if (formData.password !== formData.confirmPassword) {
+        setError('两次输入的密码不一致');
+        return;
+      }
     }
 
     setLoading(true);
@@ -201,12 +213,24 @@ const LoginPage: React.FC = () => {
               placeholder="请输入密码"
               value={formData.password}
               onChange={handleInputChange}
-              autoComplete="current-password"
+              autoComplete={activeTab === 'register' ? 'new-password' : 'current-password'}
             />
           </FormGroup>
 
           {activeTab === 'register' && (
             <>
+              <FormGroup>
+                <Label htmlFor="confirmPassword">确认密码</Label>
+                <Input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type="password"
+                  placeholder="请再次输入密码"
+                  value={formData.confirmPassword}
+                  onChange={handleInputChange}
+                  autoComplete="new-password"
+                />
+              </FormGroup>
               <FormGroup>
                 <Label htmlFor="email">邮箱（可选）</Label>
                 <Input

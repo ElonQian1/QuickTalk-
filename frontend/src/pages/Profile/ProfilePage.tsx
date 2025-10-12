@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 import { useAuthStore } from '../../stores/authStore';
-import { SettingsModal } from './components';
-import { api } from '../../config/api';
+import { SettingsModal, HelpModal, PersonalInfoModal } from './components';
+import { useNavigate } from 'react-router-dom';
+import { buildMenuItems } from './menu';
 
 const Container = styled.div`
   min-height: 100vh;
@@ -35,12 +36,6 @@ const UserName = styled.h2`
   margin: 0 0 8px;
   font-size: 24px;
   font-weight: 600;
-`;
-
-const UserRole = styled.p`
-  margin: 0;
-  opacity: 0.9;
-  font-size: 14px;
 `;
 
 const MenuSection = styled.div`
@@ -96,33 +91,6 @@ const MenuArrow = styled.div`
   font-size: 14px;
 `;
 
-const StatsSection = styled.div`
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1px;
-  background: #e9ecef;
-  margin: 12px 16px;
-  border-radius: 12px;
-  overflow: hidden;
-`;
-
-const StatItem = styled.div`
-  background: white;
-  padding: 20px;
-  text-align: center;
-`;
-
-const StatValue = styled.div`
-  font-size: 24px;
-  font-weight: bold;
-  color: #00d4aa;
-  margin-bottom: 4px;
-`;
-
-const StatLabel = styled.div`
-  font-size: 12px;
-  color: #666;
-`;
 
 const LogoutButton = styled.button`
   width: calc(100% - 32px);
@@ -150,78 +118,24 @@ const LogoutButton = styled.button`
 const ProfilePage: React.FC = () => {
   const { user, logout } = useAuthStore();
   const [showSettings, setShowSettings] = useState(false);
-  const [stats, setStats] = useState({
-    todayMessages: 0,
-    activeCustomers: 0,
-    pendingChats: 0
-  });
-
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        // 后端提供的是 /api/dashboard/stats，字段为 snake_case
-        const response = await api.get('/api/dashboard/stats');
-        const d = response.data as { unread_messages?: number; active_customers?: number; pending_chats?: number };
-        setStats({
-          todayMessages: d.unread_messages ?? 0,
-          activeCustomers: d.active_customers ?? 0,
-          pendingChats: d.pending_chats ?? 0,
-        });
-      } catch (error) {
-        console.error('Failed to fetch stats:', error);
-        // 保持默认值 0
-      }
-    };
-
-    fetchStats();
-  }, []);
+  const [showPersonal, setShowPersonal] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+  const navigate = useNavigate();
 
   const handleLogout = () => {
     logout();
   };
 
-  const handleSettingsClick = () => {
-    setShowSettings(true);
-  };
+  const handleSettingsClick = () => setShowSettings(true);
+  const handlePersonalClick = () => setShowPersonal(true);
+  const handleHelpClick = () => setShowHelp(true);
 
-  const menuItems = [
-    {
-      icon: '👤',
-      text: '账户设置',
-      color: '#007bff',
-      onClick: () => {} // 账户设置功能待实现
-    },
-    {
-      icon: '🏪',
-      text: '我的店铺',
-      color: '#28a745',
-      onClick: () => {} // 我的店铺功能待实现
-    },
-    {
-      icon: '⚙️',
-      text: '应用设置',
-      color: '#6f42c1',
-      onClick: handleSettingsClick
-    },
-    {
-      icon: '�',
-      text: '数据统计',
-      color: '#17a2b8',
-      onClick: () => {} // 数据统计功能待实现
-    },
-    {
-      icon: '�',
-      text: '联系客服',
-      color: '#ffc107',
-      onClick: () => {} // 联系客服功能待实现
-    },
-    {
-      icon: '❓',
-      text: '帮助中心',
-      color: '#fd7e14',
-      onClick: () => {} // 帮助中心功能待实现
-    }
-  ];
+  const menuItems = buildMenuItems(
+    navigate,
+    handlePersonalClick,
+    handleSettingsClick,
+    handleHelpClick,
+  );
 
   return (
     <Container>
@@ -230,23 +144,7 @@ const ProfilePage: React.FC = () => {
           {user?.username?.charAt(0)?.toUpperCase() || 'U'}
         </Avatar>
         <UserName>{user?.username || '用户'}</UserName>
-        <UserRole>客服管理员</UserRole>
       </Header>
-
-      <StatsSection>
-        <StatItem>
-          <StatValue>{stats.todayMessages}</StatValue>
-          <StatLabel>今日消息</StatLabel>
-        </StatItem>
-        <StatItem>
-          <StatValue>{stats.activeCustomers}</StatValue>
-          <StatLabel>活跃客户</StatLabel>
-        </StatItem>
-        <StatItem>
-          <StatValue>{stats.pendingChats}</StatValue>
-          <StatLabel>待处理</StatLabel>
-        </StatItem>
-      </StatsSection>
 
       <MenuSection>
         {menuItems.map((item, index) => (
@@ -269,6 +167,14 @@ const ProfilePage: React.FC = () => {
       <SettingsModal 
         isOpen={showSettings} 
         onClose={() => setShowSettings(false)} 
+      />
+      <PersonalInfoModal 
+        isOpen={showPersonal}
+        onClose={() => setShowPersonal(false)}
+      />
+      <HelpModal 
+        isOpen={showHelp}
+        onClose={() => setShowHelp(false)}
       />
     </Container>
   );

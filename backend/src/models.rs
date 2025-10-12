@@ -208,3 +208,19 @@ pub struct CustomerUpsert<'a> {
     pub ip: Option<&'a str>,
     pub user_agent: Option<&'a str>,
 }
+
+// 用户资料更新请求
+#[derive(Debug, Deserialize)]
+pub struct UpdateProfileRequest {
+    pub username: Option<String>,
+    pub email: Option<String>,
+    pub phone: Option<String>,
+    pub avatar_url: Option<String>,
+}
+
+// 修改密码请求
+#[derive(Debug, Deserialize)]
+pub struct ChangePasswordRequest {
+    pub current_password: String,
+    pub new_password: String,
+}

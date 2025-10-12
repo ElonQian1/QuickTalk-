@@ -4,6 +4,7 @@ import { FiPlus, FiGlobe } from 'react-icons/fi';
 import { api } from '../config/api';
 import { normalizeShopsList } from '../utils/normalize';
 import { Button, Card, LoadingSpinner } from '../styles/globalStyles';
+import { EmptyState, EmptyIcon, EmptyTitle, EmptyDescription } from '../components/UI';
 import { ShopManageButton, ShopManageModal } from '../components/shops';
 import { theme } from '../styles/globalStyles';
 import toast from 'react-hot-toast';
@@ -97,25 +98,6 @@ const ShopUrl = styled.p`
 `;
 
 // 统计区域移除，改为右上角管理按钮。保留命名占位可在未来扩展（例如显示订单统计）。
-
-const EmptyState = styled.div`
-  text-align: center;
-  padding: ${theme.spacing.xl} ${theme.spacing.md};
-  color: ${theme.colors.text.secondary};
-`;
-
-const EmptyIcon = styled.div`
-  width: 80px;
-  height: 80px;
-  margin: 0 auto ${theme.spacing.md};
-  background: ${theme.colors.background};
-  border-radius: ${theme.borderRadius.round};
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 32px;
-  color: ${theme.colors.text.placeholder};
-`;
 
 const LoadingContainer = styled.div`
   display: flex;
@@ -218,8 +200,8 @@ const ShopListPage: React.FC = () => {
       {shops.length === 0 ? (
         <EmptyState>
           <EmptyIcon>🏪</EmptyIcon>
-          <h3>还没有店铺</h3>
-          <p>点击右上角添加按钮创建您的第一个店铺</p>
+          <EmptyTitle>还没有店铺</EmptyTitle>
+          <EmptyDescription>点击右上角添加按钮创建您的第一个店铺</EmptyDescription>
         </EmptyState>
       ) : (
         <ShopList>

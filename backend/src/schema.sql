@@ -99,16 +99,6 @@ CREATE TABLE IF NOT EXISTS online_status (
     FOREIGN KEY (shop_id) REFERENCES shops(id)
 );
 
--- 创建索引（使用 IF NOT EXISTS）
-CREATE INDEX IF NOT EXISTS idx_shops_owner_id ON shops(owner_id);
-CREATE INDEX IF NOT EXISTS idx_customers_shop_id ON customers(shop_id);
-CREATE INDEX IF NOT EXISTS idx_sessions_shop_customer ON sessions(shop_id, customer_id);
-CREATE INDEX IF NOT EXISTS idx_sessions_staff_id ON sessions(staff_id);
-CREATE INDEX IF NOT EXISTS idx_messages_session_id ON messages(session_id);
-CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);
-CREATE INDEX IF NOT EXISTS idx_unread_counts_shop_customer ON unread_counts(shop_id, customer_id);
-CREATE INDEX IF NOT EXISTS idx_online_status_user ON online_status(user_type, user_id);
-
 -- 店铺员工表（店铺-用户 关系，role 目前支持 'staff'）
 CREATE TABLE IF NOT EXISTS shop_staffs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -121,5 +111,14 @@ CREATE TABLE IF NOT EXISTS shop_staffs (
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
+-- 创建索引（使用 IF NOT EXISTS）
+CREATE INDEX IF NOT EXISTS idx_shops_owner_id ON shops(owner_id);
+CREATE INDEX IF NOT EXISTS idx_customers_shop_id ON customers(shop_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_shop_customer ON sessions(shop_id, customer_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_staff_id ON sessions(staff_id);
+CREATE INDEX IF NOT EXISTS idx_messages_session_id ON messages(session_id);
+CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);
+CREATE INDEX IF NOT EXISTS idx_unread_counts_shop_customer ON unread_counts(shop_id, customer_id);
+CREATE INDEX IF NOT EXISTS idx_online_status_user ON online_status(user_type, user_id);
 CREATE INDEX IF NOT EXISTS idx_shop_staffs_shop ON shop_staffs(shop_id);
 CREATE INDEX IF NOT EXISTS idx_shop_staffs_user ON shop_staffs(user_id);

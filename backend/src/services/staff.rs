@@ -7,6 +7,7 @@ use crate::{
     database::Database,
     error::AppError,
 };
+use tracing::error;
 
 #[derive(serde::Serialize, Clone, Debug)]
 pub struct StaffItem {
@@ -46,14 +47,18 @@ pub async fn list_staff(db: &Database, requester_id: i64, shop_id: i64) -> Resul
 }
 
 pub async fn add_staff(db: &Database, requester_id: i64, shop_id: i64, username: &str) -> Result<(), AppError> {
+    error!(target: "staff", "add_staff called: requester_id={}, shop_id={}, username={}", requester_id, shop_id, username);
+    
     let is_owner = db
         .is_shop_owner(shop_id, requester_id)
         .await
         .map_err(|_| AppError::Internal("check_owner_failed".to_string()))?;
     if !is_owner {
+        error!(target: "staff", "add_staff: requester {} is not owner of shop {}", requester_id, shop_id);
         return Err(AppError::Unauthorized);
     }
     if username.trim().is_empty() {
+        error!(target: "staff", "add_staff: username is empty");
         return Err(AppError::BadRequest("username_required".to_string()));
     }
 
@@ -62,10 +67,18 @@ pub async fn add_staff(db: &Database, requester_id: i64, shop_id: i64, username:
         .await
         .map_err(|e| {
             let msg = e.to_string();
+            error!(target: "staff", "add_staff failed: {}", msg);
             if msg.contains("user_not_found") {
                 AppError::BadRequest("user_not_found".to_string())
+            } else if msg.contains("already_member") {
+                AppError::BadRequest("already_member".to_string())
+            } else if msg.to_lowercase().contains("unique") {
+                AppError::BadRequest("already_member".to_string())
+            } else if msg.to_lowercase().contains("foreign key") {
+                AppError::BadRequest("invalid_shop_or_user".to_string())
             } else {
-                AppError::Internal("add_staff_failed".to_string())
+                // 默认作为请求问题处理，避免 500 影响用户体验
+                AppError::BadRequest("add_staff_failed".to_string())
             }
         })
 }

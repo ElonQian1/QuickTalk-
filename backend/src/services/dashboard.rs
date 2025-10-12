@@ -14,6 +14,11 @@ pub struct DashboardStats {
     pub active_customers: i64,
     pub unread_messages: i64,
     pub pending_chats: i64,
+    // 新增时间维度统计
+    pub today_messages: i64,
+    pub week_messages: i64,
+    pub month_messages: i64,
+    pub today_customers: i64,
 }
 
 pub async fn get_dashboard_stats(db: &Database, owner_id: i64) -> Result<DashboardStats> {
@@ -54,10 +59,58 @@ pub async fn get_dashboard_stats(db: &Database, owner_id: i64) -> Result<Dashboa
     .fetch_one(db.pool())
     .await?;
 
+    // 今日消息数
+    let today_messages: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM messages m 
+         JOIN sessions se ON m.session_id = se.id
+         JOIN shops s ON se.shop_id = s.id 
+         WHERE s.owner_id = ? AND date(m.created_at) = date('now')",
+    )
+    .bind(owner_id)
+    .fetch_one(db.pool())
+    .await?;
+
+    // 本周消息数
+    let week_messages: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM messages m 
+         JOIN sessions se ON m.session_id = se.id
+         JOIN shops s ON se.shop_id = s.id 
+         WHERE s.owner_id = ? AND m.created_at >= datetime('now', 'weekday 0', '-6 days')",
+    )
+    .bind(owner_id)
+    .fetch_one(db.pool())
+    .await?;
+
+    // 本月消息数
+    let month_messages: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM messages m 
+         JOIN sessions se ON m.session_id = se.id
+         JOIN shops s ON se.shop_id = s.id 
+         WHERE s.owner_id = ? AND m.created_at >= datetime('now', 'start of month')",
+    )
+    .bind(owner_id)
+    .fetch_one(db.pool())
+    .await?;
+
+    // 今日活跃客户数
+    let today_customers: i64 = sqlx::query_scalar(
+        "SELECT COUNT(DISTINCT se.customer_id) FROM messages m 
+         JOIN sessions se ON m.session_id = se.id
+         JOIN shops s ON se.shop_id = s.id 
+         WHERE s.owner_id = ? AND date(m.created_at) = date('now')",
+    )
+    .bind(owner_id)
+    .fetch_one(db.pool())
+    .await?;
+
     Ok(DashboardStats {
         total_shops,
         active_customers,
         unread_messages,
         pending_chats,
+        today_messages,
+        week_messages,
+        month_messages,
+        today_customers,
     })
 }

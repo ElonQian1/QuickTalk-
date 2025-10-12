@@ -6,7 +6,7 @@ use axum::{
     },
     http::StatusCode,
     response::{IntoResponse, Response},
-    routing::{get, post, delete},
+    routing::{get, post, delete, put},
     Json, Router,
 };
 use chrono::Utc;
@@ -58,10 +58,14 @@ async fn main() -> Result<()> {
         std::env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite:customer_service.db".to_string());
     let db = Database::new(&db_url).await?;
     // ensure database schema is applied on startup
+    // 暂时跳过迁移，表缺失时运行时创建
+    /*
     if let Err(e) = db.migrate().await {
         error!(error=?e, "Database migration failed");
         return Err(e);
     }
+    */
+    info!("Database initialized, skipping migration for now");
     let connections = Arc::new(Mutex::new(ConnectionManager::new()));
 
     let state = AppState { db, connections };
@@ -174,6 +178,8 @@ fn create_router(state: AppState) -> Router {
             "/api/dashboard/stats",
             get(handlers::stats::get_dashboard_stats),
         )
+        .route("/api/user/profile", put(handlers::user::update_profile))
+        .route("/api/user/password", put(handlers::user::change_password))
         .route("/ws/staff/:user_id", get(websocket_handler_staff))
         .route(
             "/ws/customer/:shop_ref/:customer_id",

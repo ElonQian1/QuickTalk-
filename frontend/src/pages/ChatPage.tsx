@@ -13,6 +13,7 @@ import VoiceMessage from '../components/VoiceMessage';
 import EmojiButton from '../components/EmojiButton';
 import { MessageText } from '../utils/textFormatter';
 import { useWSStore } from '../stores/wsStore';
+import { EmptyState as UIEmptyState, EmptyIcon, EmptyTitle, EmptyDescription } from '../components/UI/EmptyState';
 
 const Container = styled.div`
   display: flex;
@@ -203,15 +204,7 @@ const LoadingContainer = styled.div`
   height: 200px;
 `;
 
-const EmptyState = styled.div`
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: ${theme.colors.text.secondary};
-  padding: ${theme.spacing.xl};
-`;
+// 使用共享的 UI EmptyState 组件，移除本地定义
 
 const MessageImage = styled.img`
   max-width: 200px;
@@ -698,11 +691,11 @@ const ChatPage: React.FC = () => {
 
       <MessagesContainer>
         {messages.length === 0 ? (
-          <EmptyState>
-            <div style={{ fontSize: '48px', marginBottom: '16px' }}>💬</div>
-            <h3>开始对话</h3>
-            <p>发送消息开始与客户的对话</p>
-          </EmptyState>
+          <UIEmptyState>
+            <EmptyIcon>💬</EmptyIcon>
+            <EmptyTitle>开始对话</EmptyTitle>
+            <EmptyDescription>发送消息开始与客户的对话</EmptyDescription>
+          </UIEmptyState>
         ) : (
           groupMessagesByTime(messages).map((item, index) => {
             if ('type' in item && item.type === 'time') {

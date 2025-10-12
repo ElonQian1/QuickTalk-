@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { useNavigate } from 'react-router-dom';
 import { normalizeShopsList } from '../../utils/normalize';
-import { FiMessageCircle, FiUsers, FiClock } from 'react-icons/fi';
+import { ConversationCard as ModularConversationCard } from '../../components/Messages';
+import { EmptyState, EmptyIcon, EmptyTitle, EmptyDescription } from '../../components/UI';
 import { api } from '../../config/api';
-import { Card, Badge, LoadingSpinner } from '../../styles/globalStyles';
+import { LoadingSpinner } from '../../styles/globalStyles';
 import { theme } from '../../styles/globalStyles';
 import toast from 'react-hot-toast';
 import { useConversationsStore } from '../../stores/conversationsStore';
@@ -40,141 +41,6 @@ const ConversationList = styled.div`
   overflow: hidden;
 `;
 
-const ConversationCard = styled(Card)`
-  padding: ${theme.spacing.md};
-  cursor: pointer;
-  transition: all 0.2s ease;
-  border-radius: 0;
-  
-  &:hover {
-    background: #f8f8f8;
-  }
-  
-  &:active {
-    background: #f0f0f0;
-  }
-`;
-
-const ConversationHeader = styled.div`
-  display: flex;
-  align-items: center;
-  gap: ${theme.spacing.md};
-  margin-bottom: ${theme.spacing.sm};
-`;
-
-const ConversationAvatar = styled.div<{ src?: string }>`
-  position: relative;
-  width: ${theme.spacing.xxl}; /* 原 48px；如需更大头像可新增 xxxl */
-  height: ${theme.spacing.xxl};
-  border-radius: ${theme.borderRadius.round};
-  background: ${props => props.src ? `url(${props.src})` : theme.colors.primary};
-  background-size: cover;
-  background-position: center;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: ${theme.colors.white};
-  font-size: ${theme.typography.h2}; /* 原 16px */
-  font-weight: 600;
-  flex-shrink: 0;
-`;
-
-const ConversationInfo = styled.div`
-  flex: 1;
-  overflow: hidden;
-`;
-
-const ConversationTitle = styled.div`
-  font-size: ${theme.typography.body};
-  font-weight: 600;
-  color: ${theme.colors.text.primary};
-  margin-bottom: ${theme.spacing.micro}; /* 原 2px */
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-`;
-
-const ConversationMeta = styled.div`
-  display: flex;
-  align-items: center;
-  gap: ${theme.spacing.sm};
-  font-size: ${theme.typography.small};
-  color: ${theme.colors.text.secondary};
-`;
-
-const LastMessage = styled.div`
-  margin-top: ${theme.spacing.sm};
-`;
-
-const MessageContent = styled.div`
-  font-size: ${theme.typography.small};
-  color: ${theme.colors.text.secondary};
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  margin-bottom: ${theme.spacing.micro}; /* 原 4px */
-`;
-
-const MessageTime = styled.div`
-  font-size: ${theme.typography.caption};
-  color: ${theme.colors.text.placeholder};
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-`;
-
-const UnreadBadge = styled(Badge)`
-  position: static;
-  margin-left: auto;
-`;
-
-const StatsCard = styled(Card)`
-  padding: ${theme.spacing.md};
-  margin-bottom: ${theme.spacing.lg};
-  background: linear-gradient(135deg, ${theme.colors.primary} 0%, ${theme.colors.secondary} 100%);
-  color: ${theme.colors.white};
-`;
-
-const StatsGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: ${theme.spacing.md};
-`;
-
-const StatItem = styled.div`
-  text-align: center;
-`;
-
-const StatValue = styled.div`
-  font-size: ${theme.typography.h2};
-  font-weight: bold;
-  margin-bottom: ${theme.spacing.micro}; /* 原 4px */
-`;
-
-const StatLabel = styled.div`
-  font-size: ${theme.typography.small};
-  opacity: 0.9;
-`;
-
-const EmptyState = styled.div`
-  text-align: center;
-  padding: ${theme.spacing.xl} ${theme.spacing.md};
-  color: ${theme.colors.text.secondary};
-`;
-
-const EmptyIcon = styled.div`
-  width: ${theme.spacing.xxl}; /* 原 80px */
-  height: ${theme.spacing.xxl};
-  margin: 0 auto ${theme.spacing.md};
-  background: ${theme.colors.background};
-  border-radius: ${theme.borderRadius.round};
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: ${theme.typography.display}; /* 原 32px */
-  color: ${theme.colors.text.placeholder};
-`;
-
 interface Shop {
   id: number;
   shop_name: string;
@@ -195,14 +61,7 @@ interface Conversation {
 const MessagesPage: React.FC = () => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
-  // 已移除离线数据回退逻辑的标记状态（此前未使用）
-  const [stats, setStats] = useState({
-    totalShops: 0,
-    totalCustomers: 0,
-    unreadMessages: 0,
-  });
   const unreads = useConversationsStore(state => state.unreads);
-  const totalUnread = useConversationsStore(state => state.totalUnread);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -249,15 +108,7 @@ const MessagesPage: React.FC = () => {
 
       setConversations(conversationData);
 
-      // 计算统计数据
-      const totalUnread = conversationData.reduce((total, conv) => total + conv.unread_count, 0);
-      const totalCustomers = conversationData.reduce((total, conv) => total + conv.customer_count, 0);
-
-      setStats({
-        totalShops: shops.length,
-        totalCustomers,
-        unreadMessages: totalUnread,
-      });
+      // 统计数据在页面顶部卡片已移除，故不再计算聚合统计
 
       // 初始化全局 unread store（shopId -> unread）
       useConversationsStore.getState().setManyUnreads(
@@ -274,27 +125,6 @@ const MessagesPage: React.FC = () => {
 
   const handleConversationClick = (conversation: Conversation) => {
     navigate(`/shops/${conversation.shop.id}/customers`);
-  };
-
-  const formatTime = (timestamp: string) => {
-    try {
-      const date = new Date(timestamp);
-      const now = new Date();
-      const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
-      
-      if (diffInMinutes < 1) {
-        return '刚刚';
-      } else if (diffInMinutes < 60) {
-        return `${diffInMinutes}分钟前`;
-      } else if (diffInMinutes < 1440) {
-        return `${Math.floor(diffInMinutes / 60)}小时前`;
-      } else {
-        const days = Math.floor(diffInMinutes / 1440);
-        return `${days}天前`;
-      }
-    } catch (error) {
-      return '未知';
-    }
   };
 
   if (loading) {
@@ -314,91 +144,27 @@ const MessagesPage: React.FC = () => {
         <Subtitle>管理所有店铺的客户对话</Subtitle>
       </Header>
 
-      <StatsCard>
-        <StatsGrid>
-          <StatItem>
-            <StatValue>{stats.totalShops}</StatValue>
-            <StatLabel>店铺数量</StatLabel>
-          </StatItem>
-          <StatItem>
-            <StatValue>{stats.totalCustomers}</StatValue>
-            <StatLabel>客户数量</StatLabel>
-          </StatItem>
-          <StatItem>
-            <StatValue>{totalUnread || stats.unreadMessages}</StatValue>
-            <StatLabel>未读消息</StatLabel>
-          </StatItem>
-        </StatsGrid>
-      </StatsCard>
-
       {conversations.length === 0 ? (
         <EmptyState>
           <EmptyIcon>💬</EmptyIcon>
-          <h3>暂无对话</h3>
-          <p>当有客户发起对话时，会显示在这里</p>
+          <EmptyTitle>暂无对话</EmptyTitle>
+          <EmptyDescription>当有客户发起对话时，会显示在这里</EmptyDescription>
         </EmptyState>
       ) : (
         <ConversationList>
           {conversations.map((conversation) => {
             const unreadFromStore = unreads[conversation.shop.id] ?? conversation.unread_count;
             return (
-            <ConversationCard
-              key={conversation.shop.id}
-              onClick={() => handleConversationClick(conversation)}
-            >
-              <ConversationHeader>
-                <ConversationAvatar>
-                  🏪
-                  {unreadFromStore > 0 && (
-                    <Badge count={unreadFromStore} />
-                  )}
-                </ConversationAvatar>
-                
-                <ConversationInfo>
-                  <ConversationTitle>
-                    {conversation.shop.shop_name}
-                  </ConversationTitle>
-                  
-                  <ConversationMeta>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <FiUsers size={12} />
-                      {conversation.customer_count} 位客户
-                    </div>
-                    
-                    {unreadFromStore > 0 && (
-                      <>
-                        <span>•</span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <FiMessageCircle size={12} />
-                          {unreadFromStore} 条未读
-                        </div>
-                      </>
-                    )}
-                  </ConversationMeta>
-                </ConversationInfo>
-                
-                {unreadFromStore > 0 && (
-                  <UnreadBadge count={unreadFromStore} />
-                )}
-              </ConversationHeader>
-
-              {conversation.last_message && (
-                <LastMessage>
-                  <MessageContent>
-                    {conversation.last_message.sender_type === 'customer' ? '' : '[我] '}
-                    {conversation.last_message.content}
-                  </MessageContent>
-                  
-                  <MessageTime>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <FiClock size={12} />
-                      {formatTime(conversation.last_message.created_at)}
-                    </div>
-                  </MessageTime>
-                </LastMessage>
-              )}
-            </ConversationCard>
-          );})}
+              <ModularConversationCard
+                key={conversation.shop.id}
+                shopName={conversation.shop.shop_name}
+                customerCount={conversation.customer_count}
+                unreadCount={unreadFromStore}
+                lastMessage={conversation.last_message}
+                onClick={() => handleConversationClick(conversation)}
+              />
+            );
+          })}
         </ConversationList>
       )}
     </Container>

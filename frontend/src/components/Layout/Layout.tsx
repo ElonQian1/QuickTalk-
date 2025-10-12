@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { FiArrowLeft, FiMoreHorizontal } from 'react-icons/fi';
@@ -66,6 +66,39 @@ const IconButton = styled.button`
   }
 `;
 
+const MenuWrapper = styled.div`
+  position: relative;
+`;
+
+const Dropdown = styled.div`
+  position: absolute;
+  top: 2.75rem;
+  right: 0;
+  background: ${theme.colors.white};
+  border: 1px solid ${theme.colors.border};
+  border-radius: ${theme.borderRadius.medium};
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  min-width: 140px;
+  padding: 4px;
+  z-index: 20;
+`;
+
+const DropdownItem = styled.button`
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  color: ${theme.colors.text.primary};
+  border-radius: ${theme.borderRadius.small};
+  font-size: ${theme.typography.body};
+
+  &:hover {
+    background: ${theme.colors.background};
+  }
+`;
+
 const Content = styled.main`
   flex: 1;
   overflow: hidden;
@@ -81,6 +114,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { logout } = useAuthStore();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
   // 根据路由确定页面标题和是否显示返回按钮
   const getPageInfo = () => {
@@ -96,6 +131,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     
     if (path === '/messages') {
       return { title: '消息中心', showBack: false, showBottomNav: true };
+    }
+    
+    if (path === '/statistics') {
+      return { title: '数据统计', showBack: true, showBottomNav: false };
     }
     
     if (path === '/profile') {
@@ -120,11 +159,27 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   };
 
   const handleMenuClick = () => {
-    // 这里可以显示菜单，包括退出登录等选项
-    if (window.confirm('确定要退出登录吗？')) {
-      logout();
-    }
+    setMenuOpen((v) => !v);
   };
+
+  // 点击外部关闭下拉
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onDocClick);
+    document.addEventListener('keydown', onEsc);
+    return () => {
+      document.removeEventListener('mousedown', onDocClick);
+      document.removeEventListener('keydown', onEsc);
+    };
+  }, [menuOpen]);
 
   return (
     <LayoutContainer>
@@ -139,9 +194,23 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         </HeaderLeft>
         
         <HeaderRight>
-          <IconButton onClick={handleMenuClick}>
-            <FiMoreHorizontal />
-          </IconButton>
+          <MenuWrapper ref={menuRef}>
+            <IconButton onClick={handleMenuClick} aria-haspopup="menu" aria-expanded={menuOpen}>
+              <FiMoreHorizontal />
+            </IconButton>
+            {menuOpen && (
+              <Dropdown role="menu">
+                <DropdownItem onClick={() => { setMenuOpen(false); navigate('/profile'); }}>个人中心</DropdownItem>
+                <DropdownItem onClick={() => { setMenuOpen(false); navigate('/statistics'); }}>数据统计</DropdownItem>
+                <DropdownItem onClick={() => {
+                  setMenuOpen(false);
+                  if (window.confirm('确定要退出登录吗？')) {
+                    logout();
+                  }
+                }}>退出登录</DropdownItem>
+              </Dropdown>
+            )}
+          </MenuWrapper>
         </HeaderRight>
       </Header>
       

@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import styled from 'styled-components';
 import { useNavigate } from 'react-router-dom';
-import { FiMessageSquare, FiUsers, FiTrendingUp, FiShoppingBag, FiClock } from 'react-icons/fi';
+import { FiMessageSquare, FiUsers, FiTrendingUp, FiShoppingBag, FiClock, FiRefreshCw } from 'react-icons/fi';
 import { useAuthStore } from '../../stores/authStore';
-import { api } from '../../config/api';
 import { theme } from '../../styles/globalStyles';
-import toast from 'react-hot-toast';
 import { useConversationsStore } from '../../stores/conversationsStore';
+import { StatsGrid, StatData } from '../../components/Dashboard';
+import { useDashboardStats } from '../../hooks/useDashboardStats';
+import { formatTime } from '../../utils/statsUtils';
 
 const Container = styled.div`
   min-height: 100vh;
@@ -18,6 +19,7 @@ const Header = styled.div`
   padding: ${theme.spacing.xxl} ${theme.spacing.md} ${theme.spacing.md}; /* 原 40 20 20 */
   text-align: center;
   color: white;
+  position: relative;
 `;
 
 const WelcomeText = styled.h1`
@@ -33,58 +35,49 @@ const SubText = styled.p`
   margin: 0;
 `;
 
-// OfflineIndicator 已移除（不再提供离线数据模式）
-
-const StatsGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: ${theme.spacing.md}; /* 原 16px */
-  padding: 0 ${theme.spacing.md} ${theme.spacing.md}; /* 原 0 20 20 */
-`;
-
-const StatCard = styled.div`
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(${theme.spacing.md}); /* 16px 近似原 10px */
-  border-radius: ${theme.spacing.xl}; /* 原 16px */
-  padding: ${theme.spacing.mlg}; /* 原 20px -> 20 token mlg */
-  text-align: center;
-  box-shadow: 0 0.25rem 1.25rem rgba(0,0,0,0.1); /* 4px 20px -> rem */
-  transition: transform 0.2s, box-shadow 0.2s;
-
-  &:hover {
-    transform: translateY(-0.125rem); /* 原 -2px */
-    box-shadow: 0 0.5rem 1.875rem rgba(0,0,0,0.15); /* 8px 30px */
-  }
-`;
-
-const StatIcon = styled.div<{ color: string }>`
-  width: ${theme.spacing.xxl}; /* 原 48px */
-  height: ${theme.spacing.xxl};
-  background: ${props => props.color};
-  border-radius: ${theme.spacing.lg}; /* 原 12px */
+const RefreshButton = styled.button`
+  position: absolute;
+  top: ${theme.spacing.md};
+  right: ${theme.spacing.md};
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  border-radius: ${theme.spacing.md};
+  color: white;
+  padding: ${theme.spacing.xs} ${theme.spacing.smd};
+  cursor: pointer;
   display: flex;
   align-items: center;
-  justify-content: center;
-  margin: 0 auto ${theme.spacing.smd}; /* 原 12px */
-  color: white;
+  gap: ${theme.spacing.xs};
+  font-size: ${theme.typography.small};
+  transition: background 0.2s;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.3);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
 
   svg {
-    width: ${theme.spacing.md}; /* 16px 近似原 24px? 若需24可用 pxToRem(24) */
-    height: ${theme.spacing.md};
+    animation: ${props => props.disabled ? 'spin 1s linear infinite' : 'none'};
+  }
+
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
   }
 `;
 
-const StatValue = styled.div`
-  font-size: ${theme.typography.display}; /* 原 28px */
-  font-weight: bold;
-  color: #333;
-  margin-bottom: ${theme.spacing.micro}; /* 原 4px */
+const LastUpdated = styled.div`
+  text-align: center;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: ${theme.typography.caption};
+  margin-top: ${theme.spacing.xs};
 `;
 
-const StatLabel = styled.div`
-  font-size: ${theme.typography.small};
-  color: #666;
-`;
+// OfflineIndicator 已移除（不再提供离线数据模式）
 
 const QuickActions = styled.div`
   padding: 0 ${theme.spacing.md};
@@ -153,46 +146,16 @@ const ActionDesc = styled.div`
   color: #666;
 `;
 
-interface DashboardStats {
-  totalMessages: number;
-  activeCustomers: number;
-  totalShops: number;
-  pendingChats: number;
-}
-
 const HomePage: React.FC = () => {
   const { user } = useAuthStore();
   const navigate = useNavigate();
-  const [stats, setStats] = useState<DashboardStats>({
-    totalMessages: 0,
-    activeCustomers: 0,
-    totalShops: 0,
-    pendingChats: 0
-  });
   const totalUnread = useConversationsStore(state => state.totalUnread);
-  // 移除未使用的 isLoading 状态（此前仅设置未被消费）
-  // const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        // 调用后端聚合统计端点，避免前端N+1
-        const resp = await api.get('/api/dashboard/stats');
-        const d = resp.data as { total_shops: number; active_customers: number; unread_messages: number; pending_chats: number };
-        setStats({
-          totalMessages: d.unread_messages,
-          activeCustomers: d.active_customers,
-          totalShops: d.total_shops,
-          pendingChats: d.pending_chats,
-        });
-      } catch (error) {
-        console.error('获取统计数据失败:', error);
-        toast.error('获取统计数据失败，请稍后重试');
-      }
-    };
-
-    fetchStats();
-  }, []);
+  
+  // 使用自定义hook获取统计数据
+  const { stats, isLoading, isRefreshing, refreshStats, lastUpdated } = useDashboardStats({
+    autoRefreshInterval: 30000, // 30秒自动刷新
+    enableAutoRefresh: true
+  });
 
   const quickActions = [
     {
@@ -210,22 +173,22 @@ const HomePage: React.FC = () => {
       onClick: () => navigate('/shops')
     },
     {
-      title: '客户管理',
-      desc: '查看客户列表',
+      title: '个人中心',
+      desc: '查看个人信息',
       icon: FiUsers,
       color: '#ff6b6b',
-      onClick: () => navigate('/shops')
+      onClick: () => navigate('/profile')
     },
     {
       title: '数据统计',
       desc: '查看运营数据',
       icon: FiTrendingUp,
       color: '#4ecdc4',
-      onClick: () => {} // 数据统计功能待实现
+      onClick: () => navigate('/statistics')
     }
   ];
 
-  const statsData = [
+  const statsData: StatData[] = [
     {
       icon: FiMessageSquare,
       value: totalUnread || stats.totalMessages,
@@ -257,20 +220,18 @@ const HomePage: React.FC = () => {
       <Header>
         <WelcomeText>欢迎回来，{user?.username || '管理员'}</WelcomeText>
         <SubText>今天也要为客户提供优质服务哦～</SubText>
-        {/* 已移除离线数据回退标识，仅显示真实 API 数据 */}
+        {lastUpdated && (
+          <LastUpdated>
+            最后更新: {formatTime(lastUpdated)}
+          </LastUpdated>
+        )}
       </Header>
 
-      <StatsGrid>
-        {statsData.map((stat, index) => (
-          <StatCard key={index}>
-            <StatIcon color={stat.color}>
-              <stat.icon />
-            </StatIcon>
-            <StatValue>{stat.value}</StatValue>
-            <StatLabel>{stat.label}</StatLabel>
-          </StatCard>
-        ))}
-      </StatsGrid>
+      <StatsGrid 
+        stats={statsData} 
+        isLoading={isLoading}
+        isRefreshing={isRefreshing}
+      />
 
       <QuickActions>
         <SectionTitle>快速操作</SectionTitle>

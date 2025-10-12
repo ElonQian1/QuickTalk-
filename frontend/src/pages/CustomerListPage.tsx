@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { api } from '../config/api';
 import { Card, Badge, LoadingSpinner } from '../styles/globalStyles';
+import { EmptyState, EmptyIcon, EmptyTitle, EmptyDescription } from '../components/UI';
 import { theme } from '../styles/globalStyles';
 import toast from 'react-hot-toast';
 import { useConversationsStore } from '../stores/conversationsStore';
@@ -137,25 +138,6 @@ const MessageTime = styled.div`
 const UnreadBadge = styled(Badge)`
   position: static;
   margin-left: auto;
-`;
-
-const EmptyState = styled.div`
-  text-align: center;
-  padding: ${theme.spacing.xl} ${theme.spacing.md};
-  color: ${theme.colors.text.secondary};
-`;
-
-const EmptyIcon = styled.div`
-  width: ${theme.spacing.xxl}; /* 40 rem token; 若需更接近 80px 可引入 xxxl */
-  height: ${theme.spacing.xxl};
-  margin: 0 auto ${theme.spacing.md};
-  background: ${theme.colors.background};
-  border-radius: ${theme.borderRadius.round};
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: ${theme.typography.display}; /* 原 32px */
-  color: ${theme.colors.text.placeholder};
 `;
 
 const LoadingContainer = styled.div`
@@ -342,8 +324,8 @@ const CustomerListPage: React.FC = () => {
       {customers.length === 0 ? (
         <EmptyState>
           <EmptyIcon>👥</EmptyIcon>
-          <h3>暂无客户</h3>
-          <p>当有客户通过网站发起对话时，会显示在这里</p>
+          <EmptyTitle>暂无客户</EmptyTitle>
+          <EmptyDescription>当有客户通过网站发起对话时，会显示在这里</EmptyDescription>
         </EmptyState>
       ) : (
         <CustomerList>

@@ -7,5 +7,22 @@
 pub mod cert_manager;
 pub mod config;
 
-pub use cert_manager::CertManager;
-pub use config::TlsConfig;
+pub use cert_manager::*;
+pub use config::*;
+
+/// TLS模块版本信息
+pub const TLS_MODULE_VERSION: &str = "1.0.0";
+
+/// 检查TLS模块是否可用
+pub fn is_tls_available() -> bool {
+    cfg!(feature = "https")
+}
+
+/// 获取TLS模块信息
+pub fn get_tls_info() -> String {
+    format!(
+        "TLS模块 v{} - 状态: {}",
+        TLS_MODULE_VERSION,
+        if is_tls_available() { "可用" } else { "未启用" }
+    )
+}
