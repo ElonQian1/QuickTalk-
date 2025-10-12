@@ -4,6 +4,7 @@ use axum::{
     Json,
 };
 use serde::Serialize;
+use std::fmt;
 
 #[derive(Debug, Serialize)]
 pub struct ErrorBody<'a> {
@@ -15,13 +16,26 @@ pub struct ErrorBody<'a> {
 pub enum AppError {
     Unauthorized,
     NotFound,
-    BadRequest(&'static str),
-    Internal(&'static str),
+    BadRequest(String),
+    Internal(String),
 }
+
+impl fmt::Display for AppError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            AppError::Unauthorized => write!(f, "Unauthorized"),
+            AppError::NotFound => write!(f, "Resource not found"),
+            AppError::BadRequest(msg) => write!(f, "Bad request: {}", msg),
+            AppError::Internal(msg) => write!(f, "Internal error: {}", msg),
+        }
+    }
+}
+
+impl std::error::Error for AppError {}
 
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
-        match self {
+        match &self {
             AppError::Unauthorized => (
                 StatusCode::UNAUTHORIZED,
                 Json(ErrorBody {

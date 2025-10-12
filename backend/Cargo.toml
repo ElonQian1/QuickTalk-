@@ -28,6 +28,11 @@ dotenvy = "0.15"
 thiserror = "1.0"
 tokio-rustls = "0.24"
 rustls = "0.21"
-rustls-pemfile = "1.0"
-# 网络接口检测（轻量级，交叉编译友好）
-if-addrs = "0.10"
+
+# HTTPS 可选依赖 (使用 Rustls 避免 OpenSSL 交叉编译问题)
+rustls-pemfile = { version = "1.0", optional = true }
+axum-server = { version = "0.6", features = ["tls-rustls"], optional = true }
+
+[features]
+default = []
+https = ["rustls-pemfile", "axum-server"]

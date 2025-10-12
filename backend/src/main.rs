@@ -27,12 +27,16 @@ mod error;
 mod handlers;
 mod jwt;
 mod models;
+mod server;
 mod services;
+mod tls;
 mod websocket;
 
 use database::Database;
 use models::{Customer, Session, WebSocketIncomingMessage, WebSocketMessage};
+use server::{HttpsServer, ServerConfig, start_http_redirect};
 use services::chat::ChatService;
+use tls::TlsConfig;
 use websocket::ConnectionManager;
 use websocket::{handle_customer_ws_message, handle_staff_ws_message, CustomerWsCtx};
 
@@ -48,6 +52,8 @@ async fn main() -> Result<()> {
 
     // 加载 .env（如果存在）
     let _ = dotenvy::dotenv();
+    
+    // 初始化数据库
     let db_url =
         std::env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite:customer_service.db".to_string());
     let db = Database::new(&db_url).await?;
@@ -60,7 +66,68 @@ async fn main() -> Result<()> {
 
     let state = AppState { db, connections };
 
-    let app = Router::new()
+    // 创建应用路由
+    let app = create_router(state);
+
+    // 获取服务器配置
+    let server_config = ServerConfig::from_env();
+    let tls_config = TlsConfig::from_env();
+
+    // 打印配置信息
+    server_config.print_info();
+    tls_config.print_info();
+
+    // 根据配置启动对应的服务器
+    if tls_config.enabled {
+        // HTTPS模式
+        let https_server = HttpsServer::new(tls_config.clone());
+        
+        // 验证HTTPS配置
+        if let Err(e) = https_server.validate_config() {
+            error!("HTTPS配置验证失败: {:?}", e);
+            https_server.print_cert_help();
+            return Err(anyhow::anyhow!("HTTPS配置验证失败: {:?}", e));
+        }
+
+        let https_addr: SocketAddr = server_config.https_addr().parse()
+            .expect("Invalid HTTPS address");
+
+        // 可选：启动HTTP到HTTPS重定向服务器
+        if tls_config.redirect_http {
+            let http_port = server_config.http_port;
+            let https_port = server_config.https_port;
+            tokio::spawn(async move {
+                info!("🔄 启动HTTP到HTTPS重定向服务器...");
+                if let Err(e) = start_http_redirect(https_port, http_port).await {
+                    error!("HTTP重定向服务器失败: {:?}", e);
+                }
+            });
+        }
+
+        // 启动HTTPS服务器
+        if let Err(e) = https_server.serve(app, https_addr).await {
+            return Err(anyhow::anyhow!("HTTPS服务器启动失败: {:?}", e));
+        }
+    } else {
+        // HTTP模式 (保持原有逻辑)
+        let http_addr: SocketAddr = server_config.http_addr().parse()
+            .expect("Invalid HTTP address");
+        
+        info!("🌐 HTTP服务器启动在: http://{}", http_addr);
+        let listener = tokio::net::TcpListener::bind(http_addr).await?;
+        axum::serve(
+            listener,
+            app.into_make_service_with_connect_info::<SocketAddr>(),
+        )
+        .await?;
+    }
+
+    Ok(())
+}
+
+/// 创建应用路由
+fn create_router(state: AppState) -> Router {
+    Router::new()
         .route("/", get(|| async { "Customer Service System API" }))
         .route("/health", get(|| async { axum::Json(serde_json::json!({"status":"ok"})) }))
         .route("/api/auth/login", post(handlers::auth::login))
@@ -116,26 +183,7 @@ async fn main() -> Result<()> {
         .route("/favicon.ico", get(handlers::static_files::serve_favicon))
         .route("/robots.txt", get(handlers::static_files::serve_robots))
         .layer(CorsLayer::permissive())
-        .with_state(state);
-
-    // Bind address and start server
-    let host = std::env::var("SERVER_HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
-    let port: u16 = std::env::var("SERVER_PORT")
-        .ok()
-        .and_then(|s| s.parse().ok())
-        .unwrap_or(8080);
-    let addr: SocketAddr = format!("{}:{}", host, port)
-        .parse()
-        .expect("Invalid SERVER_HOST:SERVER_PORT");
-    info!("listening on {}", addr);
-    let listener = tokio::net::TcpListener::bind(addr).await?;
-    axum::serve(
-        listener,
-        app.into_make_service_with_connect_info::<SocketAddr>(),
-    )
-    .await?;
-
-    Ok(())
+        .with_state(state)
 }
 
 // WebSocket: staff upgrade handler
