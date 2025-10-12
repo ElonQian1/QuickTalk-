@@ -70,6 +70,7 @@ try {
   
   // 工具模块
   modules.eventUtils = readModuleFile(path.join(srcDir, 'utils', 'event-utils.js'));
+  modules.textFormatter = readModuleFile(path.join(srcDir, 'utils', 'text-formatter.js'));
   
   // 主入口
   modules.main = readModuleFile(path.join(srcDir, 'standalone-entry.js'));
@@ -91,6 +92,9 @@ try {
   
   // ===== 工具函数模块 =====
   ${processedModules.eventUtils || '// 工具模块未找到'}
+  
+  // ===== 文本格式化模块 =====
+  ${processedModules.textFormatter || '// 文本格式化模块未找到'}
   
   // ===== 核心配置模块 =====
   ${processedModules.config || '// 配置模块未找到'}
