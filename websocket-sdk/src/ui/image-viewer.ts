@@ -29,6 +29,61 @@ export class ImageViewer {
   }
 
   /**
+   * 协议适配工具函数 - 只在必要时进行协议适配
+   */
+  private adaptUrlProtocol(url: string): string {
+    if (!url || typeof url !== 'string') {
+      return url;
+    }
+    
+    // 如果是相对路径、数据URL或已经是HTTPS，直接返回
+    if (url.startsWith('/') || url.startsWith('data:') || url.startsWith('https://')) {
+      return url;
+    }
+    
+    // 判断是否为开发环境：当前页面域名是localhost或127.0.0.1
+    const isCurrentHostDev = window.location.hostname === 'localhost' || 
+                            window.location.hostname === '127.0.0.1';
+    
+    // 判断目标URL是否为localhost开发服务器
+    const isTargetLocalhost = url.includes('localhost:') || url.includes('127.0.0.1:');
+    
+    // 如果当前页面是HTTPS且URL是HTTP，需要转换
+    if (window.location.protocol === 'https:' && url.startsWith('http://')) {
+      // 特殊处理：如果目标是localhost开发服务器，保持HTTP避免SSL错误
+      if (isTargetLocalhost) {
+        console.log('🖼️ ImageViewer检测到localhost开发服务器，保持HTTP:', { 
+          url, 
+          currentProtocol: window.location.protocol,
+          currentHost: window.location.hostname,
+          reason: 'localhost开发服务器通常不支持HTTPS，保持HTTP以避免SSL错误'
+        });
+        return url;
+      }
+      
+      // 生产环境HTTPS页面访问外部HTTP资源，需要转换
+      const adaptedUrl = url.replace('http://', 'https://');
+      console.log('🖼️ ImageViewer协议适配:', { 
+        original: url, 
+        adapted: adaptedUrl,
+        reason: 'HTTPS页面访问外部HTTP图片',
+        currentHost: window.location.hostname,
+        isCurrentHostDev,
+        isTargetLocalhost
+      });
+      return adaptedUrl;
+    }
+    
+    // HTTP页面或无需转换
+    console.log('🖼️ ImageViewer URL保持原样:', { 
+      url, 
+      currentProtocol: window.location.protocol,
+      reason: 'HTTP页面或无需转换'
+    });
+    return url;
+  }
+
+  /**
    * 显示图片预览
    */
   show(options: ImageViewerOptions): void {
@@ -118,12 +173,17 @@ export class ImageViewer {
     img.className = `${this.cssPrefix}image-preview`;
     img.alt = options.alt || '图片预览';
 
+    // 协议适配
+    const adaptedSrc = this.adaptUrlProtocol(options.src);
+    let fallbackAttempted = false;
+
     // 图片加载成功
     img.onload = () => {
+      console.log('🖼️ ImageViewer图片加载成功:', img.src);
       if (loading) loading.style.display = 'none';
       if (downloadBtn) {
         downloadBtn.style.display = 'block';
-        downloadBtn.onclick = () => this.downloadImage(options.src, options.title);
+        downloadBtn.onclick = () => this.downloadImage(adaptedSrc, options.title);
       }
       imageContainer.appendChild(img);
       
@@ -137,15 +197,51 @@ export class ImageViewer {
       }, 10);
     };
 
-    // 图片加载失败
+    // 图片加载失败 - 添加智能回退
     img.onerror = () => {
-      if (loading) {
-        loading.innerHTML = '❌ 图片加载失败';
-        loading.style.color = '#ff6b6b';
+      console.log('🖼️ ImageViewer图片加载失败:', img.src);
+      
+      if (!fallbackAttempted) {
+        fallbackAttempted = true;
+        
+        // 尝试回退策略
+        let fallbackUrl = '';
+        if (adaptedSrc.startsWith('https://localhost')) {
+          // HTTPS localhost失败，回退到HTTP
+          fallbackUrl = adaptedSrc.replace('https://', 'http://');
+          console.log('🔄 ImageViewer回退到HTTP:', fallbackUrl);
+        } else if (adaptedSrc.startsWith('http://localhost')) {
+          // HTTP localhost失败，尝试HTTPS
+          fallbackUrl = adaptedSrc.replace('http://', 'https://');
+          console.log('🔄 ImageViewer回退到HTTPS:', fallbackUrl);
+        } else {
+          // 外部URL失败，尝试原始URL
+          fallbackUrl = options.src;
+          console.log('🔄 ImageViewer回退到原始URL:', fallbackUrl);
+        }
+        
+        if (fallbackUrl && fallbackUrl !== img.src) {
+          if (loading) {
+            loading.innerHTML = '🔄 正在重试...';
+            loading.style.color = '#ff9800';
+          }
+          img.src = fallbackUrl;
+          return; // 让回退URL尝试加载
+        }
       }
+      
+      // 所有尝试都失败
+      if (loading) {
+        loading.innerHTML = '❌ 图片加载失败<br><small>请检查网络连接或图片URL</small>';
+        loading.style.color = '#ff6b6b';
+        loading.style.fontSize = '14px';
+        loading.style.lineHeight = '1.4';
+      }
+      console.error('🖼️ ImageViewer所有加载尝试都失败了');
     };
 
-    img.src = options.src;
+    console.log('🖼️ ImageViewer开始加载图片:', adaptedSrc);
+    img.src = adaptedSrc; // 使用协议适配后的URL
     this.currentImage = img;
   }
 

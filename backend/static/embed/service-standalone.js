@@ -3707,6 +3707,11 @@ console.log('  • 模块化架构');
 console.log('  • TypeScript 支持');
 
   
+  // ===== 全局导出 =====
+  // 导出createImageMessage函数供外部使用
+  window.createImageMessage = createImageMessage;
+  window.ImageViewer = ImageViewer;
+  
   console.log('✅ QuickTalk SDK 2.0.0 已加载（独立版本）');
   console.log('🎯 重点改进:');
   console.log('  • 防止独立站样式覆盖');  

@@ -14,7 +14,7 @@ pub async fn get_customers(
         .db
         .get_customers_overview_by_shop(shop_id)
         .await
-        .map_err(|_| AppError::Internal("获取客户列表失败"))?;
+        .map_err(|_| AppError::Internal("获取客户列表失败".to_string()))?;
 
     Ok(Json(overview))
 }
@@ -30,7 +30,7 @@ pub async fn reset_unread(
         .db
         .get_shop_by_id(shop_id)
         .await
-        .map_err(|_| AppError::Internal("查询店铺失败"))?
+        .map_err(|_| AppError::Internal("查询店铺失败".to_string()))?
         .ok_or(AppError::NotFound)?;
 
     if shop.owner_id != user_id {
@@ -41,7 +41,7 @@ pub async fn reset_unread(
         .db
         .reset_unread_count(shop_id, customer_id)
         .await
-        .map_err(|_| AppError::Internal("重置未读失败"))?;
+        .map_err(|_| AppError::Internal("重置未读失败".to_string()))?;
 
     Ok(Json(json!({ "success": true })))
 }
@@ -57,7 +57,7 @@ pub async fn reset_unread_all(
         .db
         .get_shop_by_id(shop_id)
         .await
-        .map_err(|_| AppError::Internal("查询店铺失败"))?
+        .map_err(|_| AppError::Internal("查询店铺失败".to_string()))?
         .ok_or(AppError::NotFound)?;
 
     if shop.owner_id != user_id {
@@ -68,7 +68,7 @@ pub async fn reset_unread_all(
         .db
         .reset_unread_all_in_shop(shop_id)
         .await
-        .map_err(|_| AppError::Internal("批量重置未读失败"))?;
+        .map_err(|_| AppError::Internal("批量重置未读失败".to_string()))?;
 
     Ok(Json(json!({ "success": true })))
 }

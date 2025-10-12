@@ -27,7 +27,7 @@ pub async fn get_messages(
             messages.reverse();
             messages
         }
-        Err(_) => return Err(AppError::Internal("获取消息失败")),
+        Err(_) => return Err(AppError::Internal("获取消息失败".to_string())),
     };
 
     Ok(Json(messages))
@@ -66,7 +66,7 @@ pub async fn send_message(
         .await
     {
         Ok(v) => v,
-        Err(_) => return Err(AppError::Internal("发送消息失败")),
+        Err(_) => return Err(AppError::Internal("发送消息失败".to_string())),
     };
 
     // 广播给客户与店铺下所有客服

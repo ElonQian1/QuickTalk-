@@ -22,7 +22,7 @@ pub async fn list_staff(db: &Database, requester_id: i64, shop_id: i64) -> Resul
     let is_member = db
         .is_shop_member(shop_id, requester_id)
         .await
-        .map_err(|_| AppError::Internal("check_membership_failed"))?;
+        .map_err(|_| AppError::Internal("check_membership_failed".to_string()))?;
     if !is_member {
         return Err(AppError::Unauthorized);
     }
@@ -30,7 +30,7 @@ pub async fn list_staff(db: &Database, requester_id: i64, shop_id: i64) -> Resul
     let items = db
         .list_shop_staff(shop_id)
         .await
-        .map_err(|_| AppError::Internal("list_staff_failed"))?
+        .map_err(|_| AppError::Internal("list_staff_failed".to_string()))?
         .into_iter()
         .map(|(u, role)| StaffItem {
             id: u.id,
@@ -49,12 +49,12 @@ pub async fn add_staff(db: &Database, requester_id: i64, shop_id: i64, username:
     let is_owner = db
         .is_shop_owner(shop_id, requester_id)
         .await
-        .map_err(|_| AppError::Internal("check_owner_failed"))?;
+        .map_err(|_| AppError::Internal("check_owner_failed".to_string()))?;
     if !is_owner {
         return Err(AppError::Unauthorized);
     }
     if username.trim().is_empty() {
-        return Err(AppError::BadRequest("username_required"));
+        return Err(AppError::BadRequest("username_required".to_string()));
     }
 
     db
@@ -63,9 +63,9 @@ pub async fn add_staff(db: &Database, requester_id: i64, shop_id: i64, username:
         .map_err(|e| {
             let msg = e.to_string();
             if msg.contains("user_not_found") {
-                AppError::BadRequest("user_not_found")
+                AppError::BadRequest("user_not_found".to_string())
             } else {
-                AppError::Internal("add_staff_failed")
+                AppError::Internal("add_staff_failed".to_string())
             }
         })
 }
@@ -74,18 +74,18 @@ pub async fn remove_staff(db: &Database, requester_id: i64, shop_id: i64, user_i
     let is_owner = db
         .is_shop_owner(shop_id, requester_id)
         .await
-        .map_err(|_| AppError::Internal("check_owner_failed"))?;
+        .map_err(|_| AppError::Internal("check_owner_failed".to_string()))?;
     if !is_owner {
         return Err(AppError::Unauthorized);
     }
     // 不允许删除店主
     if db.is_shop_owner(shop_id, user_id).await.unwrap_or(false) {
-        return Err(AppError::BadRequest("cannot_remove_owner"));
+        return Err(AppError::BadRequest("cannot_remove_owner".to_string()));
     }
     let affected = db
         .remove_shop_staff(shop_id, user_id)
         .await
-        .map_err(|_| AppError::Internal("remove_staff_failed"))?;
+        .map_err(|_| AppError::Internal("remove_staff_failed".to_string()))?;
     if affected == 0 {
         return Err(AppError::NotFound);
     }

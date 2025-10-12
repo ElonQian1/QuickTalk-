@@ -48,6 +48,62 @@ export class WebSocketClient {
   private connectHandlers: ConnectionHandler[] = [];
   private errorHandlers: ErrorHandler[] = [];
   private disconnectHandlers: DisconnectHandler[] = [];
+
+  /**
+   * 协议适配工具函数 - 统一的协议适配策略
+   */
+  private adaptUrlProtocol(url: string): string {
+    if (!url || typeof url !== 'string') {
+      return url;
+    }
+    
+    // 如果是相对路径、数据URL或已经是HTTPS，直接返回
+    if (url.startsWith('/') || url.startsWith('data:') || url.startsWith('https://')) {
+      return url;
+    }
+    
+    // 判断是否为开发环境：当前页面域名是localhost或127.0.0.1
+    const isCurrentHostDev = window.location.hostname === 'localhost' || 
+                            window.location.hostname === '127.0.0.1';
+    
+    // 判断目标URL是否为localhost开发服务器
+    const isTargetLocalhost = url.includes('localhost:') || url.includes('127.0.0.1:');
+    
+    // 如果当前页面是HTTPS且URL是HTTP，需要转换
+    if (window.location.protocol === 'https:' && url.startsWith('http://')) {
+      // 特殊处理：如果目标是localhost开发服务器，保持HTTP避免SSL错误
+      if (isTargetLocalhost) {
+        console.log('🔧 WebSocketClient检测到localhost开发服务器，保持HTTP:', { 
+          url, 
+          currentProtocol: window.location.protocol,
+          currentHost: window.location.hostname,
+          reason: 'localhost开发服务器通常不支持HTTPS，保持HTTP以避免SSL错误'
+        });
+        return url;
+      }
+      
+      // 生产环境HTTPS页面访问外部HTTP资源，需要转换
+      const adaptedUrl = url.replace('http://', 'https://');
+      console.log('🔧 WebSocketClient协议适配:', { 
+        original: url, 
+        adapted: adaptedUrl, 
+        reason: 'HTTPS页面访问外部HTTP资源',
+        currentHost: window.location.hostname,
+        isCurrentHostDev,
+        isTargetLocalhost
+      });
+      return adaptedUrl;
+    }
+    
+    // HTTP页面或无需转换
+    console.log('🔧 WebSocketClient URL保持原样:', { 
+      url, 
+      currentProtocol: window.location.protocol,
+      currentHost: window.location.hostname,
+      reason: 'HTTP页面或无需转换'
+    });
+    return url;
+  }
   
   // 连接状态
   private isConnecting = false;
@@ -216,12 +272,16 @@ export class WebSocketClient {
       });
       
       if (message.messageType === 'new_message' && message.content) {
+        // 获取文件URL并进行协议适配
+        const rawFileUrl = message.fileUrl || message.file_url;
+        const adaptedFileUrl = rawFileUrl ? this.adaptUrlProtocol(rawFileUrl) : undefined;
+        
         const chatMessage: ChatMessage = {
           content: message.content,
           messageType: (message.metadata?.messageType as ChatMessage['messageType']) || 'text',
           senderType: (message.senderType as ChatMessage['senderType']) || 'staff',
           timestamp: message.timestamp ? new Date(message.timestamp) : new Date(),
-          fileUrl: message.fileUrl || message.file_url, // 优先使用驼峰命名，备用下划线命名
+          fileUrl: adaptedFileUrl, // 使用协议适配后的URL
           fileName: message.fileName || message.file_name, // 优先使用驼峰命名，备用下划线命名
           sessionId: message.sessionId,
           senderId: message.senderId
@@ -323,12 +383,15 @@ export class WebSocketClient {
 
       const result = await response.json();
       
-      // 自动发送文件消息
-      this.sendFileMessage(result.url, file.name, messageType);
+      // 协议适配 - 确保URL协议与当前页面一致
+      const adaptedUrl = this.adaptUrlProtocol(result.url);
       
-      console.log('📎 文件上传成功:', result);
+      // 自动发送文件消息
+      this.sendFileMessage(adaptedUrl, file.name, messageType);
+      
+      console.log('📎 文件上传成功:', { ...result, adaptedUrl });
       return {
-        url: result.url,
+        url: adaptedUrl,
         fileName: file.name
       };
     } catch (error) {

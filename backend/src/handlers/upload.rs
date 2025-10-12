@@ -105,7 +105,7 @@ async fn parse_multipart(mut multipart: Multipart) -> Result<UploadData, AppErro
     while let Some(field) = multipart
         .next_field()
         .await
-        .map_err(|_| AppError::BadRequest("无效的表单数据"))?
+        .map_err(|_| AppError::BadRequest("无效的表单数据".to_string()))?
     {
         let name = field.name().unwrap_or_default().to_string();
         match name.as_str() {
@@ -113,14 +113,14 @@ async fn parse_multipart(mut multipart: Multipart) -> Result<UploadData, AppErro
                 let value = field
                     .text()
                     .await
-                    .map_err(|_| AppError::BadRequest("shopId 无效"))?;
+                    .map_err(|_| AppError::BadRequest("shopId 无效".to_string()))?;
                 shop_id = value.parse::<i64>().ok();
             }
             "customerCode" => {
                 let value = field
                     .text()
                     .await
-                    .map_err(|_| AppError::BadRequest("customerCode 无效"))?;
+                    .map_err(|_| AppError::BadRequest("customerCode 无效".to_string()))?;
                 if !value.is_empty() {
                     customer_code = Some(value);
                 }
@@ -129,7 +129,7 @@ async fn parse_multipart(mut multipart: Multipart) -> Result<UploadData, AppErro
                 let value = field
                     .text()
                     .await
-                    .map_err(|_| AppError::BadRequest("messageType 无效"))?;
+                    .map_err(|_| AppError::BadRequest("messageType 无效".to_string()))?;
                 if !value.is_empty() {
                     message_type = value;
                 }
@@ -141,7 +141,7 @@ async fn parse_multipart(mut multipart: Multipart) -> Result<UploadData, AppErro
                     field
                         .bytes()
                         .await
-                        .map_err(|_| AppError::BadRequest("文件读取失败"))?
+                        .map_err(|_| AppError::BadRequest("文件读取失败".to_string()))?
                         .to_vec(),
                 );
             }
@@ -149,8 +149,8 @@ async fn parse_multipart(mut multipart: Multipart) -> Result<UploadData, AppErro
         }
     }
 
-    let shop_id = shop_id.ok_or(AppError::BadRequest("缺少 shopId"))?;
-    let data = data.ok_or(AppError::BadRequest("缺少文件"))?;
+    let shop_id = shop_id.ok_or(AppError::BadRequest("缺少 shopId".to_string()))?;
+    let data = data.ok_or(AppError::BadRequest("缺少文件".to_string()))?;
     let original_name = original_name.unwrap_or_else(|| "upload.bin".to_string());
 
     // 如果消息类型为默认值，根据文件类型自动判断
@@ -186,7 +186,7 @@ async fn parse_customer_multipart(mut multipart: Multipart) -> Result<CustomerUp
         .await
         .map_err(|e| {
             tracing::error!("读取multipart字段失败: {}", e);
-            AppError::BadRequest("无效的表单数据")
+            AppError::BadRequest("无效的表单数据".to_string())
         })?
     {
         let name = field.name().unwrap_or_default().to_string();
@@ -199,7 +199,7 @@ async fn parse_customer_multipart(mut multipart: Multipart) -> Result<CustomerUp
                     .await
                     .map_err(|e| {
                         tracing::error!("读取shopId/apiKey字段失败: {}", e);
-                        AppError::BadRequest("shopId/apiKey 无效")
+                        AppError::BadRequest("shopId/apiKey 无效".to_string())
                     })?;
                 tracing::info!("读取到shopId/apiKey: {}", value);
                 api_key = Some(value);
@@ -208,7 +208,7 @@ async fn parse_customer_multipart(mut multipart: Multipart) -> Result<CustomerUp
                 let value = field
                     .text()
                     .await
-                    .map_err(|_| AppError::BadRequest("customerCode 无效"))?;
+                    .map_err(|_| AppError::BadRequest("customerCode 无效".to_string()))?;
                 if !value.is_empty() {
                     customer_code = Some(value);
                 }
@@ -217,7 +217,7 @@ async fn parse_customer_multipart(mut multipart: Multipart) -> Result<CustomerUp
                 let value = field
                     .text()
                     .await
-                    .map_err(|_| AppError::BadRequest("messageType 无效"))?;
+                    .map_err(|_| AppError::BadRequest("messageType 无效".to_string()))?;
                 if !value.is_empty() {
                     message_type = value;
                 }
@@ -229,7 +229,7 @@ async fn parse_customer_multipart(mut multipart: Multipart) -> Result<CustomerUp
                     field
                         .bytes()
                         .await
-                        .map_err(|_| AppError::BadRequest("文件读取失败"))?
+                        .map_err(|_| AppError::BadRequest("文件读取失败".to_string()))?
                         .to_vec(),
                 );
             }
@@ -239,11 +239,11 @@ async fn parse_customer_multipart(mut multipart: Multipart) -> Result<CustomerUp
 
     let api_key = api_key.ok_or_else(|| {
         tracing::error!("上传请求缺少 shopId 字段");
-        AppError::BadRequest("缺少 shopId")
+        AppError::BadRequest("缺少 shopId".to_string())
     })?;
     let data = data.ok_or_else(|| {
         tracing::error!("上传请求缺少文件数据");
-        AppError::BadRequest("缺少文件")
+        AppError::BadRequest("缺少文件".to_string())
     })?;
     let original_name = original_name.unwrap_or_else(|| "upload.bin".to_string());
     
@@ -275,13 +275,13 @@ async fn save_file_with_shop_id(shop_id: i64, data: &[u8], original_name: &str, 
     // 允许空文件上传 - 移除空文件检查
     // if file_size == 0 {
     //     tracing::error!("尝试上传空文件: {}", original_name);
-    //     return Err(AppError::BadRequest("空文件"));
+    //     return Err(AppError::BadRequest("空文件".to_string()));
     // }
 
     // 基础安全：仅限制文件大小，允许所有文件类型和空文件
     if file_size > upload_policy::MAX_SIZE_BYTES {
         tracing::error!("文件过大: {} bytes > {} bytes ({})", file_size, upload_policy::MAX_SIZE_BYTES, original_name);
-        return Err(AppError::BadRequest("文件过大，超过 10MB"));
+        return Err(AppError::BadRequest("文件过大，超过 10MB".to_string()));
     }
     
     // 移除文件类型限制 - 允许上传任何类型的文件
@@ -291,7 +291,7 @@ async fn save_file_with_shop_id(shop_id: i64, data: &[u8], original_name: &str, 
     //         .iter()
     //         .any(|&a| ct.starts_with(a))
     //     {
-    //         return Err(AppError::BadRequest("不支持的文件类型"));
+    //         return Err(AppError::BadRequest("不支持的文件类型".to_string()));
     //     }
     // }
 
@@ -316,17 +316,17 @@ async fn save_file_with_shop_id(shop_id: i64, data: &[u8], original_name: &str, 
 
     fs::create_dir_all(&target_path)
         .await
-        .map_err(|_| AppError::Internal("创建目录失败"))?;
+        .map_err(|_| AppError::Internal("创建目录失败".to_string()))?;
 
     target_path.push(&generated_name);
 
     let mut file = fs::File::create(&target_path)
         .await
-        .map_err(|_| AppError::Internal("创建文件失败"))?;
+        .map_err(|_| AppError::Internal("创建文件失败".to_string()))?;
 
     file.write_all(data)
         .await
-        .map_err(|_| AppError::Internal("写入文件失败"))?;
+        .map_err(|_| AppError::Internal("写入文件失败".to_string()))?;
 
     Ok(generated_name)
 }
@@ -349,7 +349,7 @@ pub async fn handle_upload(
         .db
         .get_shop_by_id(upload_data.shop_id)
         .await
-        .map_err(|_| AppError::Internal("查询店铺失败"))?
+        .map_err(|_| AppError::Internal("查询店铺失败".to_string()))?
     {
         if shop.owner_id != user_id {
             return Err(AppError::Unauthorized);
@@ -398,14 +398,14 @@ pub async fn handle_customer_upload(
     let shop = if upload_data.api_key.chars().all(|c| c.is_ascii_digit()) {
         // 如果是纯数字，当作店铺ID处理
         let shop_id: i64 = upload_data.api_key.parse()
-            .map_err(|_| AppError::BadRequest("无效的店铺ID"))?;
+            .map_err(|_| AppError::BadRequest("无效的店铺ID".to_string()))?;
         state
             .db
             .get_shop_by_id(shop_id)
             .await
             .map_err(|e| {
                 tracing::error!("查询店铺失败: {}", e);
-                AppError::Internal("查询店铺失败")
+                AppError::Internal("查询店铺失败".to_string())
             })?
             .ok_or_else(|| {
                 tracing::error!("未找到店铺: shop_id={}", shop_id);
@@ -419,7 +419,7 @@ pub async fn handle_customer_upload(
             .await
             .map_err(|e| {
                 tracing::error!("查询店铺失败: {}", e);
-                AppError::Internal("查询店铺失败")
+                AppError::Internal("查询店铺失败".to_string())
             })?
             .ok_or_else(|| {
                 tracing::error!("未找到店铺: api_key={}", upload_data.api_key);

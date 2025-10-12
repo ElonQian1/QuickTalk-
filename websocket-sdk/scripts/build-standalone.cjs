@@ -124,6 +124,11 @@ try {
   // ===== 主SDK类 =====
   ${processedModules.main || '// 主模块未找到'}
   
+  // ===== 全局导出 =====
+  // 导出createImageMessage函数供外部使用
+  window.createImageMessage = createImageMessage;
+  window.ImageViewer = ImageViewer;
+  
   console.log('✅ QuickTalk SDK 2.0.0 已加载（独立版本）');
   console.log('🎯 重点改进:');
   console.log('  • 防止独立站样式覆盖');  

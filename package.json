@@ -11,9 +11,18 @@
     "dev:sdk": "cd websocket-sdk && npm run dev:full",
     "dev:backend-only": "cd backend && cargo watch --ignore static/uploads --ignore target --ignore '*.db' -x run",
     "dev:frontend-only": "cd frontend && npm start",
+    "dev:https": "concurrently -k -n \"🔒 HTTPS Backend,⚛️ Frontend,📡 SDK\" -c \"red,cyan,green\" \"npm:dev:https-backend\" \"npm:dev:frontend\" \"npm:dev:sdk\"",
+    "dev:https-backend": "cd backend && cargo watch --ignore static/uploads --ignore target --ignore '*.db' -x 'run --features https'",
+    "dev:https-only": "cd backend && cargo watch --ignore static/uploads --ignore target --ignore '*.db' -x 'run --features https'",
     "build": "npm run build:frontend && npm run build:backend",
     "build:frontend": "cd frontend && npm run build",
     "build:backend": "cd backend && cargo build --release",
+    "build:https": "cd backend && cargo build --release --features https",
+    "build:cross": "cd backend && cargo zigbuild --release --target x86_64-unknown-linux-musl",
+    "build:cross-https": "cd backend && cargo zigbuild --release --target x86_64-unknown-linux-musl --features https",
+    "cert:generate": "npm run cert:openssl",
+    "cert:openssl": "openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365 -nodes -subj '/CN=localhost'",
+    "cert:help": "echo '🔐 证书生成帮助:' && echo '  开发环境: npm run cert:generate' && echo '  手动生成: openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365 -nodes -subj \"/CN=localhost\"'",
     "setup": "npm run setup:frontend && npm run setup:backend",
     "setup:frontend": "cd frontend && npm install",
     "setup:backend": "cd backend && cargo install cargo-watch",
@@ -23,7 +32,9 @@
     "check": "npm run check:frontend && npm run check:backend",
     "check:frontend": "cd frontend && npm run lint",
     "check:backend": "cd backend && cargo check",
-    "start": "npm run dev"
+    "check:https": "cd backend && cargo check --features https",
+    "start": "npm run dev",
+    "start:https": "npm run dev:https"
   },
   "devDependencies": {
     "concurrently": "^7.6.0"

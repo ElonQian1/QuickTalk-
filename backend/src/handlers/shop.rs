@@ -12,7 +12,7 @@ pub async fn get_shops(
         Ok(shops_with_unread) => Ok(Json(shops_with_unread)),
         Err(e) => {
             error!(error=?e, "查询店铺列表失败");
-            Err(AppError::Internal("获取店铺失败"))
+            Err(AppError::Internal("获取店铺失败".to_string()))
         }
     }
 
@@ -30,7 +30,7 @@ pub async fn create_shop(
         .await
     {
         Ok(shop) => shop,
-        Err(_) => return Err(AppError::Internal("创建店铺失败")),
+        Err(_) => return Err(AppError::Internal("创建店铺失败".to_string())),
     };
 
     Ok(Json(shop))

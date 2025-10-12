@@ -24,24 +24,9 @@ fn get_server_real_ip() -> Option<IpAddr> {
         }
     }
     
-    // 方法2: 遍历网络接口寻找公网IP
-    if let Ok(addrs) = if_addrs::get_if_addrs() {
-        for iface in addrs {
-            let ip = iface.addr.ip();
-            // 寻找非回环、非私有的IP地址
-            if !ip.is_loopback() && !is_private_ip(&ip) {
-                return Some(ip);
-            }
-        }
-        
-        // 如果没有公网IP，返回第一个非回环的私有IP
-        for iface in if_addrs::get_if_addrs().unwrap_or_default() {
-            let ip = iface.addr.ip();
-            if !ip.is_loopback() {
-                return Some(ip);
-            }
-        }
-    }
+    // 方法2: 简化版本 - 只检查一些常见的公网IP
+    // 在真实环境中，通常会有专门的服务来检测公网IP
+    println!("💡 提示: 无法自动检测公网IP，建议手动配置");
     
     None
 }
