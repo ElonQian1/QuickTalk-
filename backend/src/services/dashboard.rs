@@ -1,5 +1,5 @@
 // Purpose: 仪表盘聚合统计服务，避免前端 N+1
-// Input: owner_id
+// Input: user_id（既可能是店主，也可能是员工）
 // Output: total_shops, active_customers, unread_messages, pending_chats
 // Errors: 数据库查询失败
 
@@ -21,85 +21,162 @@ pub struct DashboardStats {
     pub today_customers: i64,
 }
 
-pub async fn get_dashboard_stats(db: &Database, owner_id: i64) -> Result<DashboardStats> {
-    // 店铺总数
-    let total_shops: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM shops WHERE owner_id = ?")
-        .bind(owner_id)
-        .fetch_one(db.pool())
-        .await?;
+pub async fn get_dashboard_stats(db: &Database, user_id: i64) -> Result<DashboardStats> {
+    // 统一的“可访问店铺集合”：本人拥有的店铺 ∪ 作为员工加入的店铺
+    // 之后所有统计都基于该集合，确保员工账号能看到员工店铺的数据。
 
-    // 活跃客户：近7天活跃
+    // 店铺总数（去重）
+    let total_shops: i64 = sqlx::query_scalar(
+        r#"
+        WITH accessible_shops AS (
+            SELECT id AS shop_id FROM shops WHERE owner_id = ?
+            UNION
+            SELECT shop_id FROM shop_staffs WHERE user_id = ?
+        )
+        SELECT COUNT(*) FROM accessible_shops
+        "#,
+    )
+    .bind(user_id)
+    .bind(user_id)
+    .fetch_one(db.pool())
+    .await?;
+
+    // 活跃客户：近7天在可访问店铺内活跃
     let active_customers: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM customers c JOIN shops s ON c.shop_id = s.id \
-         WHERE s.owner_id = ? AND c.last_active_at >= datetime('now','-7 days')",
+        r#"
+        WITH accessible_shops AS (
+            SELECT id AS shop_id FROM shops WHERE owner_id = ?
+            UNION
+            SELECT shop_id FROM shop_staffs WHERE user_id = ?
+        )
+        SELECT COUNT(*)
+        FROM customers c
+        JOIN accessible_shops a ON c.shop_id = a.shop_id
+        WHERE c.last_active_at >= datetime('now','-7 days')
+        "#,
     )
-    .bind(owner_id)
+    .bind(user_id)
+    .bind(user_id)
     .fetch_one(db.pool())
     .await?;
 
-    // 未读消息总数
+    // 未读消息总数（可访问店铺）
     let unread_messages: i64 = sqlx::query_scalar(
-        "SELECT COALESCE(SUM(uc.unread_count),0) FROM unread_counts uc \
-         JOIN shops s ON uc.shop_id = s.id WHERE s.owner_id = ?",
+        r#"
+        WITH accessible_shops AS (
+            SELECT id AS shop_id FROM shops WHERE owner_id = ?
+            UNION
+            SELECT shop_id FROM shop_staffs WHERE user_id = ?
+        )
+        SELECT COALESCE(SUM(uc.unread_count),0)
+        FROM unread_counts uc
+        JOIN accessible_shops a ON uc.shop_id = a.shop_id
+        "#,
     )
-    .bind(owner_id)
+    .bind(user_id)
+    .bind(user_id)
     .fetch_one(db.pool())
     .await?;
 
-    // 待处理会话：有未读的客户数
+    // 待处理会话：有未读的客户数（可访问店铺内按客户聚合）
     let pending_chats: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM (
-            SELECT uc.customer_id FROM unread_counts uc 
-            JOIN shops s ON uc.shop_id = s.id 
-            WHERE s.owner_id = ? AND uc.unread_count > 0
-            GROUP BY uc.customer_id
-        ) t",
+        r#"
+        WITH accessible_shops AS (
+            SELECT id AS shop_id FROM shops WHERE owner_id = ?
+            UNION
+            SELECT shop_id FROM shop_staffs WHERE user_id = ?
+        )
+        SELECT COUNT(*) FROM (
+            SELECT uc.shop_id, uc.customer_id
+            FROM unread_counts uc
+            JOIN accessible_shops a ON uc.shop_id = a.shop_id
+            WHERE uc.unread_count > 0
+            GROUP BY uc.shop_id, uc.customer_id
+        ) t
+        "#,
     )
-    .bind(owner_id)
+    .bind(user_id)
+    .bind(user_id)
     .fetch_one(db.pool())
     .await?;
 
-    // 今日消息数
+    // 今日消息数（可访问店铺）
     let today_messages: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM messages m 
-         JOIN sessions se ON m.session_id = se.id
-         JOIN shops s ON se.shop_id = s.id 
-         WHERE s.owner_id = ? AND date(m.created_at) = date('now')",
+        r#"
+        WITH accessible_shops AS (
+            SELECT id AS shop_id FROM shops WHERE owner_id = ?
+            UNION
+            SELECT shop_id FROM shop_staffs WHERE user_id = ?
+        )
+        SELECT COUNT(*)
+        FROM messages m
+        JOIN sessions se ON m.session_id = se.id
+        JOIN accessible_shops a ON se.shop_id = a.shop_id
+        WHERE date(m.created_at) = date('now')
+        "#,
     )
-    .bind(owner_id)
+    .bind(user_id)
+    .bind(user_id)
     .fetch_one(db.pool())
     .await?;
 
-    // 本周消息数
+    // 本周消息数（可访问店铺）
     let week_messages: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM messages m 
-         JOIN sessions se ON m.session_id = se.id
-         JOIN shops s ON se.shop_id = s.id 
-         WHERE s.owner_id = ? AND m.created_at >= datetime('now', 'weekday 0', '-6 days')",
+        r#"
+        WITH accessible_shops AS (
+            SELECT id AS shop_id FROM shops WHERE owner_id = ?
+            UNION
+            SELECT shop_id FROM shop_staffs WHERE user_id = ?
+        )
+        SELECT COUNT(*)
+        FROM messages m
+        JOIN sessions se ON m.session_id = se.id
+        JOIN accessible_shops a ON se.shop_id = a.shop_id
+        WHERE m.created_at >= datetime('now', 'weekday 0', '-6 days')
+        "#,
     )
-    .bind(owner_id)
+    .bind(user_id)
+    .bind(user_id)
     .fetch_one(db.pool())
     .await?;
 
-    // 本月消息数
+    // 本月消息数（可访问店铺）
     let month_messages: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM messages m 
-         JOIN sessions se ON m.session_id = se.id
-         JOIN shops s ON se.shop_id = s.id 
-         WHERE s.owner_id = ? AND m.created_at >= datetime('now', 'start of month')",
+        r#"
+        WITH accessible_shops AS (
+            SELECT id AS shop_id FROM shops WHERE owner_id = ?
+            UNION
+            SELECT shop_id FROM shop_staffs WHERE user_id = ?
+        )
+        SELECT COUNT(*)
+        FROM messages m
+        JOIN sessions se ON m.session_id = se.id
+        JOIN accessible_shops a ON se.shop_id = a.shop_id
+        WHERE m.created_at >= datetime('now', 'start of month')
+        "#,
     )
-    .bind(owner_id)
+    .bind(user_id)
+    .bind(user_id)
     .fetch_one(db.pool())
     .await?;
 
-    // 今日活跃客户数
+    // 今日活跃客户数（可访问店铺）
     let today_customers: i64 = sqlx::query_scalar(
-        "SELECT COUNT(DISTINCT se.customer_id) FROM messages m 
-         JOIN sessions se ON m.session_id = se.id
-         JOIN shops s ON se.shop_id = s.id 
-         WHERE s.owner_id = ? AND date(m.created_at) = date('now')",
+        r#"
+        WITH accessible_shops AS (
+            SELECT id AS shop_id FROM shops WHERE owner_id = ?
+            UNION
+            SELECT shop_id FROM shop_staffs WHERE user_id = ?
+        )
+        SELECT COUNT(DISTINCT se.customer_id)
+        FROM messages m
+        JOIN sessions se ON m.session_id = se.id
+        JOIN accessible_shops a ON se.shop_id = a.shop_id
+        WHERE date(m.created_at) = date('now')
+        "#,
     )
-    .bind(owner_id)
+    .bind(user_id)
+    .bind(user_id)
     .fetch_one(db.pool())
     .await?;
 

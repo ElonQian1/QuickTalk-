@@ -3,13 +3,18 @@ use axum::{
     Json,
 };
 
-use crate::{auth::AuthUser, error::AppError, models::*, AppState};
+use crate::{auth::AuthUser, error::AppError, models::*, services::permissions, AppState};
 use serde_json::json;
 
 pub async fn get_customers(
     State(state): State<AppState>,
+    AuthUser { user_id }: AuthUser,
     Path(shop_id): Path<i64>,
 ) -> Result<Json<Vec<CustomerWithSession>>, AppError> {
+    // 权限：仅店主或该店铺员工可查看客户列表
+    if let Err(e) = permissions::ensure_member_or_owner(&state.db, user_id, shop_id).await {
+        return Err(match e { AppError::Unauthorized => AppError::Forbidden, other => other });
+    }
     let overview = state
         .db
         .get_customers_overview_by_shop(shop_id)
@@ -25,7 +30,7 @@ pub async fn reset_unread(
     AuthUser { user_id }: AuthUser,
     Path((shop_id, customer_id)): Path<(i64, i64)>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    // 鉴权：确保该店铺属于当前用户
+    // 鉴权：确保是店主或该店铺员工
     let shop = state
         .db
         .get_shop_by_id(shop_id)
@@ -33,8 +38,8 @@ pub async fn reset_unread(
         .map_err(|_| AppError::Internal("查询店铺失败".to_string()))?
         .ok_or(AppError::NotFound)?;
 
-    if shop.owner_id != user_id {
-        return Err(AppError::Unauthorized);
+    if let Err(e) = permissions::ensure_member_or_owner(&state.db, user_id, shop.id).await {
+        return Err(match e { AppError::Unauthorized => AppError::Forbidden, other => other });
     }
 
     state
@@ -52,7 +57,7 @@ pub async fn reset_unread_all(
     AuthUser { user_id }: AuthUser,
     Path(shop_id): Path<i64>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    // 鉴权：确保该店铺属于当前用户
+    // 鉴权：确保是店主或该店铺员工
     let shop = state
         .db
         .get_shop_by_id(shop_id)
@@ -60,8 +65,8 @@ pub async fn reset_unread_all(
         .map_err(|_| AppError::Internal("查询店铺失败".to_string()))?
         .ok_or(AppError::NotFound)?;
 
-    if shop.owner_id != user_id {
-        return Err(AppError::Unauthorized);
+    if let Err(e) = permissions::ensure_member_or_owner(&state.db, user_id, shop.id).await {
+        return Err(match e { AppError::Unauthorized => AppError::Forbidden, other => other });
     }
 
     state

@@ -178,7 +178,7 @@ export const DataInsights: React.FC<DataInsightsProps> = ({
         <MetricGrid>
           <MetricItem>
             <MetricValue>{formatNumber(todayMessages)}</MetricValue>
-            <MetricLabel>今日消息</MetricLabel>
+            <MetricLabel>今日消息总数</MetricLabel>
             <TrendIndicator trend={dailyGrowth > 0 ? 'up' : dailyGrowth < 0 ? 'down' : 'neutral'}>
               {dailyGrowth > 0 ? <FiTrendingUp size={14} /> : <FiTrendingDown size={14} />}
               {dailyGrowth > 0 ? '+' : ''}{dailyGrowth}%

@@ -13,6 +13,10 @@ interface WSState {
   socket?: WebSocket;
   activeShopId?: number;
   messageListeners: MessageListener[];
+  // 简单双写去重：key -> lastSeenEpochMs
+  dedupCache: Record<string, number>;
+  reconnectAttempts?: number;
+  reconnectTimer?: any;
   connect: (shopId: number) => void;
   disconnect: () => void;
   addMessageListener: (listener: MessageListener) => void;
@@ -24,6 +28,9 @@ export const useWSStore = create<WSState>((set, get) => ({
   socket: undefined,
   activeShopId: undefined,
   messageListeners: [],
+  dedupCache: {},
+  reconnectAttempts: 0,
+  reconnectTimer: undefined,
 
   connect: (shopId: number) => {
     const { user } = useAuthStore.getState();
@@ -36,7 +43,21 @@ export const useWSStore = create<WSState>((set, get) => ({
     }
 
     if (existing) {
+      try {
+        // 先移除回调，避免关闭过程中的残余消息触发
+        existing.onopen = null as any;
+        existing.onmessage = null as any;
+        existing.onerror = null as any;
+        existing.onclose = null as any;
+      } catch {}
       try { existing.close(); } catch {}
+    }
+
+    // 清理重连定时器，避免并发连接
+    const prevTimer = get().reconnectTimer;
+    if (prevTimer) {
+      clearTimeout(prevTimer);
+      set({ reconnectTimer: undefined });
     }
 
     set({ status: 'connecting', activeShopId: shopId });
@@ -49,7 +70,7 @@ export const useWSStore = create<WSState>((set, get) => ({
         metadata: { shopId },
       };
       ws.send(JSON.stringify(authMsg));
-      set({ status: 'connected' });
+      set({ status: 'connected', reconnectAttempts: 0 });
       console.log('✅ WebSocket 连接已建立并认证');
     };
 
@@ -59,6 +80,28 @@ export const useWSStore = create<WSState>((set, get) => ({
         const type = data.messageType as string;
         console.log('🔄 wsStore接收到消息:', { type, data });
         
+        // 事件级去重：仅针对 new_message，避免重复广播/重连叠加
+        if (type === 'new_message') {
+          const now = Date.now();
+          const sess = data.session_id || data.sessionId || '';
+          const senderType = data.sender_type || data.senderType || '';
+          const content = data.content || '';
+          const fileUrl = data.file_url || data.fileUrl || '';
+          const fileName = data.file_name || data.fileName || '';
+          const key = `${sess}|${senderType}|${content}|${fileUrl}|${fileName}`;
+          const cache = get().dedupCache;
+          // 清理过期项（>10s）
+          for (const k in cache) {
+            if (now - cache[k] > 10000) delete cache[k];
+          }
+          if (cache[key] && now - cache[key] < 3000) {
+            // 3 秒内重复，丢弃
+            return;
+          }
+          cache[key] = now;
+          set({ dedupCache: { ...cache } });
+        }
+
         // 立即分发给所有监听器
         const currentState = get();
         console.log('📋 当前监听器数量:', currentState.messageListeners.length);
@@ -95,8 +138,23 @@ export const useWSStore = create<WSState>((set, get) => ({
     };
 
     ws.onclose = () => {
+      const { activeShopId, reconnectAttempts } = get();
       set({ status: 'disconnected', socket: undefined });
       console.log('🔌 WebSocket 连接已关闭');
+
+      // 自动重连：当仍有激活的 shop 时尝试重连（指数退避，最大 30s）
+      if (activeShopId) {
+        const attempts = (reconnectAttempts || 0) + 1;
+        const delay = Math.min(30000, 1000 * Math.pow(2, attempts - 1));
+        const timer = setTimeout(() => {
+          try {
+            get().connect(activeShopId);
+          } catch (e) {
+            console.warn('⚠️ WebSocket 自动重连失败，即将再次尝试:', e);
+          }
+        }, delay);
+        set({ reconnectAttempts: attempts, reconnectTimer: timer });
+      }
     };
 
     set({ socket: ws });

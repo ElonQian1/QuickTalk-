@@ -141,6 +141,10 @@ fn create_router(state: AppState) -> Router {
             "/api/sessions/:session_id/messages",
             post(handlers::message::send_message),
         )
+        .route(
+            "/api/sessions/:session_id",
+            get(handlers::session::get_session),
+        )
         .route("/api/upload", post(handlers::upload::handle_upload))
         .route("/api/customer/upload", post(handlers::upload::handle_customer_upload))
         .route("/api/sdk/version", get(handlers::config::get_sdk_version))

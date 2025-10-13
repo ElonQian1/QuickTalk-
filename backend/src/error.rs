@@ -15,6 +15,7 @@ pub struct ErrorBody<'a> {
 #[derive(Debug)]
 pub enum AppError {
     Unauthorized,
+    Forbidden,
     NotFound,
     BadRequest(String),
     Internal(String),
@@ -24,6 +25,7 @@ impl fmt::Display for AppError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             AppError::Unauthorized => write!(f, "Unauthorized"),
+            AppError::Forbidden => write!(f, "Forbidden"),
             AppError::NotFound => write!(f, "Resource not found"),
             AppError::BadRequest(msg) => write!(f, "Bad request: {}", msg),
             AppError::Internal(msg) => write!(f, "Internal error: {}", msg),
@@ -41,6 +43,14 @@ impl IntoResponse for AppError {
                 Json(ErrorBody {
                     code: "UNAUTHORIZED",
                     message: "Unauthorized",
+                }),
+            )
+                .into_response(),
+            AppError::Forbidden => (
+                StatusCode::FORBIDDEN,
+                Json(ErrorBody {
+                    code: "FORBIDDEN",
+                    message: "Forbidden",
                 }),
             )
                 .into_response(),

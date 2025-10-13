@@ -170,13 +170,13 @@ export const DataSummary: React.FC<DataSummaryProps> = ({
     if (todayMessages > avgDailyMessages * 1.5) {
       recommendations.push({
         priority: 'low' as const,
-        text: '今日消息量较高，关注服务质量保持',
+        text: '今日消息总数较高，关注服务质量保持',
         icon: FiCheckCircle
       });
     } else {
       recommendations.push({
         priority: 'low' as const,
-        text: '消息量保持稳定，可考虑推广活动提升用户活跃度',
+        text: '消息总数保持稳定，可考虑推广活动提升用户活跃度',
         icon: FiAward
       });
     }

@@ -4,7 +4,7 @@ use axum::{
 };
 use serde::Deserialize;
 
-use crate::{auth::AuthUser, error::AppError, models::*, services::chat::ChatService, AppState};
+use crate::{auth::AuthUser, error::AppError, models::*, services::{chat::ChatService, permissions}, AppState};
 
 #[derive(Deserialize)]
 pub struct PageQuery {
@@ -14,9 +14,21 @@ pub struct PageQuery {
 
 pub async fn get_messages(
     State(state): State<AppState>,
+    AuthUser { user_id }: AuthUser,
     Path(session_id): Path<i64>,
     Query(p): Query<PageQuery>,
 ) -> Result<Json<Vec<Message>>, AppError> {
+    // 解析会话以获取 shop_id
+    let (session, _customer) = ChatService::new(&state)
+        .resolve_session(session_id)
+        .await
+        .map_err(|_| AppError::NotFound)?;
+
+    // 权限：仅店主或该店铺员工可查看消息
+    if let Err(e) = permissions::ensure_member_or_owner(&state.db, user_id, session.shop_id).await {
+        return Err(match e { AppError::Unauthorized => AppError::Forbidden, other => other });
+    }
+
     let messages = match state
         .db
         .get_messages_by_session(session_id, p.limit.or(Some(50)), p.offset.or(Some(0)))
@@ -60,6 +72,14 @@ pub async fn send_message(
         media_duration: None,
         metadata: None,
     };
+
+    // 权限校验：必须是该店铺的店主或员工
+    if let Err(e) = permissions::ensure_member_or_owner(&state.db, user_id, session.shop_id).await {
+        match e {
+            AppError::Unauthorized => return Err(AppError::Forbidden),
+            other => return Err(other),
+        }
+    }
 
     let persisted = match chat
         .persist_staff_message(&session, user_id, ws_payload, &customer)

@@ -13,6 +13,7 @@ import VoiceMessage from '../components/VoiceMessage';
 import EmojiButton from '../components/EmojiButton';
 import { MessageText } from '../utils/textFormatter';
 import { useWSStore } from '../stores/wsStore';
+import { listStaffShops } from '../services/shops';
 import { EmptyState as UIEmptyState, EmptyIcon, EmptyTitle, EmptyDescription } from '../components/UI/EmptyState';
 
 const Container = styled.div`
@@ -273,59 +274,63 @@ const ChatPage: React.FC = () => {
   const imageInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // 使用useCallback来稳定函数引用
-  const handleMessage = useCallback((data: any) => {
-    try {
-      console.log('📨 收到WebSocket消息:', data);
-      
-      // 只处理新消息事件
-      if (data.messageType === 'new_message') {
-        // 检查消息是否属于当前会话
-        const messageSessionId = data.session_id || data.sessionId;
-        console.log('🔍 检查消息会话ID:', { messageSessionId, currentSessionId: sessionId });
-        
-        if (messageSessionId && messageSessionId.toString() === sessionId) {
-          // 构造消息对象
-          const newMessage: Message = {
-            id: Date.now(), // 临时ID，实际应该从服务器获取
-            session_id: messageSessionId,
-            sender_type: data.sender_type || data.senderType || 'customer',
-            sender_id: data.sender_id || data.senderId,
-            content: data.content || '',
-            message_type: data.metadata?.messageType || 'text',
-            file_url: data.file_url || data.fileUrl,
-            file_name: data.file_name || data.fileName,
-            status: 'sent',
-            created_at: data.timestamp || new Date().toISOString(),
-          };
+  // 稳定 WS 监听器：用 ref 持有最新处理逻辑，避免因依赖变更频繁移除/添加
+  const wsHandlerRef = useRef<(data: any) => void>(() => {});
+  useEffect(() => {
+    wsHandlerRef.current = (data: any) => {
+      try {
+        console.log('📨 收到WebSocket消息:', data);
 
-          console.log('✅ 添加新消息到界面:', newMessage);
+        if (data.messageType === 'new_message') {
+          const messageSessionId = data.session_id || data.sessionId;
+          console.log('🔍 检查消息会话ID:', { messageSessionId, currentSessionId: sessionId });
 
-          // 添加到消息列表（避免重复）
-          setMessages(prev => {
-            const exists = prev.some(msg => 
-              msg.content === newMessage.content && 
-              msg.sender_type === newMessage.sender_type &&
-              Math.abs(new Date(msg.created_at).getTime() - new Date(newMessage.created_at).getTime()) < 5000
-            );
-            
-            if (exists) {
-              console.log('⚠️ 消息已存在，跳过');
-              return prev;
-            }
-            
-            return [...prev, newMessage];
-          });
+          if (messageSessionId && messageSessionId.toString() === sessionId) {
+            const newMessage: Message = {
+              id: Date.now(),
+              session_id: messageSessionId,
+              sender_type: data.sender_type || data.senderType || 'customer',
+              sender_id: data.sender_id || data.senderId,
+              content: data.content || '',
+              message_type: data.metadata?.messageType || 'text',
+              file_url: data.file_url || data.fileUrl,
+              file_name: data.file_name || data.fileName,
+              status: 'sent',
+              created_at: data.timestamp || new Date().toISOString(),
+            };
+
+            console.log('✅ 添加新消息到界面:', newMessage);
+
+            setMessages(prev => {
+              const exists = prev.some(msg =>
+                msg.content === newMessage.content &&
+                msg.sender_type === newMessage.sender_type &&
+                Math.abs(new Date(msg.created_at).getTime() - new Date(newMessage.created_at).getTime()) < 5000
+              );
+
+              if (exists) {
+                console.log('⚠️ 消息已存在，跳过');
+                return prev;
+              }
+
+              return [...prev, newMessage];
+            });
+          } else {
+            console.log('⏭️ 消息不属于当前会话，忽略');
+          }
         } else {
-          console.log('⏭️ 消息不属于当前会话，忽略');
+          console.log('📝 非新消息事件，类型:', data.messageType);
         }
-      } else {
-        console.log('📝 非新消息事件，类型:', data.messageType);
+      } catch (error) {
+        console.error('❌ 解析WebSocket消息失败:', error);
       }
-    } catch (error) {
-      console.error('❌ 解析WebSocket消息失败:', error);
-    }
+    };
   }, [sessionId]);
+
+  // 向 wsStore 注册一个稳定引用的监听函数，内部转发到 wsHandlerRef
+  const stableWsListener = useCallback((data: any) => {
+    wsHandlerRef.current?.(data);
+  }, []);
 
   useEffect(() => {
     if (sessionId) {
@@ -337,19 +342,43 @@ const ChatPage: React.FC = () => {
     // 获取用户的店铺信息
     const fetchUserShop = async () => {
       try {
-        console.log('🏪 获取用户店铺信息...');
-        const response = await api.get('/api/shops');
-        console.log('🏪 用户店铺列表:', response.data);
-        if (response.data && response.data.length > 0) {
-          const shopId = response.data[0].shop.id;
-          setUserShopId(shopId.toString());
-          console.log('✅ 设置用户的shopId:', shopId);
-          
-          // 建立WebSocket连接
-          connect(shopId);
-          console.log('🔌 WebSocket连接已建立，shopId:', shopId);
-        } else {
-          console.warn('⚠️ 用户没有任何店铺');
+        console.log('🧾 根据当前会话获取其所属店铺以建立WS...');
+        let pickedShopId: number | undefined;
+        if (sessionId) {
+          try {
+            const sessionRes = await api.get(`/api/sessions/${sessionId}`);
+            pickedShopId = sessionRes.data?.shop_id;
+            console.log('🧾 当前会话所属店铺:', pickedShopId);
+          } catch (e) {
+            console.warn('⚠️ 获取会话信息失败，回退到店铺列表策略:', e);
+          }
+        }
+
+        if (!pickedShopId) {
+          const response = await api.get('/api/shops');
+          console.log('🏪 用户店铺列表(拥有者):', response.data);
+          if (response.data && response.data.length > 0) {
+            pickedShopId = response.data[0].shop.id;
+          } else {
+            // 作为员工的店铺兜底
+            try {
+              const staffShops = await listStaffShops();
+              console.log('👥 用户员工店铺列表:', staffShops);
+              if (Array.isArray(staffShops) && staffShops.length > 0) {
+                pickedShopId = staffShops[0].id;
+              } else {
+                console.warn('⚠️ 用户没有任何店铺（既非店主也未加入为员工）');
+              }
+            } catch (e) {
+              console.warn('⚠️ 获取员工店铺失败:', e);
+            }
+          }
+        }
+
+        if (pickedShopId) {
+          setUserShopId(String(pickedShopId));
+          connect(pickedShopId);
+          console.log('🔌 WebSocket连接已建立，shopId:', pickedShopId);
         }
       } catch (error: any) {
         console.error('❌ 获取用户店铺失败:', error);
@@ -386,15 +415,15 @@ const ChatPage: React.FC = () => {
     console.log('🔌 开始监听WebSocket消息，sessionId:', sessionId);
 
     // 添加消息监听器
-    addMessageListener(handleMessage);
+    addMessageListener(stableWsListener);
     console.log('👂 WebSocket消息监听器已添加');
 
     // 清理事件监听器
     return () => {
-      removeMessageListener(handleMessage);
+      removeMessageListener(stableWsListener);
       console.log('🧹 WebSocket消息监听器已移除');
     };
-  }, [sessionId, handleMessage, addMessageListener, removeMessageListener]);
+  }, [sessionId, addMessageListener, removeMessageListener, stableWsListener]);
 
   const fetchMessages = async (sessionId: number) => {
     try {
@@ -441,7 +470,32 @@ const ChatPage: React.FC = () => {
         message_type: 'text',
       });
 
-      // 消息会通过WebSocket推送更新，不需要手动添加
+      // 乐观回显：但先做一次去重，防止 WS 比 POST 返回更快导致重复
+      setMessages(prev => {
+        const now = Date.now();
+        const exists = prev.some(msg =>
+          msg.sender_type === 'staff' &&
+          msg.content === content &&
+          Math.abs(new Date(msg.created_at).getTime() - now) < 5000
+        );
+        if (exists) return prev;
+        return [
+          ...prev,
+          {
+            id: Date.now(),
+            session_id: Number(sessionId),
+            sender_type: 'staff',
+            sender_id: undefined,
+            content,
+            message_type: 'text',
+            file_url: undefined,
+            file_name: undefined,
+            status: 'sent',
+            created_at: new Date().toISOString(),
+          },
+        ];
+      });
+
       setInputValue('');
       
       // 重置输入框高度
@@ -469,6 +523,31 @@ const ChatPage: React.FC = () => {
       });
 
       console.log('😊 发送表情:', emoji);
+      // 乐观回显表情（带去重）
+      setMessages(prev => {
+        const now = Date.now();
+        const exists = prev.some(msg =>
+          msg.sender_type === 'staff' &&
+          msg.content === emoji &&
+          Math.abs(new Date(msg.created_at).getTime() - now) < 5000
+        );
+        if (exists) return prev;
+        return [
+          ...prev,
+          {
+            id: Date.now(),
+            session_id: Number(sessionId),
+            sender_type: 'staff',
+            sender_id: undefined,
+            content: emoji,
+            message_type: 'text',
+            file_url: undefined,
+            file_name: undefined,
+            status: 'sent',
+            created_at: new Date().toISOString(),
+          },
+        ];
+      });
       
     } catch (error) {
       toast.error('发送表情失败');

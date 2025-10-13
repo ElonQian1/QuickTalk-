@@ -192,7 +192,7 @@ const HomePage: React.FC = () => {
     {
       icon: FiMessageSquare,
       value: totalUnread || stats.totalMessages,
-      label: '今日消息',
+  label: '今日消息总数',
       color: '#00d4aa'
     },
     {

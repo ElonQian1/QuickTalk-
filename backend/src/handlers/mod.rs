@@ -8,3 +8,4 @@ pub mod static_files;
 pub mod upload;
 pub mod staff;
 pub mod user;
+pub mod session;
