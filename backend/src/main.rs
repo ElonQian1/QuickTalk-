@@ -416,7 +416,7 @@ async fn start_auto_server(app: Router, server_config: &ServerConfig, tls_config
     {
         warn!("🚨 HTTPS功能未启用，直接启动HTTP服务器");
         warn!("💡 如需HTTPS支持，请使用: cargo run --features https");
-        return start_http_server(app, server_config).await;
+        start_http_server(app, server_config).await
     }
     
     #[cfg(feature = "https")]
