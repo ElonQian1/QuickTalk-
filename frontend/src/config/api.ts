@@ -4,7 +4,29 @@
 
 import axios from 'axios';
 
-export const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:8080';
+// 自动检测API基础地址
+const getApiBase = (): string => {
+  // 优先使用环境变量
+  if (process.env.REACT_APP_API_BASE) {
+    return process.env.REACT_APP_API_BASE;
+  }
+  
+  // 在浏览器环境中，自动使用当前域名和端口
+  if (typeof window !== 'undefined') {
+    const { protocol, hostname } = window.location;
+    // 如果是标准HTTP/HTTPS端口，直接使用当前地址
+    if (window.location.port === '8080' || window.location.port === '8443') {
+      return `${protocol}//${hostname}:${window.location.port}`;
+    }
+    // 否则默认使用8080端口
+    return `${protocol}//${hostname}:8080`;
+  }
+  
+  // 服务端渲染或其他环境的后备地址
+  return 'http://localhost:8080';
+};
+
+export const API_BASE = getApiBase();
 
 export const api = axios.create({
   baseURL: API_BASE, // '' => 相对 => dev server 代理到后端 8080
