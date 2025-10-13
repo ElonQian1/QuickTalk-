@@ -9,9 +9,32 @@
 
 ## 🎯 解决方案
 
-### 步骤1: 更新服务器上的文件
+### 步骤1: 服务器500错误排查 (最新问题)
 
-**将最新的 `ubuntu-deploy-ready` 目录重新上传到服务器**
+如果你看到以下错误：
+```
+POST http://43.139.82.12:8080/api/auth/login 500 (Internal Server Error)
+```
+
+说明前端连接正常，但后端有问题。执行以下步骤：
+
+```bash
+# 1. 运行诊断脚本
+cd ubuntu-deploy-ready
+chmod +x diagnose.sh
+./diagnose.sh
+
+# 2. 如果发现问题，重启服务
+chmod +x restart.sh
+./restart.sh
+
+# 3. 查看详细日志
+tail -f backend.log
+```
+
+### 步骤2: 更新服务器上的文件 (如果是API连接问题)
+
+**如果仍然看到 `localhost` 连接错误，需要更新文件**
 
 ```bash
 # 在服务器上停止当前服务
@@ -53,7 +76,45 @@ fetch('/api/dashboard/stats')
 
 ## 🔍 故障排查
 
-### 检查1: 确认服务器后端正在运行
+### 检查1: 500内部服务器错误 (当前问题)
+
+如果API返回500错误，按以下步骤排查：
+
+```bash
+# 使用自动诊断脚本
+cd ubuntu-deploy-ready
+./diagnose.sh
+
+# 手动检查进程状态
+ps aux | grep customer-service-backend
+
+# 检查端口监听
+netstat -tlnp | grep 8080
+
+# 查看错误日志
+tail -50 backend.log
+
+# 测试API响应
+curl -v http://localhost:8080/api/dashboard/stats
+```
+
+### 检查2: 数据库相关问题
+
+500错误通常与数据库有关：
+
+```bash
+# 检查数据库文件
+ls -la customer_service.db
+
+# 检查数据库权限
+chmod 666 customer_service.db
+
+# 重新初始化数据库 (如果需要)
+rm customer_service.db
+./restart.sh  # 会自动重新创建数据库
+```
+
+### 检查3: 确认服务器后端正在运行
 
 ```bash
 # 检查端口监听
@@ -64,12 +125,13 @@ netstat -tlnp | grep 8080
 ps aux | grep customer-service-backend
 ```
 
-### 检查2: 测试本地API
+### 检查4: 测试本地API
 
 ```bash
 # 在服务器上测试API
 curl http://localhost:8080/api/dashboard/stats
-# 应该返回401 Unauthorized（这是正常的）
+# 正常应该返回401 Unauthorized
+# 如果返回500，说明后端有问题
 
 curl -I http://localhost:8080/health
 # 应该返回200 OK
@@ -180,12 +242,20 @@ server {
 
 ## ✅ 验证成功
 
-部署成功后，你应该看到：
+### 阶段1: API连接正常 (已完成)
+✅ **浏览器地址栏**: `http://你的服务器IP:8080`  
+✅ **开发者工具Network面板**: API请求指向 `http://你的服务器IP:8080/api/*`  
+✅ **控制台**: 没有 `ERR_CONNECTION_REFUSED` 错误  
 
-1. **浏览器地址栏**: `http://你的服务器IP:8080`
-2. **开发者工具Network面板**: API请求指向 `http://你的服务器IP:8080/api/*`
-3. **控制台**: 没有 `ERR_CONNECTION_REFUSED` 错误
-4. **功能**: 登录、注册等功能正常工作
+### 阶段2: 后端服务正常 (需要解决500错误)
+⚠️ **当前状态**: API连接成功但返回500内部错误  
+🎯 **目标**: API返回正常响应（401未授权是正常的）  
+
+完全成功后，你应该看到：
+1. **登录尝试**: 返回401或具体的登录错误信息，而不是500
+2. **注册功能**: 正常工作或返回具体业务错误
+3. **Health检查**: `curl http://localhost:8080/health` 返回200
+4. **Dashboard**: `curl http://localhost:8080/api/dashboard/stats` 返回401
 
 ---
 
