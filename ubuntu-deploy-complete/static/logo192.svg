@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="192" height="192" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad192" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#07C160;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#06A94D;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="96" cy="96" r="80" fill="url(#grad192)"/>
+  
+  <!-- Chat bubble -->
+  <g fill="white">
+    <!-- Main chat bubble -->
+    <path d="M40 75 C40 65, 50 55, 60 55 L130 55 C140 55, 150 65, 150 75 L150 110 C150 120, 140 130, 130 130 L85 130 L60 145 L60 130 C50 130, 40 120, 40 110 Z"/>
+    
+    <!-- Message lines -->
+    <rect x="55" y="75" width="70" height="6" rx="3" fill="rgba(7,193,96,0.8)"/>
+    <rect x="55" y="88" width="50" height="6" rx="3" fill="rgba(7,193,96,0.8)"/>
+    <rect x="55" y="101" width="35" height="6" rx="3" fill="rgba(7,193,96,0.8)"/>
+  </g>
+</svg>

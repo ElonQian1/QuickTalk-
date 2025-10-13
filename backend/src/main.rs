@@ -55,17 +55,16 @@ async fn main() -> Result<()> {
     
     // 初始化数据库
     let db_url =
-        std::env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite:customer_service.db".to_string());
+        std::env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite:./customer_service.db".to_string());
     let db = Database::new(&db_url).await?;
-    // ensure database schema is applied on startup
-    // 暂时跳过迁移，表缺失时运行时创建
-    /*
+    
+    // 确保数据库架构在启动时应用
+    info!("Running database migration...");
     if let Err(e) = db.migrate().await {
         error!(error=?e, "Database migration failed");
         return Err(e);
     }
-    */
-    info!("Database initialized, skipping migration for now");
+    info!("Database migration completed successfully");
     let connections = Arc::new(Mutex::new(ConnectionManager::new()));
 
     let state = AppState { db, connections };

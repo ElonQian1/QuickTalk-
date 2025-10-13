@@ -2,7 +2,7 @@
 
 ## 📋 服务器信息
 
-- **服务器ID**: 400bfeb6-b2fe-40e8-8cb6-7d38a2b943ca
+- **duckDns域名token**: 400bfeb6-b2fe-40e8-8cb6-7d38a2b943ca
 - **域名**: http://elontalk.duckdns.org
 - **系统**: Ubuntu Server 24.04 LTS 64bit
 - **服务器IP**: 43.139.82.12
