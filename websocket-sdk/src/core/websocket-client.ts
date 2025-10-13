@@ -68,6 +68,26 @@ export class WebSocketClient {
     
     // 判断目标URL是否为localhost开发服务器
     const isTargetLocalhost = url.includes('localhost:') || url.includes('127.0.0.1:');
+
+    // 若目标是 localhost/127.0.0.1 且我们已探测到后端真实对外地址，则将主机与协议改写为后端 serverUrl
+    // 这样第三方 HTTPS 页面不会去请求 https://localhost:xxxx（既跨主机又常无证书）
+    try {
+      const parsed = new URL(url);
+      const isLocalHostName = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
+      if (isLocalHostName && this.serverConfig?.serverUrl) {
+        const server = new URL(this.serverConfig.serverUrl);
+        const rewritten = `${server.protocol}//${server.host}${parsed.pathname}${parsed.search}`;
+        console.log('🔧 WebSocketClient 改写本地地址为服务器地址:', {
+          original: url,
+          rewritten,
+          serverUrl: this.serverConfig.serverUrl,
+          reason: '避免第三方站点访问 localhost 导致加载失败/证书错误'
+        });
+        return rewritten;
+      }
+    } catch (e) {
+      // 非法URL或解析失败，继续走后续逻辑
+    }
     
     // 如果当前页面是HTTPS且URL是HTTP，通常需要转换
     if (window.location.protocol === 'https:' && url.startsWith('http://')) {

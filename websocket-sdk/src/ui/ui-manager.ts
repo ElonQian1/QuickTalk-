@@ -76,6 +76,26 @@ export class UIManager {
     // 判断目标URL是否为localhost开发服务器
     const isTargetLocalhost = url.includes('localhost:') || url.includes('127.0.0.1:');
     
+    // 若目标是 localhost/127.0.0.1 且已探测到服务器对外地址，则改写为服务器主机与协议
+    try {
+      const parsed = new URL(url);
+      const isLocalHostName = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
+      // 尝试从全局暴露的配置管理器获取 serverUrl（通过 window.QuickTalkConfig 或 data-attr）
+      const anyWin = window as any;
+      const serverUrl: string | undefined = anyWin.__QUICKTALK_SERVER_URL__ || anyWin?.QuickTalkCustomerService?.serverUrl || anyWin?.QuickTalkSDKServerUrl;
+      if (isLocalHostName && serverUrl) {
+        const server = new URL(serverUrl);
+        const rewritten = `${server.protocol}//${server.host}${parsed.pathname}${parsed.search}`;
+        console.log('🔧 UIManager 改写本地地址为服务器地址:', {
+          original: url,
+          rewritten,
+          serverUrl,
+          reason: '避免第三方站点访问 localhost 导致图片加载失败/证书错误'
+        });
+        return rewritten;
+      }
+    } catch {}
+
     // 如果当前页面是HTTPS且URL是HTTP，需要转换
     if (window.location.protocol === 'https:' && url.startsWith('http://')) {
       // 对于 localhost/127.0.0.1 场景，不强制转换为 HTTPS，以避免目标端口未启用 TLS 导致的协议错误

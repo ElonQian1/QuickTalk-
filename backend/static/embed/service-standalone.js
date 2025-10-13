@@ -376,6 +376,7 @@ class WebSocketClient {
      * 协议适配工具函数 - 统一的协议适配策略
      */
     adaptUrlProtocol(url) {
+        var _a;
         if (!url || typeof url !== 'string') {
             return url;
         }
@@ -388,21 +389,32 @@ class WebSocketClient {
             window.location.hostname === '127.0.0.1';
         // 判断目标URL是否为localhost开发服务器
         const isTargetLocalhost = url.includes('localhost:') || url.includes('127.0.0.1:');
-        // 如果当前页面是HTTPS且URL是HTTP，需要转换
-        if (window.location.protocol === 'https:' && url.startsWith('http://')) {
-            // 对于localhost开发服务器，也需要转换为HTTPS以避免Mixed Content错误
-            // 现代浏览器的安全策略会阻止HTTPS页面加载HTTP资源
-            if (isTargetLocalhost) {
-                const adaptedUrl = url.replace('http://localhost:', 'https://localhost:')
-                    .replace('http://127.0.0.1:', 'https://127.0.0.1:');
-                console.log('🔧 WebSocketClient适配localhost为HTTPS:', {
-                    url,
-                    adaptedUrl,
-                    currentProtocol: window.location.protocol,
-                    currentHost: window.location.hostname,
-                    reason: '避免Mixed Content错误，转换localhost为HTTPS'
+        // 若目标是 localhost/127.0.0.1 且我们已探测到后端真实对外地址，则将主机与协议改写为后端 serverUrl
+        // 这样第三方 HTTPS 页面不会去请求 https://localhost:xxxx（既跨主机又常无证书）
+        try {
+            const parsed = new URL(url);
+            const isLocalHostName = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
+            if (isLocalHostName && ((_a = this.serverConfig) === null || _a === void 0 ? void 0 : _a.serverUrl)) {
+                const server = new URL(this.serverConfig.serverUrl);
+                const rewritten = `${server.protocol}//${server.host}${parsed.pathname}${parsed.search}`;
+                console.log('🔧 WebSocketClient 改写本地地址为服务器地址:', {
+                    original: url,
+                    rewritten,
+                    serverUrl: this.serverConfig.serverUrl,
+                    reason: '避免第三方站点访问 localhost 导致加载失败/证书错误'
                 });
-                return adaptedUrl;
+                return rewritten;
+            }
+        }
+        catch (e) {
+            // 非法URL或解析失败，继续走后续逻辑
+        }
+        // 如果当前页面是HTTPS且URL是HTTP，通常需要转换
+        if (window.location.protocol === 'https:' && url.startsWith('http://')) {
+            // 对于 localhost/127.0.0.1 场景，不强制转换为 HTTPS，以避免目标端口未启用 TLS 导致的协议错误
+            if (isTargetLocalhost) {
+                console.log('🔧 WebSocketClient 保持本地开发URL协议（避免 ERR_SSL_PROTOCOL_ERROR）:', { url });
+                return url;
             }
             // 生产环境HTTPS页面访问外部HTTP资源，需要转换
             const adaptedUrl = url.replace('http://', 'https://');
@@ -2358,6 +2370,7 @@ class UIManager {
      * 协议适配工具函数 - 与WebSocketClient保持一致的策略
      */
     adaptUrlProtocol(url) {
+        var _a;
         if (!url || typeof url !== 'string') {
             return url;
         }
@@ -2370,21 +2383,32 @@ class UIManager {
             window.location.hostname === '127.0.0.1';
         // 判断目标URL是否为localhost开发服务器
         const isTargetLocalhost = url.includes('localhost:') || url.includes('127.0.0.1:');
+        // 若目标是 localhost/127.0.0.1 且已探测到服务器对外地址，则改写为服务器主机与协议
+        try {
+            const parsed = new URL(url);
+            const isLocalHostName = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
+            // 尝试从全局暴露的配置管理器获取 serverUrl（通过 window.QuickTalkConfig 或 data-attr）
+            const anyWin = window;
+            const serverUrl = anyWin.__QUICKTALK_SERVER_URL__ || ((_a = anyWin === null || anyWin === void 0 ? void 0 : anyWin.QuickTalkCustomerService) === null || _a === void 0 ? void 0 : _a.serverUrl) || (anyWin === null || anyWin === void 0 ? void 0 : anyWin.QuickTalkSDKServerUrl);
+            if (isLocalHostName && serverUrl) {
+                const server = new URL(serverUrl);
+                const rewritten = `${server.protocol}//${server.host}${parsed.pathname}${parsed.search}`;
+                console.log('🔧 UIManager 改写本地地址为服务器地址:', {
+                    original: url,
+                    rewritten,
+                    serverUrl,
+                    reason: '避免第三方站点访问 localhost 导致图片加载失败/证书错误'
+                });
+                return rewritten;
+            }
+        }
+        catch (_b) { }
         // 如果当前页面是HTTPS且URL是HTTP，需要转换
         if (window.location.protocol === 'https:' && url.startsWith('http://')) {
-            // 对于localhost开发服务器，也需要转换为HTTPS以避免Mixed Content错误
-            // 现代浏览器的安全策略会阻止HTTPS页面加载HTTP资源
+            // 对于 localhost/127.0.0.1 场景，不强制转换为 HTTPS，以避免目标端口未启用 TLS 导致的协议错误
             if (isTargetLocalhost) {
-                const adaptedUrl = url.replace('http://localhost:', 'https://localhost:')
-                    .replace('http://127.0.0.1:', 'https://127.0.0.1:');
-                console.log('🔧 UIManager适配localhost为HTTPS:', {
-                    url,
-                    adaptedUrl,
-                    currentProtocol: window.location.protocol,
-                    currentHost: window.location.hostname,
-                    reason: '避免Mixed Content错误，转换localhost为HTTPS'
-                });
-                return adaptedUrl;
+                console.log('🔧 UIManager 保持本地开发URL协议（避免 ERR_SSL_PROTOCOL_ERROR）:', { url });
+                return url;
             }
             // 生产环境HTTPS页面访问外部HTTP资源，需要转换
             const adaptedUrl = url.replace('http://', 'https://');
@@ -3439,6 +3463,15 @@ class QuickTalkSDK extends EventEmitter {
             this.bindEvents();
             // 连接WebSocket
             await this.wsClient.connect(this.config.serverUrl);
+            // 将服务端地址暴露到全局供UI适配使用（用于改写 localhost 资源URL）
+            try {
+                const cfg = this.wsClient.getServerConfig();
+                const serverUrl = (cfg === null || cfg === void 0 ? void 0 : cfg.serverUrl) || this.config.serverUrl;
+                if (serverUrl) {
+                    window.__QUICKTALK_SERVER_URL__ = serverUrl;
+                }
+            }
+            catch (_a) { }
             this.isInitialized = true;
             this.emit('ui-ready', undefined);
             console.log('✅ QuickTalk SDK 初始化完成');

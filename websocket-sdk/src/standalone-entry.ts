@@ -93,6 +93,15 @@ export class QuickTalkSDK extends EventEmitter<SDKEvents> {
       // 连接WebSocket
       await this.wsClient.connect(this.config.serverUrl);
 
+      // 将服务端地址暴露到全局供UI适配使用（用于改写 localhost 资源URL）
+      try {
+        const cfg = this.wsClient.getServerConfig();
+        const serverUrl = cfg?.serverUrl || this.config.serverUrl;
+        if (serverUrl) {
+          (window as any).__QUICKTALK_SERVER_URL__ = serverUrl;
+        }
+      } catch {}
+
       this.isInitialized = true;
       this.emit('ui-ready', undefined);
 
