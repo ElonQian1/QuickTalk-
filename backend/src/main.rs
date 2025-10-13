@@ -34,7 +34,7 @@ mod websocket;
 
 use database::Database;
 use models::{Customer, Session, WebSocketIncomingMessage, WebSocketMessage};
-use server::{HttpsServer, ServerConfig, start_http_redirect};
+use server::{HttpsServer, ServerConfig, ServerType, start_http_redirect};
 use services::chat::ChatService;
 use tls::TlsConfig;
 use websocket::ConnectionManager;
@@ -79,51 +79,21 @@ async fn main() -> Result<()> {
 
     // 打印配置信息
     server_config.print_info();
-    tls_config.print_info();
 
     // 根据配置启动对应的服务器
-    if tls_config.enabled {
-        // HTTPS模式
-        let https_server = HttpsServer::new(tls_config.clone());
-        
-        // 验证HTTPS配置
-        if let Err(e) = https_server.validate_config() {
-            error!("HTTPS配置验证失败: {:?}", e);
-            https_server.print_cert_help();
-            return Err(anyhow::anyhow!("HTTPS配置验证失败: {:?}", e));
+    match server_config.server_type {
+        ServerType::Https => {
+            // 强制HTTPS模式
+            start_https_server(app, &server_config, &tls_config).await?;
         }
-
-        let https_addr: SocketAddr = server_config.https_addr().parse()
-            .expect("Invalid HTTPS address");
-
-        // 可选：启动HTTP到HTTPS重定向服务器
-        if tls_config.redirect_http {
-            let http_port = server_config.http_port;
-            let https_port = server_config.https_port;
-            tokio::spawn(async move {
-                info!("🔄 启动HTTP到HTTPS重定向服务器...");
-                if let Err(e) = start_http_redirect(https_port, http_port).await {
-                    error!("HTTP重定向服务器失败: {:?}", e);
-                }
-            });
+        ServerType::Http => {
+            // 强制HTTP模式
+            start_http_server(app, &server_config).await?;
         }
-
-        // 启动HTTPS服务器
-        if let Err(e) = https_server.serve(app, https_addr).await {
-            return Err(anyhow::anyhow!("HTTPS服务器启动失败: {:?}", e));
+        ServerType::Auto => {
+            // 智能模式：优先HTTPS，失败时回退到HTTP
+            start_auto_server(app, &server_config, &tls_config).await?;
         }
-    } else {
-        // HTTP模式 (保持原有逻辑)
-        let http_addr: SocketAddr = server_config.http_addr().parse()
-            .expect("Invalid HTTP address");
-        
-        info!("🌐 HTTP服务器启动在: http://{}", http_addr);
-        let listener = tokio::net::TcpListener::bind(http_addr).await?;
-        axum::serve(
-            listener,
-            app.into_make_service_with_connect_info::<SocketAddr>(),
-        )
-        .await?;
     }
 
     Ok(())
@@ -385,5 +355,137 @@ async fn handle_customer_socket(
     let _ = send_task.await;
 }
 
+/// 启动HTTPS服务器
+async fn start_https_server(app: Router, server_config: &ServerConfig, tls_config: &TlsConfig) -> Result<()> {
+    tls_config.print_info();
+    
+    let https_server = HttpsServer::new(tls_config.clone());
+    
+    // 验证HTTPS配置
+    if let Err(e) = https_server.validate_config() {
+        error!("HTTPS配置验证失败: {:?}", e);
+        https_server.print_cert_help();
+        return Err(anyhow::anyhow!("HTTPS配置验证失败: {:?}", e));
+    }
+
+    let https_addr: SocketAddr = server_config.https_addr().parse()
+        .expect("Invalid HTTPS address");
+
+    // 可选：启动HTTP到HTTPS重定向服务器
+    if tls_config.redirect_http {
+        let http_port = server_config.http_port;
+        let https_port = server_config.https_port;
+        tokio::spawn(async move {
+            info!("🔄 启动HTTP到HTTPS重定向服务器...");
+            if let Err(e) = start_http_redirect(https_port, http_port).await {
+                error!("HTTP重定向服务器失败: {:?}", e);
+            }
+        });
+    }
+
+    // 启动HTTPS服务器
+    if let Err(e) = https_server.serve(app, https_addr).await {
+        return Err(anyhow::anyhow!("HTTPS服务器启动失败: {:?}", e));
+    }
+    
+    Ok(())
+}
+
+/// 启动HTTP服务器
+async fn start_http_server(app: Router, server_config: &ServerConfig) -> Result<()> {
+    let http_addr: SocketAddr = server_config.http_addr().parse()
+        .expect("Invalid HTTP address");
+    
+    info!("🌐 HTTP服务器启动在: http://{}", http_addr);
+    let listener = tokio::net::TcpListener::bind(http_addr).await?;
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .await?;
+    
+    Ok(())
+}
+
+/// 智能启动服务器：优先尝试HTTPS，失败时回退到HTTP
+async fn start_auto_server(app: Router, server_config: &ServerConfig, tls_config: &TlsConfig) -> Result<()> {
+    info!("🤖 智能服务器模式：优先尝试HTTPS，失败时回退到HTTP");
+    
+    // 首先检查是否启用了HTTPS功能
+    #[cfg(not(feature = "https"))]
+    {
+        warn!("🚨 HTTPS功能未启用，直接启动HTTP服务器");
+        warn!("💡 如需HTTPS支持，请使用: cargo run --features https");
+        return start_http_server(app, server_config).await;
+    }
+    
+    #[cfg(feature = "https")]
+    {
+        // 首先尝试HTTPS
+        info!("🔒 尝试启动HTTPS服务器...");
+        
+        // 检查证书文件是否存在
+        let cert_exists = std::path::Path::new(&tls_config.cert_path).exists();
+        let key_exists = std::path::Path::new(&tls_config.key_path).exists();
+    
+        info!("🔍 证书文件检查:");
+        info!("  证书文件 {}: {}", tls_config.cert_path.display(), if cert_exists { "✅ 存在" } else { "❌ 不存在" });
+        info!("  私钥文件 {}: {}", tls_config.key_path.display(), if key_exists { "✅ 存在" } else { "❌ 不存在" });
+        
+        if !cert_exists || !key_exists {
+            warn!("🚨 证书文件不存在，回退到HTTP模式");
+            return start_http_server(app, server_config).await;
+        }
+        
+        // 尝试创建HTTPS服务器
+        let https_server = HttpsServer::new(tls_config.clone());
+        
+        // 验证HTTPS配置
+        if let Err(e) = https_server.validate_config() {
+            warn!("🚨 HTTPS配置验证失败: {:?}", e);
+            warn!("⬇️  回退到HTTP模式");
+            return start_http_server(app, server_config).await;
+        }
+        
+        let https_addr: SocketAddr = server_config.https_addr().parse()
+            .expect("Invalid HTTPS address");
+        
+        // 尝试绑定HTTPS端口
+        match tokio::net::TcpListener::bind(https_addr).await {
+            Ok(_) => {
+                info!("✅ HTTPS端口可用，继续启动HTTPS服务器");
+                tls_config.print_info();
+                
+                // 启动HTTP到HTTPS重定向服务器
+                if tls_config.redirect_http {
+                    let http_port = server_config.http_port;
+                    let https_port = server_config.https_port;
+                    tokio::spawn(async move {
+                        info!("🔄 启动HTTP到HTTPS重定向服务器...");
+                        if let Err(e) = start_http_redirect(https_port, http_port).await {
+                            error!("HTTP重定向服务器失败: {:?}", e);
+                        }
+                    });
+                }
+                
+                // 启动HTTPS服务器
+                match https_server.serve(app, https_addr).await {
+                    Ok(_) => return Ok(()),
+                    Err(e) => {
+                        error!("HTTPS服务器运行失败: {:?}", e);
+                        warn!("⬇️  HTTPS失败，回退到HTTP模式");
+                        // 注意：app 已被移动，无法回退到HTTP。在生产环境中应该退出。
+                        return Err(anyhow::anyhow!("HTTPS服务器启动失败: {:?}", e));
+                    }
+                }
+            }
+            Err(e) => {
+                warn!("🚨 HTTPS端口绑定失败: {:?}", e);
+                warn!("⬇️  回退到HTTP模式");
+                return start_http_server(app, server_config).await;
+            }
+        }
+    } // 关闭 #[cfg(feature = "https")] 块
+}
 
 // Note: helper functions for WS handling now live in `websocket.rs`

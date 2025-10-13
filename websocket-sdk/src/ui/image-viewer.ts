@@ -50,15 +50,19 @@ export class ImageViewer {
     
     // 如果当前页面是HTTPS且URL是HTTP，需要转换
     if (window.location.protocol === 'https:' && url.startsWith('http://')) {
-      // 特殊处理：如果目标是localhost开发服务器，保持HTTP避免SSL错误
+      // 对于localhost开发服务器，也需要转换为HTTPS以避免Mixed Content错误
+      // 现代浏览器的安全策略会阻止HTTPS页面加载HTTP资源
       if (isTargetLocalhost) {
-        console.log('🖼️ ImageViewer检测到localhost开发服务器，保持HTTP:', { 
+        const adaptedUrl = url.replace('http://localhost:', 'https://localhost:')
+                             .replace('http://127.0.0.1:', 'https://127.0.0.1:');
+        console.log('🖼️ ImageViewer适配localhost为HTTPS:', { 
           url, 
+          adaptedUrl,
           currentProtocol: window.location.protocol,
           currentHost: window.location.hostname,
-          reason: 'localhost开发服务器通常不支持HTTPS，保持HTTP以避免SSL错误'
+          reason: '避免Mixed Content错误，转换localhost为HTTPS'
         });
-        return url;
+        return adaptedUrl;
       }
       
       // 生产环境HTTPS页面访问外部HTTP资源，需要转换
@@ -78,6 +82,7 @@ export class ImageViewer {
     console.log('🖼️ ImageViewer URL保持原样:', { 
       url, 
       currentProtocol: window.location.protocol,
+      currentHost: window.location.hostname,
       reason: 'HTTP页面或无需转换'
     });
     return url;

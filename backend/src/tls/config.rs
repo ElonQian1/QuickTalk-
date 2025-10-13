@@ -43,16 +43,29 @@ impl Default for TlsConfig {
 impl TlsConfig {
     /// 从环境变量创建TLS配置
     pub fn from_env() -> Self {
+        // 通过 TLS_MODE 来确定是否启用 TLS
+        let tls_mode = std::env::var("TLS_MODE")
+            .unwrap_or_else(|_| std::env::var("TLS_ENABLED")
+                .unwrap_or_else(|_| "auto".to_string()));
+        
+        let enabled = match tls_mode.to_lowercase().as_str() {
+            "true" | "https" | "force" => true,
+            "false" | "http" | "disabled" => false,
+            "auto" | "smart" | _ => true, // 智能模式默认启用TLS配置
+        };
+        
+        // 调试信息
+        println!("🔧 TLS配置调试:");
+        println!("  TLS_MODE环境变量: '{}'", tls_mode);
+        println!("  TLS配置启用: {}", enabled);
+        
         Self {
-            enabled: std::env::var("TLS_ENABLED")
-                .unwrap_or_else(|_| "false".to_string())
-                .parse()
-                .unwrap_or(false),
+            enabled,
             cert_path: std::env::var("TLS_CERT_PATH")
-                .unwrap_or_else(|_| "cert.pem".to_string())
+                .unwrap_or_else(|_| "certs/server.crt".to_string())
                 .into(),
             key_path: std::env::var("TLS_KEY_PATH")
-                .unwrap_or_else(|_| "key.pem".to_string())
+                .unwrap_or_else(|_| "certs/server.key".to_string())
                 .into(),
             port: std::env::var("TLS_PORT")
                 .unwrap_or_else(|_| "8443".to_string())

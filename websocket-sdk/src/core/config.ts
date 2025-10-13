@@ -49,8 +49,10 @@ export class ConfigManager {
       `${currentUrl.protocol}//${currentUrl.hostname}:8080`,
       // 尝试相同协议和端口
       `${currentUrl.protocol}//${currentUrl.host}`,
-      // 开发环境后备选项
+      // 开发环境后备选项 - 支持HTTPS
+      'https://localhost:8080',
       'http://localhost:8080',
+      'https://127.0.0.1:8080',
       'http://127.0.0.1:8080'
     ];
 

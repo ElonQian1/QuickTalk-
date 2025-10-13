@@ -15,6 +15,7 @@ use std::net::SocketAddr;
 pub enum ServerType {
     Http,
     Https,
+    Auto, // 智能模式：优先HTTPS，失败时回退到HTTP
 }
 
 /// 服务器配置
@@ -53,15 +54,14 @@ impl ServerConfig {
             .parse()
             .unwrap_or(8443);
 
-        let tls_enabled = std::env::var("TLS_ENABLED")
-            .unwrap_or_else(|_| "false".to_string())
-            .parse()
-            .unwrap_or(false);
+        let tls_mode = std::env::var("TLS_MODE")
+            .unwrap_or_else(|_| "auto".to_string())
+            .to_lowercase();
 
-        let server_type = if tls_enabled {
-            ServerType::Https
-        } else {
-            ServerType::Http
+        let server_type = match tls_mode.as_str() {
+            "true" | "https" | "force" => ServerType::Https,
+            "false" | "http" | "disabled" => ServerType::Http,
+            "auto" | "smart" | _ => ServerType::Auto,
         };
 
         Self {
@@ -94,6 +94,11 @@ impl ServerConfig {
             ServerType::Https => {
                 println!("  📡 HTTPS端口: {}", self.https_port);
                 println!("  🔒 协议: HTTPS");
+            }
+            ServerType::Auto => {
+                println!("  📡 HTTP端口: {} (备用)", self.http_port);
+                println!("  📡 HTTPS端口: {} (优先)", self.https_port);
+                println!("  🤖 协议: 智能模式 (优先HTTPS，失败时回退HTTP)");
             }
         }
     }

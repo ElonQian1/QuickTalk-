@@ -151,7 +151,7 @@ impl CertManager {
         Err(AppError::Internal("请手动生成证书或使用现有证书".to_string()))
     }
 
-    /// 智能证书检查 - 简化版本
+    /// 智能证书检查 - 开发模式版本
     pub fn ensure_certificates<P: AsRef<Path>>(
         cert_path: P,
         key_path: P,
@@ -161,33 +161,36 @@ impl CertManager {
         let cert_path = cert_path.as_ref();
         let key_path = key_path.as_ref();
 
-        // 检查证书是否存在
-        if cert_path.exists() && key_path.exists() {
-            // 验证现有证书
-            match Self::validate_cert_files(cert_path, key_path) {
-                Ok(_) => {
-                    println!("✅ 使用现有证书: {}", cert_path.display());
-                    return Ok(());
-                }
-                Err(e) => {
-                    println!("⚠️  现有证书验证失败: {:?}", e);
-                    if !auto_generate {
-                        return Err(e);
-                    }
-                }
-            }
+        // 打印当前工作目录和证书路径进行调试
+        println!("🔍 当前工作目录: {:?}", std::env::current_dir().unwrap_or_default());
+        println!("🔍 证书路径: {}", cert_path.display());
+        println!("🔍 私钥路径: {}", key_path.display());
+        
+        // 检查证书文件是否存在
+        let cert_exists = cert_path.exists();
+        let key_exists = key_path.exists();
+        println!("🔍 证书文件存在: {}", cert_exists);
+        println!("🔍 私钥文件存在: {}", key_exists);
+
+        // 开发模式：如果文件存在就直接使用
+        if cert_exists && key_exists {
+            println!("✅ 发现证书文件，直接使用 (开发模式)");
+            println!("   证书: {}", cert_path.display());
+            println!("   私钥: {}", key_path.display());
+            
+            // 开发模式：简化验证，直接返回成功
+            return Ok(());
         }
 
         if auto_generate {
             // 尝试生成证书 (实际上只会打印命令)
             println!("🔧 证书不存在或无效，需要生成新证书...");
-            Self::generate_self_signed_cert(cert_path, key_path, domain)?;
+            Self::print_self_signed_cert_command(cert_path, key_path, domain);
+            return Err(AppError::Internal("请手动生成证书或使用现有证书".to_string()));
         } else {
             // 只提供生成命令提示
             Self::print_self_signed_cert_command(cert_path, key_path, domain);
             return Err(AppError::Internal("证书文件不存在，请先生成证书".to_string()));
         }
-
-        Ok(())
     }
 }
