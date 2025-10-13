@@ -257,6 +257,22 @@ interface Message {
   status?: string;
 }
 
+// 规范化媒体 URL：
+// - 若是绝对 http/https 链接，则重写为当前站点同源路径（仅保留 pathname+search），避免 https/端口不匹配导致的加载失败
+// - 若是相对路径或空值，原样返回
+const normalizeMediaUrl = (url?: string) => {
+  if (!url) return undefined;
+  try {
+    if (/^https?:\/\//i.test(url)) {
+      const u = new URL(url);
+      return `${window.location.origin}${u.pathname}${u.search}`;
+    }
+    return url;
+  } catch {
+    return url;
+  }
+};
+
 const ChatPage: React.FC = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
   const { socket, connect, addMessageListener, removeMessageListener } = useWSStore();
@@ -293,7 +309,7 @@ const ChatPage: React.FC = () => {
               sender_id: data.sender_id || data.senderId,
               content: data.content || '',
               message_type: data.metadata?.messageType || 'text',
-              file_url: data.file_url || data.fileUrl,
+              file_url: normalizeMediaUrl(data.file_url || data.fileUrl),
               file_name: data.file_name || data.fileName,
               status: 'sent',
               created_at: data.timestamp || new Date().toISOString(),
@@ -694,17 +710,23 @@ const ChatPage: React.FC = () => {
           <div>
             {message.file_url && (
               <MessageImage
-                src={message.file_url}
+                src={normalizeMediaUrl(message.file_url)}
                 alt={message.content}
-                onClick={() => window.open(message.file_url, '_blank')}
+                onClick={() => {
+                  const u = normalizeMediaUrl(message.file_url);
+                  if (u) window.open(u, '_blank');
+                }}
               />
             )}
-            {message.content && <div>{message.content}</div>}
+            {/* 图片类型不显示文件名，仅展示图片 */}
           </div>
         );
       case 'file':
         return (
-          <FileAttachment onClick={() => message.file_url && window.open(message.file_url, '_blank')}>
+          <FileAttachment onClick={() => {
+            const u = normalizeMediaUrl(message.file_url);
+            if (u) window.open(u, '_blank');
+          }}>
             <FiFile />
             <FileName>{message.content}</FileName>
           </FileAttachment>
@@ -712,7 +734,7 @@ const ChatPage: React.FC = () => {
       case 'voice':
         return message.file_url ? (
           <VoiceMessage
-            fileUrl={message.file_url}
+            fileUrl={normalizeMediaUrl(message.file_url) || message.file_url}
             fileName={message.content}
             timestamp={message.created_at}
             senderType={message.sender_type as 'staff' | 'customer'}

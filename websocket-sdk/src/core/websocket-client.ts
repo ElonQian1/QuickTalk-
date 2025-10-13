@@ -69,23 +69,14 @@ export class WebSocketClient {
     // 判断目标URL是否为localhost开发服务器
     const isTargetLocalhost = url.includes('localhost:') || url.includes('127.0.0.1:');
     
-    // 如果当前页面是HTTPS且URL是HTTP，需要转换
+    // 如果当前页面是HTTPS且URL是HTTP，通常需要转换
     if (window.location.protocol === 'https:' && url.startsWith('http://')) {
-      // 对于localhost开发服务器，也需要转换为HTTPS以避免Mixed Content错误
-      // 现代浏览器的安全策略会阻止HTTPS页面加载HTTP资源
+      // 对于 localhost/127.0.0.1 场景，不强制转换为 HTTPS，以避免目标端口未启用 TLS 导致的协议错误
       if (isTargetLocalhost) {
-        const adaptedUrl = url.replace('http://localhost:', 'https://localhost:')
-                             .replace('http://127.0.0.1:', 'https://127.0.0.1:');
-        console.log('🔧 WebSocketClient适配localhost为HTTPS:', { 
-          url, 
-          adaptedUrl,
-          currentProtocol: window.location.protocol,
-          currentHost: window.location.hostname,
-          reason: '避免Mixed Content错误，转换localhost为HTTPS'
-        });
-        return adaptedUrl;
+        console.log('🔧 WebSocketClient 保持本地开发URL协议（避免 ERR_SSL_PROTOCOL_ERROR）:', { url });
+        return url;
       }
-      
+
       // 生产环境HTTPS页面访问外部HTTP资源，需要转换
       const adaptedUrl = url.replace('http://', 'https://');
       console.log('🔧 WebSocketClient协议适配:', { 

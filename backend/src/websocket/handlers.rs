@@ -31,6 +31,25 @@ pub async fn handle_customer_ws_message(
     let meta_ref = incoming.metadata.as_ref();
 
     match incoming.message_type.as_str() {
+        crate::constants::ws_incoming::PING => {
+            // 简单心跳响应：仅回发 pong 给客户连接
+            let pong = WebSocketMessage {
+                message_type: crate::constants::ws_events::PONG.to_string(),
+                content: None,
+                session_id: None,
+                sender_id: None,
+                sender_type: Some("system".to_string()),
+                timestamp: Some(Utc::now()),
+                metadata: None,
+                file_url: None,
+                file_name: None,
+                file_size: None,
+                media_duration: None,
+            };
+            if let Ok(payload) = serde_json::to_string(&pong) {
+                let _ = ctx.outbound.send(Message::Text(payload));
+            }
+        }
         crate::constants::ws_incoming::AUTH => {
             let (name, email, avatar, ip, user_agent) = extract_customer_profile(meta_ref);
             let profile = crate::services::chat::CustomerProfile {
@@ -179,6 +198,24 @@ pub async fn handle_staff_ws_message(
     let meta_ref = incoming.metadata.as_ref();
 
     match incoming.message_type.as_str() {
+        crate::constants::ws_incoming::PING => {
+            let pong = WebSocketMessage {
+                message_type: crate::constants::ws_events::PONG.to_string(),
+                content: None,
+                session_id: None,
+                sender_id: Some(user_id),
+                sender_type: Some("system".to_string()),
+                timestamp: Some(Utc::now()),
+                metadata: None,
+                file_url: None,
+                file_name: None,
+                file_size: None,
+                media_duration: None,
+            };
+            if let Ok(payload) = serde_json::to_string(&pong) {
+                let _ = outbound.send(Message::Text(payload));
+            }
+        }
         crate::constants::ws_incoming::AUTH => {
             let Some(shop_id) = extract_shop_id(meta_ref) else {
                 tracing::warn!("Staff auth missing shop_id");

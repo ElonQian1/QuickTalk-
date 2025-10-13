@@ -81,6 +81,9 @@ websocket-sdk/dist/
 websocket-sdk/lib/
 websocket-sdk/build/
 
+# Uploads (user-generated content)
+backend/static/uploads/
+
 # Examples build outputs (copy of SDK for demo)
 examples/websocket-sdk/dist/
 

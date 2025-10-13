@@ -17,6 +17,7 @@ interface WSState {
   dedupCache: Record<string, number>;
   reconnectAttempts?: number;
   reconnectTimer?: any;
+  heartbeatTimer?: any;
   connect: (shopId: number) => void;
   disconnect: () => void;
   addMessageListener: (listener: MessageListener) => void;
@@ -31,6 +32,7 @@ export const useWSStore = create<WSState>((set, get) => ({
   dedupCache: {},
   reconnectAttempts: 0,
   reconnectTimer: undefined,
+  heartbeatTimer: undefined,
 
   connect: (shopId: number) => {
     const { user } = useAuthStore.getState();
@@ -70,7 +72,23 @@ export const useWSStore = create<WSState>((set, get) => ({
         metadata: { shopId },
       };
       ws.send(JSON.stringify(authMsg));
-      set({ status: 'connected', reconnectAttempts: 0 });
+      // 启动心跳：每 25s 发送一次 ping，保持链路活跃，避免中间代理空闲断开
+      try {
+        const prevHb = get().heartbeatTimer;
+        if (prevHb) clearInterval(prevHb);
+      } catch {}
+      const hb = setInterval(() => {
+        try {
+          if (get().socket && get().status === 'connected') {
+            get().socket!.send(JSON.stringify({ messageType: 'ping', ts: Date.now() }));
+          }
+        } catch (e) {
+          console.warn('WS 心跳发送失败，将触发重连', e);
+          try { ws.close(); } catch {}
+        }
+      }, 25000);
+
+      set({ status: 'connected', reconnectAttempts: 0, heartbeatTimer: hb });
       console.log('✅ WebSocket 连接已建立并认证');
     };
 
@@ -139,7 +157,12 @@ export const useWSStore = create<WSState>((set, get) => ({
 
     ws.onclose = () => {
       const { activeShopId, reconnectAttempts } = get();
-      set({ status: 'disconnected', socket: undefined });
+      // 清理心跳与 socket 引用
+      const prevHb = get().heartbeatTimer;
+      if (prevHb) {
+        try { clearInterval(prevHb); } catch {}
+      }
+      set({ status: 'disconnected', socket: undefined, heartbeatTimer: undefined });
       console.log('🔌 WebSocket 连接已关闭');
 
       // 自动重连：当仍有激活的 shop 时尝试重连（指数退避，最大 30s）
@@ -165,7 +188,11 @@ export const useWSStore = create<WSState>((set, get) => ({
     if (sock) {
       try { sock.close(); } catch {}
     }
-    set({ socket: undefined, status: 'disconnected', activeShopId: undefined });
+    const prevHb = get().heartbeatTimer;
+    if (prevHb) {
+      try { clearInterval(prevHb); } catch {}
+    }
+    set({ socket: undefined, status: 'disconnected', activeShopId: undefined, heartbeatTimer: undefined });
   },
 
   addMessageListener: (listener: MessageListener) => {
@@ -187,3 +214,22 @@ export const useWSStore = create<WSState>((set, get) => ({
     console.log('🗑️ 消息监听器已移除，当前数量:', newListeners.length);
   },
 }));
+
+// 全局事件：网络恢复/页面可见时尝试重连（只绑定一次）
+try {
+  if (typeof window !== 'undefined') {
+    const reconnectIfNeeded = () => {
+      const st = useWSStore.getState();
+      if (st.activeShopId && st.status !== 'connected') {
+        try { st.connect(st.activeShopId); } catch {}
+      }
+    };
+    window.addEventListener('online', reconnectIfNeeded);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') reconnectIfNeeded();
+    });
+    window.addEventListener('beforeunload', () => {
+      try { useWSStore.getState().disconnect(); } catch {}
+    });
+  }
+} catch {}

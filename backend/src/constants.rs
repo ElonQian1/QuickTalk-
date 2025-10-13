@@ -5,6 +5,7 @@ pub mod ws_events {
     pub const NEW_MESSAGE: &str = "new_message";
     pub const TYPING: &str = "typing";
     pub const SYSTEM: &str = "system";
+    pub const PONG: &str = "pong";
 }
 
 /// WebSocket 入站事件（客户端 -> 服务器）常量
@@ -12,6 +13,7 @@ pub mod ws_incoming {
     pub const AUTH: &str = "auth";
     pub const SEND_MESSAGE: &str = "send_message";
     pub const TYPING: &str = "typing";
+    pub const PING: &str = "ping";
 }
 
 pub mod upload_policy {
