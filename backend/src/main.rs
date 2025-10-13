@@ -102,7 +102,7 @@ async fn main() -> Result<()> {
 /// 创建应用路由
 fn create_router(state: AppState) -> Router {
     Router::new()
-        .route("/", get(|| async { "Customer Service System API" }))
+        .route("/", get(handlers::static_files::serve_index))
         .route("/health", get(|| async { axum::Json(serde_json::json!({"status":"ok"})) }))
         .route("/api/auth/login", post(handlers::auth::login))
         .route("/api/auth/register", post(handlers::auth::register))
@@ -162,7 +162,11 @@ fn create_router(state: AppState) -> Router {
         )
         .route("/static/*file_path", get(handlers::static_files::serve_static_file))
         .route("/favicon.ico", get(handlers::static_files::serve_favicon))
+        .route("/favicon.svg", get(handlers::static_files::serve_favicon_svg))
         .route("/robots.txt", get(handlers::static_files::serve_robots))
+        .route("/manifest.json", get(handlers::static_files::serve_manifest))
+        // 添加通用静态文件路由作为后备
+        .fallback(handlers::static_files::serve_spa_fallback)
         .layer(CorsLayer::permissive())
         .with_state(state)
 }
