@@ -61,16 +61,16 @@ pub async fn get_dashboard_stats(db: &Database, user_id: i64) -> Result<Dashboar
     .await?;
 
     // 未读消息总数（可访问店铺）
+    // 使用子查询代替CTE避免某些SQLite版本的别名问题
     let unread_messages: i64 = sqlx::query_scalar(
         r#"
-        WITH accessible_shops AS (
-            SELECT id AS shop_id FROM shops WHERE owner_id = ?
+        SELECT COALESCE(SUM(unread_count), 0)
+        FROM unread_counts
+        WHERE shop_id IN (
+            SELECT id FROM shops WHERE owner_id = ?
             UNION
             SELECT shop_id FROM shop_staffs WHERE user_id = ?
         )
-        SELECT COALESCE(SUM(uc.unread_count),0)
-        FROM unread_counts uc
-        JOIN accessible_shops a ON uc.shop_id = a.shop_id
         "#,
     )
     .bind(user_id)
@@ -79,20 +79,17 @@ pub async fn get_dashboard_stats(db: &Database, user_id: i64) -> Result<Dashboar
     .await?;
 
     // 待处理会话：有未读的客户数（可访问店铺内按客户聚合）
+    // 使用子查询代替CTE避免某些SQLite版本的别名问题
     let pending_chats: i64 = sqlx::query_scalar(
         r#"
-        WITH accessible_shops AS (
-            SELECT id AS shop_id FROM shops WHERE owner_id = ?
+        SELECT COUNT(DISTINCT shop_id || '-' || customer_id)
+        FROM unread_counts
+        WHERE unread_count > 0
+        AND shop_id IN (
+            SELECT id FROM shops WHERE owner_id = ?
             UNION
             SELECT shop_id FROM shop_staffs WHERE user_id = ?
         )
-        SELECT COUNT(*) FROM (
-            SELECT uc.shop_id, uc.customer_id
-            FROM unread_counts uc
-            JOIN accessible_shops a ON uc.shop_id = a.shop_id
-            WHERE uc.unread_count > 0
-            GROUP BY uc.shop_id, uc.customer_id
-        ) t
         "#,
     )
     .bind(user_id)
