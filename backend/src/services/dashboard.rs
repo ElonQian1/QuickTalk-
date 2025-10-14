@@ -98,18 +98,18 @@ pub async fn get_dashboard_stats(db: &Database, user_id: i64) -> Result<Dashboar
     .await?;
 
     // 今日消息数（可访问店铺）
+    // 使用子查询代替CTE
     let today_messages: i64 = sqlx::query_scalar(
         r#"
-        WITH accessible_shops AS (
-            SELECT id AS shop_id FROM shops WHERE owner_id = ?
-            UNION
-            SELECT shop_id FROM shop_staffs WHERE user_id = ?
-        )
         SELECT COUNT(*)
         FROM messages m
         JOIN sessions se ON m.session_id = se.id
-        JOIN accessible_shops a ON se.shop_id = a.shop_id
-        WHERE date(m.created_at) = date('now')
+        WHERE se.shop_id IN (
+            SELECT id FROM shops WHERE owner_id = ?
+            UNION
+            SELECT shop_id FROM shop_staffs WHERE user_id = ?
+        )
+        AND date(m.created_at) = date('now')
         "#,
     )
     .bind(user_id)
@@ -118,18 +118,18 @@ pub async fn get_dashboard_stats(db: &Database, user_id: i64) -> Result<Dashboar
     .await?;
 
     // 本周消息数（可访问店铺）
+    // 使用子查询代替CTE
     let week_messages: i64 = sqlx::query_scalar(
         r#"
-        WITH accessible_shops AS (
-            SELECT id AS shop_id FROM shops WHERE owner_id = ?
-            UNION
-            SELECT shop_id FROM shop_staffs WHERE user_id = ?
-        )
         SELECT COUNT(*)
         FROM messages m
         JOIN sessions se ON m.session_id = se.id
-        JOIN accessible_shops a ON se.shop_id = a.shop_id
-        WHERE m.created_at >= datetime('now', 'weekday 0', '-6 days')
+        WHERE se.shop_id IN (
+            SELECT id FROM shops WHERE owner_id = ?
+            UNION
+            SELECT shop_id FROM shop_staffs WHERE user_id = ?
+        )
+        AND m.created_at >= datetime('now', 'weekday 0', '-6 days')
         "#,
     )
     .bind(user_id)
@@ -138,18 +138,18 @@ pub async fn get_dashboard_stats(db: &Database, user_id: i64) -> Result<Dashboar
     .await?;
 
     // 本月消息数（可访问店铺）
+    // 使用子查询代替CTE
     let month_messages: i64 = sqlx::query_scalar(
         r#"
-        WITH accessible_shops AS (
-            SELECT id AS shop_id FROM shops WHERE owner_id = ?
-            UNION
-            SELECT shop_id FROM shop_staffs WHERE user_id = ?
-        )
         SELECT COUNT(*)
         FROM messages m
         JOIN sessions se ON m.session_id = se.id
-        JOIN accessible_shops a ON se.shop_id = a.shop_id
-        WHERE m.created_at >= datetime('now', 'start of month')
+        WHERE se.shop_id IN (
+            SELECT id FROM shops WHERE owner_id = ?
+            UNION
+            SELECT shop_id FROM shop_staffs WHERE user_id = ?
+        )
+        AND m.created_at >= datetime('now', 'start of month')
         "#,
     )
     .bind(user_id)
@@ -158,18 +158,18 @@ pub async fn get_dashboard_stats(db: &Database, user_id: i64) -> Result<Dashboar
     .await?;
 
     // 今日活跃客户数（可访问店铺）
+    // 使用子查询代替CTE
     let today_customers: i64 = sqlx::query_scalar(
         r#"
-        WITH accessible_shops AS (
-            SELECT id AS shop_id FROM shops WHERE owner_id = ?
-            UNION
-            SELECT shop_id FROM shop_staffs WHERE user_id = ?
-        )
         SELECT COUNT(DISTINCT se.customer_id)
         FROM messages m
         JOIN sessions se ON m.session_id = se.id
-        JOIN accessible_shops a ON se.shop_id = a.shop_id
-        WHERE date(m.created_at) = date('now')
+        WHERE se.shop_id IN (
+            SELECT id FROM shops WHERE owner_id = ?
+            UNION
+            SELECT shop_id FROM shop_staffs WHERE user_id = ?
+        )
+        AND date(m.created_at) = date('now')
         "#,
     )
     .bind(user_id)
