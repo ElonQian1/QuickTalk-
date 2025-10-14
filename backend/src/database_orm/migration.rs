@@ -150,7 +150,160 @@ async fn create_tables_manually(db: &DatabaseConnection) -> Result<()> {
         }
     }
 
-    info!("✅ 核心表创建完成");
+    // 创建 sessions 表
+    let create_sessions = Statement::from_string(
+        DbBackend::Sqlite,
+        r#"
+        CREATE TABLE sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            shop_id INTEGER NOT NULL,
+            customer_id INTEGER NOT NULL,
+            session_id VARCHAR(255) UNIQUE NOT NULL,
+            status VARCHAR(20) NOT NULL DEFAULT 'active',
+            assigned_staff_id INTEGER,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            closed_at TIMESTAMP,
+            FOREIGN KEY (shop_id) REFERENCES shops(id),
+            FOREIGN KEY (customer_id) REFERENCES customers(id),
+            FOREIGN KEY (assigned_staff_id) REFERENCES users(id)
+        );
+        "#.to_string()
+    );
+    
+    match db.execute(create_sessions).await {
+        Ok(_) => info!("✅ sessions 表创建成功"),
+        Err(e) if e.to_string().contains("already exists") => {
+            info!("ℹ️ sessions 表已存在");
+        }
+        Err(e) => {
+            error!("❌ sessions 表创建失败: {}", e);
+        }
+    }
+
+    // 创建 messages 表
+    let create_messages = Statement::from_string(
+        DbBackend::Sqlite,
+        r#"
+        CREATE TABLE messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id INTEGER NOT NULL,
+            sender_type VARCHAR(20) NOT NULL,
+            sender_id VARCHAR(255) NOT NULL,
+            content TEXT NOT NULL,
+            message_type VARCHAR(20) NOT NULL DEFAULT 'text',
+            metadata TEXT,
+            is_read BOOLEAN NOT NULL DEFAULT 0,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (session_id) REFERENCES sessions(id)
+        );
+        "#.to_string()
+    );
+    
+    match db.execute(create_messages).await {
+        Ok(_) => info!("✅ messages 表创建成功"),
+        Err(e) if e.to_string().contains("already exists") => {
+            info!("ℹ️ messages 表已存在");
+        }
+        Err(e) => {
+            error!("❌ messages 表创建失败: {}", e);
+        }
+    }
+
+    // 创建 shop_staffs 表
+    let create_shop_staffs = Statement::from_string(
+        DbBackend::Sqlite,
+        r#"
+        CREATE TABLE shop_staffs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            shop_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            role VARCHAR(50) NOT NULL DEFAULT 'staff',
+            permissions TEXT,
+            is_active BOOLEAN NOT NULL DEFAULT 1,
+            invited_by INTEGER,
+            invited_at TIMESTAMP,
+            joined_at TIMESTAMP,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(shop_id, user_id),
+            FOREIGN KEY (shop_id) REFERENCES shops(id),
+            FOREIGN KEY (user_id) REFERENCES users(id),
+            FOREIGN KEY (invited_by) REFERENCES users(id)
+        );
+        "#.to_string()
+    );
+    
+    match db.execute(create_shop_staffs).await {
+        Ok(_) => info!("✅ shop_staffs 表创建成功"),
+        Err(e) if e.to_string().contains("already exists") => {
+            info!("ℹ️ shop_staffs 表已存在");
+        }
+        Err(e) => {
+            error!("❌ shop_staffs 表创建失败: {}", e);
+        }
+    }
+
+    // 创建 unread_counts 表
+    let create_unread_counts = Statement::from_string(
+        DbBackend::Sqlite,
+        r#"
+        CREATE TABLE unread_counts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id INTEGER NOT NULL,
+            staff_id INTEGER NOT NULL,
+            unread_count INTEGER NOT NULL DEFAULT 0,
+            last_read_message_id INTEGER,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(session_id, staff_id),
+            FOREIGN KEY (session_id) REFERENCES sessions(id),
+            FOREIGN KEY (staff_id) REFERENCES users(id),
+            FOREIGN KEY (last_read_message_id) REFERENCES messages(id)
+        );
+        "#.to_string()
+    );
+    
+    match db.execute(create_unread_counts).await {
+        Ok(_) => info!("✅ unread_counts 表创建成功"),
+        Err(e) if e.to_string().contains("already exists") => {
+            info!("ℹ️ unread_counts 表已存在");
+        }
+        Err(e) => {
+            error!("❌ unread_counts 表创建失败: {}", e);
+        }
+    }
+
+    // 创建 online_status 表
+    let create_online_status = Statement::from_string(
+        DbBackend::Sqlite,
+        r#"
+        CREATE TABLE online_status (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            user_type VARCHAR(20) NOT NULL,
+            shop_id INTEGER,
+            is_online BOOLEAN NOT NULL DEFAULT 0,
+            last_seen TIMESTAMP,
+            socket_id VARCHAR(255),
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(user_id, user_type, shop_id),
+            FOREIGN KEY (shop_id) REFERENCES shops(id)
+        );
+        "#.to_string()
+    );
+    
+    match db.execute(create_online_status).await {
+        Ok(_) => info!("✅ online_status 表创建成功"),
+        Err(e) if e.to_string().contains("already exists") => {
+            info!("ℹ️ online_status 表已存在");
+        }
+        Err(e) => {
+            error!("❌ online_status 表创建失败: {}", e);
+        }
+    }
+
+    info!("✅ 所有数据库表创建完成");
     Ok(())
 }
 
@@ -178,7 +331,10 @@ async fn table_exists(db: &DatabaseConnection, table_name: &str) -> Result<bool>
 async fn verify_tables(db: &DatabaseConnection) -> Result<()> {
     info!("🔍 验证数据库表结构...");
     
-    let required_tables = vec!["users", "shops", "customers", "sessions", "messages"];
+    let required_tables = vec![
+        "users", "shops", "customers", "sessions", "messages", 
+        "shop_staffs", "unread_counts", "online_status"
+    ];
     let mut missing_tables = Vec::new();
     
     for table in &required_tables {
