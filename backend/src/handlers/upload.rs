@@ -346,12 +346,12 @@ pub async fn handle_upload(
     
     // 多租户校验：仅店主可上传该店铺相关文件
     if let Some(shop) = state
-        .db
-        .get_shop_by_id(upload_data.shop_id)
+        .shop_service
+        .get_shop_by_id(upload_data.shop_id as i32)
         .await
         .map_err(|_| AppError::Internal("查询店铺失败".to_string()))?
     {
-        if shop.owner_id != user_id {
+        if shop.owner_id != Some(user_id as i32) {
             return Err(AppError::Unauthorized);
         }
     } else {
@@ -400,8 +400,8 @@ pub async fn handle_customer_upload(
         let shop_id: i64 = upload_data.api_key.parse()
             .map_err(|_| AppError::BadRequest("无效的店铺ID".to_string()))?;
         state
-            .db
-            .get_shop_by_id(shop_id)
+            .shop_service
+            .get_shop_by_id(shop_id as i32)
             .await
             .map_err(|e| {
                 tracing::error!("查询店铺失败: {}", e);
@@ -413,9 +413,7 @@ pub async fn handle_customer_upload(
             })?
     } else {
         // 否则当作API key处理
-        state
-            .db
-            .get_shop_by_api_key(&upload_data.api_key)
+        crate::repositories::ShopRepository::find_by_api_key(&state.db_connection, &upload_data.api_key)
             .await
             .map_err(|e| {
                 tracing::error!("查询店铺失败: {}", e);
@@ -427,9 +425,9 @@ pub async fn handle_customer_upload(
             })?
     };
     
-    tracing::info!("找到店铺: id={}, name={}", shop.id, shop.shop_name);
+    tracing::info!("找到店铺: id={}, name={}", shop.id, shop.name);
 
-    let generated_name = save_file_with_shop_id(shop.id, &upload_data.data, &upload_data.original_name, &upload_data.content_type).await?;
+    let generated_name = save_file_with_shop_id(shop.id.into(), &upload_data.data, &upload_data.original_name, &upload_data.content_type).await?;
     
     // 动态检测协议并构建完整的服务器URL
     let protocol = detect_protocol(&headers);
@@ -451,7 +449,7 @@ pub async fn handle_customer_upload(
         file_size: upload_data.data.len() as i64,
         message_type: upload_data.message_type,
         content_type: upload_data.content_type,
-        shop_id: shop.id,
+        shop_id: shop.id.into(),
         customer_code: upload_data.customer_code,
     }))
 }

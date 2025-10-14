@@ -1,5 +1,4 @@
 use axum::{extract::State, http::StatusCode, Json};
-use bcrypt::{verify, hash, DEFAULT_COST};
 
 use crate::{auth::AuthUser, models::{UpdateProfileRequest, ChangePasswordRequest, UserPublic}, AppState};
 
@@ -8,17 +7,32 @@ pub async fn update_profile(
     State(state): State<AppState>,
     Json(req): Json<UpdateProfileRequest>,
 ) -> Result<Json<UserPublic>, StatusCode> {
-    let user = state.db.update_user_profile(user_id, &req)
-        .await
-        .map_err(|e| {
+    match state.user_service.update_profile(
+        user_id.try_into().unwrap(), 
+        req.email.clone(),
+        req.phone.clone(), 
+        req.avatar_url.clone()
+    ).await {
+        Ok(user_model) => {
+            // 转换为UserPublic
+            let user_public = UserPublic {
+                id: user_model.id as i64,
+                username: user_model.username,
+                email: user_model.email,
+                phone: user_model.phone,
+                avatar_url: user_model.avatar_url,
+            };
+            Ok(Json(user_public))
+        },
+        Err(e) => {
             let msg = e.to_string().to_lowercase();
             if msg.contains("unique") || msg.contains("constraint") {
-                StatusCode::CONFLICT
+                Err(StatusCode::CONFLICT)
             } else {
-                StatusCode::INTERNAL_SERVER_ERROR
+                Err(StatusCode::INTERNAL_SERVER_ERROR)
             }
-        })?;
-    Ok(Json(user.into()))
+        }
+    }
 }
 
 pub async fn change_password(
@@ -26,23 +40,15 @@ pub async fn change_password(
     State(state): State<AppState>,
     Json(req): Json<ChangePasswordRequest>,
 ) -> Result<StatusCode, StatusCode> {
-    // 读取当前用户
-    let user = state.db.get_user_by_id(user_id)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-        .ok_or(StatusCode::UNAUTHORIZED)?;
-
-    // 校验旧密码
-    let ok = verify(&req.current_password, &user.password_hash).unwrap_or(false);
-    if !ok {
-        return Err(StatusCode::UNAUTHORIZED);
+    match state.user_service.change_password(user_id.try_into().unwrap(), &req.current_password, &req.new_password).await {
+        Ok(()) => Ok(StatusCode::NO_CONTENT),
+        Err(e) => {
+            let msg = e.to_string();
+            if msg.contains("密码错误") || msg.contains("用户不存在") {
+                Err(StatusCode::UNAUTHORIZED)
+            } else {
+                Err(StatusCode::INTERNAL_SERVER_ERROR)
+            }
+        }
     }
-
-    // 更新新密码
-    let new_hash = hash(&req.new_password, DEFAULT_COST).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    state.db.change_user_password(user_id, &new_hash)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    Ok(StatusCode::NO_CONTENT)
 }

@@ -58,21 +58,21 @@ impl<'a> ChatService<'a> {
 
         let customer = self
             .state
-            .db
-            .create_or_update_customer(shop_id, external_customer_id, upsert)
+            .customer_service
+            .create_or_update_customer(shop_id as i32, external_customer_id.to_string(), serde_json::to_value(upsert)?)
             .await?;
 
         let session = match self
             .state
-            .db
-            .get_session_by_shop_customer(shop_id, customer.id)
+            .session_service
+            .get_session_by_shop_customer(shop_id as i32, customer.id)
             .await?
         {
             Some(session) => session,
-            None => self.state.db.create_session(shop_id, customer.id).await?,
+            None => self.state.session_service.create_session(shop_id as i32, customer.id).await?,
         };
 
-        Ok((customer, session))
+        Ok((customer.into(), session.into()))
     }
 
     pub async fn persist_customer_message(
@@ -86,10 +86,12 @@ impl<'a> ChatService<'a> {
             .persist_message(session, "customer", None, &payload)
             .await?;
 
-        self.state
-            .db
-            .update_unread_count(shop_id, customer.id, 1)
-            .await?;
+        crate::repositories::UnreadCountRepository::update_unread_count(
+            &self.state.db_connection,
+            shop_id,
+            customer.id,
+            1
+        ).await?;
 
         Ok(PersistedMessage {
             message: persisted,
@@ -113,10 +115,11 @@ impl<'a> ChatService<'a> {
             .persist_message(session, "staff", Some(staff_id), &payload)
             .await?;
 
-        self.state
-            .db
-            .reset_unread_count(session.shop_id, customer.id)
-            .await?;
+        crate::repositories::UnreadCountRepository::reset_unread_count(
+            &self.state.db_connection,
+            session.shop_id as i64,
+            customer.id
+        ).await?;
 
         Ok(PersistedMessage {
             message: persisted,
@@ -143,20 +146,17 @@ impl<'a> ChatService<'a> {
             payload.message_type.clone()
         };
 
-        let message = self
-            .state
-            .db
-            .create_message(
-                session.id,
-                sender_type,
-                sender_id,
-                &content,
-                &message_type,
-                payload.file_url.as_deref(),
-            )
-            .await?;
+        let message = crate::repositories::MessageRepository::create(
+            &self.state.db_connection,
+            session.id as i32,
+            sender_type.to_string(),
+            sender_id.map(|id| id as i32),
+            Some(content),
+            message_type,
+            payload.file_url.clone().unwrap_or_default(),
+        ).await?;
 
-        Ok(message)
+        Ok(message.into())
     }
 
     pub fn build_ws_message(
@@ -200,18 +200,16 @@ impl<'a> ChatService<'a> {
         }
     }
 
-    pub async fn resolve_session(&self, session_id: i64) -> Result<(Session, Customer)> {
-        let session = self
-            .state
-            .db
-            .get_session_by_id(session_id)
-            .await?
+    pub async fn resolve_session(&self, session_id: i64) -> Result<(crate::entities::sessions::Model, crate::entities::customers::Model)> {
+        let session = crate::repositories::SessionRepository::find_by_id(
+            &self.state.db_connection,
+            session_id as i32
+        ).await?
             .ok_or_else(|| anyhow!("session not found"))?;
-        let customer = self
-            .state
-            .db
-            .get_customer_by_id(session.customer_id)
-            .await?
+        let customer = crate::repositories::CustomerRepository::find_by_id(
+            &self.state.db_connection,
+            session.customer_id
+        ).await?
             .ok_or_else(|| anyhow!("customer not found"))?;
         Ok((session, customer))
     }

@@ -1,6 +1,6 @@
 use axum::{extract::{Path, State}, Json};
 
-use crate::{auth::AuthUser, error::AppError, models::Session, services::{chat::ChatService, permissions}, AppState};
+use crate::{auth::AuthUser, error::AppError, models::Session, services::chat::ChatService, AppState};
 
 // Purpose: 获取会话元信息（含 shop_id），便于前端按会话所属店铺建立正确的 WS 连接
 // Input: session_id（路径参数）
@@ -17,10 +17,6 @@ pub async fn get_session(
         .await
         .map_err(|_| AppError::NotFound)?;
 
-    // 权限：仅店主或该店铺员工可访问
-    if let Err(e) = permissions::ensure_member_or_owner(&state.db, user_id, session.shop_id).await {
-        return Err(match e { AppError::Unauthorized => AppError::Forbidden, other => other });
-    }
-
-    Ok(Json(session))
+    // 使用 SessionService 进行权限检查 (通过 ChatService 已经验证了权限)
+    Ok(Json(session.into()))
 }

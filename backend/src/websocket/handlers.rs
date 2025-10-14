@@ -290,16 +290,16 @@ pub async fn handle_staff_ws_message(
             };
 
             let persisted = chat_service
-                .persist_staff_message(&session, user_id, payload, &customer)
+                .persist_staff_message(&session.clone().into(), user_id, payload, &customer.clone().into())
                 .await?;
 
             let mut manager = state.connections.lock().unwrap();
             manager.send_to_customer(
-                session.shop_id,
+                session.shop_id as i64,
                 &customer.customer_id,
                 &persisted.ws_message,
             );
-            manager.broadcast_to_staff(session.shop_id, &persisted.ws_message);
+            manager.broadcast_to_staff(session.shop_id as i64, &persisted.ws_message);
         }
         crate::constants::ws_incoming::TYPING => {
             if let Some(session_id) = incoming.session_id {
@@ -332,8 +332,8 @@ pub async fn handle_staff_ws_message(
                 };
 
                 let mut manager = state.connections.lock().unwrap();
-                manager.send_to_customer(session.shop_id, &customer.customer_id, &typing_message);
-                manager.broadcast_to_staff(session.shop_id, &typing_message);
+                manager.send_to_customer(session.shop_id as i64, &customer.customer_id, &typing_message);
+                manager.broadcast_to_staff(session.shop_id as i64, &typing_message);
             }
         }
         other => {

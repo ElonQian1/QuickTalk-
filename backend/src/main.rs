@@ -23,10 +23,14 @@ use tracing::{error, info, warn};
 mod auth;
 mod constants;
 mod database;
+mod database_orm;
+mod entities;
 mod error;
 mod handlers;
 mod jwt;
+mod migration;
 mod models;
+mod repositories;
 mod server;
 mod services;
 mod tls;
@@ -42,8 +46,16 @@ use websocket::{handle_customer_ws_message, handle_staff_ws_message, CustomerWsC
 
 #[derive(Clone)]
 pub struct AppState {
-    pub db: Database,
+    pub db: Database, // Legacy database - 将在 Phase 4 清理
+    pub db_orm: database_orm::Database, // Sea-ORM 连接
+    pub db_connection: sea_orm::DatabaseConnection, // Sea-ORM 连接直接访问
     pub connections: Arc<Mutex<ConnectionManager>>,
+    // 新的 Services 层
+    pub user_service: services::UserService,
+    pub shop_service: services::ShopService,
+    pub customer_service: services::CustomerService,
+    pub session_service: services::SessionService,
+    pub message_service: services::MessageService,
 }
 
 #[tokio::main]
@@ -56,18 +68,47 @@ async fn main() -> Result<()> {
     // 初始化数据库
     let db_url =
         std::env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite:./customer_service.db".to_string());
+    
+    // 🔥 方式1: 使用旧的 sqlx Database（向后兼容）
     let db = Database::new(&db_url).await?;
     
-    // 确保数据库架构在启动时应用
-    info!("Running database migration...");
-    if let Err(e) = db.migrate().await {
-        error!(error=?e, "Database migration failed");
-        return Err(e);
+    // 🚀 方式2: 使用新的 Sea-ORM Database
+    info!("🔌 Initializing Sea-ORM connection...");
+    let db_orm = database_orm::Database::new(&db_url).await?;
+    
+    // 🔄 运行 Sea-ORM 迁移（优先使用）
+    info!("🔄 Running Sea-ORM migrations...");
+    if let Err(e) = database_orm::run_migrations(db_orm.get_connection()).await {
+        error!(error=?e, "❌ Sea-ORM migration failed");
+        // 回退到旧的迁移系统
+        warn!("⚠️  Falling back to legacy migration...");
+        if let Err(e2) = db.migrate().await {
+            error!(error=?e2, "❌ Legacy migration also failed");
+            return Err(e2);
+        }
     }
-    info!("Database migration completed successfully");
+    info!("✅ Database migrations completed successfully");
+    
     let connections = Arc::new(Mutex::new(ConnectionManager::new()));
 
-    let state = AppState { db, connections };
+    // 创建 Services 实例 - 使用 Sea-ORM DatabaseConnection
+    let user_service = services::UserService::new(db_orm.get_connection().clone());
+    let shop_service = services::ShopService::new(db_orm.get_connection().clone());
+    let customer_service = services::CustomerService::new(db_orm.get_connection().clone());
+    let session_service = services::SessionService::new(db_orm.get_connection().clone());
+    let message_service = services::MessageService::new(db_orm.get_connection().clone());
+
+    let state = AppState { 
+        db, 
+        db_orm: db_orm.clone(),
+        db_connection: db_orm.clone_connection(),
+        connections,
+        user_service,
+        shop_service,
+        customer_service,
+        session_service,
+        message_service,
+    };
 
     // 创建应用路由
     let app = create_router(state);
@@ -199,7 +240,7 @@ async fn websocket_handler_customer(
 }
 
 async fn resolve_shop_id(state: &AppState, shop_ref: &str) -> Result<i64, Response> {
-    match services::shop_utils::resolve_shop_id(&state.db, shop_ref).await {
+    match services::shop_utils::resolve_shop_id(&state.db_connection, shop_ref).await {
         Ok(Some(id)) => Ok(id),
         Ok(None) => Err((
             StatusCode::NOT_FOUND,

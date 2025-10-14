@@ -1,11 +1,11 @@
 use axum::{extract::State, http::StatusCode, Json};
-use bcrypt::{hash, verify, DEFAULT_COST};
 use chrono::{Duration, Utc};
 
 use crate::{
     auth::jwt_secret_from_env,
     jwt::{encode_token, Claims},
     models::*,
+    error::AppError,
     AppState,
 };
 
@@ -13,17 +13,20 @@ pub async fn login(
     State(state): State<AppState>,
     Json(payload): Json<LoginRequest>,
 ) -> Result<Json<AuthResponse>, StatusCode> {
-    // 查找用户
-    let user = match state.db.get_user_by_username(&payload.username).await {
-        Ok(Some(user)) => user,
-        Ok(None) => return Err(StatusCode::UNAUTHORIZED),
-        Err(_) => return Err(StatusCode::INTERNAL_SERVER_ERROR),
+    // 使用 UserService 进行身份验证
+    let user = match state
+        .user_service
+        .authenticate(&payload.username, &payload.password)
+        .await
+    {
+        Ok(user) => user,
+        Err(e) => {
+            match e.to_string().as_str() {
+                "用户不存在" | "密码错误" => return Err(StatusCode::UNAUTHORIZED),
+                _ => return Err(StatusCode::INTERNAL_SERVER_ERROR),
+            }
+        }
     };
-
-    // 验证密码
-    if !verify(&payload.password, &user.password_hash).unwrap_or(false) {
-        return Err(StatusCode::UNAUTHORIZED);
-    }
 
     // 生成 JWT
     let exp = Utc::now()
@@ -51,30 +54,19 @@ pub async fn register(
     State(state): State<AppState>,
     Json(payload): Json<RegisterRequest>,
 ) -> Result<Json<AuthResponse>, StatusCode> {
-    // 检查用户名是否已存在
-    match state.db.get_user_by_username(&payload.username).await {
-        Ok(Some(_)) => return Err(StatusCode::CONFLICT),
-        Ok(None) => {}
-        Err(_) => return Err(StatusCode::INTERNAL_SERVER_ERROR),
-    }
-
-    // 哈希密码
-    let password_hash =
-        hash(&payload.password, DEFAULT_COST).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    // 创建用户
+    // 使用 UserService 注册用户
     let user = match state
-        .db
-        .create_user(
-            &payload.username,
-            &password_hash,
-            payload.email.as_deref(),
-            payload.phone.as_deref(),
-        )
+        .user_service
+        .register(payload.username, payload.password, payload.email, payload.phone)
         .await
     {
         Ok(user) => user,
-        Err(_) => return Err(StatusCode::INTERNAL_SERVER_ERROR),
+        Err(e) => {
+            match e.to_string().as_str() {
+                "用户名已存在" => return Err(StatusCode::CONFLICT),
+                _ => return Err(StatusCode::INTERNAL_SERVER_ERROR),
+            }
+        }
     };
 
     // 生成 JWT

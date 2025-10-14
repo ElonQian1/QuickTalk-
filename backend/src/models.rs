@@ -199,8 +199,69 @@ impl From<User> for UserPublic {
     }
 }
 
+impl From<crate::entities::users::Model> for UserPublic {
+    fn from(user: crate::entities::users::Model) -> Self {
+        UserPublic {
+            id: user.id as i64,
+            username: user.username,
+            email: user.email,
+            phone: user.phone,
+            avatar_url: user.avatar_url,
+        }
+    }
+}
+
+impl From<crate::entities::sessions::Model> for Session {
+    fn from(session: crate::entities::sessions::Model) -> Self {
+        Session {
+            id: session.id as i64,
+            shop_id: session.shop_id as i64,
+            customer_id: session.customer_id as i64,
+            staff_id: session.staff_id.map(|id| id as i64),
+            session_status: session.status,
+            created_at: session.created_at.and_utc(),
+            closed_at: session.ended_at.map(|dt| dt.and_utc()),
+            last_message_at: session.last_message_at.unwrap_or(session.created_at).and_utc(),
+        }
+    }
+}
+
+impl From<crate::entities::customers::Model> for Customer {
+    fn from(customer: crate::entities::customers::Model) -> Self {
+        Customer {
+            id: customer.id as i64,
+            shop_id: customer.shop_id as i64,
+            customer_id: customer.customer_id,
+            customer_name: customer.name,
+            customer_email: customer.email,
+            customer_avatar: customer.avatar_url,
+            ip_address: None, // Entity中没有此字段，设为None
+            user_agent: None, // Entity中没有此字段，设为None
+            first_visit_at: customer.created_at.and_utc(),
+            last_active_at: customer.updated_at.and_utc(),
+            status: if customer.is_blocked { 0 } else { 1 }, // 0=blocked, 1=active
+        }
+    }
+}
+
+impl From<crate::entities::messages::Model> for Message {
+    fn from(message: crate::entities::messages::Model) -> Self {
+        Message {
+            id: message.id as i64,
+            session_id: message.session_id as i64,
+            sender_type: message.sender_type,
+            sender_id: message.sender_id.map(|id| id as i64),
+            content: message.content,
+            message_type: message.message_type,
+            file_url: None, // Entity中没有此字段，设为None
+            status: if message.is_deleted { "deleted".to_string() } else { "active".to_string() },
+            created_at: message.created_at.and_utc(),
+        }
+    }
+}
+
 // 输入 DTO：用于创建/更新客户信息（减少函数参数个数）
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize)]
 pub struct CustomerUpsert<'a> {
     pub name: Option<&'a str>,
     pub email: Option<&'a str>,

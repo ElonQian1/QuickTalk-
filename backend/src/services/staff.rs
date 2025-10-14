@@ -19,22 +19,20 @@ pub struct StaffItem {
     pub role: String,
 }
 
-pub async fn list_staff(db: &Database, requester_id: i64, shop_id: i64) -> Result<Vec<StaffItem>, AppError> {
-    let is_member = db
-        .is_shop_member(shop_id, requester_id)
+pub async fn list_staff(db: &sea_orm::DatabaseConnection, requester_id: i64, shop_id: i64) -> Result<Vec<StaffItem>, AppError> {
+    let is_member = crate::repositories::ShopStaffRepository::is_shop_member(db, shop_id, requester_id)
         .await
         .map_err(|_| AppError::Internal("check_membership_failed".to_string()))?;
     if !is_member {
         return Err(AppError::Unauthorized);
     }
 
-    let items = db
-        .list_shop_staff(shop_id)
+    let items = crate::repositories::ShopStaffRepository::list_shop_staff(db, shop_id)
         .await
         .map_err(|_| AppError::Internal("list_staff_failed".to_string()))?
         .into_iter()
         .map(|(u, role)| StaffItem {
-            id: u.id,
+            id: u.id as i64,
             username: u.username,
             email: u.email,
             phone: u.phone,
@@ -46,11 +44,10 @@ pub async fn list_staff(db: &Database, requester_id: i64, shop_id: i64) -> Resul
     Ok(items)
 }
 
-pub async fn add_staff(db: &Database, requester_id: i64, shop_id: i64, username: &str) -> Result<(), AppError> {
+pub async fn add_staff(db: &sea_orm::DatabaseConnection, requester_id: i64, shop_id: i64, username: &str) -> Result<(), AppError> {
     error!(target: "staff", "add_staff called: requester_id={}, shop_id={}, username={}", requester_id, shop_id, username);
     
-    let is_owner = db
-        .is_shop_owner(shop_id, requester_id)
+    let is_owner = crate::repositories::ShopStaffRepository::is_shop_owner(db, shop_id, requester_id)
         .await
         .map_err(|_| AppError::Internal("check_owner_failed".to_string()))?;
     if !is_owner {
@@ -62,8 +59,7 @@ pub async fn add_staff(db: &Database, requester_id: i64, shop_id: i64, username:
         return Err(AppError::BadRequest("username_required".to_string()));
     }
 
-    db
-        .add_shop_staff_by_username(shop_id, username.trim(), Some("staff"))
+    crate::repositories::ShopStaffRepository::add_shop_staff_by_username(db, shop_id, username.trim(), Some("staff"))
         .await
         .map_err(|e| {
             let msg = e.to_string();
@@ -83,20 +79,18 @@ pub async fn add_staff(db: &Database, requester_id: i64, shop_id: i64, username:
         })
 }
 
-pub async fn remove_staff(db: &Database, requester_id: i64, shop_id: i64, user_id: i64) -> Result<(), AppError> {
-    let is_owner = db
-        .is_shop_owner(shop_id, requester_id)
+pub async fn remove_staff(db: &sea_orm::DatabaseConnection, requester_id: i64, shop_id: i64, user_id: i64) -> Result<(), AppError> {
+    let is_owner = crate::repositories::ShopStaffRepository::is_shop_owner(db, shop_id, requester_id)
         .await
         .map_err(|_| AppError::Internal("check_owner_failed".to_string()))?;
     if !is_owner {
         return Err(AppError::Unauthorized);
     }
     // 不允许删除店主
-    if db.is_shop_owner(shop_id, user_id).await.unwrap_or(false) {
+    if crate::repositories::ShopStaffRepository::is_shop_owner(db, shop_id, user_id).await.unwrap_or(false) {
         return Err(AppError::BadRequest("cannot_remove_owner".to_string()));
     }
-    let affected = db
-        .remove_shop_staff(shop_id, user_id)
+    let affected = crate::repositories::ShopStaffRepository::remove_shop_staff(db, shop_id, user_id)
         .await
         .map_err(|_| AppError::Internal("remove_staff_failed".to_string()))?;
     if affected == 0 {
