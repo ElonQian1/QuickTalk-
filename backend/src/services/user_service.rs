@@ -37,31 +37,38 @@ impl UserService {
         email: Option<String>,
         phone: Option<String>,
     ) -> Result<users::Model> {
+        println!("UserService::register - 开始注册用户: {}", username);
+        
         // 1. 验证用户名是否已存在
+        println!("UserService::register - 检查用户名是否存在");
         if UserRepository::username_exists(&self.db, &username).await? {
             anyhow::bail!("用户名已存在");
         }
         
         // 2. 验证邮箱是否已存在（如果提供）
         if let Some(ref email_val) = email {
+            println!("UserService::register - 检查邮箱是否存在: {}", email_val);
             if UserRepository::email_exists(&self.db, email_val).await? {
                 anyhow::bail!("邮箱已存在");
             }
         }
         
         // 3. 加密密码
+        println!("UserService::register - 加密密码");
         let password_hash = hash(password, DEFAULT_COST)?;
         
         // 4. 创建用户
+        println!("UserService::register - 创建用户记录");
         let user = UserRepository::create(
             &self.db,
             username,
             password_hash,
             email,
-            phone, // 使用 phone 而不是 display_name
-            None, // 默认角色 "staff"
+            phone,
+            Some("staff".to_string()), // 默认角色
         ).await?;
         
+        println!("UserService::register - 用户创建成功: {:?}", user);
         Ok(user)
     }
     
@@ -83,7 +90,7 @@ impl UserService {
             .ok_or_else(|| anyhow::anyhow!("invalid_credentials"))?;
         
         // 2. 检查用户是否活跃
-        if !user.is_active {
+        if user.status != 1 {
             anyhow::bail!("user_inactive");
         }
         

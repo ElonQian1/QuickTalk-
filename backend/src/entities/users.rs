@@ -16,14 +16,12 @@ pub struct Model {
     pub phone: Option<String>,
     
     pub password_hash: String,
-    pub display_name: Option<String>,
-    
-    #[sea_orm(column_type = "String(Some(20))")]
-    pub role: String,
     
     pub avatar_url: Option<String>,
-    pub is_active: bool,
-    pub last_login: Option<DateTime>,
+    
+    // 使用 status 而不是 is_active 来匹配数据库
+    pub status: i32,
+    
     pub created_at: DateTime,
     pub updated_at: DateTime,
 }

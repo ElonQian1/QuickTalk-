@@ -1,5 +1,11 @@
 # ELonTalk 客服系统 - 生产环境部署总结
 
+我的项目都部署在 /root/ubuntu-deploy-ready/
+不要 帮我采用任何/opt的路径
+我就已经是管理员身份登录到Ubuntu服务器了
+ 我的项目 采用 Sea-ORM 架构  自动部署数据库
+
+
 ## 📋 服务器信息
 
 - **duckDns域名token**: 400bfeb6-b2fe-40e8-8cb6-7d38a2b943ca

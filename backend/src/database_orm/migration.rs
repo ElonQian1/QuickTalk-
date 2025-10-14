@@ -58,12 +58,12 @@ async fn create_tables_manually(db: &DatabaseConnection) -> Result<()> {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username VARCHAR(50) UNIQUE NOT NULL,
             email VARCHAR(100) UNIQUE,
+            phone VARCHAR(20),
             password_hash VARCHAR(255) NOT NULL,
             display_name VARCHAR(100),
             role VARCHAR(20) NOT NULL DEFAULT 'staff',
             avatar_url TEXT,
-            is_active BOOLEAN NOT NULL DEFAULT 1,
-            last_login TIMESTAMP,
+            status INTEGER NOT NULL DEFAULT 1,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
         );

@@ -25,6 +25,7 @@ impl MigrationTrait for Migration {
                             .unique_key(),
                     )
                     .col(ColumnDef::new(Users::Email).string_len(100).unique_key())
+                    .col(ColumnDef::new(Users::Phone).string_len(20))
                     .col(
                         ColumnDef::new(Users::PasswordHash)
                             .string_len(255)
@@ -122,6 +123,7 @@ enum Users {
     Id,
     Username,
     Email,
+    Phone,
     PasswordHash,
     DisplayName,
     Role,

@@ -8,6 +8,7 @@ mod m20241014_000005_create_messages_table;
 mod m20241014_000006_create_shop_staffs_table;
 mod m20241014_000007_create_unread_counts_table;
 mod m20241014_000008_create_online_status_table;
+mod m20241014_000009_alter_users_table;
 
 pub struct Migrator;
 
@@ -23,6 +24,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20241014_000006_create_shop_staffs_table::Migration),
             Box::new(m20241014_000007_create_unread_counts_table::Migration),
             Box::new(m20241014_000008_create_online_status_table::Migration),
+            Box::new(m20241014_000009_alter_users_table::Migration),
         ]
     }
 }

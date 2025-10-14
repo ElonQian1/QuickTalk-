@@ -18,7 +18,7 @@ use std::{
 };
 use tokio::sync::mpsc;
 use tower_http::cors::CorsLayer;
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 
 mod auth;
 mod constants;
@@ -38,11 +38,117 @@ mod websocket;
 
 use database::Database;
 use models::{Customer, Session, WebSocketIncomingMessage, WebSocketMessage};
-use server::{HttpsServer, ServerConfig, ServerType, start_http_redirect};
+use server::{HttpsServer, ServerConfig, start_http_redirect};
 use services::chat::ChatService;
 use tls::TlsConfig;
 use websocket::ConnectionManager;
 use websocket::{handle_customer_ws_message, handle_staff_ws_message, CustomerWsCtx};
+
+/// 终止旧的程序进程
+async fn terminate_old_processes() {
+    info!("🔍 检查并终止旧的客服系统进程...");
+    
+    // 在Linux上查找并终止旧进程
+    if cfg!(target_os = "linux") {
+        // 获取当前进程ID，避免自杀
+        let current_pid = std::process::id();
+        info!("当前进程ID: {}", current_pid);
+        
+        // 先用pgrep查找所有匹配的进程
+        match std::process::Command::new("pgrep")
+            .arg("-f")
+            .arg("customer-service-backend")
+            .output()
+        {
+            Ok(output) => {
+                if output.status.success() {
+                    let pids_str = String::from_utf8_lossy(&output.stdout);
+                    let mut terminated_count = 0;
+                    
+                    for line in pids_str.lines() {
+                        if let Ok(pid) = line.trim().parse::<u32>() {
+                            if pid != current_pid {
+                                info!("发现旧进程: {}, 正在终止...", pid);
+                                match std::process::Command::new("kill")
+                                    .arg(&pid.to_string())
+                                    .output()
+                                {
+                                    Ok(_) => {
+                                        terminated_count += 1;
+                                        info!("✅ 已终止进程: {}", pid);
+                                    }
+                                    Err(e) => {
+                                        warn!("⚠️  无法终止进程 {}: {}", pid, e);
+                                    }
+                                }
+                            } else {
+                                info!("🔒 跳过当前进程: {} (避免自杀)", pid);
+                            }
+                        }
+                    }
+                    
+                    if terminated_count > 0 {
+                        info!("✅ 已终止 {} 个旧进程", terminated_count);
+                    } else {
+                        info!("ℹ️  没有找到需要终止的旧进程");
+                    }
+                } else {
+                    info!("ℹ️  没有找到匹配的进程");
+                }
+            }
+            Err(e) => {
+                warn!("⚠️  无法执行pgrep命令: {}", e);
+            }
+        }
+        
+        // 额外检查HTTPS端口占用
+        match std::process::Command::new("lsof")
+            .arg("-ti:8443")
+            .output()
+        {
+            Ok(output) => {
+                if !output.stdout.is_empty() {
+                    let pids = String::from_utf8_lossy(&output.stdout);
+                    for pid in pids.trim().lines() {
+                        info!("🔄 终止占用8443端口的进程: {}", pid);
+                        let _ = std::process::Command::new("kill")
+                            .arg("-9")
+                            .arg(pid)
+                            .output();
+                    }
+                }
+            }
+            Err(_) => {
+                debug!("无法检查端口占用情况");
+            }
+        }
+        
+        // 也检查HTTP端口
+        match std::process::Command::new("lsof")
+            .arg("-ti:8080")
+            .output()
+        {
+            Ok(output) => {
+                if !output.stdout.is_empty() {
+                    let pids = String::from_utf8_lossy(&output.stdout);
+                    for pid in pids.trim().lines() {
+                        info!("🔄 终止占用8080端口的进程: {}", pid);
+                        let _ = std::process::Command::new("kill")
+                            .arg("-9")
+                            .arg(pid)
+                            .output();
+                    }
+                }
+            }
+            Err(_) => {
+                debug!("无法检查8080端口占用情况");
+            }
+        }
+    }
+    
+    // 等待一秒确保进程完全终止
+    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+}
 
 #[derive(Clone)]
 pub struct AppState {
@@ -60,14 +166,34 @@ pub struct AppState {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    tracing_subscriber::fmt::init();
+    // 初始化日志系统，强制显示详细信息
+    tracing_subscriber::fmt()
+        .with_env_filter("debug")
+        .with_target(true)
+        .with_thread_ids(true)
+        .with_file(true)
+        .with_line_number(true)
+        .init();
+
+    info!("🚀 客服系统启动中...");
+    
+    // 在启动时终止旧进程
+    terminate_old_processes().await;
 
     // 加载 .env（如果存在）
     let _ = dotenvy::dotenv();
     
+    // 强制启用HTTPS模式
+    std::env::set_var("SERVER_TYPE", "https");
+    std::env::set_var("ENABLE_HTTP_REDIRECT", "true");
+    
+    info!("🔒 强制启用HTTPS模式");
+    
     // 初始化数据库
     let db_url =
         std::env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite:./customer_service.db".to_string());
+    
+    info!("📦 数据库URL: {}", db_url);
     
     // 🔥 方式1: 使用旧的 sqlx Database（向后兼容）
     let db = Database::new(&db_url).await?;
@@ -141,22 +267,22 @@ async fn main() -> Result<()> {
 
     // 打印配置信息
     server_config.print_info();
-
-    // 根据配置启动对应的服务器
-    match server_config.server_type {
-        ServerType::Https => {
-            // 强制HTTPS模式
-            start_https_server(app, &server_config, &tls_config).await?;
-        }
-        ServerType::Http => {
-            // 强制HTTP模式
-            start_http_server(app, &server_config).await?;
-        }
-        ServerType::Auto => {
-            // 智能模式：优先HTTPS，失败时回退到HTTP
-            start_auto_server(app, &server_config, &tls_config).await?;
-        }
+    
+    info!("🔒 强制启动HTTPS服务器 (生产环境要求)");
+    
+    // 验证HTTPS配置
+    let https_server = HttpsServer::new(tls_config.clone());
+    if let Err(e) = https_server.validate_config() {
+        error!("❌ HTTPS配置验证失败: {:?}", e);
+        error!("🚨 系统要求必须使用HTTPS，请检查证书配置！");
+        https_server.print_cert_help();
+        return Err(anyhow::anyhow!("HTTPS配置验证失败，系统要求强制HTTPS"));
     }
+    
+    info!("✅ HTTPS配置验证成功");
+
+    // 强制启动HTTPS服务器
+    start_https_server(app, &server_config, &tls_config).await?;
 
     Ok(())
 }

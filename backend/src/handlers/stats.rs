@@ -8,6 +8,9 @@ pub async fn get_dashboard_stats(
 ) -> Result<Json<dashboard::DashboardStats>, AppError> {
     match dashboard::get_dashboard_stats(&state.db, user_id).await {
         Ok(stats) => Ok(Json(stats)),
-        Err(_) => Err(AppError::Internal("获取仪表盘统计失败".to_string())),
+        Err(e) => {
+            tracing::error!("获取仪表盘统计失败: {}", e);
+            Err(AppError::Internal(format!("获取仪表盘统计失败: {}", e)))
+        }
     }
 }
