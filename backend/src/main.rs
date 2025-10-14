@@ -76,18 +76,40 @@ async fn main() -> Result<()> {
     info!("🔌 Initializing Sea-ORM connection...");
     let db_orm = database_orm::Database::new(&db_url).await?;
     
-    // 🔄 运行 Sea-ORM 迁移（优先使用）
-    info!("🔄 Running Sea-ORM migrations...");
-    if let Err(e) = database_orm::run_migrations(db_orm.get_connection()).await {
-        error!(error=?e, "❌ Sea-ORM migration failed");
-        // 回退到旧的迁移系统
-        warn!("⚠️  Falling back to legacy migration...");
-        if let Err(e2) = db.migrate().await {
-            error!(error=?e2, "❌ Legacy migration also failed");
-            return Err(e2);
+    // 🔄 数据库迁移处理 - 支持完全跳过
+    let skip_migration = std::env::var("DISABLE_MIGRATION")
+        .or_else(|_| std::env::var("SKIP_DATABASE_MIGRATION"))
+        .or_else(|_| std::env::var("NO_MIGRATION"))
+        .or_else(|_| std::env::var("DATABASE_SKIP_MIGRATION"))
+        .map(|v| v.to_lowercase() == "true")
+        .unwrap_or(false);
+
+    if skip_migration {
+        warn!("⚠️  Migration 完全跳过 (环境变量设置)");
+        info!("📊 验证数据库连接...");
+        
+        // 简单验证数据库连接是否正常
+        match db_orm.get_connection().ping().await {
+            Ok(_) => info!("✅ 数据库连接验证成功"),
+            Err(e) => {
+                error!(error=?e, "❌ 数据库连接失败");
+                return Err(anyhow::anyhow!("数据库连接失败: {}", e));
+            }
         }
+    } else {
+        // 正常的迁移流程
+        info!("🔄 Running Sea-ORM migrations...");
+        if let Err(e) = database_orm::run_migrations(db_orm.get_connection()).await {
+            error!(error=?e, "❌ Sea-ORM migration failed");
+            // 回退到旧的迁移系统
+            warn!("⚠️  Falling back to legacy migration...");
+            if let Err(e2) = db.migrate().await {
+                error!(error=?e2, "❌ Legacy migration also failed");
+                return Err(e2);
+            }
+        }
+        info!("✅ Database migrations completed successfully");
     }
-    info!("✅ Database migrations completed successfully");
     
     let connections = Arc::new(Mutex::new(ConnectionManager::new()));
 

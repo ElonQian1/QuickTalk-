@@ -55,13 +55,24 @@ impl ServerConfig {
             .unwrap_or(8443);
 
         let tls_mode = std::env::var("TLS_MODE")
-            .unwrap_or_else(|_| "auto".to_string())
+            .unwrap_or_else(|_| "http".to_string())  // 默认使用 HTTP 模式，避免端口冲突
             .to_lowercase();
 
-        let server_type = match tls_mode.as_str() {
-            "true" | "https" | "force" => ServerType::Https,
-            "false" | "http" | "disabled" => ServerType::Http,
-            "auto" | "smart" | _ => ServerType::Auto,
+        // 检查强制 HTTP-only 环境变量
+        let force_http_only = std::env::var("FORCE_HTTP_ONLY")
+            .or_else(|_| std::env::var("HTTPS_DISABLED"))
+            .or_else(|_| std::env::var("USE_HTTP_ONLY"))
+            .map(|v| v.to_lowercase() == "true")
+            .unwrap_or(false);
+
+        let server_type = if force_http_only {
+            ServerType::Http
+        } else {
+            match tls_mode.as_str() {
+                "true" | "https" | "force" => ServerType::Https,
+                "false" | "http" | "disabled" => ServerType::Http,
+                "auto" | "smart" | _ => ServerType::Auto,
+            }
         };
 
         Self {
