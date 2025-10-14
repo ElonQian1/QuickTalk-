@@ -18,53 +18,13 @@ impl MigrationTrait for Migration {
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(
-                        ColumnDef::new(Sessions::SessionId)
-                            .string_len(100)
-                            .not_null()
-                            .unique_key(),
-                    )
                     .col(ColumnDef::new(Sessions::ShopId).integer().not_null())
                     .col(ColumnDef::new(Sessions::CustomerId).integer().not_null())
                     .col(ColumnDef::new(Sessions::StaffId).integer())
-                    .col(
-                        ColumnDef::new(Sessions::Status)
-                            .string_len(20)
-                            .not_null()
-                            .default("active"),
-                    )
-                    .col(
-                        ColumnDef::new(Sessions::Priority)
-                            .integer()
-                            .not_null()
-                            .default(0),
-                    )
-                    .col(ColumnDef::new(Sessions::Source).string_len(50))
-                    .col(ColumnDef::new(Sessions::Title).string_len(200))
-                    .col(ColumnDef::new(Sessions::Summary).text())
-                    .col(ColumnDef::new(Sessions::Tags).text())
-                    .col(ColumnDef::new(Sessions::Rating).integer())
-                    .col(ColumnDef::new(Sessions::Feedback).text())
-                    .col(
-                        ColumnDef::new(Sessions::StartedAt)
-                            .timestamp()
-                            .not_null()
-                            .default(Expr::current_timestamp()),
-                    )
-                    .col(ColumnDef::new(Sessions::EndedAt).timestamp())
-                    .col(ColumnDef::new(Sessions::LastMessageAt).timestamp())
-                    .col(
-                        ColumnDef::new(Sessions::CreatedAt)
-                            .timestamp()
-                            .not_null()
-                            .default(Expr::current_timestamp()),
-                    )
-                    .col(
-                        ColumnDef::new(Sessions::UpdatedAt)
-                            .timestamp()
-                            .not_null()
-                            .default(Expr::current_timestamp()),
-                    )
+                    .col(ColumnDef::new(Sessions::SessionStatus).string_len(20).default("active"))
+                    .col(ColumnDef::new(Sessions::CreatedAt).timestamp().default(Expr::current_timestamp()))
+                    .col(ColumnDef::new(Sessions::ClosedAt).timestamp())
+                    .col(ColumnDef::new(Sessions::LastMessageAt).timestamp().default(Expr::current_timestamp()))
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_sessions_shop")
@@ -124,38 +84,7 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
-        manager
-            .create_index(
-                Index::create()
-                    .if_not_exists()
-                    .name("idx_sessions_status")
-                    .table(Sessions::Table)
-                    .col(Sessions::Status)
-                    .to_owned(),
-            )
-            .await?;
-
-        manager
-            .create_index(
-                Index::create()
-                    .if_not_exists()
-                    .name("idx_sessions_started")
-                    .table(Sessions::Table)
-                    .col(Sessions::StartedAt)
-                    .to_owned(),
-            )
-            .await?;
-
-        manager
-            .create_index(
-                Index::create()
-                    .if_not_exists()
-                    .name("idx_sessions_last_message")
-                    .table(Sessions::Table)
-                    .col(Sessions::LastMessageAt)
-                    .to_owned(),
-            )
-            .await?;
+        // 索引保留 shop+customer / staff / last_message_at
 
         Ok(())
     }
@@ -168,27 +97,7 @@ impl MigrationTrait for Migration {
 }
 
 #[derive(Iden)]
-enum Sessions {
-    Table,
-    Id,
-    SessionId,
-    ShopId,
-    CustomerId,
-    StaffId,
-    Status,
-    Priority,
-    Source,
-    Title,
-    Summary,
-    Tags,
-    Rating,
-    Feedback,
-    StartedAt,
-    EndedAt,
-    LastMessageAt,
-    CreatedAt,
-    UpdatedAt,
-}
+enum Sessions { Table, Id, ShopId, CustomerId, StaffId, SessionStatus, CreatedAt, ClosedAt, LastMessageAt }
 
 #[derive(Iden)]
 enum Shops {

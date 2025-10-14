@@ -20,37 +20,8 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(ShopStaffs::ShopId).integer().not_null())
                     .col(ColumnDef::new(ShopStaffs::UserId).integer().not_null())
-                    .col(
-                        ColumnDef::new(ShopStaffs::Role)
-                            .string_len(20)
-                            .not_null()
-                            .default("staff"),
-                    )
-                    .col(ColumnDef::new(ShopStaffs::Permissions).json())
-                    .col(
-                        ColumnDef::new(ShopStaffs::IsActive)
-                            .boolean()
-                            .not_null()
-                            .default(true),
-                    )
-                    .col(
-                        ColumnDef::new(ShopStaffs::JoinedAt)
-                            .timestamp()
-                            .not_null()
-                            .default(Expr::current_timestamp()),
-                    )
-                    .col(
-                        ColumnDef::new(ShopStaffs::CreatedAt)
-                            .timestamp()
-                            .not_null()
-                            .default(Expr::current_timestamp()),
-                    )
-                    .col(
-                        ColumnDef::new(ShopStaffs::UpdatedAt)
-                            .timestamp()
-                            .not_null()
-                            .default(Expr::current_timestamp()),
-                    )
+                    .col(ColumnDef::new(ShopStaffs::Role).string_len(20).not_null().default("staff"))
+                    .col(ColumnDef::new(ShopStaffs::CreatedAt).timestamp().default(Expr::current_timestamp()))
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_shop_staffs_shop")
@@ -106,16 +77,7 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
-        manager
-            .create_index(
-                Index::create()
-                    .if_not_exists()
-                    .name("idx_shop_staffs_active")
-                    .table(ShopStaffs::Table)
-                    .col(ShopStaffs::IsActive)
-                    .to_owned(),
-            )
-            .await?;
+        // 移除 is_active / permissions / joined_at 索引（实际表不存在对应列）
 
         Ok(())
     }
@@ -128,18 +90,7 @@ impl MigrationTrait for Migration {
 }
 
 #[derive(Iden)]
-enum ShopStaffs {
-    Table,
-    Id,
-    ShopId,
-    UserId,
-    Role,
-    Permissions,
-    IsActive,
-    JoinedAt,
-    CreatedAt,
-    UpdatedAt,
-}
+enum ShopStaffs { Table, Id, ShopId, UserId, Role, CreatedAt }
 
 #[derive(Iden)]
 enum Shops {

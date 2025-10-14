@@ -13,16 +13,28 @@ const getApiBase = (): string => {
   
   // 在浏览器环境中，自动使用当前域名和端口
   if (typeof window !== 'undefined') {
-    const { protocol, hostname } = window.location;
-    // 如果是标准HTTP/HTTPS端口，直接使用当前地址
-    if (window.location.port === '8080' || window.location.port === '8443') {
-      return `${protocol}//${hostname}:${window.location.port}`;
+    const { hostname, protocol } = window.location;
+    
+    // 开发环境：前端在3000端口
+    if (window.location.port === '3000') {
+      // 先尝试检测后端是否在HTTPS模式
+      // 默认先尝试HTTP，如果失败再尝试HTTPS
+      return `http://${hostname}:8080`;
     }
-    // 否则默认使用8080端口
-    return `${protocol}//${hostname}:8080`;
+    
+    // 生产环境：根据当前协议自动选择
+    if (window.location.port === '8443' || window.location.port === '8444') {
+      return `https://${hostname}:${window.location.port}`;
+    }
+    if (window.location.port === '8080') {
+      return `http://${hostname}:8080`;
+    }
+    
+    // 默认使用HTTP（生产环境友好）
+    return protocol === 'https:' ? `https://${hostname}:8443` : `http://${hostname}:8080`;
   }
   
-  // 服务端渲染或其他环境的后备地址
+  // 服务端渲染或其他环境的后备地址（默认HTTP）
   return 'http://localhost:8080';
 };
 

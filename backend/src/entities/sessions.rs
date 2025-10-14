@@ -7,28 +7,16 @@ pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
     
-    #[sea_orm(unique)]
-    pub session_id: String,
-    
     pub shop_id: i32,
     pub customer_id: i32,
     pub staff_id: Option<i32>,
     
-    #[sea_orm(column_type = "String(Some(20))")]
+    #[sea_orm(column_name = "session_status")]
     pub status: String,
     
-    pub priority: i32,
-    pub source: Option<String>,
-    pub title: Option<String>,
-    pub summary: Option<String>,
-    pub tags: Option<String>,
-    pub rating: Option<i32>,
-    pub feedback: Option<String>,
-    pub started_at: DateTime,
-    pub ended_at: Option<DateTime>,
-    pub last_message_at: Option<DateTime>,
     pub created_at: DateTime,
-    pub updated_at: DateTime,
+    pub closed_at: Option<DateTime>,
+    pub last_message_at: Option<DateTime>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -56,9 +44,6 @@ pub enum Relation {
     
     #[sea_orm(has_many = "super::messages::Entity")]
     Messages,
-    
-    #[sea_orm(has_many = "super::unread_counts::Entity")]
-    UnreadCounts,
 }
 
 impl Related<super::shops::Entity> for Entity {
@@ -82,12 +67,6 @@ impl Related<super::users::Entity> for Entity {
 impl Related<super::messages::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Messages.def()
-    }
-}
-
-impl Related<super::unread_counts::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::UnreadCounts.def()
     }
 }
 

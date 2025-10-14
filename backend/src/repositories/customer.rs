@@ -50,9 +50,7 @@ impl CustomerRepository {
             if let Some(a) = avatar_url {
                 customer.avatar_url = Set(Some(a));
             }
-            customer.last_visit = Set(Some(chrono::Utc::now().naive_utc()));
-            customer.visit_count = Set(existing.visit_count + 1);
-            customer.updated_at = Set(chrono::Utc::now().naive_utc());
+            customer.last_active_at = Set(Some(chrono::Utc::now().naive_utc()));
             
             Ok(customer.update(db).await?)
         } else {
@@ -63,12 +61,9 @@ impl CustomerRepository {
                 name: Set(name),
                 email: Set(email),
                 avatar_url: Set(avatar_url),
-                first_visit: Set(Some(chrono::Utc::now().naive_utc())),
-                last_visit: Set(Some(chrono::Utc::now().naive_utc())),
-                visit_count: Set(1),
-                is_blocked: Set(false),
-                created_at: Set(chrono::Utc::now().naive_utc()),
-                updated_at: Set(chrono::Utc::now().naive_utc()),
+                first_visit_at: Set(Some(chrono::Utc::now().naive_utc())),
+                last_active_at: Set(Some(chrono::Utc::now().naive_utc())),
+                status: Set(Some(1)), // active status
                 ..Default::default()
             };
             
@@ -80,7 +75,7 @@ impl CustomerRepository {
     pub async fn find_by_shop(db: &DatabaseConnection, shop_id: i32) -> Result<Vec<customers::Model>> {
         let customers = Customers::find()
             .filter(customers::Column::ShopId.eq(shop_id))
-            .order_by_desc(customers::Column::LastVisit)
+            .order_by_desc(customers::Column::LastActiveAt)
             .all(db)
             .await?;
         Ok(customers)
@@ -94,7 +89,7 @@ impl CustomerRepository {
         let results = Customers::find()
             .find_also_related(Sessions)
             .filter(customers::Column::ShopId.eq(shop_id))
-            .order_by_desc(customers::Column::LastVisit)
+            .order_by_desc(customers::Column::LastActiveAt)
             .all(db)
             .await?;
         Ok(results)
@@ -109,7 +104,6 @@ impl CustomerRepository {
             .into();
         
         customer.last_active_at = Set(Some(chrono::Utc::now().naive_utc()));
-        customer.updated_at = Set(chrono::Utc::now().naive_utc());
         customer.update(db).await?;
         
         Ok(())
@@ -129,7 +123,7 @@ impl CustomerRepository {
         // 1. 获取店铺的所有客户
         let customers_list = Customers::find()
             .filter(customers::Column::ShopId.eq(shop_id))
-            .order_by_desc(customers::Column::LastVisit)
+            .order_by_desc(customers::Column::LastActiveAt)
             .all(db)
             .await?;
         
@@ -164,7 +158,7 @@ impl CustomerRepository {
                 .filter(unread_counts::Column::CustomerId.eq(customer.id))
                 .one(db)
                 .await?
-                .map(|uc| uc.count as i64)
+                .map(|uc| uc.unread_count as i64)
                 .unwrap_or(0);
             
             result.push((customer, session, last_message, unread_count));
@@ -181,8 +175,7 @@ impl CustomerRepository {
             .ok_or_else(|| anyhow::anyhow!("Customer not found"))?
             .into();
         
-        customer.is_blocked = Set(true);
-        customer.updated_at = Set(chrono::Utc::now().naive_utc());
+        customer.status = Set(Some(0)); // 0 = blocked
         customer.update(db).await?;
         
         Ok(())
@@ -196,8 +189,7 @@ impl CustomerRepository {
             .ok_or_else(|| anyhow::anyhow!("Customer not found"))?
             .into();
         
-        customer.is_blocked = Set(false);
-        customer.updated_at = Set(chrono::Utc::now().naive_utc());
+        customer.status = Set(Some(1)); // 1 = active
         customer.update(db).await?;
         
         Ok(())
@@ -209,7 +201,7 @@ impl CustomerRepository {
         
         let count = Customers::find()
             .filter(customers::Column::ShopId.eq(shop_id))
-            .filter(customers::Column::LastVisit.gte(since.naive_utc()))
+            .filter(customers::Column::LastActiveAt.gte(since.naive_utc()))
             .count(db)
             .await?;
         
@@ -230,7 +222,7 @@ impl CustomerRepository {
                     .add(customers::Column::Email.contains(keyword))
                     .add(customers::Column::CustomerId.contains(keyword))
             )
-            .order_by_desc(customers::Column::LastVisit)
+            .order_by_desc(customers::Column::LastActiveAt)
             .all(db)
             .await?;
         

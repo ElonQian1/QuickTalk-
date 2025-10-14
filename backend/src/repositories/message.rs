@@ -27,7 +27,7 @@ impl MessageRepository {
             is_read: Set(false),
             is_deleted: Set(false),
             created_at: Set(chrono::Utc::now().naive_utc()),
-            updated_at: Set(chrono::Utc::now().naive_utc()),
+            updated_at: Set(Some(chrono::Utc::now().naive_utc())),
             ..Default::default()
         };
         
@@ -108,7 +108,7 @@ impl MessageRepository {
             is_read: Set(false),
             is_deleted: Set(false),
             created_at: Set(chrono::Utc::now().naive_utc()),
-            updated_at: Set(chrono::Utc::now().naive_utc()),
+            updated_at: Set(Some(chrono::Utc::now().naive_utc())),
             ..Default::default()
         };
         
@@ -130,7 +130,7 @@ impl MessageRepository {
             .into();
         
         message.is_deleted = Set(true);
-        message.updated_at = Set(chrono::Utc::now().naive_utc());
+        message.updated_at = Set(Some(chrono::Utc::now().naive_utc()));
         message.update(db).await?;
         
         Ok(())

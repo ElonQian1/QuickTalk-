@@ -11,67 +11,39 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(UnreadCounts::Table)
                     .if_not_exists()
-                    .col(
-                        ColumnDef::new(UnreadCounts::Id)
-                            .integer()
-                            .not_null()
-                            .auto_increment()
-                            .primary_key(),
-                    )
-                    .col(ColumnDef::new(UnreadCounts::SessionId).integer().not_null())
-                    .col(
-                        ColumnDef::new(UnreadCounts::UserType)
-                            .string_len(20)
-                            .not_null(),
-                    )
-                    .col(ColumnDef::new(UnreadCounts::UserId).integer())
-                    .col(
-                        ColumnDef::new(UnreadCounts::Count)
-                            .integer()
-                            .not_null()
-                            .default(0),
-                    )
-                    .col(ColumnDef::new(UnreadCounts::LastMessageId).integer())
-                    .col(
-                        ColumnDef::new(UnreadCounts::UpdatedAt)
-                            .timestamp()
-                            .not_null()
-                            .default(Expr::current_timestamp()),
+                    .col(ColumnDef::new(UnreadCounts::Id).integer().not_null().auto_increment().primary_key())
+                    .col(ColumnDef::new(UnreadCounts::ShopId).integer().not_null())
+                    .col(ColumnDef::new(UnreadCounts::CustomerId).integer().not_null())
+                    .col(ColumnDef::new(UnreadCounts::UnreadCount).integer().not_null().default(0))
+                    .col(ColumnDef::new(UnreadCounts::LastReadMessageId).integer())
+                    .col(ColumnDef::new(UnreadCounts::UpdatedAt).timestamp().default(Expr::current_timestamp()))
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk_uc_shop")
+                            .from(UnreadCounts::Table, UnreadCounts::ShopId)
+                            .to(Shops::Table, Shops::Id)
+                            .on_delete(ForeignKeyAction::Cascade),
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk_unread_counts_session")
-                            .from(UnreadCounts::Table, UnreadCounts::SessionId)
-                            .to(Sessions::Table, Sessions::Id)
+                            .name("fk_uc_customer")
+                            .from(UnreadCounts::Table, UnreadCounts::CustomerId)
+                            .to(Customers::Table, Customers::Id)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
                     .to_owned(),
             )
             .await?;
 
-        // 创建唯一索引
         manager
             .create_index(
                 Index::create()
                     .if_not_exists()
-                    .name("idx_unread_counts_unique")
+                    .name("idx_unread_counts_shop_customer")
                     .table(UnreadCounts::Table)
-                    .col(UnreadCounts::SessionId)
-                    .col(UnreadCounts::UserType)
-                    .col(UnreadCounts::UserId)
+                    .col(UnreadCounts::ShopId)
+                    .col(UnreadCounts::CustomerId)
                     .unique()
-                    .to_owned(),
-            )
-            .await?;
-
-        // 创建其他索引
-        manager
-            .create_index(
-                Index::create()
-                    .if_not_exists()
-                    .name("idx_unread_counts_session")
-                    .table(UnreadCounts::Table)
-                    .col(UnreadCounts::SessionId)
                     .to_owned(),
             )
             .await?;
@@ -87,19 +59,10 @@ impl MigrationTrait for Migration {
 }
 
 #[derive(Iden)]
-enum UnreadCounts {
-    Table,
-    Id,
-    SessionId,
-    UserType,
-    UserId,
-    Count,
-    LastMessageId,
-    UpdatedAt,
-}
+enum UnreadCounts { Table, Id, ShopId, CustomerId, UnreadCount, LastReadMessageId, UpdatedAt }
 
 #[derive(Iden)]
-enum Sessions {
-    Table,
-    Id,
-}
+enum Shops { Table, Id }
+
+#[derive(Iden)]
+enum Customers { Table, Id }

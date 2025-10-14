@@ -11,57 +11,15 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(Messages::Table)
                     .if_not_exists()
-                    .col(
-                        ColumnDef::new(Messages::Id)
-                            .integer()
-                            .not_null()
-                            .auto_increment()
-                            .primary_key(),
-                    )
+                    .col(ColumnDef::new(Messages::Id).integer().not_null().auto_increment().primary_key())
                     .col(ColumnDef::new(Messages::SessionId).integer().not_null())
-                    .col(
-                        ColumnDef::new(Messages::SenderType)
-                            .string_len(20)
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(Messages::SenderType).string_len(10).not_null())
                     .col(ColumnDef::new(Messages::SenderId).integer())
-                    .col(ColumnDef::new(Messages::SenderName).string_len(100))
-                    .col(
-                        ColumnDef::new(Messages::MessageType)
-                            .string_len(20)
-                            .not_null()
-                            .default("text"),
-                    )
                     .col(ColumnDef::new(Messages::Content).text().not_null())
-                    .col(ColumnDef::new(Messages::RichContent).json())
-                    .col(ColumnDef::new(Messages::Metadata).json())
-                    .col(ColumnDef::new(Messages::ReplyTo).integer())
-                    .col(
-                        ColumnDef::new(Messages::IsRead)
-                            .boolean()
-                            .not_null()
-                            .default(false),
-                    )
-                    .col(ColumnDef::new(Messages::ReadAt).timestamp())
-                    .col(
-                        ColumnDef::new(Messages::IsDeleted)
-                            .boolean()
-                            .not_null()
-                            .default(false),
-                    )
-                    .col(ColumnDef::new(Messages::DeletedAt).timestamp())
-                    .col(
-                        ColumnDef::new(Messages::CreatedAt)
-                            .timestamp()
-                            .not_null()
-                            .default(Expr::current_timestamp()),
-                    )
-                    .col(
-                        ColumnDef::new(Messages::UpdatedAt)
-                            .timestamp()
-                            .not_null()
-                            .default(Expr::current_timestamp()),
-                    )
+                    .col(ColumnDef::new(Messages::MessageType).string_len(20).default("text"))
+                    .col(ColumnDef::new(Messages::FileUrl).string_len(255))
+                    .col(ColumnDef::new(Messages::Status).string_len(20).default("sent"))
+                    .col(ColumnDef::new(Messages::CreatedAt).timestamp().default(Expr::current_timestamp()))
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_messages_session")
@@ -69,23 +27,15 @@ impl MigrationTrait for Migration {
                             .to(Sessions::Table, Sessions::Id)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("fk_messages_reply")
-                            .from(Messages::Table, Messages::ReplyTo)
-                            .to(Messages::Table, Messages::Id)
-                            .on_delete(ForeignKeyAction::SetNull),
-                    )
                     .to_owned(),
             )
             .await?;
 
-        // 创建索引
         manager
             .create_index(
                 Index::create()
                     .if_not_exists()
-                    .name("idx_messages_session")
+                    .name("idx_messages_session_id")
                     .table(Messages::Table)
                     .col(Messages::SessionId)
                     .to_owned(),
@@ -96,43 +46,9 @@ impl MigrationTrait for Migration {
             .create_index(
                 Index::create()
                     .if_not_exists()
-                    .name("idx_messages_sender")
-                    .table(Messages::Table)
-                    .col(Messages::SenderType)
-                    .col(Messages::SenderId)
-                    .to_owned(),
-            )
-            .await?;
-
-        manager
-            .create_index(
-                Index::create()
-                    .if_not_exists()
-                    .name("idx_messages_created")
+                    .name("idx_messages_created_at")
                     .table(Messages::Table)
                     .col(Messages::CreatedAt)
-                    .to_owned(),
-            )
-            .await?;
-
-        manager
-            .create_index(
-                Index::create()
-                    .if_not_exists()
-                    .name("idx_messages_type")
-                    .table(Messages::Table)
-                    .col(Messages::MessageType)
-                    .to_owned(),
-            )
-            .await?;
-
-        manager
-            .create_index(
-                Index::create()
-                    .if_not_exists()
-                    .name("idx_messages_read")
-                    .table(Messages::Table)
-                    .col(Messages::IsRead)
                     .to_owned(),
             )
             .await?;
@@ -148,28 +64,7 @@ impl MigrationTrait for Migration {
 }
 
 #[derive(Iden)]
-enum Messages {
-    Table,
-    Id,
-    SessionId,
-    SenderType,
-    SenderId,
-    SenderName,
-    MessageType,
-    Content,
-    RichContent,
-    Metadata,
-    ReplyTo,
-    IsRead,
-    ReadAt,
-    IsDeleted,
-    DeletedAt,
-    CreatedAt,
-    UpdatedAt,
-}
+enum Messages { Table, Id, SessionId, SenderType, SenderId, Content, MessageType, FileUrl, Status, CreatedAt }
 
 #[derive(Iden)]
-enum Sessions {
-    Table,
-    Id,
-}
+enum Sessions { Table, Id }

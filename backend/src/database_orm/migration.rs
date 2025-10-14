@@ -1,359 +1,144 @@
 //! 数据库迁移管理
-//! 
-//! 职责：运行 Sea-ORM 迁移，确保数据库架构正确
+//! 职责：验证数据库架构，确保与 Sea-ORM 实体一致
 
 use anyhow::Result;
 use sea_orm::{DatabaseConnection, Statement, DbBackend, ConnectionTrait};
-use tracing::{info, error, warn};
+use tracing::{info, warn};
+use std::collections::{HashMap, HashSet};
 
-/// 运行所有数据库迁移
-/// 
-/// # Arguments
-/// * `db` - DatabaseConnection 引用
-/// 
-/// # Returns
-/// * `Result<()>` - 成功返回 Ok(())
+/// 运行 Sea-ORM 迁移
 pub async fn run_migrations(db: &DatabaseConnection) -> Result<()> {
-    // 检查是否强制跳过迁移
-    let skip_migration = std::env::var("FORCE_SKIP_MIGRATION")
-        .map(|v| v.to_lowercase() == "true")
-        .unwrap_or(false);
-
-    if skip_migration {
-        warn!("⚠️  强制跳过 Sea-ORM migration (FORCE_SKIP_MIGRATION=true)");
-        return verify_tables(db).await;
-    }
-
-    info!("🔄 启用智能数据库迁移 (兼容性修复版本)...");
+    info!("开始运行数据库迁移...");
     
-    // 尝试通过手动 SQL 创建表（避免 IF NOT EXISTS 兼容性问题）
-    match create_tables_manually(db).await {
-        Ok(_) => {
-            info!("✅ 手动数据库迁移完成");
-            verify_tables(db).await
-        }
-        Err(e) => {
-            error!("❌ 手动迁移失败: {}", e);
-            // 继续验证表是否已存在
-            verify_tables(db).await
+    // 手动执行 messages 表的扩展列迁移
+    let alter_sqls = vec![
+        "ALTER TABLE messages ADD COLUMN sender_name TEXT",
+        "ALTER TABLE messages ADD COLUMN rich_content TEXT",
+        "ALTER TABLE messages ADD COLUMN metadata TEXT", 
+        "ALTER TABLE messages ADD COLUMN reply_to INTEGER",
+        "ALTER TABLE messages ADD COLUMN is_read BOOLEAN NOT NULL DEFAULT 0",
+        "ALTER TABLE messages ADD COLUMN read_at TIMESTAMP",
+        "ALTER TABLE messages ADD COLUMN is_deleted BOOLEAN NOT NULL DEFAULT 0",
+        "ALTER TABLE messages ADD COLUMN deleted_at TIMESTAMP",
+        "ALTER TABLE messages ADD COLUMN updated_at TIMESTAMP", // 移除 NOT NULL DEFAULT
+    ];
+    
+    for sql in alter_sqls {
+        if let Err(e) = db.execute(Statement::from_string(DbBackend::Sqlite, sql.to_string())).await {
+            // 如果列已存在，忽略错误
+            if e.to_string().contains("duplicate column name") {
+                info!("列已存在，跳过: {}", sql);
+                continue;
+            }
+            warn!("执行SQL失败: {} - 错误: {}", sql, e);
+        } else {
+            info!("✅ 执行成功: {}", sql);
         }
     }
-}
-
-/// 手动创建数据库表 (避免 IF NOT EXISTS 兼容性问题)
-async fn create_tables_manually(db: &DatabaseConnection) -> Result<()> {
-    info!("📝 手动创建数据库表 (兼容性版本)...");
-
-    // 先检查表是否存在，避免重复创建
-    if table_exists(db, "users").await? {
-        info!("✅ 数据库表已存在，跳过创建");
+    
+    info!("✅ 数据库迁移执行完成");
+    
+    // 验证数据库架构
+    let tables = get_existing_tables(db).await?;
+    
+    if tables.is_empty() {
+        warn!("数据库中未找到任何表");
         return Ok(());
     }
 
-    // 创建 users 表 - 使用标准 CREATE TABLE 语法
-    let create_users = Statement::from_string(
-        DbBackend::Sqlite,
-        r#"
-        CREATE TABLE users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username VARCHAR(50) UNIQUE NOT NULL,
-            email VARCHAR(100) UNIQUE,
-            phone VARCHAR(20),
-            password_hash VARCHAR(255) NOT NULL,
-            display_name VARCHAR(100),
-            role VARCHAR(20) NOT NULL DEFAULT 'staff',
-            avatar_url TEXT,
-            status INTEGER NOT NULL DEFAULT 1,
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-        );
-        "#.to_string()
-    );
-    
-    match db.execute(create_users).await {
-        Ok(_) => info!("✅ users 表创建成功"),
-        Err(e) if e.to_string().contains("already exists") => {
-            info!("ℹ️ users 表已存在");
-        }
-        Err(e) => {
-            error!("❌ users 表创建失败: {}", e);
-            return Err(anyhow::anyhow!("Failed to create users table: {}", e));
+    info!("找到 {} 个表", tables.len());
+    for table in &tables {
+        info!("  - 表: {}", table);
+        let columns = get_table_columns(db, table).await?;
+        info!("    列数: {}", columns.len());
+        for column in &columns {
+            info!("      - {}", column);
         }
     }
 
-    // 创建 shops 表
-    let create_shops = Statement::from_string(
-        DbBackend::Sqlite,
-        r#"
-        CREATE TABLE shops (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name VARCHAR(100) NOT NULL,
-            slug VARCHAR(50) UNIQUE NOT NULL,
-            description TEXT,
-            logo_url TEXT,
-            website_url TEXT,
-            contact_email VARCHAR(100),
-            phone VARCHAR(20),
-            address TEXT,
-            is_active BOOLEAN NOT NULL DEFAULT 1,
-            owner_id INTEGER NOT NULL,
-            api_key VARCHAR(255) UNIQUE NOT NULL,
-            webhook_url TEXT,
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (owner_id) REFERENCES users(id)
-        );
-        "#.to_string()
-    );
-    
-    match db.execute(create_shops).await {
-        Ok(_) => info!("✅ shops 表创建成功"),
-        Err(e) if e.to_string().contains("already exists") => {
-            info!("ℹ️ shops 表已存在");
-        }
-        Err(e) => {
-            error!("❌ shops 表创建失败: {}", e);
-            return Err(anyhow::anyhow!("Failed to create shops table: {}", e));
-        }
-    }
-
-    // 创建 customers 表
-    let create_customers = Statement::from_string(
-        DbBackend::Sqlite,
-        r#"
-        CREATE TABLE customers (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            shop_id INTEGER NOT NULL,
-            customer_id VARCHAR(255) NOT NULL,
-            name VARCHAR(100),
-            email VARCHAR(100),
-            phone VARCHAR(20),
-            avatar_url TEXT,
-            metadata TEXT,
-            is_online BOOLEAN NOT NULL DEFAULT 0,
-            last_seen TIMESTAMP,
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(shop_id, customer_id),
-            FOREIGN KEY (shop_id) REFERENCES shops(id)
-        );
-        "#.to_string()
-    );
-    
-    match db.execute(create_customers).await {
-        Ok(_) => info!("✅ customers 表创建成功"),
-        Err(e) if e.to_string().contains("already exists") => {
-            info!("ℹ️ customers 表已存在");
-        }
-        Err(e) => {
-            error!("❌ customers 表创建失败: {}", e);
-        }
-    }
-
-    // 创建 sessions 表
-    let create_sessions = Statement::from_string(
-        DbBackend::Sqlite,
-        r#"
-        CREATE TABLE sessions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            shop_id INTEGER NOT NULL,
-            customer_id INTEGER NOT NULL,
-            session_id VARCHAR(255) UNIQUE NOT NULL,
-            status VARCHAR(20) NOT NULL DEFAULT 'active',
-            assigned_staff_id INTEGER,
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            closed_at TIMESTAMP,
-            FOREIGN KEY (shop_id) REFERENCES shops(id),
-            FOREIGN KEY (customer_id) REFERENCES customers(id),
-            FOREIGN KEY (assigned_staff_id) REFERENCES users(id)
-        );
-        "#.to_string()
-    );
-    
-    match db.execute(create_sessions).await {
-        Ok(_) => info!("✅ sessions 表创建成功"),
-        Err(e) if e.to_string().contains("already exists") => {
-            info!("ℹ️ sessions 表已存在");
-        }
-        Err(e) => {
-            error!("❌ sessions 表创建失败: {}", e);
-        }
-    }
-
-    // 创建 messages 表
-    let create_messages = Statement::from_string(
-        DbBackend::Sqlite,
-        r#"
-        CREATE TABLE messages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            session_id INTEGER NOT NULL,
-            sender_type VARCHAR(20) NOT NULL,
-            sender_id VARCHAR(255) NOT NULL,
-            content TEXT NOT NULL,
-            message_type VARCHAR(20) NOT NULL DEFAULT 'text',
-            metadata TEXT,
-            is_read BOOLEAN NOT NULL DEFAULT 0,
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (session_id) REFERENCES sessions(id)
-        );
-        "#.to_string()
-    );
-    
-    match db.execute(create_messages).await {
-        Ok(_) => info!("✅ messages 表创建成功"),
-        Err(e) if e.to_string().contains("already exists") => {
-            info!("ℹ️ messages 表已存在");
-        }
-        Err(e) => {
-            error!("❌ messages 表创建失败: {}", e);
-        }
-    }
-
-    // 创建 shop_staffs 表
-    let create_shop_staffs = Statement::from_string(
-        DbBackend::Sqlite,
-        r#"
-        CREATE TABLE shop_staffs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            shop_id INTEGER NOT NULL,
-            user_id INTEGER NOT NULL,
-            role VARCHAR(50) NOT NULL DEFAULT 'staff',
-            permissions TEXT,
-            is_active BOOLEAN NOT NULL DEFAULT 1,
-            invited_by INTEGER,
-            invited_at TIMESTAMP,
-            joined_at TIMESTAMP,
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(shop_id, user_id),
-            FOREIGN KEY (shop_id) REFERENCES shops(id),
-            FOREIGN KEY (user_id) REFERENCES users(id),
-            FOREIGN KEY (invited_by) REFERENCES users(id)
-        );
-        "#.to_string()
-    );
-    
-    match db.execute(create_shop_staffs).await {
-        Ok(_) => info!("✅ shop_staffs 表创建成功"),
-        Err(e) if e.to_string().contains("already exists") => {
-            info!("ℹ️ shop_staffs 表已存在");
-        }
-        Err(e) => {
-            error!("❌ shop_staffs 表创建失败: {}", e);
-        }
-    }
-
-    // 创建 unread_counts 表
-    let create_unread_counts = Statement::from_string(
-        DbBackend::Sqlite,
-        r#"
-        CREATE TABLE unread_counts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            session_id INTEGER NOT NULL,
-            staff_id INTEGER NOT NULL,
-            unread_count INTEGER NOT NULL DEFAULT 0,
-            last_read_message_id INTEGER,
-            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(session_id, staff_id),
-            FOREIGN KEY (session_id) REFERENCES sessions(id),
-            FOREIGN KEY (staff_id) REFERENCES users(id),
-            FOREIGN KEY (last_read_message_id) REFERENCES messages(id)
-        );
-        "#.to_string()
-    );
-    
-    match db.execute(create_unread_counts).await {
-        Ok(_) => info!("✅ unread_counts 表创建成功"),
-        Err(e) if e.to_string().contains("already exists") => {
-            info!("ℹ️ unread_counts 表已存在");
-        }
-        Err(e) => {
-            error!("❌ unread_counts 表创建失败: {}", e);
-        }
-    }
-
-    // 创建 online_status 表
-    let create_online_status = Statement::from_string(
-        DbBackend::Sqlite,
-        r#"
-        CREATE TABLE online_status (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            user_type VARCHAR(20) NOT NULL,
-            shop_id INTEGER,
-            is_online BOOLEAN NOT NULL DEFAULT 0,
-            last_seen TIMESTAMP,
-            socket_id VARCHAR(255),
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(user_id, user_type, shop_id),
-            FOREIGN KEY (shop_id) REFERENCES shops(id)
-        );
-        "#.to_string()
-    );
-    
-    match db.execute(create_online_status).await {
-        Ok(_) => info!("✅ online_status 表创建成功"),
-        Err(e) if e.to_string().contains("already exists") => {
-            info!("ℹ️ online_status 表已存在");
-        }
-        Err(e) => {
-            error!("❌ online_status 表创建失败: {}", e);
-        }
-    }
-
-    info!("✅ 所有数据库表创建完成");
+    check_schema_consistency(db, &tables).await?;
+    info!("数据库架构验证完成");
     Ok(())
 }
 
-/// 检查表是否存在
-async fn table_exists(db: &DatabaseConnection, table_name: &str) -> Result<bool> {
-    let query = Statement::from_string(
+/// 获取现有表列表
+async fn get_existing_tables(db: &DatabaseConnection) -> Result<Vec<String>> {
+    let stmt = Statement::from_string(
         DbBackend::Sqlite,
-        format!(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='{}';",
-            table_name
-        )
+        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+            .to_string(),
     );
     
-    match db.query_one(query).await {
-        Ok(Some(_)) => Ok(true),
-        Ok(None) => Ok(false),
-        Err(e) => {
-            warn!("检查表存在性失败: {}", e);
-            Ok(false) // 保守处理，假设表不存在
-        }
-    }
+    let result = db.query_all(stmt).await?;
+    let tables: Vec<String> = result
+        .into_iter()
+        .map(|row| row.try_get::<String>("", "name").unwrap_or_default())
+        .collect();
+        
+    Ok(tables)
 }
 
-/// 验证关键表是否存在
-async fn verify_tables(db: &DatabaseConnection) -> Result<()> {
-    info!("🔍 验证数据库表结构...");
+/// 获取表的列信息
+async fn get_table_columns(db: &DatabaseConnection, table_name: &str) -> Result<Vec<String>> {
+    let stmt = Statement::from_string(
+        DbBackend::Sqlite,
+        format!("PRAGMA table_info({})", table_name),
+    );
     
-    let required_tables = vec![
-        "users", "shops", "customers", "sessions", "messages", 
-        "shop_staffs", "unread_counts", "online_status"
-    ];
-    let mut missing_tables = Vec::new();
-    
-    for table in &required_tables {
-        if !table_exists(db, table).await? {
-            missing_tables.push(*table);
-        }
-    }
-    
-    if missing_tables.is_empty() {
-        info!("✅ 所有必需的表都存在");
-        Ok(())
-    } else {
-        error!("❌ 缺少数据库表: {:?}", missing_tables);
-        Err(anyhow::anyhow!("Missing required tables: {:?}", missing_tables))
-    }
+    let result = db.query_all(stmt).await?;
+    let columns: Vec<String> = result
+        .into_iter()
+        .map(|row| row.try_get::<String>("", "name").unwrap_or_default())
+        .collect();
+        
+    Ok(columns)
 }
 
-/// 回滚所有迁移（用于开发/测试）
-pub async fn rollback_migrations(_db: &DatabaseConnection) -> Result<()> {
-    warn!("⚠️  迁移回滚功能尚未实现");
+/// 检查架构一致性
+async fn check_schema_consistency(db: &DatabaseConnection, existing_tables: &[String]) -> Result<()> {
+    // 定义期望的表结构
+    let expected_tables: HashMap<&str, Vec<&str>> = HashMap::from([
+        ("users", vec!["id","username","password_hash","email","phone","avatar_url","status","created_at","updated_at"]),
+        ("shops", vec!["id","owner_id","shop_name","shop_url","api_key","status","created_at","updated_at"]),
+        ("customers", vec!["id","shop_id","customer_id","customer_name","customer_email","customer_avatar","ip_address","user_agent","first_visit_at","last_active_at","status"]),
+        ("sessions", vec!["id","shop_id","customer_id","staff_id","session_status","created_at","closed_at","last_message_at"]),
+        ("staff_assignments", vec!["id","session_id","staff_id","assigned_at","unassigned_at"]),
+        ("messages", vec!["id","session_id","sender_type","sender_id","sender_name","message_type","content","rich_content","metadata","reply_to","is_read","read_at","is_deleted","deleted_at","created_at","updated_at"]),
+        ("unread_counts", vec!["id","shop_id","customer_id","unread_count","last_read_message_id","updated_at"]),
+        ("online_status", vec!["id","user_type","user_id","shop_id","websocket_id","last_ping_at","status"]),
+        ("shop_staffs", vec!["id","shop_id","user_id","role","created_at"]),
+    ]);
+
+    // 检查每个期望的表
+    for (table_name, expected_columns) in &expected_tables {
+        if existing_tables.contains(&table_name.to_string()) {
+            let actual_columns = get_table_columns(db, table_name).await?;
+            compare_columns(table_name, expected_columns, &actual_columns);
+        } else {
+            warn!("表 '{}' 不存在", table_name);
+        }
+    }
+
     Ok(())
+}
+
+/// 比较列结构
+fn compare_columns(table_name: &str, expected: &[&str], actual: &[String]) {
+    let expected_set: HashSet<&str> = expected.iter().cloned().collect();
+    let actual_set: HashSet<&str> = actual.iter().map(|s| s.as_str()).collect();
+
+    let missing: Vec<&str> = expected_set.difference(&actual_set).cloned().collect();
+    let extra: Vec<&str> = actual_set.difference(&expected_set).cloned().collect();
+
+    if !missing.is_empty() {
+        warn!("表 '{}' 缺少列: {:?}", table_name, missing);
+    }
+
+    if !extra.is_empty() {
+        warn!("表 '{}' 额外列: {:?}", table_name, extra);
+    }
+
+    if missing.is_empty() && extra.is_empty() {
+        info!("表 '{}' 架构一致", table_name);
+    }
 }

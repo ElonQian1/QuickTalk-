@@ -18,46 +18,19 @@ impl MigrationTrait for Migration {
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(
-                        ColumnDef::new(Users::Username)
-                            .string_len(50)
-                            .not_null()
-                            .unique_key(),
-                    )
+                    .col(ColumnDef::new(Users::Username).string_len(50).not_null().unique_key())
+                    .col(ColumnDef::new(Users::PasswordHash).string_len(255).not_null())
                     .col(ColumnDef::new(Users::Email).string_len(100).unique_key())
                     .col(ColumnDef::new(Users::Phone).string_len(20))
+                    .col(ColumnDef::new(Users::AvatarUrl).string_len(255))
                     .col(
-                        ColumnDef::new(Users::PasswordHash)
-                            .string_len(255)
-                            .not_null(),
-                    )
-                    .col(ColumnDef::new(Users::DisplayName).string_len(100))
-                    .col(
-                        ColumnDef::new(Users::Role)
-                            .string_len(20)
+                        ColumnDef::new(Users::Status)
+                            .integer()
                             .not_null()
-                            .default("staff"),
+                            .default(1),
                     )
-                    .col(ColumnDef::new(Users::AvatarUrl).text())
-                    .col(
-                        ColumnDef::new(Users::IsActive)
-                            .boolean()
-                            .not_null()
-                            .default(true),
-                    )
-                    .col(ColumnDef::new(Users::LastLogin).timestamp())
-                    .col(
-                        ColumnDef::new(Users::CreatedAt)
-                            .timestamp()
-                            .not_null()
-                            .default(Expr::current_timestamp()),
-                    )
-                    .col(
-                        ColumnDef::new(Users::UpdatedAt)
-                            .timestamp()
-                            .not_null()
-                            .default(Expr::current_timestamp()),
-                    )
+                    .col(ColumnDef::new(Users::CreatedAt).timestamp().default(Expr::current_timestamp()))
+                    .col(ColumnDef::new(Users::UpdatedAt).timestamp().default(Expr::current_timestamp()))
                     .to_owned(),
             )
             .await?;
@@ -85,27 +58,7 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
-        manager
-            .create_index(
-                Index::create()
-                    .if_not_exists()
-                    .name("idx_users_role")
-                    .table(Users::Table)
-                    .col(Users::Role)
-                    .to_owned(),
-            )
-            .await?;
-
-        manager
-            .create_index(
-                Index::create()
-                    .if_not_exists()
-                    .name("idx_users_active")
-                    .table(Users::Table)
-                    .col(Users::IsActive)
-                    .to_owned(),
-            )
-            .await?;
+        // 移除 role / is_active 相关索引，当前物理表无这些列
 
         Ok(())
     }
@@ -118,18 +71,4 @@ impl MigrationTrait for Migration {
 }
 
 #[derive(Iden)]
-enum Users {
-    Table,
-    Id,
-    Username,
-    Email,
-    Phone,
-    PasswordHash,
-    DisplayName,
-    Role,
-    AvatarUrl,
-    IsActive,
-    LastLogin,
-    CreatedAt,
-    UpdatedAt,
-}
+enum Users { Table, Id, Username, PasswordHash, Email, Phone, AvatarUrl, Status, CreatedAt, UpdatedAt }

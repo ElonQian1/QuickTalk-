@@ -17,7 +17,7 @@ sqlx = { version = "0.7", features = ["sqlite", "chrono", "uuid", "macros", "run
 libsqlite3-sys = { version = "0.27", features = ["bundled"] }
 # Sea-ORM 现代化 ORM 支持
 sea-orm = { version = "0.12", features = ["sqlx-sqlite", "runtime-tokio-rustls", "macros"] }
-# Migration 迁移支持（本地路径）- 暂时禁用避免 CLI 编译问题
+# 暂时禁用migration避免编译错误，使用手动SQL迁移
 # migration = { path = "./migration" }
 bcrypt = "0.15"
 base64 = { version = "0.22", default-features = false, features = ["alloc"] }

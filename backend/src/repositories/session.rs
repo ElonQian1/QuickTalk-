@@ -7,13 +7,18 @@ use crate::entities::{sessions, prelude::*};
 pub struct SessionRepository;
 
 impl SessionRepository {
-    /// 根据 session_id 查找会话
+    /// 根据 session_id 查找会话 (这里session_id实际是数据库的id)
     pub async fn find_by_session_id(db: &DatabaseConnection, session_id: &str) -> Result<Option<sessions::Model>> {
-        let session = Sessions::find()
-            .filter(sessions::Column::SessionId.eq(session_id))
-            .one(db)
-            .await?;
-        Ok(session)
+        // 尝试将session_id解析为整数ID
+        if let Ok(id) = session_id.parse::<i32>() {
+            let session = Sessions::find()
+                .filter(sessions::Column::Id.eq(id))
+                .one(db)
+                .await?;
+            Ok(session)
+        } else {
+            Ok(None) // 如果无法解析为整数，返回None
+        }
     }
     
     /// 创建新会话
@@ -24,14 +29,11 @@ impl SessionRepository {
         customer_id: i32,
     ) -> Result<sessions::Model> {
         let session = sessions::ActiveModel {
-            session_id: Set(session_id),
             shop_id: Set(shop_id),
             customer_id: Set(customer_id),
             status: Set("active".to_string()),
-            priority: Set(0),
-            started_at: Set(chrono::Utc::now().naive_utc()),
             created_at: Set(chrono::Utc::now().naive_utc()),
-            updated_at: Set(chrono::Utc::now().naive_utc()),
+            last_message_at: Set(Some(chrono::Utc::now().naive_utc())),
             ..Default::default()
         };
         
@@ -58,7 +60,7 @@ impl SessionRepository {
             .into();
         
         session.staff_id = Set(Some(staff_id));
-        session.updated_at = Set(chrono::Utc::now().naive_utc());
+        session.last_message_at = Set(Some(chrono::Utc::now().naive_utc()));
         session.update(db).await?;
         
         Ok(())
@@ -73,7 +75,6 @@ impl SessionRepository {
             .into();
         
         session.last_message_at = Set(Some(chrono::Utc::now().naive_utc()));
-        session.updated_at = Set(chrono::Utc::now().naive_utc());
         session.update(db).await?;
         
         Ok(())
@@ -126,23 +127,22 @@ impl SessionRepository {
             .into();
         
         session.status = Set("closed".to_string());
-        session.ended_at = Set(Some(chrono::Utc::now().naive_utc()));
-        session.updated_at = Set(chrono::Utc::now().naive_utc());
+        session.closed_at = Set(Some(chrono::Utc::now().naive_utc()));
         session.update(db).await?;
         
         Ok(())
     }
     
-    /// 设置会话优先级
-    pub async fn set_priority(db: &DatabaseConnection, session_id: i32, priority: i32) -> Result<()> {
+    /// 设置会话优先级 (当前表结构不支持，仅更新最后消息时间)
+    pub async fn set_priority(db: &DatabaseConnection, session_id: i32, _priority: i32) -> Result<()> {
         let mut session: sessions::ActiveModel = Sessions::find_by_id(session_id)
             .one(db)
             .await?
             .ok_or_else(|| anyhow::anyhow!("Session not found"))?
             .into();
         
-        session.priority = Set(priority);
-        session.updated_at = Set(chrono::Utc::now().naive_utc());
+        // 由于表结构不支持priority字段，仅更新最后消息时间
+        session.last_message_at = Set(Some(chrono::Utc::now().naive_utc()));
         session.update(db).await?;
         
         Ok(())
@@ -194,7 +194,7 @@ impl SessionRepository {
         
         // 重置店铺内所有未读计数为0
         let update_result = UnreadCounts::update_many()
-            .col_expr(unread_counts::Column::Count, sea_orm::sea_query::Expr::value(0))
+            .col_expr(unread_counts::Column::UnreadCount, sea_orm::sea_query::Expr::value(0))
             .filter(unread_counts::Column::ShopId.eq(shop_id))
             .exec(db)
             .await?;

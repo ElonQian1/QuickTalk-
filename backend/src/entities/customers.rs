@@ -9,19 +9,21 @@ pub struct Model {
     
     pub shop_id: i32,
     pub customer_id: String,
+    
+    #[sea_orm(column_name = "customer_name")]
     pub name: Option<String>,
+    
+    #[sea_orm(column_name = "customer_email")]
     pub email: Option<String>,
-    pub phone: Option<String>,
+    
+    #[sea_orm(column_name = "customer_avatar")]
     pub avatar_url: Option<String>,
-    pub metadata: Option<Json>,
-    pub first_visit: Option<DateTime>,
-    pub last_visit: Option<DateTime>,
+    
+    pub ip_address: Option<String>,
+    pub user_agent: Option<String>,
+    pub first_visit_at: Option<DateTime>,
     pub last_active_at: Option<DateTime>,
-    pub visit_count: i32,
-    pub is_blocked: bool,
-    pub notes: Option<String>,
-    pub created_at: DateTime,
-    pub updated_at: DateTime,
+    pub status: Option<i32>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

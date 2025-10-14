@@ -28,7 +28,6 @@ mod entities;
 mod error;
 mod handlers;
 mod jwt;
-mod migration;
 mod models;
 mod repositories;
 mod server;
@@ -183,11 +182,31 @@ async fn main() -> Result<()> {
     // 加载 .env（如果存在）
     let _ = dotenvy::dotenv();
     
-    // 强制启用HTTPS模式
-    std::env::set_var("SERVER_TYPE", "https");
-    std::env::set_var("ENABLE_HTTP_REDIRECT", "true");
+    // 检查是否为开发模式
+    let is_dev_mode = std::env::var("NODE_ENV")
+        .or_else(|_| std::env::var("RUST_ENV"))
+        .map(|v| v.to_lowercase() == "development")
+        .unwrap_or(false);
     
-    info!("🔒 强制启用HTTPS模式");
+    // 检查是否强制禁用HTTPS
+    let force_http = std::env::var("FORCE_HTTP")
+        .map(|v| v.to_lowercase() == "true")
+        .unwrap_or(false);
+    
+    // 检查是否显式设置了TLS_MODE
+    let explicit_tls_mode = std::env::var("TLS_MODE").is_ok();
+    
+    if force_http || (is_dev_mode && !explicit_tls_mode) {
+        info!("🔓 开发模式: 允许HTTP协议");
+        std::env::set_var("TLS_MODE", "disabled");
+    } else if explicit_tls_mode {
+        info!("🔧 使用显式设置的TLS_MODE环境变量");
+    } else {
+        // 强制启用HTTPS模式（生产环境）
+        std::env::set_var("SERVER_TYPE", "https");
+        std::env::set_var("ENABLE_HTTP_REDIRECT", "true");
+        info!("🔒 生产模式: 强制启用HTTPS");
+    }
     
     // 初始化数据库
     let db_url =
@@ -268,21 +287,25 @@ async fn main() -> Result<()> {
     // 打印配置信息
     server_config.print_info();
     
-    info!("🔒 强制启动HTTPS服务器 (生产环境要求)");
-    
-    // 验证HTTPS配置
-    let https_server = HttpsServer::new(tls_config.clone());
-    if let Err(e) = https_server.validate_config() {
-        error!("❌ HTTPS配置验证失败: {:?}", e);
-        error!("🚨 系统要求必须使用HTTPS，请检查证书配置！");
-        https_server.print_cert_help();
-        return Err(anyhow::anyhow!("HTTPS配置验证失败，系统要求强制HTTPS"));
+    // 检查是否使用HTTP模式
+    if tls_config.enabled {
+        info!("🔒 启动HTTPS服务器");
+        
+        // 验证HTTPS配置
+        let https_server = HttpsServer::new(tls_config.clone());
+        if let Err(e) = https_server.validate_config() {
+            error!("❌ HTTPS配置验证失败: {:?}", e);
+            error!("🚨 系统要求必须使用HTTPS，请检查证书配置！");
+            https_server.print_cert_help();
+            return Err(anyhow::anyhow!("HTTPS配置验证失败，系统要求强制HTTPS"));
+        }
+        
+        info!("✅ HTTPS配置验证成功");
+        start_https_server(app, &server_config, &tls_config).await?;
+    } else {
+        info!("🔓 启动HTTP服务器 (开发模式)");
+        start_http_server(app, &server_config).await?;
     }
-    
-    info!("✅ HTTPS配置验证成功");
-
-    // 强制启动HTTPS服务器
-    start_https_server(app, &server_config, &tls_config).await?;
 
     Ok(())
 }

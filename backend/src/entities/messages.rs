@@ -19,6 +19,8 @@ pub struct Model {
     pub message_type: String,
     
     pub content: String,
+    pub file_url: Option<String>,  // 添加缺失的字段
+    pub status: Option<String>,    // 添加缺失的字段
     pub rich_content: Option<Json>,
     pub metadata: Option<Json>,
     pub reply_to: Option<i32>,
@@ -27,7 +29,7 @@ pub struct Model {
     pub is_deleted: bool,
     pub deleted_at: Option<DateTime>,
     pub created_at: DateTime,
-    pub updated_at: DateTime,
+    pub updated_at: Option<DateTime>,  // 修改为 Option 类型，匹配数据库
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

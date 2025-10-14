@@ -18,38 +18,18 @@ impl MigrationTrait for Migration {
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(Shops::Name).string_len(100).not_null())
+                    .col(ColumnDef::new(Shops::OwnerId).integer().not_null())
+                    .col(ColumnDef::new(Shops::ShopName).string_len(100).not_null())
+                    .col(ColumnDef::new(Shops::ShopUrl).string_len(255))
+                    .col(ColumnDef::new(Shops::ApiKey).string_len(64).not_null().unique_key())
                     .col(
-                        ColumnDef::new(Shops::Slug)
-                            .string_len(50)
+                        ColumnDef::new(Shops::Status)
+                            .integer()
                             .not_null()
-                            .unique_key(),
+                            .default(1),
                     )
-                    .col(ColumnDef::new(Shops::Description).text())
-                    .col(ColumnDef::new(Shops::LogoUrl).text())
-                    .col(ColumnDef::new(Shops::WebsiteUrl).text())
-                    .col(ColumnDef::new(Shops::ContactEmail).string_len(100))
-                    .col(ColumnDef::new(Shops::ContactPhone).string_len(20))
-                    .col(ColumnDef::new(Shops::Settings).json())
-                    .col(
-                        ColumnDef::new(Shops::IsActive)
-                            .boolean()
-                            .not_null()
-                            .default(true),
-                    )
-                    .col(ColumnDef::new(Shops::OwnerId).integer())
-                    .col(
-                        ColumnDef::new(Shops::CreatedAt)
-                            .timestamp()
-                            .not_null()
-                            .default(Expr::current_timestamp()),
-                    )
-                    .col(
-                        ColumnDef::new(Shops::UpdatedAt)
-                            .timestamp()
-                            .not_null()
-                            .default(Expr::current_timestamp()),
-                    )
+                    .col(ColumnDef::new(Shops::CreatedAt).timestamp().default(Expr::current_timestamp()))
+                    .col(ColumnDef::new(Shops::UpdatedAt).timestamp().default(Expr::current_timestamp()))
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_shops_owner")
@@ -66,29 +46,7 @@ impl MigrationTrait for Migration {
             .create_index(
                 Index::create()
                     .if_not_exists()
-                    .name("idx_shops_slug")
-                    .table(Shops::Table)
-                    .col(Shops::Slug)
-                    .to_owned(),
-            )
-            .await?;
-
-        manager
-            .create_index(
-                Index::create()
-                    .if_not_exists()
-                    .name("idx_shops_active")
-                    .table(Shops::Table)
-                    .col(Shops::IsActive)
-                    .to_owned(),
-            )
-            .await?;
-
-        manager
-            .create_index(
-                Index::create()
-                    .if_not_exists()
-                    .name("idx_shops_owner")
+                    .name("idx_shops_owner_id")
                     .table(Shops::Table)
                     .col(Shops::OwnerId)
                     .to_owned(),
@@ -106,22 +64,7 @@ impl MigrationTrait for Migration {
 }
 
 #[derive(Iden)]
-enum Shops {
-    Table,
-    Id,
-    Name,
-    Slug,
-    Description,
-    LogoUrl,
-    WebsiteUrl,
-    ContactEmail,
-    ContactPhone,
-    Settings,
-    IsActive,
-    OwnerId,
-    CreatedAt,
-    UpdatedAt,
-}
+enum Shops { Table, Id, OwnerId, ShopName, ShopUrl, ApiKey, Status, CreatedAt, UpdatedAt }
 
 #[derive(Iden)]
 enum Users {

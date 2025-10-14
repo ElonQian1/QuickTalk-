@@ -220,7 +220,7 @@ impl From<crate::entities::sessions::Model> for Session {
             staff_id: session.staff_id.map(|id| id as i64),
             session_status: session.status,
             created_at: session.created_at.and_utc(),
-            closed_at: session.ended_at.map(|dt| dt.and_utc()),
+            closed_at: session.closed_at.map(|dt| dt.and_utc()),
             last_message_at: session.last_message_at.unwrap_or(session.created_at).and_utc(),
         }
     }
@@ -235,11 +235,11 @@ impl From<crate::entities::customers::Model> for Customer {
             customer_name: customer.name,
             customer_email: customer.email,
             customer_avatar: customer.avatar_url,
-            ip_address: None, // Entity中没有此字段，设为None
-            user_agent: None, // Entity中没有此字段，设为None
-            first_visit_at: customer.created_at.and_utc(),
-            last_active_at: customer.updated_at.and_utc(),
-            status: if customer.is_blocked { 0 } else { 1 }, // 0=blocked, 1=active
+            ip_address: customer.ip_address,
+            user_agent: customer.user_agent,
+            first_visit_at: customer.first_visit_at.map(|dt| dt.and_utc()).unwrap_or_else(|| chrono::Utc::now()),
+            last_active_at: customer.last_active_at.map(|dt| dt.and_utc()).unwrap_or_else(|| chrono::Utc::now()),
+            status: customer.status.unwrap_or(1), // 默认状态为1 (active)
         }
     }
 }

@@ -1,10 +1,11 @@
 // WebSocket 连接封装
 // 通过环境变量 REACT_APP_WS_PORT / REACT_APP_WS_BASE 自定义
-// 默认使用后端 8080 端口。
+// 开发环境默认使用后端 8080 端口 (HTTP/WS)，生产环境使用 HTTPS/WSS。
 
 const DEFAULT_PORT = process.env.REACT_APP_WS_PORT || '8080';
 const HOST = window.location.hostname;
-const PROTOCOL = window.location.protocol === 'https:' ? 'wss' : 'ws';
+// 开发环境使用 WS 协议，避免证书问题
+const PROTOCOL = window.location.port === '3000' ? 'ws' : 'wss';
 
 export function staffSocket(userId: string) {
   return new WebSocket(`${PROTOCOL}://${HOST}:${DEFAULT_PORT}/ws/staff/${userId}`);

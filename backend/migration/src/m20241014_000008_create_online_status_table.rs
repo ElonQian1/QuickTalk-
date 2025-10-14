@@ -11,54 +11,24 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(OnlineStatus::Table)
                     .if_not_exists()
-                    .col(
-                        ColumnDef::new(OnlineStatus::Id)
-                            .integer()
-                            .not_null()
-                            .auto_increment()
-                            .primary_key(),
-                    )
-                    .col(
-                        ColumnDef::new(OnlineStatus::UserType)
-                            .string_len(20)
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(OnlineStatus::Id).integer().not_null().auto_increment().primary_key())
+                    .col(ColumnDef::new(OnlineStatus::UserType).string_len(10).not_null())
                     .col(ColumnDef::new(OnlineStatus::UserId).integer().not_null())
                     .col(ColumnDef::new(OnlineStatus::ShopId).integer())
-                    .col(
-                        ColumnDef::new(OnlineStatus::IsOnline)
-                            .boolean()
-                            .not_null()
-                            .default(false),
-                    )
-                    .col(ColumnDef::new(OnlineStatus::LastSeen).timestamp())
-                    .col(ColumnDef::new(OnlineStatus::ConnectionId).string_len(100))
-                    .col(
-                        ColumnDef::new(OnlineStatus::UpdatedAt)
-                            .timestamp()
-                            .not_null()
-                            .default(Expr::current_timestamp()),
+                    .col(ColumnDef::new(OnlineStatus::WebsocketId).string_len(100))
+                    .col(ColumnDef::new(OnlineStatus::LastPingAt).timestamp().default(Expr::current_timestamp()))
+                    .col(ColumnDef::new(OnlineStatus::Status).string_len(20).default("online"))
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk_online_status_shop")
+                            .from(OnlineStatus::Table, OnlineStatus::ShopId)
+                            .to(Shops::Table, Shops::Id)
+                            .on_delete(ForeignKeyAction::Cascade),
                     )
                     .to_owned(),
             )
             .await?;
 
-        // 创建唯一索引
-        manager
-            .create_index(
-                Index::create()
-                    .if_not_exists()
-                    .name("idx_online_status_unique")
-                    .table(OnlineStatus::Table)
-                    .col(OnlineStatus::UserType)
-                    .col(OnlineStatus::UserId)
-                    .col(OnlineStatus::ShopId)
-                    .unique()
-                    .to_owned(),
-            )
-            .await?;
-
-        // 创建其他索引
         manager
             .create_index(
                 Index::create()
@@ -67,17 +37,6 @@ impl MigrationTrait for Migration {
                     .table(OnlineStatus::Table)
                     .col(OnlineStatus::UserType)
                     .col(OnlineStatus::UserId)
-                    .to_owned(),
-            )
-            .await?;
-
-        manager
-            .create_index(
-                Index::create()
-                    .if_not_exists()
-                    .name("idx_online_status_shop")
-                    .table(OnlineStatus::Table)
-                    .col(OnlineStatus::ShopId)
                     .to_owned(),
             )
             .await?;
@@ -93,14 +52,7 @@ impl MigrationTrait for Migration {
 }
 
 #[derive(Iden)]
-enum OnlineStatus {
-    Table,
-    Id,
-    UserType,
-    UserId,
-    ShopId,
-    IsOnline,
-    LastSeen,
-    ConnectionId,
-    UpdatedAt,
-}
+enum OnlineStatus { Table, Id, UserType, UserId, ShopId, WebsocketId, LastPingAt, Status }
+
+#[derive(Iden)]
+enum Shops { Table, Id }

@@ -1,5 +1,6 @@
 use sea_orm_migration::prelude::*;
 
+// 完全匹配实际 SQLite customers 表结构
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
@@ -11,52 +12,17 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(Customers::Table)
                     .if_not_exists()
-                    .col(
-                        ColumnDef::new(Customers::Id)
-                            .integer()
-                            .not_null()
-                            .auto_increment()
-                            .primary_key(),
-                    )
+                    .col(ColumnDef::new(Customers::Id).integer().not_null().auto_increment().primary_key())
                     .col(ColumnDef::new(Customers::ShopId).integer().not_null())
-                    .col(
-                        ColumnDef::new(Customers::CustomerId)
-                            .string_len(100)
-                            .not_null(),
-                    )
-                    .col(ColumnDef::new(Customers::Name).string_len(100))
-                    .col(ColumnDef::new(Customers::Email).string_len(100))
-                    .col(ColumnDef::new(Customers::Phone).string_len(20))
-                    .col(ColumnDef::new(Customers::AvatarUrl).text())
-                    .col(ColumnDef::new(Customers::Metadata).json())
-                    .col(ColumnDef::new(Customers::FirstVisit).timestamp())
-                    .col(ColumnDef::new(Customers::LastVisit).timestamp())
-                    .col(ColumnDef::new(Customers::LastActiveAt).timestamp())
-                    .col(
-                        ColumnDef::new(Customers::VisitCount)
-                            .integer()
-                            .not_null()
-                            .default(0),
-                    )
-                    .col(
-                        ColumnDef::new(Customers::IsBlocked)
-                            .boolean()
-                            .not_null()
-                            .default(false),
-                    )
-                    .col(ColumnDef::new(Customers::Notes).text())
-                    .col(
-                        ColumnDef::new(Customers::CreatedAt)
-                            .timestamp()
-                            .not_null()
-                            .default(Expr::current_timestamp()),
-                    )
-                    .col(
-                        ColumnDef::new(Customers::UpdatedAt)
-                            .timestamp()
-                            .not_null()
-                            .default(Expr::current_timestamp()),
-                    )
+                    .col(ColumnDef::new(Customers::CustomerId).string_len(100).not_null())
+                    .col(ColumnDef::new(Customers::CustomerName).string_len(100))
+                    .col(ColumnDef::new(Customers::CustomerEmail).string_len(100))
+                    .col(ColumnDef::new(Customers::CustomerAvatar).string_len(255))
+                    .col(ColumnDef::new(Customers::IpAddress).string_len(45))
+                    .col(ColumnDef::new(Customers::UserAgent).text())
+                    .col(ColumnDef::new(Customers::FirstVisitAt).timestamp().default(Expr::current_timestamp()))
+                    .col(ColumnDef::new(Customers::LastActiveAt).timestamp().default(Expr::current_timestamp()))
+                    .col(ColumnDef::new(Customers::Status).integer().not_null().default(1))
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_customers_shop")
@@ -68,7 +34,7 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
-        // 创建唯一索引
+        // 唯一约束 (shop_id, customer_id)
         manager
             .create_index(
                 Index::create()
@@ -82,47 +48,14 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
-        // 创建其他索引
+        // 索引：shop_id
         manager
             .create_index(
                 Index::create()
                     .if_not_exists()
-                    .name("idx_customers_shop")
+                    .name("idx_customers_shop_id")
                     .table(Customers::Table)
                     .col(Customers::ShopId)
-                    .to_owned(),
-            )
-            .await?;
-
-        manager
-            .create_index(
-                Index::create()
-                    .if_not_exists()
-                    .name("idx_customers_email")
-                    .table(Customers::Table)
-                    .col(Customers::Email)
-                    .to_owned(),
-            )
-            .await?;
-
-        manager
-            .create_index(
-                Index::create()
-                    .if_not_exists()
-                    .name("idx_customers_visit")
-                    .table(Customers::Table)
-                    .col(Customers::LastVisit)
-                    .to_owned(),
-            )
-            .await?;
-
-        manager
-            .create_index(
-                Index::create()
-                    .if_not_exists()
-                    .name("idx_customers_active")
-                    .table(Customers::Table)
-                    .col(Customers::LastActiveAt)
                     .to_owned(),
             )
             .await?;
@@ -143,23 +76,15 @@ enum Customers {
     Id,
     ShopId,
     CustomerId,
-    Name,
-    Email,
-    Phone,
-    AvatarUrl,
-    Metadata,
-    FirstVisit,
-    LastVisit,
+    CustomerName,
+    CustomerEmail,
+    CustomerAvatar,
+    IpAddress,
+    UserAgent,
+    FirstVisitAt,
     LastActiveAt,
-    VisitCount,
-    IsBlocked,
-    Notes,
-    CreatedAt,
-    UpdatedAt,
+    Status,
 }
 
 #[derive(Iden)]
-enum Shops {
-    Table,
-    Id,
-}
+enum Shops { Table, Id }

@@ -1,6 +1,6 @@
-use sea_orm::{DatabaseConnection, EntityTrait, Set, ActiveModelTrait, ColumnTrait, QueryFilter, QuerySelect};
+use sea_orm::{DatabaseConnection, EntityTrait, Set, ActiveModelTrait, ColumnTrait, QueryFilter, ActiveValue};
 use anyhow::Result;
-use crate::entities::{unread_counts, customers, sessions};
+use crate::entities::unread_counts;
 
 pub struct UnreadCountRepository;
 
@@ -22,14 +22,20 @@ impl UnreadCountRepository {
         if let Some(record) = existing {
             // 更新现有记录
             let mut active_model: unread_counts::ActiveModel = record.into();
-            active_model.count = Set(active_model.count.unwrap() + increment);
+            // ActiveValue 读取：转换为 Option<i32>
+            let current: i32 = match &active_model.unread_count {
+                ActiveValue::Set(val) => *val,
+                ActiveValue::Unchanged(val) => *val,
+                _ => 0,
+            };
+            active_model.unread_count = Set(current + increment);
             active_model.update(db).await?;
         } else {
             // 创建新记录
             let new_record = unread_counts::ActiveModel {
                 shop_id: Set(shop_id as i32),
                 customer_id: Set(customer_id as i32),
-                count: Set(increment),
+                unread_count: Set(increment),
                 ..Default::default()
             };
             new_record.insert(db).await?;
@@ -54,7 +60,7 @@ impl UnreadCountRepository {
         if let Some(record) = existing {
             // 重置为0
             let mut active_model: unread_counts::ActiveModel = record.into();
-            active_model.count = Set(0);
+            active_model.unread_count = Set(0);
             active_model.update(db).await?;
         }
 
