@@ -57,14 +57,20 @@ pub async fn register(
     // 使用 UserService 注册用户
     let user = match state
         .user_service
-        .register(payload.username, payload.password, payload.email, payload.phone)
+        .register(payload.username, payload.password, payload.email, payload.phone) // 传递 phone 参数
         .await
     {
         Ok(user) => user,
         Err(e) => {
-            match e.to_string().as_str() {
-                "用户名已存在" => return Err(StatusCode::CONFLICT),
-                _ => return Err(StatusCode::INTERNAL_SERVER_ERROR),
+            let error_msg = e.to_string();
+            tracing::error!("注册失败: {}", error_msg);
+            match error_msg.as_str() {
+                "username_already_exists" => return Err(StatusCode::CONFLICT),
+                "email_already_exists" => return Err(StatusCode::CONFLICT),
+                _ => {
+                    tracing::error!("未知注册错误: {}", error_msg);
+                    return Err(StatusCode::INTERNAL_SERVER_ERROR);
+                }
             }
         }
     };

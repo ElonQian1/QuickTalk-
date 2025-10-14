@@ -41,14 +41,15 @@ impl UserRepository {
         username: String,
         password_hash: String,
         email: Option<String>,
-        display_name: Option<String>,
+        phone: Option<String>,
         role: Option<String>,
     ) -> Result<users::Model> {
         let user = users::ActiveModel {
             username: Set(username),
             password_hash: Set(password_hash),
             email: Set(email),
-            display_name: Set(display_name),
+            phone: Set(phone),
+            display_name: Set(None), // 暂时不设置display_name
             role: Set(role.unwrap_or_else(|| "staff".to_string())),
             is_active: Set(true),
             created_at: Set(chrono::Utc::now().naive_utc()),

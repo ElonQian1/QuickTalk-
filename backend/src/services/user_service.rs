@@ -35,17 +35,17 @@ impl UserService {
         username: String,
         password: String,
         email: Option<String>,
-        display_name: Option<String>,
+        phone: Option<String>,
     ) -> Result<users::Model> {
         // 1. 验证用户名是否已存在
         if UserRepository::username_exists(&self.db, &username).await? {
-            anyhow::bail!("username_already_exists");
+            anyhow::bail!("用户名已存在");
         }
         
         // 2. 验证邮箱是否已存在（如果提供）
         if let Some(ref email_val) = email {
             if UserRepository::email_exists(&self.db, email_val).await? {
-                anyhow::bail!("email_already_exists");
+                anyhow::bail!("邮箱已存在");
             }
         }
         
@@ -58,7 +58,7 @@ impl UserService {
             username,
             password_hash,
             email,
-            display_name,
+            phone, // 使用 phone 而不是 display_name
             None, // 默认角色 "staff"
         ).await?;
         
