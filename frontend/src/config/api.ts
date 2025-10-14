@@ -48,9 +48,14 @@ export const api = axios.create({
 
 // 在每次请求前尝试自动注入 Authorization，避免持久化恢复的竞态
 api.interceptors.request.use((config) => {
+  // 判断是否是不需要认证的公开端点（登录、注册等）
+  const isPublicEndpoint = config.url?.includes('/auth/login') || 
+                           config.url?.includes('/auth/register') ||
+                           config.url?.includes('/health');
+  
   // 若调用方已显式设置，则不覆盖
   const hasAuth = !!(config.headers && (config.headers as any)['Authorization']);
-  if (!hasAuth && typeof window !== 'undefined') {
+  if (!hasAuth && !isPublicEndpoint && typeof window !== 'undefined') {
     try {
       const raw = window.localStorage.getItem('auth-storage');
       if (raw) {
@@ -61,9 +66,11 @@ api.interceptors.request.use((config) => {
           (config.headers as any)['Authorization'] = `Bearer ${token}`;
           console.log('✅ [api] 已添加Authorization头到请求:', config.method, config.url);
         } else {
+          // 仅在非公开端点时警告
           console.warn('⚠️ [api] localStorage中找不到token');
         }
       } else {
+        // 仅在非公开端点时警告
         console.warn('⚠️ [api] localStorage中找不到auth-storage');
       }
     } catch (e) {
