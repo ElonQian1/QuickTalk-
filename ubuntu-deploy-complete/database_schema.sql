@@ -61,6 +61,32 @@ CREATE INDEX IF NOT EXISTS idx_shops_active ON shops(is_active);
 CREATE INDEX IF NOT EXISTS idx_shops_owner ON shops(owner_id);
 
 -- ==============================================
+-- 店铺员工表 (shop_staffs)
+-- 存储店铺与员工的关联关系
+-- ==============================================
+
+CREATE TABLE IF NOT EXISTS shop_staffs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    shop_id INTEGER NOT NULL,                       -- 店铺ID
+    user_id INTEGER NOT NULL,                       -- 员工ID
+    role VARCHAR(20) NOT NULL DEFAULT 'staff',     -- 角色: staff, manager
+    permissions JSON,                               -- 权限配置
+    is_active BOOLEAN NOT NULL DEFAULT true,       -- 是否激活
+    joined_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (shop_id) REFERENCES shops(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE(shop_id, user_id)                        -- 每个员工在同一店铺只能有一个角色
+);
+
+-- 店铺员工表索引
+CREATE INDEX IF NOT EXISTS idx_shop_staffs_shop ON shop_staffs(shop_id);
+CREATE INDEX IF NOT EXISTS idx_shop_staffs_user ON shop_staffs(user_id);
+CREATE INDEX IF NOT EXISTS idx_shop_staffs_active ON shop_staffs(is_active);
+
+-- ==============================================
 -- 客户表 (customers)
 -- 存储客户信息
 -- ==============================================
@@ -76,6 +102,7 @@ CREATE TABLE IF NOT EXISTS customers (
     metadata JSON,                                  -- 客户元数据
     first_visit DATETIME,                           -- 首次访问
     last_visit DATETIME,                            -- 最后访问
+    last_active_at DATETIME,                        -- 最后活跃时间
     visit_count INTEGER NOT NULL DEFAULT 0,        -- 访问次数
     is_blocked BOOLEAN NOT NULL DEFAULT false,     -- 是否被屏蔽
     notes TEXT,                                     -- 客服备注
@@ -91,6 +118,7 @@ CREATE INDEX IF NOT EXISTS idx_customers_shop ON customers(shop_id);
 CREATE INDEX IF NOT EXISTS idx_customers_shop_customer ON customers(shop_id, customer_id);
 CREATE INDEX IF NOT EXISTS idx_customers_email ON customers(email);
 CREATE INDEX IF NOT EXISTS idx_customers_visit ON customers(last_visit);
+CREATE INDEX IF NOT EXISTS idx_customers_active ON customers(last_active_at);
 
 -- ==============================================
 -- 会话表 (sessions)
@@ -226,6 +254,32 @@ CREATE INDEX IF NOT EXISTS idx_statistics_shop_date ON statistics(shop_id, stat_
 CREATE INDEX IF NOT EXISTS idx_statistics_type ON statistics(stat_type);
 
 -- ==============================================
+-- 未读消息计数表 (unread_counts)
+-- 存储每个店铺-客户的未读消息数量（性能优化）
+-- ==============================================
+
+CREATE TABLE IF NOT EXISTS unread_counts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    shop_id INTEGER NOT NULL,                       -- 所属店铺
+    customer_id VARCHAR(100) NOT NULL,              -- 客户标识
+    session_id INTEGER,                             -- 会话ID
+    unread_count INTEGER NOT NULL DEFAULT 0,       -- 未读消息数
+    last_message_at DATETIME,                       -- 最后消息时间
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (shop_id) REFERENCES shops(id) ON DELETE CASCADE,
+    FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE,
+    UNIQUE(shop_id, customer_id)                    -- 每个店铺-客户组合唯一
+);
+
+-- 未读计数表索引
+CREATE INDEX IF NOT EXISTS idx_unread_counts_shop ON unread_counts(shop_id);
+CREATE INDEX IF NOT EXISTS idx_unread_counts_customer ON unread_counts(customer_id);
+CREATE INDEX IF NOT EXISTS idx_unread_counts_session ON unread_counts(session_id);
+CREATE INDEX IF NOT EXISTS idx_unread_counts_count ON unread_counts(unread_count);
+
+-- ==============================================
 -- 系统配置表 (system_config)
 -- 存储系统级配置
 -- ==============================================
@@ -319,6 +373,14 @@ AFTER UPDATE ON customers
 FOR EACH ROW
 BEGIN
     UPDATE customers SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+END;
+
+-- 店铺员工表更新时间触发器
+CREATE TRIGGER IF NOT EXISTS update_shop_staffs_timestamp
+AFTER UPDATE ON shop_staffs
+FOR EACH ROW
+BEGIN
+    UPDATE shop_staffs SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
 END;
 
 -- 会话表更新时间触发器
