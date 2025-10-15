@@ -21,17 +21,23 @@ pub async fn get_messages(
     let limit = p.limit.unwrap_or(50);
     let offset = p.offset.unwrap_or(0);
 
+    eprintln!("🔍 get_messages - user_id: {}, session_id: {}, limit: {}, offset: {}", user_id, session_id, limit, offset);
+
     match state
         .message_service
         .get_messages_by_session(user_id, session_id, Some(limit as u64), Some(offset as u64))
         .await
     {
         Ok(messages) => {
-            // 暂时返回空列表，等Repository层返回正确格式
-            let empty_messages: Vec<Message> = Vec::new();
-            Ok(Json(empty_messages))
+            eprintln!("✅ 查询到 {} 条消息", messages.len());
+            // 转换为 Message 格式
+            let result: Vec<Message> = messages.into_iter().map(|m| m.into()).collect();
+            Ok(Json(result))
         }
-        Err(e) => Err(AppError::Internal(e.to_string())),
+        Err(e) => {
+            eprintln!("❌ get_messages 错误: {:?}", e);
+            Err(AppError::Internal(e.to_string()))
+        }
     }
 }
 

@@ -253,7 +253,7 @@ impl From<crate::entities::messages::Model> for Message {
             sender_id: message.sender_id.map(|id| id as i64),
             content: message.content,
             message_type: message.message_type,
-            file_url: None, // Entity中没有此字段，设为None
+            file_url: message.file_url, // 从 entity 中读取 file_url
             status: if message.is_deleted { "deleted".to_string() } else { "active".to_string() },
             created_at: message.created_at.and_utc(),
         }
