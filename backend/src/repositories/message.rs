@@ -17,6 +17,10 @@ impl MessageRepository {
         message_type: String,
         content: String,
     ) -> Result<messages::Model> {
+        eprintln!("🔍 MessageRepository::create - session_id: {}, sender_type: {}, content: {}", 
+                  session_id, sender_type, &content[..content.len().min(50)]);
+        
+        let now = chrono::Utc::now().naive_utc();
         let message = messages::ActiveModel {
             session_id: Set(session_id),
             sender_type: Set(sender_type),
@@ -26,12 +30,21 @@ impl MessageRepository {
             content: Set(content),
             is_read: Set(false),
             is_deleted: Set(false),
-            created_at: Set(chrono::Utc::now().naive_utc()),
-            updated_at: Set(Some(chrono::Utc::now().naive_utc())),
+            created_at: Set(now),
+            updated_at: Set(Some(now)),
             ..Default::default()
         };
         
-        Ok(message.insert(db).await?)
+        match message.insert(db).await {
+            Ok(inserted) => {
+                eprintln!("✅ 消息创建成功: id={}", inserted.id);
+                Ok(inserted)
+            }
+            Err(e) => {
+                eprintln!("❌ 消息创建失败: {:?}", e);
+                Err(e.into())
+            }
+        }
     }
     
     /// 获取会话的所有消息
