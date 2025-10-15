@@ -40,6 +40,8 @@ impl MessageRepository {
         session_id: i32,
         limit: Option<u64>,
     ) -> Result<Vec<messages::Model>> {
+        eprintln!("🔍 MessageRepository::find_by_session - session_id: {}, limit: {:?}", session_id, limit);
+        
         let mut query = Messages::find()
             .filter(messages::Column::SessionId.eq(session_id))
             .filter(messages::Column::IsDeleted.eq(false))
@@ -49,7 +51,16 @@ impl MessageRepository {
             query = query.limit(l);
         }
         
-        Ok(query.all(db).await?)
+        match query.all(db).await {
+            Ok(results) => {
+                eprintln!("✅ 查询成功，找到 {} 条消息", results.len());
+                Ok(results)
+            }
+            Err(e) => {
+                eprintln!("❌ 查询失败: {:?}", e);
+                Err(e.into())
+            }
+        }
     }
     
     /// 标记消息为已读
@@ -171,16 +182,33 @@ impl MessageRepository {
         page: u64,
         page_size: u64,
     ) -> Result<(Vec<messages::Model>, u64)> {
+        eprintln!("🔍 MessageRepository::find_by_session_paginated - session_id: {}, page: {}, page_size: {}", session_id, page, page_size);
+        
         let paginator = Messages::find()
             .filter(messages::Column::SessionId.eq(session_id))
             .filter(messages::Column::IsDeleted.eq(false))
             .order_by_desc(messages::Column::CreatedAt)
             .paginate(db, page_size);
         
-        let total = paginator.num_items().await?;
-        let messages = paginator.fetch_page(page).await?;
-        
-        Ok((messages, total))
+        match paginator.num_items().await {
+            Ok(total) => {
+                eprintln!("✅ 总消息数: {}", total);
+                match paginator.fetch_page(page).await {
+                    Ok(messages) => {
+                        eprintln!("✅ 获取到第{}页的{}条消息", page, messages.len());
+                        Ok((messages, total))
+                    }
+                    Err(e) => {
+                        eprintln!("❌ 获取消息页面失败: {:?}", e);
+                        Err(e.into())
+                    }
+                }
+            }
+            Err(e) => {
+                eprintln!("❌ 计算总数失败: {:?}", e);
+                Err(e.into())
+            }
+        }
     }
     
     /// 搜索消息
