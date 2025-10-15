@@ -32,13 +32,13 @@ impl ShopRepository {
         name: String,
         slug: String,
         description: Option<String>,
-        owner_id: Option<i32>,
+        owner_id: i32, // 改为必需的i32
     ) -> Result<shops::Model> {
         let shop = shops::ActiveModel {
             name: Set(name),
             slug: Set(slug),
             description: Set(description),
-            owner_id: Set(owner_id),
+            owner_id: Set(Some(owner_id)),
             is_active: Set(true),
             created_at: Set(chrono::Utc::now().naive_utc()),
             updated_at: Set(chrono::Utc::now().naive_utc()),
@@ -216,7 +216,12 @@ impl ShopRepository {
             .await?;
         
         match shop {
-            Some(s) => Ok(s.owner_id == Some(user_id)),
+            Some(s) => {
+                match s.owner_id {
+                    Some(owner_id) => Ok(owner_id == user_id),
+                    None => Ok(false),
+                }
+            },
             None => Ok(false),
         }
     }
@@ -235,7 +240,7 @@ impl ShopRepository {
             .into();
         
         let new_api_key = Self::generate_api_key();
-        shop.api_key = Set(Some(new_api_key.clone()));
+        shop.api_key = Set(new_api_key.clone()); // 移除Some包装
         shop.updated_at = Set(chrono::Utc::now().naive_utc());
         shop.update(db).await?;
         

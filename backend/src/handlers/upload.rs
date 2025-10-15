@@ -351,8 +351,9 @@ pub async fn handle_upload(
         .await
         .map_err(|_| AppError::Internal("查询店铺失败".to_string()))?
     {
-        if shop.owner_id != Some(user_id as i32) {
-            return Err(AppError::Unauthorized);
+        match shop.owner_id {
+            Some(owner_id) if owner_id == user_id as i32 => {},
+            _ => return Err(AppError::Unauthorized),
         }
     } else {
         return Err(AppError::NotFound);

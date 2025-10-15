@@ -84,24 +84,61 @@ impl UserService {
         username: &str,
         password: &str,
     ) -> Result<users::Model> {
+        tracing::info!("🔍 UserService::authenticate 开始，用户名: {}", username);
+        
         // 1. 查找用户
-        let user = UserRepository::find_by_username(&self.db, username)
-            .await?
-            .ok_or_else(|| anyhow::anyhow!("invalid_credentials"))?;
+        tracing::debug!("📋 开始查找用户");
+        let user = match UserRepository::find_by_username(&self.db, username).await {
+            Ok(Some(user)) => {
+                tracing::info!("✅ 用户查找成功，用户ID: {}, 状态: {}", user.id, user.status);
+                user
+            },
+            Ok(None) => {
+                tracing::warn!("❌ 用户不存在: {}", username);
+                anyhow::bail!("invalid_credentials");
+            },
+            Err(e) => {
+                tracing::error!("❌ 查找用户失败: {}", e);
+                return Err(e);
+            }
+        };
         
         // 2. 检查用户是否活跃
+        tracing::debug!("🔍 检查用户状态");
         if user.status != 1 {
+            tracing::warn!("❌ 用户未激活，状态: {}", user.status);
             anyhow::bail!("user_inactive");
         }
         
         // 3. 验证密码
-        if !verify(password, &user.password_hash)? {
-            anyhow::bail!("invalid_credentials");
+        tracing::debug!("🔐 开始验证密码");
+        match verify(password, &user.password_hash) {
+            Ok(true) => {
+                tracing::info!("✅ 密码验证成功");
+            },
+            Ok(false) => {
+                tracing::warn!("❌ 密码验证失败");
+                anyhow::bail!("invalid_credentials");
+            },
+            Err(e) => {
+                tracing::error!("❌ 密码验证过程出错: {}", e);
+                return Err(e.into());
+            }
         }
         
         // 4. 更新最后登录时间
-        UserRepository::update_last_login(&self.db, user.id).await?;
+        tracing::debug!("📅 更新最后登录时间");
+        match UserRepository::update_last_login(&self.db, user.id).await {
+            Ok(_) => {
+                tracing::info!("✅ 最后登录时间更新成功");
+            },
+            Err(e) => {
+                tracing::error!("❌ 更新最后登录时间失败: {}", e);
+                return Err(e);
+            }
+        }
         
+        tracing::info!("✅ 用户认证完成");
         Ok(user)
     }
     

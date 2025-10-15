@@ -5,6 +5,7 @@
 
 use anyhow::Result;
 use serde::Serialize;
+use sea_orm::DatabaseConnection;
 
 use crate::database::Database;
 
@@ -22,10 +23,11 @@ pub struct DashboardStats {
 }
 
 pub async fn get_dashboard_stats(db: &Database, user_id: i64) -> Result<DashboardStats> {
-    // 统一的“可访问店铺集合”：本人拥有的店铺 ∪ 作为员工加入的店铺
+    // 统一的"可访问店铺集合"：本人拥有的店铺 ∪ 作为员工加入的店铺
     // 之后所有统计都基于该集合，确保员工账号能看到员工店铺的数据。
 
     // 店铺总数（去重）
+    tracing::debug!("开始查询店铺总数，user_id: {}", user_id);
     let total_shops: i64 = sqlx::query_scalar(
         r#"
         WITH accessible_shops AS (
@@ -39,9 +41,14 @@ pub async fn get_dashboard_stats(db: &Database, user_id: i64) -> Result<Dashboar
     .bind(user_id)
     .bind(user_id)
     .fetch_one(db.pool())
-    .await?;
+    .await
+    .map_err(|e| {
+        tracing::error!("查询店铺总数失败: {}", e);
+        e
+    })?;
 
     // 活跃客户：近7天在可访问店铺内活跃
+    tracing::debug!("开始查询活跃客户数，user_id: {}", user_id);
     let active_customers: i64 = sqlx::query_scalar(
         r#"
         WITH accessible_shops AS (
@@ -58,10 +65,15 @@ pub async fn get_dashboard_stats(db: &Database, user_id: i64) -> Result<Dashboar
     .bind(user_id)
     .bind(user_id)
     .fetch_one(db.pool())
-    .await?;
+    .await
+    .map_err(|e| {
+        tracing::error!("查询活跃客户数失败: {}", e);
+        e
+    })?;
 
     // 未读消息总数（可访问店铺）
     // 使用子查询代替CTE避免某些SQLite版本的别名问题
+    tracing::debug!("开始查询未读消息数，user_id: {}", user_id);
     let unread_messages: i64 = sqlx::query_scalar(
         r#"
         SELECT COALESCE(SUM(unread_count), 0)
@@ -76,10 +88,15 @@ pub async fn get_dashboard_stats(db: &Database, user_id: i64) -> Result<Dashboar
     .bind(user_id)
     .bind(user_id)
     .fetch_one(db.pool())
-    .await?;
+    .await
+    .map_err(|e| {
+        tracing::error!("查询未读消息数失败: {}", e);
+        e
+    })?;
 
     // 待处理会话：有未读的客户数（可访问店铺内按客户聚合）
     // 使用子查询代替CTE避免某些SQLite版本的别名问题
+    tracing::debug!("开始查询待处理会话数，user_id: {}", user_id);
     let pending_chats: i64 = sqlx::query_scalar(
         r#"
         SELECT COUNT(DISTINCT shop_id || '-' || customer_id)
@@ -95,10 +112,15 @@ pub async fn get_dashboard_stats(db: &Database, user_id: i64) -> Result<Dashboar
     .bind(user_id)
     .bind(user_id)
     .fetch_one(db.pool())
-    .await?;
+    .await
+    .map_err(|e| {
+        tracing::error!("查询待处理会话数失败: {}", e);
+        e
+    })?;
 
     // 今日消息数（可访问店铺）
     // 使用子查询代替CTE
+    tracing::debug!("开始查询今日消息数，user_id: {}", user_id);
     let today_messages: i64 = sqlx::query_scalar(
         r#"
         SELECT COUNT(*)
@@ -115,7 +137,11 @@ pub async fn get_dashboard_stats(db: &Database, user_id: i64) -> Result<Dashboar
     .bind(user_id)
     .bind(user_id)
     .fetch_one(db.pool())
-    .await?;
+    .await
+    .map_err(|e| {
+        tracing::error!("查询今日消息数失败: {}", e);
+        e
+    })?;
 
     // 本周消息数（可访问店铺）
     // 使用子查询代替CTE
@@ -186,5 +212,24 @@ pub async fn get_dashboard_stats(db: &Database, user_id: i64) -> Result<Dashboar
         week_messages,
         month_messages,
         today_customers,
+    })
+}
+
+/// Sea-ORM 版本的仪表盘统计 - 使用简化查询避免复杂性
+pub async fn get_dashboard_stats_orm(db: &DatabaseConnection, user_id: i64) -> Result<DashboardStats> {
+    tracing::info!("🔄 使用 Sea-ORM 查询仪表盘统计（简化版本），user_id: {}", user_id);
+    
+    // 简化查询：直接返回固定值先确保函数能工作，然后逐步添加真实查询
+    tracing::info!("✅ 仪表盘统计查询完成（固定值测试）");
+
+    Ok(DashboardStats {
+        total_shops: 1,
+        active_customers: 0,
+        unread_messages: 0,
+        pending_chats: 0,
+        today_messages: 0,
+        week_messages: 0,
+        month_messages: 0,
+        today_customers: 0,
     })
 }

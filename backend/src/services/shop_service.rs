@@ -65,12 +65,12 @@ impl ShopService {
         let api_key = ShopRepository::generate_api_key();
         
         // 4. 创建店铺（注意：需要修改 ShopRepository::create 支持 api_key）
-        let mut shop = ShopRepository::create(
+        let shop = ShopRepository::create(
             &self.db,
             name,
             slug,
             description,
-            Some(owner_id),
+            owner_id, // 直接传递i32而不是Some(owner_id)
         ).await?;
         
         Ok(shop)

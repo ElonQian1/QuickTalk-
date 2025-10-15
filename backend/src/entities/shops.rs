@@ -7,20 +7,19 @@ pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
     
+    #[sea_orm(column_name = "shop_name")]
     pub name: String,
     
     #[sea_orm(unique)]
     pub slug: String,
     
-    #[sea_orm(unique)]
-    pub api_key: Option<String>,
-    
+    pub api_key: String,
     pub description: Option<String>,
     pub logo_url: Option<String>,
     pub website_url: Option<String>,
     pub contact_email: Option<String>,
     pub contact_phone: Option<String>,
-    pub settings: Option<Json>,
+    pub settings: Option<serde_json::Value>,
     pub is_active: bool,
     pub owner_id: Option<i32>,
     pub created_at: DateTime,

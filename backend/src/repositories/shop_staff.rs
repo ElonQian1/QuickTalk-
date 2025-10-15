@@ -121,8 +121,10 @@ impl ShopStaffRepository {
         
         // 2. 检查是否是店主
         if let Some(shop) = Shops::find_by_id(shop_id).one(db).await? {
-            if shop.owner_id == Some(user.id) {
-                anyhow::bail!("user_is_owner");
+            if let Some(owner_id) = shop.owner_id {
+                if owner_id == user.id {
+                    anyhow::bail!("user_is_owner");
+                }
             }
         } else {
             anyhow::bail!("shop_not_found");
@@ -163,7 +165,12 @@ impl ShopStaffRepository {
         let shop = Shops::find_by_id(shop_id as i32).one(db).await?;
         
         match shop {
-            Some(s) => Ok(s.owner_id == Some(user_id as i32)),
+            Some(s) => {
+                match s.owner_id {
+                    Some(owner_id) => Ok(owner_id == user_id as i32),
+                    None => Ok(false),
+                }
+            },
             None => Ok(false),
         }
     }

@@ -43,7 +43,7 @@ pub async fn create_shop(
                 owner_id: shop_model.owner_id.unwrap_or(0) as i64,
                 shop_name: shop_model.name,
                 shop_url: shop_model.website_url,
-                api_key: shop_model.api_key.unwrap_or_default(),
+                api_key: shop_model.api_key,
                 status: if shop_model.is_active { 1 } else { 0 },
                 created_at: shop_model.created_at.and_utc(),
                 updated_at: shop_model.updated_at.and_utc(),
