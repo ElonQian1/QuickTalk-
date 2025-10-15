@@ -10,13 +10,13 @@ pub struct Model {
     pub shop_id: i32,
     pub customer_id: String,
     
-    #[sea_orm(column_name = "customer_name")]
+    // 生产数据库列名是 "name"，不是 "customer_name"
     pub name: Option<String>,
     
-    #[sea_orm(column_name = "customer_email")]
+    // 生产数据库列名是 "email"，不是 "customer_email"
     pub email: Option<String>,
     
-    #[sea_orm(column_name = "customer_avatar")]
+    // 生产数据库列名是 "avatar_url"，不是 "customer_avatar"
     pub avatar_url: Option<String>,
     
     pub ip_address: Option<String>,

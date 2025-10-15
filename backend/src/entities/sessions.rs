@@ -11,7 +11,7 @@ pub struct Model {
     pub customer_id: i32,
     pub staff_id: Option<i32>,
     
-    #[sea_orm(column_name = "session_status")]
+    // 生产数据库列名是 "status"，不是 "session_status"
     pub status: String,
     
     pub created_at: DateTime,
