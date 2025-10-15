@@ -83,7 +83,7 @@ impl<'a> ChatService<'a> {
         payload: MessagePayload,
     ) -> Result<PersistedMessage> {
         let persisted = self
-            .persist_message(session, "customer", None, &payload)
+            .persist_message(session, "customer", Some(customer.id), &payload)
             .await?;
 
         crate::repositories::UnreadCountRepository::update_unread_count(
