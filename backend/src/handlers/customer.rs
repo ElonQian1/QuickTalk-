@@ -17,8 +17,16 @@ pub async fn get_customers(
         .await
     {
         Ok(customers) => {
-            // 简化处理：暂时返回空列表，等Repository层返回正确格式
-            let customer_sessions: Vec<CustomerWithSession> = Vec::new();
+            // 将 (customers::Model, Option<sessions::Model>) 转换为 CustomerWithSession
+            let customer_sessions: Vec<CustomerWithSession> = customers
+                .into_iter()
+                .map(|(customer, session)| CustomerWithSession {
+                    customer: customer.into(),
+                    session: session.map(|s| s.into()),
+                    last_message: None, // TODO: 根据需要查询最后一条消息
+                    unread_count: 0,    // TODO: 根据需要查询未读数
+                })
+                .collect();
             Ok(Json(customer_sessions))
         },
         Err(e) => Err(AppError::Internal(e.to_string())),

@@ -45,11 +45,12 @@ export class ConfigManager {
   private detectServerCandidates(): string[] {
     const currentUrl = window.location;
     const candidates = [
-      // 优先尝试当前域名的标准端口
-      `${currentUrl.protocol}//${currentUrl.hostname}:8080`,
+      // 优先尝试当前域名的HTTPS标准端口（生产环境）
+      `${currentUrl.protocol}//${currentUrl.hostname}:8443`,
       // 尝试相同协议和端口
       `${currentUrl.protocol}//${currentUrl.host}`,
-      // 开发环境后备选项 - 支持HTTPS
+      // 开发环境备选项 - HTTP/WS 8080端口
+      `${currentUrl.protocol}//${currentUrl.hostname}:8080`,
       'https://localhost:8080',
       'http://localhost:8080',
       'https://127.0.0.1:8080',
