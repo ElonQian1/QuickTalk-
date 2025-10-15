@@ -61,9 +61,9 @@ impl CustomerRepository {
                 name: Set(name),
                 email: Set(email),
                 avatar_url: Set(avatar_url),
-                first_visit_at: Set(Some(chrono::Utc::now().naive_utc())),
+                created_at: Set(Some(chrono::Utc::now().naive_utc())),
                 last_active_at: Set(Some(chrono::Utc::now().naive_utc())),
-                status: Set(Some(1)), // active status
+                is_online: Set(Some(false)), // 默认离线
                 ..Default::default()
             };
             
@@ -175,7 +175,8 @@ impl CustomerRepository {
             .ok_or_else(|| anyhow::anyhow!("Customer not found"))?
             .into();
         
-        customer.status = Set(Some(0)); // 0 = blocked
+        customer.is_online = Set(Some(false)); // 设置为离线
+        customer.updated_at = Set(Some(chrono::Utc::now().naive_utc()));
         customer.update(db).await?;
         
         Ok(())
@@ -189,7 +190,8 @@ impl CustomerRepository {
             .ok_or_else(|| anyhow::anyhow!("Customer not found"))?
             .into();
         
-        customer.status = Set(Some(1)); // 1 = active
+        customer.is_online = Set(Some(true)); // 设置为在线
+        customer.updated_at = Set(Some(chrono::Utc::now().naive_utc()));
         customer.update(db).await?;
         
         Ok(())

@@ -31,9 +31,10 @@ impl SessionRepository {
         let session = sessions::ActiveModel {
             shop_id: Set(shop_id),
             customer_id: Set(customer_id),
+            session_id: Set(Some(session_id)),
             status: Set("active".to_string()),
             created_at: Set(chrono::Utc::now().naive_utc()),
-            last_message_at: Set(Some(chrono::Utc::now().naive_utc())),
+            updated_at: Set(Some(chrono::Utc::now().naive_utc())),
             ..Default::default()
         };
         
@@ -45,7 +46,7 @@ impl SessionRepository {
         let sessions = Sessions::find()
             .filter(sessions::Column::ShopId.eq(shop_id))
             .filter(sessions::Column::Status.eq("active"))
-            .order_by_desc(sessions::Column::LastMessageAt)
+            .order_by_desc(sessions::Column::UpdatedAt)
             .all(db)
             .await?;
         Ok(sessions)
@@ -60,7 +61,7 @@ impl SessionRepository {
             .into();
         
         session.staff_id = Set(Some(staff_id));
-        session.last_message_at = Set(Some(chrono::Utc::now().naive_utc()));
+        session.updated_at = Set(Some(chrono::Utc::now().naive_utc()));
         session.update(db).await?;
         
         Ok(())
@@ -74,7 +75,7 @@ impl SessionRepository {
             .ok_or_else(|| anyhow::anyhow!("Session not found"))?
             .into();
         
-        session.last_message_at = Set(Some(chrono::Utc::now().naive_utc()));
+        session.updated_at = Set(Some(chrono::Utc::now().naive_utc()));
         session.update(db).await?;
         
         Ok(())
@@ -133,7 +134,7 @@ impl SessionRepository {
         Ok(())
     }
     
-    /// 设置会话优先级 (当前表结构不支持，仅更新最后消息时间)
+    /// 设置会话优先级 (当前表结构不支持，仅更新时间)
     pub async fn set_priority(db: &DatabaseConnection, session_id: i32, _priority: i32) -> Result<()> {
         let mut session: sessions::ActiveModel = Sessions::find_by_id(session_id)
             .one(db)
@@ -141,8 +142,8 @@ impl SessionRepository {
             .ok_or_else(|| anyhow::anyhow!("Session not found"))?
             .into();
         
-        // 由于表结构不支持priority字段，仅更新最后消息时间
-        session.last_message_at = Set(Some(chrono::Utc::now().naive_utc()));
+        // 由于表结构不支持priority字段，仅更新时间
+        session.updated_at = Set(Some(chrono::Utc::now().naive_utc()));
         session.update(db).await?;
         
         Ok(())
@@ -153,7 +154,7 @@ impl SessionRepository {
         let sessions = Sessions::find()
             .filter(sessions::Column::StaffId.eq(staff_id))
             .filter(sessions::Column::Status.eq("active"))
-            .order_by_desc(sessions::Column::LastMessageAt)
+            .order_by_desc(sessions::Column::UpdatedAt)
             .all(db)
             .await?;
         Ok(sessions)
