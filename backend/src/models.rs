@@ -246,6 +246,12 @@ impl From<crate::entities::customers::Model> for Customer {
 
 impl From<crate::entities::messages::Model> for Message {
     fn from(message: crate::entities::messages::Model) -> Self {
+        // file_url 可能存储在 metadata 中
+        let file_url = message.metadata.as_ref()
+            .and_then(|m| m.get("file_url"))
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+        
         Message {
             id: message.id as i64,
             session_id: message.session_id as i64,
@@ -253,7 +259,7 @@ impl From<crate::entities::messages::Model> for Message {
             sender_id: message.sender_id.map(|id| id as i64),
             content: message.content,
             message_type: message.message_type,
-            file_url: message.file_url, // 从 entity 中读取 file_url
+            file_url, // 从 metadata 提取
             status: if message.is_deleted { "deleted".to_string() } else { "active".to_string() },
             created_at: message.created_at.and_utc(),
         }

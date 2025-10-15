@@ -19,8 +19,13 @@ pub struct Model {
     pub message_type: String,
     
     pub content: String,
-    pub file_url: Option<String>,  // 添加缺失的字段
-    pub status: Option<String>,    // 添加缺失的字段
+    
+    // Ubuntu生产数据库中不存在这两列，标记为ignore
+    #[sea_orm(ignore)]
+    pub file_url: Option<String>,
+    #[sea_orm(ignore)]
+    pub status: Option<String>,
+    
     pub rich_content: Option<Json>,
     pub metadata: Option<Json>,
     pub reply_to: Option<i32>,
