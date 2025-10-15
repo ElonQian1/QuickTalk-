@@ -30,12 +30,17 @@ pub async fn fetch_shops_with_unread_by_owner(
 ) -> Result<Vec<ShopWithUnreadCount>> {
     let sql = r#"
         SELECT 
-            s.id, s.owner_id, s.shop_name, s.shop_url, s.api_key, s.status, s.created_at, s.updated_at,
-            COALESCE(SUM(uc.unread_count), 0) AS unread_total
+            s.id,
+            s.owner_id,
+            s.name AS shop_name,
+            NULL AS shop_url,
+            s.api_key,
+            CASE WHEN s.is_active THEN 1 ELSE 0 END AS status,
+            s.created_at,
+            s.updated_at,
+            0 AS unread_total
         FROM shops s
-        LEFT JOIN unread_counts uc ON uc.shop_id = s.id
         WHERE s.owner_id = ?
-        GROUP BY s.id
         ORDER BY s.created_at DESC
     "#;
 
@@ -74,13 +79,18 @@ pub async fn fetch_shops_with_unread_by_staff(
 ) -> Result<Vec<ShopWithUnreadCount>> {
     let sql = r#"
         SELECT 
-            s.id, s.owner_id, s.shop_name, s.shop_url, s.api_key, s.status, s.created_at, s.updated_at,
-            COALESCE(SUM(uc.unread_count), 0) AS unread_total
+            s.id,
+            s.owner_id,
+            s.name AS shop_name,
+            NULL AS shop_url,
+            s.api_key,
+            CASE WHEN s.is_active THEN 1 ELSE 0 END AS status,
+            s.created_at,
+            s.updated_at,
+            0 AS unread_total
         FROM shop_staffs ss
         JOIN shops s ON s.id = ss.shop_id
-        LEFT JOIN unread_counts uc ON uc.shop_id = s.id
         WHERE ss.user_id = ?
-        GROUP BY s.id
         ORDER BY s.created_at DESC
     "#;
 

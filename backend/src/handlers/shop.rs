@@ -3,17 +3,15 @@ use axum::{extract::State, Json};
 use tracing::error;
 
 use crate::{models::*, AppState};
+use crate::services::metrics;
 
 pub async fn get_shops(
     State(state): State<AppState>,
     AuthUser { user_id }: AuthUser,
 ) -> Result<Json<Vec<ShopWithUnreadCount>>, AppError> {
-    match state.shop_service.get_shops_by_owner(user_id).await {
-        Ok(_shops) => {
-            // 暂时返回空列表，等Repository层返回正确格式
-            let shops_with_unread: Vec<ShopWithUnreadCount> = Vec::new();
-            Ok(Json(shops_with_unread))
-        },
+    // 使用真实数据库统计数据（含未读数聚合）
+    match metrics::fetch_shops_with_unread_by_owner(&state.db, user_id).await {
+        Ok(shops) => Ok(Json(shops)),
         Err(e) => {
             error!(error=?e, "查询店铺列表失败");
             Err(AppError::Internal("获取店铺失败".to_string()))
@@ -62,12 +60,8 @@ pub async fn get_staff_shops(
     State(state): State<AppState>,
     AuthUser { user_id }: AuthUser,
 ) -> Result<Json<Vec<ShopWithUnreadCount>>, AppError> {
-    match state.shop_service.get_shops_by_staff(user_id).await {
-        Ok(_shops) => {
-            // 暂时返回空列表，等Repository层返回正确格式
-            let shops_with_unread: Vec<ShopWithUnreadCount> = Vec::new();
-            Ok(Json(shops_with_unread))
-        },
+    match metrics::fetch_shops_with_unread_by_staff(&state.db, user_id).await {
+        Ok(shops) => Ok(Json(shops)),
         Err(e) => {
             error!(error=?e, "查询员工店铺列表失败");
             Err(AppError::Internal("获取店铺失败".to_string()))

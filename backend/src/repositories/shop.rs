@@ -34,9 +34,13 @@ impl ShopRepository {
         description: Option<String>,
         owner_id: i32, // 改为必需的i32
     ) -> Result<shops::Model> {
+        // 生成唯一的 API Key
+        let api_key = Self::generate_api_key();
+        
         let shop = shops::ActiveModel {
             shop_name: Set(name),
             slug: Set(slug),
+            api_key: Set(api_key),
             description: Set(description),
             owner_id: Set(Some(owner_id)),
             is_active: Set(true),
@@ -52,6 +56,15 @@ impl ShopRepository {
     /// 获取用户拥有的店铺（作为所有者）
     pub async fn find_by_owner(db: &DatabaseConnection, owner_id: i32) -> Result<Vec<shops::Model>> {
         let shops = Shops::find()
+            .select_only()
+            .column(shops::Column::Id)
+            .column(shops::Column::ShopName)
+            .column(shops::Column::Slug)
+            .column(shops::Column::ApiKey)
+            .column(shops::Column::IsActive)
+            .column(shops::Column::OwnerId)
+            .column(shops::Column::CreatedAt)
+            .column(shops::Column::UpdatedAt)
             .filter(shops::Column::OwnerId.eq(owner_id))
             .filter(shops::Column::IsActive.eq(true))
             .order_by_asc(shops::Column::ShopName)
@@ -71,6 +84,15 @@ impl ShopRepository {
                 JoinType::InnerJoin,
                 shops::Relation::ShopStaffs.def(),
             )
+            .select_only()
+            .column(shops::Column::Id)
+            .column(shops::Column::ShopName)
+            .column(shops::Column::Slug)
+            .column(shops::Column::ApiKey)
+            .column(shops::Column::IsActive)
+            .column(shops::Column::OwnerId)
+            .column(shops::Column::CreatedAt)
+            .column(shops::Column::UpdatedAt)
             .filter(shop_staffs::Column::UserId.eq(user_id))
             .filter(shops::Column::IsActive.eq(true))
             .order_by_asc(shops::Column::ShopName)
@@ -145,12 +167,9 @@ impl ShopRepository {
         if let Some(d) = description {
             shop.description = Set(Some(d));
         }
-        if let Some(l) = logo_url {
-            shop.logo_url = Set(Some(l));
-        }
-        if let Some(w) = website_url {
-            shop.website_url = Set(Some(w));
-        }
+        // 由于生产库可能不存在对应列，且实体对这些字段使用了 #[sea_orm(ignore)]，此处跳过更新
+        let _ = logo_url.map(|_l| ());
+        let _ = website_url.map(|_w| ());
         if let Some(e) = contact_email {
             shop.contact_email = Set(Some(e));
         }
@@ -181,6 +200,15 @@ impl ShopRepository {
     /// 列出所有活跃店铺
     pub async fn list_active(db: &DatabaseConnection) -> Result<Vec<shops::Model>> {
         let shops = Shops::find()
+            .select_only()
+            .column(shops::Column::Id)
+            .column(shops::Column::ShopName)
+            .column(shops::Column::Slug)
+            .column(shops::Column::ApiKey)
+            .column(shops::Column::IsActive)
+            .column(shops::Column::OwnerId)
+            .column(shops::Column::CreatedAt)
+            .column(shops::Column::UpdatedAt)
             .filter(shops::Column::IsActive.eq(true))
             .order_by_asc(shops::Column::ShopName)
             .all(db)

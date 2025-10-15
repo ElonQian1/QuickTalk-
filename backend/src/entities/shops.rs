@@ -15,10 +15,14 @@ pub struct Model {
     
     pub api_key: String,
     pub description: Option<String>,
+    #[sea_orm(ignore)]
     pub logo_url: Option<String>,
+    #[sea_orm(ignore)]
     pub website_url: Option<String>,
     pub contact_email: Option<String>,
+    #[sea_orm(column_name = "phone")]
     pub contact_phone: Option<String>,
+    #[sea_orm(ignore)]
     pub settings: Option<serde_json::Value>,
     pub is_active: bool,
     pub owner_id: Option<i32>,
