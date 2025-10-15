@@ -11,6 +11,8 @@ pub async fn get_customers(
     AuthUser { user_id }: AuthUser,
     Path(shop_id): Path<i64>,
 ) -> Result<Json<Vec<CustomerWithSession>>, AppError> {
+    eprintln!("🔍 get_customers: user_id={}, shop_id={}", user_id, shop_id);
+    
     let result = state
         .customer_service
         .get_customers_with_sessions(user_id, shop_id.try_into().unwrap())
@@ -36,8 +38,15 @@ pub async fn get_customers(
             Ok(Json(customer_sessions))
         },
         Err(e) => {
-            eprintln!("❌ get_customers错误: {:?}", e);
-            Err(AppError::Internal(e.to_string()))
+            let error_msg = e.to_string();
+            eprintln!("❌ get_customers错误: {}", error_msg);
+            
+            // 根据错误类型返回不同的HTTP状态码
+            if error_msg.contains("access_denied") || error_msg.contains("permission_denied") {
+                Err(AppError::Forbidden)
+            } else {
+                Err(AppError::Internal(error_msg))
+            }
         }
     }
 }

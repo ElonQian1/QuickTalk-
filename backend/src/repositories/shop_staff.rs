@@ -179,13 +179,21 @@ impl ShopStaffRepository {
     /// 
     /// 对应 database.rs 中的 is_shop_member 方法
     pub async fn is_shop_member(db: &DatabaseConnection, shop_id: i64, user_id: i64) -> Result<bool> {
+        eprintln!("🔍 is_shop_member: shop_id={}, user_id={}", shop_id, user_id);
+        
         // 先检查是否是所有者
-        if Self::is_shop_owner(db, shop_id, user_id).await? {
+        let is_owner = Self::is_shop_owner(db, shop_id, user_id).await?;
+        eprintln!("📊 is_owner: {}", is_owner);
+        
+        if is_owner {
             return Ok(true);
         }
         
         // 再检查是否是员工
-        Self::is_staff_of_shop(db, user_id as i32, shop_id as i32).await
+        let is_staff = Self::is_staff_of_shop(db, user_id as i32, shop_id as i32).await?;
+        eprintln!("📊 is_staff: {}", is_staff);
+        
+        Ok(is_staff)
     }
     
     /// 永久删除员工（硬删除）

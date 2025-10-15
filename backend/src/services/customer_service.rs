@@ -227,11 +227,19 @@ impl CustomerService {
         user_id: i64,
         shop_id: i32,
     ) -> Result<Vec<(customers::Model, Option<sessions::Model>)>> {
+        eprintln!("🔐 验证权限: user_id={}, shop_id={}", user_id, shop_id);
+        
         // 验证用户是否有权限访问该店铺
-        if !ShopStaffRepository::is_shop_member(&self.db, shop_id as i64, user_id).await? {
+        let is_member = ShopStaffRepository::is_shop_member(&self.db, shop_id as i64, user_id).await?;
+        eprintln!("🔐 权限验证结果: is_member={}", is_member);
+        
+        if !is_member {
+            eprintln!("❌ 权限不足: 用户{}不是店铺{}的成员", user_id, shop_id);
             anyhow::bail!("access_denied");
         }
 
+        eprintln!("✅ 权限验证通过，开始查询客户列表");
+        
         // 获取该店铺的所有客户及其最新会话
         CustomerRepository::get_customers_with_sessions(&self.db, shop_id).await
     }
