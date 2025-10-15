@@ -32,10 +32,12 @@ impl MessageService {
     ) -> Result<Vec<messages::Model>> {
         // 使用分页方法如果存在offset，否则使用简单的limit方法
         if let (Some(limit), Some(offset)) = (limit, offset) {
+            let page = if limit > 0 { offset / limit } else { 0 }; // page从0开始
+            eprintln!("🔍 分页参数: offset={}, limit={}, calculated_page={}", offset, limit, page);
             let (messages, _total) = MessageRepository::find_by_session_paginated(
                 &self.db, 
                 session_id as i32, 
-                offset / limit + 1, // page number  
+                page,  // SeaORM页码从0开始
                 limit
             ).await?;
             Ok(messages)

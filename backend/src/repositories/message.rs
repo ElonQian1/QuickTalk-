@@ -200,7 +200,7 @@ impl MessageRepository {
         let paginator = Messages::find()
             .filter(messages::Column::SessionId.eq(session_id))
             .filter(messages::Column::IsDeleted.eq(false))
-            .order_by_desc(messages::Column::CreatedAt)
+            .order_by_asc(messages::Column::CreatedAt)  // 改为升序：从旧到新
             .paginate(db, page_size);
         
         match paginator.num_items().await {
