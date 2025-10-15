@@ -77,7 +77,7 @@ impl<'a> ChatService<'a> {
 
     pub async fn persist_customer_message(
         &self,
-        shop_id: i64,
+        _shop_id: i64,  // 暂时未使用（等unread_counts表修复后启用）
         customer: &Customer,
         session: &Session,
         payload: MessagePayload,
@@ -86,12 +86,13 @@ impl<'a> ChatService<'a> {
             .persist_message(session, "customer", Some(customer.id), &payload)
             .await?;
 
-        crate::repositories::UnreadCountRepository::update_unread_count(
-            &self.state.db_connection,
-            shop_id,
-            customer.id,
-            1
-        ).await?;
+        // TODO: 修复unread_counts表schema后启用
+        // crate::repositories::UnreadCountRepository::update_unread_count(
+        //     &self.state.db_connection,
+        //     shop_id,
+        //     customer.id,
+        //     1
+        // ).await?;
 
         Ok(PersistedMessage {
             message: persisted,
@@ -115,11 +116,12 @@ impl<'a> ChatService<'a> {
             .persist_message(session, "staff", Some(staff_id), &payload)
             .await?;
 
-        crate::repositories::UnreadCountRepository::reset_unread_count(
-            &self.state.db_connection,
-            session.shop_id as i64,
-            customer.id
-        ).await?;
+        // TODO: 修复unread_counts表schema后启用
+        // crate::repositories::UnreadCountRepository::reset_unread_count(
+        //     &self.state.db_connection,
+        //     session.shop_id as i64,
+        //     customer.id
+        // ).await?;
 
         Ok(PersistedMessage {
             message: persisted,
