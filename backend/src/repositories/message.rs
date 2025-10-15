@@ -12,7 +12,7 @@ impl MessageRepository {
         db: &DatabaseConnection,
         session_id: i32,
         sender_type: String,
-        sender_id: Option<i32>,
+        sender_id: Option<String>,  // 修改为String类型
         sender_name: Option<String>,
         message_type: String,
         content: String,
@@ -110,7 +110,7 @@ impl MessageRepository {
         db: &DatabaseConnection,
         session_id: i32,
         sender_type: &str,
-        sender_id: Option<i32>,
+        sender_id: Option<String>,  // 修改为String类型
         content: &str,
         message_type: &str,
         file_url: Option<&str>,

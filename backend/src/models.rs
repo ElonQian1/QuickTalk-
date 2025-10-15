@@ -252,11 +252,15 @@ impl From<crate::entities::messages::Model> for Message {
             .and_then(|v| v.as_str())
             .map(|s| s.to_string());
         
+        // sender_id 在数据库中是TEXT，需要解析为i64
+        let sender_id = message.sender_id
+            .and_then(|s| s.parse::<i64>().ok());
+        
         Message {
             id: message.id as i64,
             session_id: message.session_id as i64,
             sender_type: message.sender_type,
-            sender_id: message.sender_id.map(|id| id as i64),
+            sender_id, // 从String解析为i64
             content: message.content,
             message_type: message.message_type,
             file_url, // 从 metadata 提取

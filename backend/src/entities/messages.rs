@@ -12,7 +12,8 @@ pub struct Model {
     #[sea_orm(column_type = "String(Some(20))")]
     pub sender_type: String,
     
-    pub sender_id: Option<i32>,
+    // Ubuntu生产数据库中sender_id是TEXT类型，不是INTEGER
+    pub sender_id: Option<String>,
     pub sender_name: Option<String>,
     
     #[sea_orm(column_type = "String(Some(20))")]

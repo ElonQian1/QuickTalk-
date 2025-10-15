@@ -47,6 +47,9 @@ pub async fn send_message(
     AuthUser { user_id }: AuthUser,
     Json(payload): Json<SendMessageRequest>,
 ) -> Result<Json<Message>, AppError> {
+    eprintln!("🔍 send_message - user_id: {}, session_id: {}, content: {}", 
+              user_id, session_id, &payload.content[..payload.content.len().min(50)]);
+    
     let message_type = payload
         .message_type
         .clone()
@@ -61,24 +64,15 @@ pub async fn send_message(
         )
         .await
     {
-        Ok(_message) => {
-            // TODO: 需要重新实现WebSocket广播逻辑
-            
-            // 暂时返回简化的响应
-            let response_message = Message {
-                id: 1, // 临时值
-                session_id: session_id,
-                sender_type: "staff".to_string(),
-                sender_id: Some(user_id),
-                content: payload.content.clone(),
-                message_type: message_type,
-                file_url: payload.file_url.clone(),
-                status: "sent".to_string(),
-                created_at: chrono::Utc::now(),
-            };
-
+        Ok(message) => {
+            eprintln!("✅ 消息发送成功: id={}", message.id);
+            // 转换为API响应格式
+            let response_message: Message = message.into();
             Ok(Json(response_message))
         }
-        Err(e) => Err(AppError::Internal(e.to_string())),
+        Err(e) => {
+            eprintln!("❌ send_message 错误: {:?}", e);
+            Err(AppError::Internal(e.to_string()))
+        }
     }
 }
