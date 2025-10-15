@@ -426,7 +426,7 @@ pub async fn handle_customer_upload(
             })?
     };
     
-    tracing::info!("找到店铺: id={}, name={}", shop.id, shop.name);
+    tracing::info!("找到店铺: id={}, name={}", shop.id, shop.shop_name);
 
     let generated_name = save_file_with_shop_id(shop.id.into(), &upload_data.data, &upload_data.original_name, &upload_data.content_type).await?;
     

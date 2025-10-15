@@ -7,8 +7,7 @@ pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
     
-    #[sea_orm(column_name = "shop_name")]
-    pub name: String,
+    pub shop_name: String,
     
     #[sea_orm(unique)]
     pub slug: String,

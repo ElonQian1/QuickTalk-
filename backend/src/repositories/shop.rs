@@ -35,7 +35,7 @@ impl ShopRepository {
         owner_id: i32, // 改为必需的i32
     ) -> Result<shops::Model> {
         let shop = shops::ActiveModel {
-            name: Set(name),
+            shop_name: Set(name),
             slug: Set(slug),
             description: Set(description),
             owner_id: Set(Some(owner_id)),
@@ -54,7 +54,7 @@ impl ShopRepository {
         let shops = Shops::find()
             .filter(shops::Column::OwnerId.eq(owner_id))
             .filter(shops::Column::IsActive.eq(true))
-            .order_by_asc(shops::Column::Name)
+            .order_by_asc(shops::Column::ShopName)
             .all(db)
             .await?;
         Ok(shops)
@@ -73,7 +73,7 @@ impl ShopRepository {
             )
             .filter(shop_staffs::Column::UserId.eq(user_id))
             .filter(shops::Column::IsActive.eq(true))
-            .order_by_asc(shops::Column::Name)
+            .order_by_asc(shops::Column::ShopName)
             .all(db)
             .await?;
         Ok(shops)
@@ -117,7 +117,7 @@ impl ShopRepository {
         }
         
         // 按名称排序
-        all_shops.sort_by(|a, b| a.name.cmp(&b.name));
+        all_shops.sort_by(|a, b| a.shop_name.cmp(&b.shop_name));
         
         Ok(all_shops)
     }
@@ -140,7 +140,7 @@ impl ShopRepository {
             .into();
         
         if let Some(n) = name {
-            shop.name = Set(n);
+            shop.shop_name = Set(n);
         }
         if let Some(d) = description {
             shop.description = Set(Some(d));
@@ -182,7 +182,7 @@ impl ShopRepository {
     pub async fn list_active(db: &DatabaseConnection) -> Result<Vec<shops::Model>> {
         let shops = Shops::find()
             .filter(shops::Column::IsActive.eq(true))
-            .order_by_asc(shops::Column::Name)
+            .order_by_asc(shops::Column::ShopName)
             .all(db)
             .await?;
         Ok(shops)

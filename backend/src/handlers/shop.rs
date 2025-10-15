@@ -41,7 +41,7 @@ pub async fn create_shop(
             let shop = Shop {
                 id: shop_model.id as i64,
                 owner_id: shop_model.owner_id.unwrap_or(0) as i64,
-                shop_name: shop_model.name,
+                shop_name: shop_model.shop_name,
                 shop_url: shop_model.website_url,
                 api_key: shop_model.api_key,
                 status: if shop_model.is_active { 1 } else { 0 },
