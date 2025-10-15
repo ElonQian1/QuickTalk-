@@ -55,20 +55,78 @@ fi
 # 加载环境变量
 source .env
 
-# 检查证书文件 (HTTPS模式)
+# HTTPS 证书检查
 check_https_certificates() {
-    if [ "$HTTPS_ENABLED" = "true" ] || [ "$TLS_MODE" = "https" ]; then
-        if [ ! -f "${TLS_CERT_PATH:-certs/server.crt}" ] || [ ! -f "${TLS_KEY_PATH:-certs/server.key}" ]; then
-            echo -e "${YELLOW}警告: HTTPS 模式需要有效的证书文件${NC}"
-            echo -e "${YELLOW}证书路径: ${TLS_CERT_PATH:-certs/server.crt}${NC}"
-            echo -e "${YELLOW}私钥路径: ${TLS_KEY_PATH:-certs/server.key}${NC}"
-            echo -e "${YELLOW}切换到 HTTP 模式...${NC}"
-            export HTTPS_ENABLED=false
-            export TLS_MODE=http
-        else
-            echo -e "${GREEN}✓ HTTPS 证书文件检查通过${NC}"
-        fi
+    echo -e "${BLUE}检查 HTTPS 证书配置...${NC}"
+    
+    # 检查环境变量
+    local https_enabled=$(echo "${HTTPS_ENABLED:-false}" | tr '[:upper:]' '[:lower:]')
+    local tls_mode=$(echo "${TLS_MODE:-auto}" | tr '[:upper:]' '[:lower:]')
+    
+    # 如果明确禁用HTTPS，跳过检查
+    if [ "$https_enabled" = "false" ] && [ "$tls_mode" != "https" ]; then
+        echo -e "${YELLOW}ℹ️  HTTPS 已禁用，将使用 HTTP 模式${NC}"
+        return 0
     fi
+    
+    # 检查证书文件
+    local cert_path="${TLS_CERT_PATH:-certs/server.crt}"
+    local key_path="${TLS_KEY_PATH:-certs/server.key}"
+    
+    if [ ! -f "$cert_path" ] || [ ! -f "$key_path" ]; then
+        echo -e "${YELLOW}⚠️  证书文件不存在:${NC}"
+        echo -e "    证书: $cert_path $([ -f "$cert_path" ] && echo "✓" || echo "✗")"
+        echo -e "    私钥: $key_path $([ -f "$key_path" ] && echo "✓" || echo "✗")"
+        echo -e "${YELLOW}🔄 自动切换到 HTTP 模式${NC}"
+        
+        # 临时禁用HTTPS
+        export HTTPS_ENABLED=false
+        export TLS_MODE=disabled
+        return 0
+    fi
+    
+    # 检查证书有效性
+    if command -v openssl > /dev/null; then
+        local cert_info=$(openssl x509 -in "$cert_path" -text -noout 2>/dev/null)
+        if [ $? -eq 0 ]; then
+            local subject=$(echo "$cert_info" | grep "Subject:" | head -1)
+            local san=$(echo "$cert_info" | grep -A 1 "Subject Alternative Name" | tail -1 2>/dev/null || echo "")
+            local expiry=$(openssl x509 -in "$cert_path" -noout -enddate 2>/dev/null | cut -d= -f2)
+            
+            echo -e "${GREEN}✓ 证书文件有效${NC}"
+            echo -e "    主题: $(echo "$subject" | sed 's/.*CN=\([^,]*\).*/\1/')"
+            [ -n "$san" ] && echo -e "    SAN: $san"
+            echo -e "    到期: $expiry"
+            
+            # 检查证书是否适合当前域名
+            local domain="${TLS_DOMAIN:-elontalk.duckdns.org}"
+            if echo "$cert_info" | grep -q "localhost"; then
+                echo -e "${YELLOW}⚠️  证书为 localhost 签发，可能不适合生产环境${NC}"
+                echo -e "${YELLOW}💡 建议: 为域名 $domain 申请有效证书${NC}"
+                echo -e "${YELLOW}🔄 临时使用 HTTP 模式或自行确认继续${NC}"
+                
+                # 询问用户是否继续
+                echo -e "${BLUE}是否继续使用此证书? (y/N):${NC}"
+                read -t 10 -r response || response="n"
+                if [ "$response" != "y" ] && [ "$response" != "Y" ]; then
+                    echo -e "${YELLOW}🔄 切换到 HTTP 模式${NC}"
+                    export HTTPS_ENABLED=false
+                    export TLS_MODE=disabled
+                    return 0
+                fi
+            fi
+        else
+            echo -e "${RED}✗ 证书文件格式错误${NC}"
+            echo -e "${YELLOW}🔄 切换到 HTTP 模式${NC}"
+            export HTTPS_ENABLED=false
+            export TLS_MODE=disabled
+            return 0
+        fi
+    else
+        echo -e "${YELLOW}⚠️  无法验证证书 (openssl 未安装)${NC}"
+    fi
+    
+    echo -e "${GREEN}✓ HTTPS 配置检查完成${NC}"
 }
 
 # 检查端口占用
