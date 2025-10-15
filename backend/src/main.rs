@@ -536,28 +536,37 @@ async fn handle_customer_socket(
 
     while let Some(result) = receiver.next().await {
         match result {
-            Ok(Message::Text(text)) => match serde_json::from_str::<WebSocketIncomingMessage>(&text) {
-                Ok(incoming) => {
-                    let mut ctx = CustomerWsCtx {
-                        state: &state,
-                        chat: &chat_service,
-                        shop_id,
-                        customer_code: &customer_code,
-                        outbound: &tx,
-                        customer: &mut customer,
-                        session: &mut session,
-                    };
-                    if let Err(err) = handle_customer_ws_message(&mut ctx, incoming).await {
-                        warn!("Customer WS error: {err:?}");
+            Ok(Message::Text(text)) => {
+                eprintln!("📥 [Customer WS Loop] 收到文本消息: {}", &text[..text.len().min(100)]);
+                match serde_json::from_str::<WebSocketIncomingMessage>(&text) {
+                    Ok(incoming) => {
+                        eprintln!("✅ [Customer WS Loop] 消息解析成功: type={}", incoming.message_type);
+                        let mut ctx = CustomerWsCtx {
+                            state: &state,
+                            chat: &chat_service,
+                            shop_id,
+                            customer_code: &customer_code,
+                            outbound: &tx,
+                            customer: &mut customer,
+                            session: &mut session,
+                        };
+                        if let Err(err) = handle_customer_ws_message(&mut ctx, incoming).await {
+                            warn!("❌ Customer WS error: {err:?}");
+                        }
+                    }
+                    Err(err) => {
+                        warn!("❌ Invalid customer payload: {err}");
+                        eprintln!("❌ [Customer WS Loop] 消息解析失败: {:?}, 原始消息: {}", err, text);
                     }
                 }
-                Err(err) => warn!("Invalid customer payload: {err}"),
-            },
+            }
             Ok(Message::Close(_)) => {
                 info!("Customer connection {} closed", connection_id);
                 break;
             }
-            Ok(_) => {}
+            Ok(msg) => {
+                eprintln!("📥 [Customer WS Loop] 收到非文本消息: {:?}", msg);
+            }
             Err(err) => {
                 warn!("Customer connection error: {err}");
                 break;

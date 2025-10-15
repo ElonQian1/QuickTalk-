@@ -28,6 +28,10 @@ pub async fn handle_customer_ws_message(
     ctx: &mut CustomerWsCtx<'_>,
     incoming: WebSocketIncomingMessage,
 ) -> Result<()> {
+    eprintln!("🔍 [Customer WS] 收到消息: type={}, content={:?}", 
+              incoming.message_type, 
+              incoming.content.as_ref().map(|c| &c[..c.len().min(50)]));
+    
     let meta_ref = incoming.metadata.as_ref();
 
     match incoming.message_type.as_str() {
@@ -95,6 +99,8 @@ pub async fn handle_customer_ws_message(
             manager.broadcast_to_staff(ctx.shop_id, &auth_success);
         }
         crate::constants::ws_incoming::SEND_MESSAGE => {
+            eprintln!("📨 [Customer WS] 处理发送消息请求");
+            
             let (cust, sess) = ensure_customer_context(
                 ctx.chat,
                 ctx.shop_id,
@@ -103,6 +109,8 @@ pub async fn handle_customer_ws_message(
                 ctx.session,
             )
             .await?;
+
+            eprintln!("✅ [Customer WS] 客户上下文: customer_id={}, session_id={}", cust.id, sess.id);
 
             let message_type = extract_message_kind(meta_ref);
             let mut metadata = incoming
@@ -133,17 +141,24 @@ pub async fn handle_customer_ws_message(
                 metadata: Some(metadata),
             };
 
+            eprintln!("💾 [Customer WS] 准备持久化消息: content={:?}", 
+                      payload.content.as_ref().map(|c| &c[..c.len().min(50)]));
+
             let persisted = ctx
                 .chat
                 .persist_customer_message(ctx.shop_id, &cust, &sess, payload)
                 .await?;
 
+            eprintln!("✅ [Customer WS] 消息已保存到数据库: message_id={}", persisted.message.id);
+
             if let Ok(payload) = serde_json::to_string(&persisted.ws_message) {
                 let _ = ctx.outbound.send(Message::Text(payload.clone()));
+                eprintln!("📤 [Customer WS] 消息已回显给客户");
             }
 
             let mut manager = ctx.state.connections.lock().unwrap();
             manager.broadcast_to_staff(ctx.shop_id, &persisted.ws_message);
+            eprintln!("📡 [Customer WS] 消息已广播给店铺 {} 的所有客服", ctx.shop_id);
         }
         crate::constants::ws_incoming::TYPING => {
             if let Some(sess) = ctx.session.as_ref() {
