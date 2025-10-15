@@ -19,8 +19,13 @@ pub struct Model {
     // 生产数据库列名是 "avatar_url"，不是 "customer_avatar"
     pub avatar_url: Option<String>,
     
+    // 生产数据库没有这些字段，标记为ignore
+    #[sea_orm(ignore)]
     pub ip_address: Option<String>,
+    
+    #[sea_orm(ignore)]
     pub user_agent: Option<String>,
+    
     pub first_visit_at: Option<DateTime>,
     pub last_active_at: Option<DateTime>,
     pub status: Option<i32>,
