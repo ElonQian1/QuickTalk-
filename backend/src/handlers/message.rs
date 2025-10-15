@@ -24,7 +24,13 @@ pub async fn get_messages(
     eprintln!("🔍 get_messages - user_id: {}, session_id: {}, limit: {}, offset: {}", user_id, session_id, limit, offset);
 
     // 当offset为0时，不使用分页查询（走find_by_session分支，该分支已使用ASC排序）
-    let offset_opt = if offset == 0 { None } else { Some(offset as u64) };
+    let offset_opt = if offset == 0 { 
+        eprintln!("🎯 offset=0，将使用find_by_session分支（ASC排序）");
+        None 
+    } else { 
+        eprintln!("📄 offset>0，将使用分页查询");
+        Some(offset as u64) 
+    };
 
     match state
         .message_service
