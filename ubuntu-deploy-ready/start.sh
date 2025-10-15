@@ -1,153 +1,186 @@
-#!/bin/bash
+#!/bin/bash#!/bin/bash
 
-# ELonTalk 客服系统 - Ubuntu 智能启动脚本
-# 支持 HTTP/HTTPS 自动检测与切换
-# 适配 Sea-ORM 自动数据库迁移
 
-set -e
 
-# 颜色输出
-RED='\033[0;31m'
+# ELonTalk 客服系统启动脚本# ELonTalk 客服系统 - Ubuntu 智能启动脚本
+
+# Ubuntu 24.04 LTS - HTTPS强制模式# 支持 HTTP/HTTPS 自动检测与切换
+
+# 部署路径: /root/ubuntu-deploy-ready/# 适配 Sea-ORM 自动数据库迁移
+
+
+
+set -eset -e
+
+
+
+echo "🚀 ELonTalk 客服系统 - Ubuntu 部署启动"# 颜色输出
+
+echo "====================================="RED='\033[0;31m'
+
 GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
 
-echo -e "${BLUE}==================================${NC}"
+# 检查权限YELLOW='\033[1;33m'
+
+if [[ $EUID -ne 0 ]]; thenBLUE='\033[0;34m'
+
+   echo "❌ 错误: 请以root用户运行此脚本"NC='\033[0m' # No Color
+
+   exit 1
+
+fiecho -e "${BLUE}==================================${NC}"
+
 echo -e "${BLUE}  ELonTalk 客服系统启动脚本     ${NC}"
-echo -e "${BLUE}  Sea-ORM + Rustls HTTPS 支持   ${NC}"
-echo -e "${BLUE}==================================${NC}"
 
-# 检查是否为 root 用户
-if [ "$EUID" -ne 0 ]; then
-    echo -e "${YELLOW}警告: 建议使用 root 用户运行以避免权限问题${NC}"
+# 设置工作目录echo -e "${BLUE}  Sea-ORM + Rustls HTTPS 支持   ${NC}"
+
+cd /root/ubuntu-deploy-readyecho -e "${BLUE}==================================${NC}"
+
+
+
+# 检查必要文件# 检查是否为 root 用户
+
+echo "📋 检查必要文件..."if [ "$EUID" -ne 0 ]; then
+
+if [[ ! -f "customer-service-backend" ]]; then    echo -e "${YELLOW}警告: 建议使用 root 用户运行以避免权限问题${NC}"
+
+    echo "❌ 错误: 找不到 customer-service-backend 文件"fi
+
+    exit 1
+
+fi# 设置工作目录
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+if [[ ! -f ".env" ]]; thencd "$SCRIPT_DIR"
+
+    echo "❌ 错误: 找不到 .env 配置文件"
+
+    exit 1echo -e "${BLUE}当前工作目录: $SCRIPT_DIR${NC}"
+
 fi
 
-# 设置工作目录
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
-
-echo -e "${BLUE}当前工作目录: $SCRIPT_DIR${NC}"
-
 # 检查二进制文件
-if [ ! -f "./customer-service-backend" ]; then
-    echo -e "${RED}错误: 未找到 customer-service-backend 二进制文件${NC}"
-    exit 1
+
+if [[ ! -f "certs/server.crt" || ! -f "certs/server.key" ]]; thenif [ ! -f "./customer-service-backend" ]; then
+
+    echo "❌ 错误: 找不到 SSL 证书文件"    echo -e "${RED}错误: 未找到 customer-service-backend 二进制文件${NC}"
+
+    echo "请确保 certs/ 目录下存在 server.crt 和 server.key"    exit 1
+
+    exit 1fi
+
 fi
 
 # 设置可执行权限
-chmod +x ./customer-service-backend
 
-# 检查 .env 文件
-if [ ! -f ".env" ]; then
-    echo -e "${YELLOW}警告: 未找到 .env 文件，使用默认配置${NC}"
-    cat > .env << 'EOF'
-DATABASE_URL=sqlite:customer_service.db
+# 设置权限chmod +x ./customer-service-backend
+
+echo "🔧 设置文件权限..."
+
+chmod +x customer-service-backend# 检查 .env 文件
+
+chmod 644 .envif [ ! -f ".env" ]; then
+
+chmod 600 certs/server.key    echo -e "${YELLOW}警告: 未找到 .env 文件，使用默认配置${NC}"
+
+chmod 644 certs/server.crt    cat > .env << 'EOF'
+
+chmod -R 755 static/DATABASE_URL=sqlite:customer_service.db
+
 JWT_SECRET=elontalk-prod-secret-change-me
-SERVER_HOST=0.0.0.0
-SERVER_PORT=8080
-HTTPS_ENABLED=false
-TLS_PORT=8443
-RUST_LOG=info
-EOF
+
+# 创建数据库文件（如果不存在）SERVER_HOST=0.0.0.0
+
+if [[ ! -f "customer_service.db" ]]; thenSERVER_PORT=8080
+
+    echo "📊 创建数据库文件..."HTTPS_ENABLED=false
+
+    touch customer_service.dbTLS_PORT=8443
+
+    chmod 644 customer_service.dbRUST_LOG=info
+
+fiEOF
+
 fi
 
-# 加载环境变量
-source .env
+# 配置防火墙
 
-# HTTPS 证书检查
-check_https_certificates() {
-    echo -e "${BLUE}检查 HTTPS 证书配置...${NC}"
-    
-    # 检查环境变量
-    local https_enabled=$(echo "${HTTPS_ENABLED:-false}" | tr '[:upper:]' '[:lower:]')
-    local tls_mode=$(echo "${TLS_MODE:-auto}" | tr '[:upper:]' '[:lower:]')
-    
-    # 如果明确禁用HTTPS，跳过检查
-    if [ "$https_enabled" = "false" ] && [ "$tls_mode" != "https" ]; then
-        echo -e "${YELLOW}ℹ️  HTTPS 已禁用，将使用 HTTP 模式${NC}"
-        return 0
-    fi
-    
-    # 检查证书文件
-    local cert_path="${TLS_CERT_PATH:-certs/server.crt}"
-    local key_path="${TLS_KEY_PATH:-certs/server.key}"
-    
-    if [ ! -f "$cert_path" ] || [ ! -f "$key_path" ]; then
-        echo -e "${YELLOW}⚠️  证书文件不存在:${NC}"
-        echo -e "    证书: $cert_path $([ -f "$cert_path" ] && echo "✓" || echo "✗")"
-        echo -e "    私钥: $key_path $([ -f "$key_path" ] && echo "✓" || echo "✗")"
-        echo -e "${YELLOW}🔄 自动切换到 HTTP 模式${NC}"
-        
-        # 临时禁用HTTPS
-        export HTTPS_ENABLED=false
-        export TLS_MODE=disabled
-        return 0
-    fi
-    
-    # 检查证书有效性
-    if command -v openssl > /dev/null; then
-        local cert_info=$(openssl x509 -in "$cert_path" -text -noout 2>/dev/null)
-        if [ $? -eq 0 ]; then
-            local subject=$(echo "$cert_info" | grep "Subject:" | head -1)
-            local san=$(echo "$cert_info" | grep -A 1 "Subject Alternative Name" | tail -1 2>/dev/null || echo "")
-            local expiry=$(openssl x509 -in "$cert_path" -noout -enddate 2>/dev/null | cut -d= -f2)
-            
-            echo -e "${GREEN}✓ 证书文件有效${NC}"
-            echo -e "    主题: $(echo "$subject" | sed 's/.*CN=\([^,]*\).*/\1/')"
-            [ -n "$san" ] && echo -e "    SAN: $san"
-            echo -e "    到期: $expiry"
-            
-            # 检查证书是否适合当前域名
-            local domain="${TLS_DOMAIN:-elontalk.duckdns.org}"
-            if echo "$cert_info" | grep -q "localhost"; then
-                echo -e "${YELLOW}⚠️  证书为 localhost 签发，可能不适合生产环境${NC}"
-                echo -e "${YELLOW}💡 建议: 为域名 $domain 申请有效证书${NC}"
-                echo -e "${YELLOW}🔄 临时使用 HTTP 模式或自行确认继续${NC}"
-                
-                # 询问用户是否继续
-                echo -e "${BLUE}是否继续使用此证书? (y/N):${NC}"
-                read -t 10 -r response || response="n"
-                if [ "$response" != "y" ] && [ "$response" != "Y" ]; then
-                    echo -e "${YELLOW}🔄 切换到 HTTP 模式${NC}"
-                    export HTTPS_ENABLED=false
-                    export TLS_MODE=disabled
-                    return 0
-                fi
-            fi
-        else
-            echo -e "${RED}✗ 证书文件格式错误${NC}"
-            echo -e "${YELLOW}🔄 切换到 HTTP 模式${NC}"
-            export HTTPS_ENABLED=false
-            export TLS_MODE=disabled
-            return 0
-        fi
-    else
-        echo -e "${YELLOW}⚠️  无法验证证书 (openssl 未安装)${NC}"
-    fi
-    
-    echo -e "${GREEN}✓ HTTPS 配置检查完成${NC}"
-}
+echo "🔥 配置防火墙..."# 加载环境变量
 
-# 检查端口占用
-check_port() {
-    local port=$1
-    local service_name=$2
-    
-    if ss -tlnp | grep -q ":$port "; then
-        echo -e "${YELLOW}警告: 端口 $port ($service_name) 已被占用${NC}"
-        echo -e "${YELLOW}尝试停止现有服务...${NC}"
-        
-        # 尝试停止可能的 systemd 服务
-        systemctl stop customer-service 2>/dev/null || true
-        
-        # 强制杀死占用端口的进程
-        local pid=$(ss -tlnp | grep ":$port " | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1)
-        if [ -n "$pid" ]; then
-            echo -e "${YELLOW}强制停止进程 PID: $pid${NC}"
-            kill -9 "$pid" 2>/dev/null || true
-            sleep 2
-        fi
+ufw allow 22/tcp   # SSHsource .env
+
+ufw allow 8080/tcp # HTTP
+
+ufw allow 8443/tcp # HTTPS# 检查证书文件 (HTTPS模式)
+
+ufw --force enablecheck_https_certificates() {
+
+    if [ "$HTTPS_ENABLED" = "true" ] || [ "$TLS_MODE" = "https" ]; then
+
+# 安装和启动服务        if [ ! -f "${TLS_CERT_PATH:-certs/server.crt}" ] || [ ! -f "${TLS_KEY_PATH:-certs/server.key}" ]; then
+
+echo "🔧 配置系统服务..."            echo -e "${YELLOW}警告: HTTPS 模式需要有效的证书文件${NC}"
+
+cp customer-service.service /etc/systemd/system/            echo -e "${YELLOW}证书路径: ${TLS_CERT_PATH:-certs/server.crt}${NC}"
+
+systemctl daemon-reload            echo -e "${YELLOW}私钥路径: ${TLS_KEY_PATH:-certs/server.key}${NC}"
+
+systemctl enable customer-service            echo -e "${YELLOW}切换到 HTTP 模式...${NC}"
+
+systemctl stop customer-service 2>/dev/null || true            export HTTPS_ENABLED=false
+
+            export TLS_MODE=http
+
+# 启动服务        else
+
+echo "🚀 启动服务..."            echo -e "${GREEN}✓ HTTPS 证书文件检查通过${NC}"
+
+systemctl start customer-service        fi
+
+    fi
+
+# 检查状态}
+
+sleep 3
+
+if systemctl is-active --quiet customer-service; then# 检查端口占用
+
+    echo "✅ 服务启动成功!"check_port() {
+
+    echo ""    local port=$1
+
+    echo "📊 服务状态:"    local service_name=$2
+
+    systemctl status customer-service --no-pager    
+
+    echo ""    if ss -tlnp | grep -q ":$port "; then
+
+    echo "🌐 访问地址:"        echo -e "${YELLOW}警告: 端口 $port ($service_name) 已被占用${NC}"
+
+    echo "  HTTP:  http://43.139.82.12:8080"        echo -e "${YELLOW}尝试停止现有服务...${NC}"
+
+    echo "  HTTPS: https://elontalk.duckdns.org:8443"        
+
+    echo "  域名:  https://elontalk.duckdns.org:8443"        # 尝试停止可能的 systemd 服务
+
+    echo ""        systemctl stop customer-service 2>/dev/null || true
+
+    echo "📝 查看日志: journalctl -u customer-service -f"        
+
+    echo ""        # 强制杀死占用端口的进程
+
+    echo "🎉 部署完成！"        local pid=$(ss -tlnp | grep ":$port " | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1)
+
+else        if [ -n "$pid" ]; then
+
+    echo "❌ 服务启动失败!"            echo -e "${YELLOW}强制停止进程 PID: $pid${NC}"
+
+    echo "查看错误日志: journalctl -u customer-service -n 50"            kill -9 "$pid" 2>/dev/null || true
+
+    exit 1            sleep 2
+
+fi        fi
     fi
 }
 

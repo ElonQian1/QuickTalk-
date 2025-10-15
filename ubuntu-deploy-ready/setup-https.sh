@@ -1,224 +1,182 @@
 #!/bin/bash
 
-# HTTPS自动配置脚本
-# 用于自动检测和配置SSL证书
+# ELonTalk 客服系统 - HTTPS/SSL 证书配置脚本
+# 支持: Let's Encrypt 自动证书 + 自签名证书备用方案
+# 域名: elontalk.duckdns.org
 
 set -e
 
-# 颜色定义
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
+echo "🔒 HTTPS/SSL 证书配置"
+echo "===================="
 
-echo -e "${BLUE}======================================${NC}"
-echo -e "${BLUE}  ELonTalk HTTPS 自动配置工具        ${NC}"
-echo -e "${BLUE}======================================${NC}"
+# 检查权限
+if [[ $EUID -ne 0 ]]; then
+   echo "❌ 错误: 请以root用户运行此脚本"
+   exit 1
+fi
 
-# 检查证书文件
-check_certificates() {
-    echo -e "\n${BLUE}1. 检查SSL证书...${NC}"
-    
-    if [ -f "certs/server.crt" ] && [ -f "certs/server.key" ]; then
-        echo -e "  ✅ 证书文件存在"
-        
-        # 检查证书有效性
-        if openssl x509 -in certs/server.crt -noout -checkend 86400 >/dev/null 2>&1; then
-            echo -e "  ✅ 证书有效期 > 24小时"
-            
-            # 显示证书信息
-            subject=$(openssl x509 -in certs/server.crt -noout -subject | sed 's/subject=//')
-            expiry=$(openssl x509 -in certs/server.crt -noout -enddate | sed 's/notAfter=//')
-            echo -e "  📋 证书主题: ${subject}"
-            echo -e "  📅 过期时间: ${expiry}"
-            
-            return 0
-        else
-            echo -e "  ⚠️  证书即将过期或已过期"
-            return 1
-        fi
-    else
-        echo -e "  ❌ 证书文件缺失"
-        return 1
-    fi
-}
+# 设置变量
+DOMAIN="elontalk.duckdns.org"
+EMAIL="siwmm@163.com"
+CERT_DIR="/root/ubuntu-deploy-ready/certs"
+DEPLOY_DIR="/root/ubuntu-deploy-ready"
 
-# 配置Let's Encrypt证书
-setup_letsencrypt() {
-    echo -e "\n${BLUE}2. 配置Let's Encrypt证书...${NC}"
-    
-    # 检查certbot是否安装
-    if ! command -v certbot &> /dev/null; then
-        echo -e "  📦 安装Certbot..."
+# 创建证书目录
+mkdir -p "$CERT_DIR"
+cd "$DEPLOY_DIR"
+
+echo "🌐 域名: $DOMAIN"
+echo "📧 邮箱: $EMAIL"
+echo "📂 证书目录: $CERT_DIR"
+echo ""
+
+# 选择证书类型
+echo "选择证书配置方式:"
+echo "1) Let's Encrypt 自动证书 (推荐，免费，90天自动续期)"
+echo "2) 自签名证书 (仅用于测试，浏览器会显示不安全)"
+echo "3) 使用现有证书 (跳过生成)"
+echo ""
+read -p "请选择 [1-3]: " cert_choice
+
+case $cert_choice in
+    1)
+        echo ""
+        echo "🔄 安装 Certbot (Let's Encrypt 客户端)..."
         apt update
-        apt install -y certbot
-    fi
-    
-    # 停止现有服务
-    echo -e "  🛑 停止现有服务..."
-    systemctl stop customer-service 2>/dev/null || true
-    
-    # 获取证书
-    echo -e "  🔒 获取SSL证书..."
-    if certbot certonly --standalone -d elontalk.duckdns.org --non-interactive --agree-tos --email siwmm@163.com; then
-        echo -e "  ✅ 证书获取成功"
+        apt install -y snapd
+        snap install core; snap refresh core
+        snap install --classic certbot
+        ln -sf /snap/bin/certbot /usr/bin/certbot
+
+        echo ""
+        echo "📋 重要提醒:"
+        echo "1. 确保域名 $DOMAIN 已正确解析到此服务器"
+        echo "2. 确保防火墙已开放 80 和 443 端口"
+        echo "3. 停止当前服务以释放端口"
+        echo ""
         
-        # 备份现有证书
-        if [ -f "certs/server.crt" ]; then
-            cp certs/server.crt certs/server.crt.backup.$(date +%Y%m%d_%H%M%S)
-        fi
-        if [ -f "certs/server.key" ]; then
-            cp certs/server.key certs/server.key.backup.$(date +%Y%m%d_%H%M%S)
+        # 停止服务释放端口
+        systemctl stop customer-service 2>/dev/null || true
+        
+        # 检查端口
+        if netstat -tlnp | grep -q ":80 "; then
+            echo "⚠️  端口 80 被占用，尝试释放..."
+            pkill -f ":80" || true
+            sleep 2
         fi
         
-        # 复制新证书
-        cp /etc/letsencrypt/live/elontalk.duckdns.org/fullchain.pem certs/server.crt
-        cp /etc/letsencrypt/live/elontalk.duckdns.org/privkey.pem certs/server.key
+        # 申请证书
+        echo "🔐 申请 Let's Encrypt 证书..."
+        certbot certonly --standalone \
+            --email "$EMAIL" \
+            --agree-tos \
+            --no-eff-email \
+            --domains "$DOMAIN"
+        
+        # 复制证书到项目目录
+        echo "📋 复制证书到项目目录..."
+        cp "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" "$CERT_DIR/server.crt"
+        cp "/etc/letsencrypt/live/$DOMAIN/privkey.pem" "$CERT_DIR/server.key"
         
         # 设置权限
-        chown root:root certs/server.crt certs/server.key
-        chmod 644 certs/server.crt
-        chmod 600 certs/server.key
+        chown root:root "$CERT_DIR"/*
+        chmod 644 "$CERT_DIR/server.crt"
+        chmod 600 "$CERT_DIR/server.key"
         
-        echo -e "  ✅ 证书配置完成"
-        return 0
-    else
-        echo -e "  ❌ 证书获取失败"
-        return 1
-    fi
-}
-
-# 生成自签名证书
-generate_self_signed() {
-    echo -e "\n${BLUE}3. 生成自签名证书...${NC}"
-    echo -e "  ⚠️  ${YELLOW}警告: 自签名证书会在浏览器中显示安全警告${NC}"
-    
-    # 备份现有证书
-    if [ -f "certs/server.crt" ]; then
-        cp certs/server.crt certs/server.crt.backup.$(date +%Y%m%d_%H%M%S)
-    fi
-    if [ -f "certs/server.key" ]; then
-        cp certs/server.key certs/server.key.backup.$(date +%Y%m%d_%H%M%S)
-    fi
-    
-    # 生成自签名证书
-    openssl req -x509 -newkey rsa:4096 -keyout certs/server.key -out certs/server.crt \
-        -days 365 -nodes \
-        -subj "/C=CN/ST=Beijing/L=Beijing/O=ELonTalk/CN=elontalk.duckdns.org"
-    
-    # 设置权限
-    chmod 644 certs/server.crt
-    chmod 600 certs/server.key
-    
-    echo -e "  ✅ 自签名证书生成完成"
-}
-
-# 配置HTTPS环境
-configure_https_env() {
-    echo -e "\n${BLUE}4. 配置HTTPS环境...${NC}"
-    
-    # 使用HTTPS配置
-    if [ -f ".env.https" ]; then
-        cp .env.https .env
-        echo -e "  ✅ 已切换到HTTPS配置"
-    else
-        echo -e "  ⚠️  .env.https文件不存在，使用默认配置"
-    fi
-}
-
-# 设置自动续期
-setup_auto_renewal() {
-    echo -e "\n${BLUE}5. 设置自动续期...${NC}"
-    
-    # 创建续期脚本
-    cat > /usr/local/bin/renew-elontalk-cert.sh << 'EOF'
-#!/bin/bash
-certbot renew --quiet
-if [ $? -eq 0 ]; then
-    cd /root/ubuntu-deploy-ready
-    cp /etc/letsencrypt/live/elontalk.duckdns.org/fullchain.pem certs/server.crt
-    cp /etc/letsencrypt/live/elontalk.duckdns.org/privkey.pem certs/server.key
-    chown root:root certs/server.crt certs/server.key
-    chmod 644 certs/server.crt
-    chmod 600 certs/server.key
-    systemctl restart customer-service
-fi
-EOF
-    
-    chmod +x /usr/local/bin/renew-elontalk-cert.sh
-    
-    # 添加cron任务
-    (crontab -l 2>/dev/null; echo "0 2 1 * * /usr/local/bin/renew-elontalk-cert.sh") | crontab -
-    
-    echo -e "  ✅ 自动续期已配置"
-}
-
-# 主流程
-main() {
-    echo -e "\n${YELLOW}请选择SSL证书配置方式:${NC}"
-    echo -e "1. 检查现有证书"
-    echo -e "2. 配置Let's Encrypt证书 (推荐)"
-    echo -e "3. 生成自签名证书 (仅测试)"
-    echo -e "4. 跳过证书配置"
-    
-    read -p "请输入选择 (1-4): " choice
-    
-    case $choice in
-        1)
-            if check_certificates; then
-                echo -e "\n${GREEN}✅ 证书检查通过，可以启动HTTPS服务${NC}"
-                configure_https_env
-            else
-                echo -e "\n${RED}❌ 证书检查失败，请选择其他选项${NC}"
-                exit 1
-            fi
-            ;;
-        2)
-            if setup_letsencrypt; then
-                configure_https_env
-                setup_auto_renewal
-                echo -e "\n${GREEN}✅ Let's Encrypt证书配置完成${NC}"
-            else
-                echo -e "\n${RED}❌ Let's Encrypt配置失败${NC}"
-                exit 1
-            fi
-            ;;
-        3)
-            generate_self_signed
-            configure_https_env
-            echo -e "\n${GREEN}✅ 自签名证书配置完成${NC}"
-            echo -e "${YELLOW}⚠️  请注意：浏览器会显示安全警告${NC}"
-            ;;
-        4)
-            echo -e "\n${YELLOW}跳过证书配置，使用HTTP模式${NC}"
-            if [ -f ".env.http" ]; then
-                cp .env.http .env
-                echo -e "  ✅ 已切换到HTTP配置"
-            fi
-            ;;
-        *)
-            echo -e "\n${RED}❌ 无效选择${NC}"
+        echo "✅ Let's Encrypt 证书配置完成"
+        echo ""
+        echo "📝 证书续期:"
+        echo "Let's Encrypt 证书每90天过期，可设置自动续期:"
+        echo "echo '0 12 * * * /usr/bin/certbot renew --quiet' | crontab -"
+        ;;
+        
+    2)
+        echo ""
+        echo "🔐 生成自签名证书..."
+        
+        # 生成私钥
+        openssl genrsa -out "$CERT_DIR/server.key" 2048
+        
+        # 生成证书
+        openssl req -new -x509 -key "$CERT_DIR/server.key" \
+            -out "$CERT_DIR/server.crt" -days 365 \
+            -subj "/C=CN/ST=Shanghai/L=Shanghai/O=ELonTalk/OU=IT Department/CN=$DOMAIN"
+        
+        # 设置权限
+        chmod 644 "$CERT_DIR/server.crt"
+        chmod 600 "$CERT_DIR/server.key"
+        
+        echo "✅ 自签名证书生成完成"
+        echo ""
+        echo "⚠️  重要提醒:"
+        echo "自签名证书会在浏览器中显示不安全警告"
+        echo "生产环境建议使用 Let's Encrypt 证书"
+        ;;
+        
+    3)
+        echo ""
+        echo "📋 使用现有证书..."
+        if [[ -f "$CERT_DIR/server.crt" && -f "$CERT_DIR/server.key" ]]; then
+            echo "✅ 发现现有证书文件"
+        else
+            echo "❌ 错误: 未找到证书文件"
+            echo "请确保以下文件存在:"
+            echo "  $CERT_DIR/server.crt"
+            echo "  $CERT_DIR/server.key"
             exit 1
-            ;;
-    esac
-    
-    # 防火墙配置
-    echo -e "\n${BLUE}6. 配置防火墙...${NC}"
-    ufw allow 8080/tcp
-    ufw allow 8443/tcp
-    ufw --force enable
-    echo -e "  ✅ 防火墙配置完成"
-    
-    echo -e "\n${GREEN}🎉 HTTPS配置完成！${NC}"
-    echo -e "\n${BLUE}访问地址:${NC}"
-    echo -e "  • HTTPS: https://43.139.82.12:8443"
-    echo -e "  • HTTP:  http://43.139.82.12:8080"
-    echo -e "  • 域名:  https://elontalk.duckdns.org:8443"
-    
-    echo -e "\n${BLUE}下一步:${NC}"
-    echo -e "  运行: ./start.sh"
-}
+        fi
+        ;;
+        
+    *)
+        echo "❌ 无效选择"
+        exit 1
+        ;;
+esac
 
-# 执行主流程
-main
+# 验证证书
+echo ""
+echo "🔍 验证证书..."
+if openssl x509 -in "$CERT_DIR/server.crt" -text -noout > /dev/null 2>&1; then
+    echo "✅ 证书文件有效"
+    
+    # 显示证书信息
+    echo ""
+    echo "📋 证书信息:"
+    openssl x509 -in "$CERT_DIR/server.crt" -noout \
+        -subject -issuer -dates
+else
+    echo "❌ 证书文件无效"
+    exit 1
+fi
+
+# 测试私钥
+if openssl rsa -in "$CERT_DIR/server.key" -check -noout > /dev/null 2>&1; then
+    echo "✅ 私钥文件有效"
+else
+    echo "❌ 私钥文件无效"
+    exit 1
+fi
+
+# 配置防火墙
+echo ""
+echo "🔥 配置防火墙 HTTPS 端口..."
+ufw allow 443/tcp
+ufw allow 8443/tcp
+ufw reload
+
+echo ""
+echo "🎉 HTTPS 配置完成！"
+echo "================="
+echo ""
+echo "📂 证书位置:"
+echo "  证书文件: $CERT_DIR/server.crt"
+echo "  私钥文件: $CERT_DIR/server.key"
+echo ""
+echo "🔧 下一步:"
+echo "1. 启动服务: systemctl start customer-service"
+echo "2. 检查状态: systemctl status customer-service"
+echo "3. 测试访问: curl -k https://$DOMAIN:8443"
+echo ""
+echo "🌐 访问地址:"
+echo "  https://$DOMAIN:8443"
+echo "  https://43.139.82.12:8443"

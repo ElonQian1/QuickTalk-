@@ -1,8 +1,7 @@
 [Unit]
-Description=ELonTalk Customer Service System
-Documentation=https://github.com/ElonQian1/QuickTalk-
+Description=ELonTalk Customer Service System (HTTPS)
 After=network.target
-Wants=network-online.target
+Wants=network.target
 
 [Service]
 Type=simple
@@ -10,37 +9,23 @@ User=root
 Group=root
 WorkingDirectory=/root/ubuntu-deploy-ready
 ExecStart=/root/ubuntu-deploy-ready/customer-service-backend
-ExecReload=/bin/kill -HUP $MAINPID
+Environment=DATABASE_URL=sqlite:customer_service.db
+Environment=RUST_LOG=info
 Restart=always
 RestartSec=10
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=customer-service
-
-# 环境变量
-Environment=RUST_LOG=info
-Environment=DATABASE_URL=sqlite:customer_service.db
-Environment=JWT_SECRET=elontalk-prod-secret-2025-change-in-production
-Environment=SERVER_HOST=0.0.0.0
-Environment=SERVER_PORT=8080
-Environment=HTTPS_ENABLED=true
-Environment=TLS_MODE=https
-Environment=TLS_PORT=8443
-Environment=TLS_DOMAIN=elontalk.duckdns.org
-Environment=TLS_CERT_PATH=certs/server.crt
-Environment=TLS_KEY_PATH=certs/server.key
-Environment=REDIRECT_HTTP=true
 
 # 安全配置
-NoNewPrivileges=yes
+NoNewPrivileges=true
+PrivateTmp=true
 ProtectSystem=strict
-ProtectHome=yes
+ProtectHome=true
 ReadWritePaths=/root/ubuntu-deploy-ready
-PrivateTmp=yes
 
 # 资源限制
-LimitNOFILE=65536
-LimitNPROC=32768
+LimitNOFILE=65535
+LimitNPROC=4096
 
 [Install]
 WantedBy=multi-user.target

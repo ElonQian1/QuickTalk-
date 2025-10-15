@@ -1,216 +1,303 @@
-# ELonTalk 客服系统 - Ubuntu 部署包
+# ELonTalk 客服系统 - Ubuntu 部署指南
 
-## 📋 部署信息
+## 📋 系统信息
 
-- **项目**: 多店铺客服系统
-- **架构**: Rust 后端 + React 前端 + Sea-ORM + Rustls HTTPS
-- **目标系统**: Ubuntu Server 24.04 LTS
+- **服务器**: Ubuntu 24.04 LTS
+- **域名**: elontalk.duckdns.org  
+- **IP地址**: 43.139.82.12
 - **部署路径**: `/root/ubuntu-deploy-ready/`
-- **编译特性**: 静态链接，零依赖部署
+- **架构**: Sea-ORM + Rust + React + HTTPS
 
-## 🚀 快速部署 (3 分钟完成)
+## 🎯 部署目标
 
-### 1. 上传部署包
-```bash
-# 将整个 ubuntu-deploy-ready 文件夹上传到服务器
-scp -r ubuntu-deploy-ready root@43.139.82.12:/root/
-```
+✅ **HTTPS强制模式** - 所有HTTP请求自动重定向到HTTPS  
+✅ **零依赖部署** - 静态链接的Linux二进制文件  
+✅ **自动数据库迁移** - 使用Sea-ORM自动创建和管理数据库  
+✅ **完整功能** - 客服聊天、管理后台、WebSocket SDK  
 
-### 2. 一键启动
-```bash
-ssh root@43.139.82.12
-cd /root/ubuntu-deploy-ready
-chmod +x start.sh
-./start.sh
-```
-
-### 3. 配置系统服务 (可选)
-```bash
-# 复制服务文件
-cp customer-service.service /etc/systemd/system/
-
-# 启用并启动服务
-systemctl daemon-reload
-systemctl enable customer-service
-systemctl start customer-service
-
-# 查看服务状态
-systemctl status customer-service
-```
-
-## 📁 文件结构
+## 📦 部署包内容
 
 ```
 ubuntu-deploy-ready/
-├── customer-service-backend     # Rust 二进制文件 (8.4MB)
-├── static/                      # React 前端静态文件
-│   ├── index.html              # 管理后台首页
-│   ├── static/js/main.js       # React 应用
-│   ├── static/css/main.css     # 样式文件
-│   └── manifest.json           # PWA 配置
-├── certs/                      # SSL 证书文件
-│   ├── server.crt             # SSL 证书
-│   └── server.key             # 私钥
-├── .env                       # 环境配置文件
-├── start.sh                   # 智能启动脚本
-├── customer-service.service   # systemd 服务配置
-└── README.md                  # 本文件
+├── customer-service-backend     # Rust二进制文件 (HTTPS版本, ~8MB)
+├── .env                        # 环境配置 (HTTPS强制模式)
+├── customer-service.service    # systemd服务配置
+├── deploy.sh                   # 全自动部署脚本 ⭐
+├── start.sh                    # 手动启动脚本
+├── setup-https.sh              # HTTPS证书配置脚本
+├── deploy-check.sh             # 部署前检查脚本
+├── certs/                      # SSL证书目录
+│   ├── server.crt             # SSL证书
+│   └── server.key             # SSL私钥
+└── static/                     # 前端和SDK文件
+    ├── index.html             # React管理界面
+    ├── static/                # 前端资源
+    ├── sdk/                   # WebSocket SDK
+    └── embed/                 # 嵌入式组件
+```
+
+## 🚀 快速部署 (推荐)
+
+### 1. 上传文件到服务器
+
+```bash
+# 将整个 ubuntu-deploy-ready 文件夹上传到 /root/
+scp -r ubuntu-deploy-ready root@43.139.82.12:/root/
+```
+
+### 2. 连接服务器
+
+```bash
+ssh root@43.139.82.12
+cd /root/ubuntu-deploy-ready
+```
+
+### 3. 一键部署
+
+```bash
+# 检查部署环境
+bash deploy-check.sh
+
+# 全自动部署 (推荐)
+bash deploy.sh
+```
+
+**完成！** 系统将自动：
+- 安装必要依赖
+- 配置防火墙 
+- 设置系统服务
+- 启动HTTPS服务
+- 验证部署状态
+
+## 🔧 手动部署步骤
+
+如果需要手动控制部署过程：
+
+### 1. 配置HTTPS证书
+
+```bash
+# 配置SSL证书 (Let's Encrypt 或自签名)
+bash setup-https.sh
+```
+
+### 2. 手动启动服务
+
+```bash
+# 启动服务
+bash start.sh
 ```
 
 ## 🌐 访问地址
 
-### HTTP 访问
-- **服务器IP**: http://43.139.82.12:8080
-- **域名访问**: http://elontalk.duckdns.org:8080
+部署完成后，可通过以下地址访问：
 
-### HTTPS 访问 (推荐)
-- **服务器IP**: https://43.139.82.12:8443
-- **域名访问**: https://elontalk.duckdns.org:8443
+- **HTTPS主站**: https://elontalk.duckdns.org:8443
+- **HTTPS IP**: https://43.139.82.12:8443  
+- **HTTP重定向**: http://43.139.82.12:8080 → HTTPS
 
-## ⚙️ 配置说明
+### 功能页面
 
-### 环境变量 (.env)
+- **管理后台**: https://elontalk.duckdns.org:8443
+- **API文档**: https://elontalk.duckdns.org:8443/api
+- **WebSocket测试**: https://elontalk.duckdns.org:8443/test-embed.html
+- **SDK演示**: https://elontalk.duckdns.org:8443/sdk/
+
+## 🔍 部署验证
+
+### 检查服务状态
+
 ```bash
-# 数据库配置 (Sea-ORM 自动处理)
-DATABASE_URL=sqlite:customer_service.db
-
-# 安全配置
-JWT_SECRET=elontalk-prod-secret-2025-change-in-production-env
-
-# 服务器配置
-SERVER_HOST=0.0.0.0
-SERVER_PORT=8080
-
-# HTTPS 配置
-HTTPS_ENABLED=true
-TLS_MODE=https
-TLS_PORT=8443
-TLS_DOMAIN=elontalk.duckdns.org
-TLS_CERT_PATH=certs/server.crt
-TLS_KEY_PATH=certs/server.key
-```
-
-### 防火墙配置
-启动脚本会自动配置防火墙，开放必要端口：
-```bash
-ufw allow 22/tcp    # SSH
-ufw allow 8080/tcp  # HTTP
-ufw allow 8443/tcp  # HTTPS
-ufw enable
-```
-
-## 🔧 常用命令
-
-### 服务管理
-```bash
-# 启动服务
-./start.sh
-
-# 使用 systemd 管理
-systemctl start customer-service
-systemctl stop customer-service
-systemctl restart customer-service
+# 服务状态
 systemctl status customer-service
 
 # 查看日志
 journalctl -u customer-service -f
+
+# 检查端口
+netstat -tlnp | grep -E ':8080|:8443'
+
+# 测试连接
+curl -k https://elontalk.duckdns.org:8443
+```
+
+### 预期输出
+
+✅ **服务正常启动**:
+```
+● customer-service.service - ELonTalk Customer Service System (HTTPS)
+   Loaded: loaded (/etc/systemd/system/customer-service.service; enabled)
+   Active: active (running)
+```
+
+✅ **端口监听**:
+```
+tcp6       0      0 :::8080                 :::*                    LISTEN      
+tcp6       0      0 :::8443                 :::*                    LISTEN      
+```
+
+✅ **HTTPS响应**:
+```json
+{
+  "status": "ok",
+  "service": "ELonTalk Customer Service",
+  "version": "1.0.0",
+  "https": true
+}
+```
+
+## 🛠️ 管理命令
+
+### 服务管理
+
+```bash
+# 启动服务
+systemctl start customer-service
+
+# 停止服务  
+systemctl stop customer-service
+
+# 重启服务
+systemctl restart customer-service
+
+# 查看状态
+systemctl status customer-service
+
+# 启用自启动
+systemctl enable customer-service
+
+# 禁用自启动
+systemctl disable customer-service
+```
+
+### 日志管理
+
+```bash
+# 实时日志
+journalctl -u customer-service -f
+
+# 最近日志
+journalctl -u customer-service -n 50
+
+# 错误日志
+journalctl -u customer-service -p err
 ```
 
 ### 数据库管理
+
 ```bash
-# Sea-ORM 会自动创建和迁移数据库
-# 手动查看数据库 (可选)
-sqlite3 customer_service.db ".tables"
-sqlite3 customer_service.db "SELECT COUNT(*) FROM users;"
+# 数据库文件位置
+ls -la /root/ubuntu-deploy-ready/customer_service.db
+
+# 备份数据库
+cp customer_service.db customer_service_$(date +%Y%m%d_%H%M%S).db
+
+# 查看数据库大小
+du -h customer_service.db
 ```
 
-### 证书更新
+## 🔒 安全配置
+
+### 防火墙规则
+
 ```bash
-# 替换证书文件后重启服务
-cp new_server.crt certs/server.crt
-cp new_server.key certs/server.key
-systemctl restart customer-service
+# 查看防火墙状态
+ufw status
+
+# 必要端口已开放:
+# 22/tcp  (SSH)
+# 8080/tcp (HTTP重定向)  
+# 8443/tcp (HTTPS)
 ```
 
-## 🛠 技术特性
+### SSL证书
 
-### 后端 (Rust)
-- **框架**: Axum + Tokio
-- **ORM**: Sea-ORM (自动迁移)
-- **TLS**: Rustls (纯 Rust 实现)
-- **数据库**: SQLite (嵌入式)
-- **认证**: JWT + bcrypt
-- **WebSocket**: 原生支持
+- **位置**: `/root/ubuntu-deploy-ready/certs/`
+- **类型**: Let's Encrypt (推荐) 或自签名
+- **续期**: Let's Encrypt 90天自动续期
 
-### 前端 (React)
-- **框架**: React 18 + TypeScript
-- **状态管理**: Zustand
-- **样式**: Styled Components
-- **构建**: 优化的生产构建
+```bash
+# 检查证书信息
+openssl x509 -in certs/server.crt -text -noout
 
-### 部署优势
-- ✅ **零依赖**: 静态编译，无需安装额外库
-- ✅ **高性能**: Rust 原生性能 + React 优化
-- ✅ **安全**: Rustls 内存安全 TLS 实现
-- ✅ **简单**: 单一二进制文件部署
-- ✅ **现代**: Sea-ORM 现代化数据库操作
+# 检查证书有效期
+openssl x509 -in certs/server.crt -noout -dates
+```
 
-## 🔍 故障排除
+## ⚠️ 故障排除
 
 ### 常见问题
 
-1. **端口被占用**
-   ```bash
-   # 查看端口占用
-   ss -tlnp | grep :8080
-   # 停止占用进程
-   systemctl stop customer-service
-   ```
+**1. 服务启动失败**
+```bash
+# 查看详细错误
+journalctl -u customer-service -n 50
 
-2. **证书问题**
-   ```bash
-   # 检查证书文件
-   ls -la certs/
-   # 验证证书有效性
-   openssl x509 -in certs/server.crt -text -noout
-   ```
+# 检查文件权限
+ls -la customer-service-backend
 
-3. **数据库权限**
-   ```bash
-   # 修复数据库权限
-   chmod 644 customer_service.db
-   chmod 755 /root/ubuntu-deploy-ready
-   ```
+# 手动测试
+./customer-service-backend
+```
 
-4. **查看详细日志**
-   ```bash
-   # 直接运行查看错误
-   ./customer-service-backend
-   # 或查看系统日志
-   journalctl -u customer-service -n 50
-   ```
+**2. 端口被占用**
+```bash
+# 查看端口占用
+netstat -tlnp | grep -E ':8080|:8443'
 
-## 📊 性能信息
+# 杀死占用进程
+pkill -f customer-service
+```
 
-- **二进制大小**: 8.4MB
-- **内存占用**: ~10MB (空闲状态)
-- **启动时间**: <2 秒
-- **并发连接**: 支持数千并发 WebSocket 连接
-- **数据库**: SQLite 单文件，支持高并发读写
+**3. SSL证书问题**
+```bash
+# 重新配置证书
+bash setup-https.sh
 
-## 🔐 安全配置
+# 检查证书文件
+ls -la certs/
+```
 
-- JWT 令牌认证
-- bcrypt 密码哈希
-- HTTPS/TLS 1.3 加密
-- CORS 跨域保护
-- 输入验证和 SQL 注入防护
-- 内存安全的 Rust 实现
+**4. 无法访问网站**
+```bash
+# 检查防火墙
+ufw status
+
+# 检查域名解析
+nslookup elontalk.duckdns.org
+
+# 测试本地连接
+curl -k https://localhost:8443
+```
+
+### 重置部署
+
+如果需要完全重新部署：
+
+```bash
+# 停止服务
+systemctl stop customer-service
+systemctl disable customer-service
+
+# 清理文件
+rm -f /etc/systemd/system/customer-service.service
+systemctl daemon-reload
+
+# 重新部署
+bash deploy.sh
+```
+
+## 📞 技术支持
+
+- **项目仓库**: GitHub - QuickTalk
+- **管理邮箱**: siwmm@163.com
+- **服务器信息**: Ubuntu 24.04 LTS, 43.139.82.12
+
+## 📝 更新日志
+
+- **2025-10-15**: 创建HTTPS强制部署包
+- **架构**: Sea-ORM + Rust交叉编译 + React前端
+- **特性**: 零依赖部署、自动HTTPS重定向、WebSocket SDK
 
 ---
 
-**部署日期**: 2025年10月15日  
-**架构版本**: v1.2 (Sea-ORM + Rustls)  
-**维护者**: ELonTalk 团队
-
-如有问题，请检查日志文件或联系技术支持。
+🎉 **部署完成！ELonTalk 客服系统已就绪**
