@@ -1,0 +1,60 @@
+ELonTalk 客服系统 - Ubuntu 部署包
+====================================
+
+编译时间: 2025年10月16日 00:11
+目标系统: Ubuntu 24.04 LTS (x86_64)
+部署路径: /root/ubuntu-deploy-ready/
+
+文件清单:
+--------
+✅ customer-service-backend (8.05 MB) - Rust 后端可执行文件 (静态编译, 支持 HTTPS)
+✅ static/ - React 前端构建文件
+✅ certs/ - HTTPS 证书文件
+   - server.crt (1041 bytes)
+   - server.key (1703 bytes)
+✅ .env - 生产环境配置 (已配置 HTTPS)
+✅ deploy.sh - 自动部署脚本
+✅ start.sh - 启动脚本
+✅ setup-https.sh - HTTPS 设置脚本
+✅ customer-service.service - Systemd 服务文件
+
+部署步骤:
+--------
+1. 将整个 ubuntu-deploy-ready 文件夹上传到服务器 /root/
+2. SSH 登录到 Ubuntu 服务器
+3. cd /root/ubuntu-deploy-ready
+4. chmod +x *.sh customer-service-backend
+5. ./deploy.sh
+
+HTTPS 配置:
+----------
+- TLS_MODE=https (强制 HTTPS)
+- TLS_PORT=8443
+- ENABLE_HTTP_REDIRECT=true (HTTP 自动跳转到 HTTPS)
+- 证书路径: certs/server.crt, certs/server.key
+
+数据库:
+------
+- 使用 Sea-ORM 自动迁移
+- 数据库文件: /root/ubuntu-deploy-ready/customer_service.db
+- 首次运行自动创建表结构
+
+访问地址:
+--------
+- HTTPS: https://your-server-ip:8443
+- HTTP (自动跳转): http://your-server-ip:8080
+
+注意事项:
+--------
+1. 确保服务器防火墙开放 8080 和 8443 端口
+2. 首次运行需要注册管理员账户
+3. 证书为自签名证书，浏览器会提示不安全（可忽略或使用 Let's Encrypt 替换）
+4. 所有文件已包含，无需额外安装依赖
+
+技术细节:
+--------
+- 后端: Rust + Axum + Sea-ORM + Rustls
+- 编译目标: x86_64-unknown-linux-musl (静态链接)
+- 前端: React 18 + TypeScript + Zustand
+- WebSocket: 原生支持，实时通信
+- 数据库: SQLite (内嵌)
