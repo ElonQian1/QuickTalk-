@@ -11,25 +11,34 @@ pub async fn get_customers(
     AuthUser { user_id }: AuthUser,
     Path(shop_id): Path<i64>,
 ) -> Result<Json<Vec<CustomerWithSession>>, AppError> {
-    match state
+    let result = state
         .customer_service
         .get_customers_with_sessions(user_id, shop_id.try_into().unwrap())
-        .await
-    {
+        .await;
+    
+    match result {
         Ok(customers) => {
+            eprintln!("✅ 查询到 {} 个客户", customers.len());
             // 将 (customers::Model, Option<sessions::Model>) 转换为 CustomerWithSession
             let customer_sessions: Vec<CustomerWithSession> = customers
                 .into_iter()
-                .map(|(customer, session)| CustomerWithSession {
-                    customer: customer.into(),
-                    session: session.map(|s| s.into()),
-                    last_message: None, // TODO: 根据需要查询最后一条消息
-                    unread_count: 0,    // TODO: 根据需要查询未读数
+                .map(|(customer, session)| {
+                    eprintln!("📝 转换客户: id={}, customer_id={}", customer.id, customer.customer_id);
+                    CustomerWithSession {
+                        customer: customer.into(),
+                        session: session.map(|s| s.into()),
+                        last_message: None, // TODO: 根据需要查询最后一条消息
+                        unread_count: 0,    // TODO: 根据需要查询未读数
+                    }
                 })
                 .collect();
+            eprintln!("✅ 成功转换 {} 个客户响应", customer_sessions.len());
             Ok(Json(customer_sessions))
         },
-        Err(e) => Err(AppError::Internal(e.to_string())),
+        Err(e) => {
+            eprintln!("❌ get_customers错误: {:?}", e);
+            Err(AppError::Internal(e.to_string()))
+        }
     }
 }
 
