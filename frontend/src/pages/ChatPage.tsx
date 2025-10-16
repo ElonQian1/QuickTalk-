@@ -444,6 +444,20 @@ const ChatPage: React.FC = () => {
   const fetchMessages = async (sessionId: number) => {
     try {
   const response = await api.get(`/api/sessions/${sessionId}/messages`);
+      console.log('🔍 API返回的原始历史消息:', response.data);
+      
+      // 检查每条消息的内容
+      response.data.forEach((msg: any, index: number) => {
+        console.log(`📨 历史消息 ${index}:`, {
+          id: msg.id,
+          content: msg.content,
+          content_type: typeof msg.content,
+          content_length: msg.content?.length,
+          message_type: msg.message_type,
+          sender_type: msg.sender_type
+        });
+      });
+      
       setMessages(response.data);
     } catch (error) {
       toast.error('获取消息失败');
