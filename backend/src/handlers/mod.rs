@@ -1,6 +1,7 @@
 pub mod auth;
 pub mod config;
 pub mod customer;
+pub mod debug;
 pub mod message;
 pub mod shop;
 pub mod stats;

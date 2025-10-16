@@ -361,6 +361,7 @@ fn create_router(state: AppState) -> Router {
         .route("/api/sdk/version", get(handlers::sdk_version::get_latest_version))
         .route("/api/sdk/version/:version", get(handlers::sdk_version::get_specific_version))
         .route("/api/config", get(handlers::config::get_server_config))
+        .route("/api/debug/user", get(handlers::debug::debug_user_data))
         .route(
             "/api/dashboard/stats",
             get(handlers::stats::get_dashboard_stats),

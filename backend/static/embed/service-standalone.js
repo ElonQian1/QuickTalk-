@@ -558,7 +558,7 @@ class WebSocketClient {
         if (!this.serverConfig) {
             throw new Error('服务器配置未找到');
         }
-        // 构建WebSocket URL，采用降级策略：优先ws://，失败后尝试wss://
+        // 构建WebSocket URL，智能选择协议
         let wsUrl;
         if ((_b = (_a = this.serverConfig.endpoints) === null || _a === void 0 ? void 0 : _a.websocket) === null || _b === void 0 ? void 0 : _b.customer) {
             wsUrl = `${this.serverConfig.endpoints.websocket.customer}/${this.shopId}/${this.customerId}`;
@@ -566,12 +566,28 @@ class WebSocketClient {
         else {
             let wsBase = this.serverConfig.wsUrl;
             if (!wsBase) {
-                // 🚀 新策略：优先尝试ws://协议
-                wsBase = this.serverConfig.serverUrl.replace(/^https?/, 'ws');
+                // � 智能协议选择策略
+                const currentPageIsHttps = window.location.protocol === 'https:';
+                const serverIsHttps = this.serverConfig.serverUrl.startsWith('https://');
+                // 如果当前页面是HTTPS，必须使用wss://（浏览器安全限制）
+                if (currentPageIsHttps) {
+                    wsBase = this.serverConfig.serverUrl.replace(/^https?/, 'wss');
+                    console.log('🔒 当前页面是HTTPS，使用安全的WebSocket协议 (wss://)');
+                }
+                // 如果服务器是HTTPS，优先使用wss://
+                else if (serverIsHttps) {
+                    wsBase = this.serverConfig.serverUrl.replace(/^https/, 'wss');
+                    console.log('🔐 服务器支持HTTPS，使用wss://协议');
+                }
+                // 否则优先尝试ws://（开发环境）
+                else {
+                    wsBase = this.serverConfig.serverUrl.replace(/^http/, 'ws');
+                    console.log('🔓 开发环境，使用ws://协议');
+                }
             }
             wsUrl = `${wsBase}/ws/customer/${this.shopId}/${this.customerId}`;
         }
-        console.log(`🔗 优先尝试WebSocket连接: ${wsUrl}`);
+        console.log(`🔗 尝试WebSocket连接: ${wsUrl}`);
         return this.tryWebSocketConnection(wsUrl);
     }
     /**
@@ -610,18 +626,37 @@ class WebSocketClient {
                 };
                 this.ws.onclose = (event) => {
                     clearTimeout(connectionTimeout);
-                    console.log('🔌 ws://连接关闭', event.code, event.reason);
+                    console.log('🔌 WebSocket连接关闭', event.code, event.reason);
                     this.isConnecting = false;
-                    // ws://连接失败，尝试wss://
-                    if (event.code !== 1000) {
+                    // 如果当前页面是HTTPS，不尝试降级（因为已经是wss://）
+                    const currentPageIsHttps = window.location.protocol === 'https:';
+                    // 连接异常关闭且不是HTTPS页面，尝试降级到wss://
+                    if (event.code !== 1000 && !currentPageIsHttps && !wsUrl.startsWith('wss://')) {
                         console.log('🔄 ws://连接异常关闭，尝试降级到wss://');
                         this.trySecureConnection().then(resolve).catch(reject);
+                    }
+                    else if (event.code !== 1000) {
+                        // HTTPS页面或已经是wss://但仍然失败
+                        const error = new Error(`WebSocket连接失败 (code: ${event.code})`);
+                        this.notifyError(error);
+                        reject(error);
                     }
                 };
                 this.ws.onerror = (error) => {
                     clearTimeout(connectionTimeout);
-                    console.error('❌ ws://连接错误，尝试降级到wss://');
-                    // 不要立即reject，而是尝试wss://
+                    console.error('❌ WebSocket连接错误');
+                    // 如果当前页面是HTTPS或已经是wss://，不尝试降级
+                    const currentPageIsHttps = window.location.protocol === 'https:';
+                    if (!currentPageIsHttps && !wsUrl.startsWith('wss://')) {
+                        console.log('🔄 尝试降级到wss://');
+                        // 不要立即reject，而是尝试wss://
+                    }
+                    else {
+                        // 直接失败
+                        const err = new Error('WebSocket连接失败');
+                        this.notifyError(err);
+                        reject(err);
+                    }
                 };
             }
             catch (error) {
