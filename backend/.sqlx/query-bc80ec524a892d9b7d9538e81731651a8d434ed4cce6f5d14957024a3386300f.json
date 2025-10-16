@@ -1,0 +1,32 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT \n            id,\n            shop_name,\n            shop_url\n        FROM shops\n        LIMIT 3\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Int64"
+      },
+      {
+        "name": "shop_name",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "shop_url",
+        "ordinal": 2,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "bc80ec524a892d9b7d9538e81731651a8d434ed4cce6f5d14957024a3386300f"
+}

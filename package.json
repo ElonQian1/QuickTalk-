@@ -39,7 +39,9 @@
     "check:backend": "cd backend && cargo check",
     "check:https": "cd backend && cargo check --features https",
     "start": "npm run dev",
-    "start:https": "npm run dev:https"
+    "start:https": "npm run dev:https",
+    "deploy:update": "powershell -ExecutionPolicy Bypass -File scripts/update-deploy-package.ps1",
+    "deploy:sync-production": "powershell -ExecutionPolicy Bypass -File scripts/sync-production-files.ps1"
   },
   "devDependencies": {
     "concurrently": "^7.6.0"
