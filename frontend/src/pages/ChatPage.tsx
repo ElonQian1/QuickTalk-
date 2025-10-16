@@ -733,7 +733,7 @@ const ChatPage: React.FC = () => {
             {message.file_url && (
               <MessageImage
                 src={normalizeMediaUrl(message.file_url)}
-                alt={message.content}
+                alt={message.file_name || message.content}
                 onClick={() => {
                   const u = normalizeMediaUrl(message.file_url);
                   if (u) window.open(u, '_blank');
@@ -750,7 +750,7 @@ const ChatPage: React.FC = () => {
             if (u) window.open(u, '_blank');
           }}>
             <FiFile />
-            <FileName>{message.content}</FileName>
+            <FileName>{message.file_name || message.content}</FileName>
           </FileAttachment>
         );
       case 'voice':

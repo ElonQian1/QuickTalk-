@@ -68,6 +68,7 @@ pub struct Message {
     pub content: String,
     pub message_type: String,
     pub file_url: Option<String>,
+    pub file_name: Option<String>,
     pub status: String,
     pub created_at: DateTime<Utc>,
 }
@@ -256,6 +257,12 @@ impl From<crate::entities::messages::Model> for Message {
             .and_then(|v| v.as_str())
             .map(|s| s.to_string());
         
+        // file_name 可能存储在 metadata 中
+        let file_name = message.metadata.as_ref()
+            .and_then(|m| m.get("file_name"))
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+        
         // sender_id 在数据库中是TEXT，需要解析为i64
         let sender_id = message.sender_id
             .and_then(|s| s.parse::<i64>().ok());
@@ -268,6 +275,7 @@ impl From<crate::entities::messages::Model> for Message {
             content: message.content.clone(),
             message_type: message.message_type,
             file_url, // 从 metadata 提取
+            file_name, // 从 metadata 提取
             status: if message.is_deleted { "deleted".to_string() } else { "active".to_string() },
             created_at: message.created_at.and_utc(),
         };

@@ -1,4 +1,6 @@
 # Rust 交叉编译精简指南 - Windows 到 Ubuntu (包含HTTPS)
+核心：
+cargo zigbuild --release --target x86_64-unknown-linux-musl --features https
 
 > **目标**: 在 Windows 11 环境下交叉编译 Rust 项目到 Ubuntu 24.04 LTS  
 > **结果**: 8.3MB 静态链接 Linux 二进制文件，零依赖部署，支持HTTPS  
