@@ -9,11 +9,11 @@ pub struct Model {
     
     pub session_id: i32,
     
-    #[sea_orm(column_type = "String(Some(20))")]
+    #[sea_orm(column_type = "String(Some(10))")]
     pub sender_type: String,
     
-    // Ubuntu生产数据库中sender_id是TEXT类型，不是INTEGER
-    pub sender_id: Option<String>,
+    // 修正：数据库中 sender_id 是 INTEGER 类型，不是 TEXT
+    pub sender_id: Option<i32>,
     pub sender_name: Option<String>,
     
     #[sea_orm(column_type = "String(Some(20))")]
@@ -21,10 +21,10 @@ pub struct Model {
     
     pub content: String,
     
-    // Ubuntu生产数据库中不存在这两列，标记为ignore
-    #[sea_orm(ignore)]
+    // 修正：这两个字段在数据库中真实存在，不应该 ignore
+    #[sea_orm(column_type = "String(Some(255))")]
     pub file_url: Option<String>,
-    #[sea_orm(ignore)]
+    #[sea_orm(column_type = "String(Some(20))")]
     pub status: Option<String>,
     
     pub rich_content: Option<Json>,

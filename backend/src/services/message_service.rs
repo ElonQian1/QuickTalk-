@@ -66,7 +66,7 @@ impl MessageService {
             &self.db,
             session_id as i32,
             "staff".to_string(),
-            Some(user_id.to_string()),  // 转换为String
+            Some(user_id),  // 直接传入 i32
             None, // sender_name
             message_type,
             content.to_string(),
@@ -88,7 +88,7 @@ impl MessageService {
         db: &DatabaseConnection,
         session_id: i32,
         sender_type: &str,
-        sender_id: Option<String>,  // 修改为String类型
+        sender_id: Option<i32>,  // 修正：数据库中是 INTEGER
         content: &str,
         message_type: &str,
         file_url: Option<&str>,
@@ -100,11 +100,9 @@ impl MessageService {
         
         // 2. 如果是客服发送，验证权限
         if sender_type == "staff" {
-            if let Some(ref staff_id_str) = sender_id {
-                if let Ok(staff_id) = staff_id_str.parse::<i64>() {
-                    if !ShopStaffRepository::is_shop_member(db, session.shop_id as i64, staff_id).await? {
-                        anyhow::bail!("permission_denied");
-                    }
+            if let Some(staff_id) = sender_id {
+                if !ShopStaffRepository::is_shop_member(db, session.shop_id as i64, staff_id as i64).await? {
+                    anyhow::bail!("permission_denied");
                 }
             }
         }
@@ -287,8 +285,6 @@ impl MessageService {
         // 3. 验证权限（必须是店主或消息发送者）
         let is_owner = ShopStaffRepository::is_shop_owner(db, session.shop_id as i64, requester_user_id as i64).await?;
         let is_sender = message.sender_id
-            .as_ref()
-            .and_then(|s| s.parse::<i32>().ok())
             .map(|id| id == requester_user_id)
             .unwrap_or(false);
         

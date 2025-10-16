@@ -7,12 +7,12 @@ use crate::entities::{messages, prelude::*};
 pub struct MessageRepository;
 
 impl MessageRepository {
-    /// 创建新消息
+    /// 创建消息
     pub async fn create(
         db: &DatabaseConnection,
         session_id: i32,
         sender_type: String,
-        sender_id: Option<String>,  // 修改为String类型
+        sender_id: Option<i32>,  // 修正：数据库中是 INTEGER
         sender_name: Option<String>,
         message_type: String,
         content: String,
@@ -124,7 +124,7 @@ impl MessageRepository {
         db: &DatabaseConnection,
         session_id: i32,
         sender_type: &str,
-        sender_id: Option<String>,  // 修改为String类型
+        sender_id: Option<i32>,  // 修正：数据库中是 INTEGER
         content: &str,
         message_type: &str,
         file_url: Option<&str>,

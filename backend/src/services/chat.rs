@@ -164,7 +164,7 @@ impl<'a> ChatService<'a> {
             &self.state.db_connection,
             session.id as i32,
             sender_type.to_string(),
-            sender_id.map(|id| id.to_string()),  // 转换为String
+            sender_id.map(|id| id as i32),  // 转换 i64 → i32
             Some(content),
             message_type,
             payload.file_url.clone().unwrap_or_default(),
