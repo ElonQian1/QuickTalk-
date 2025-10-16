@@ -168,11 +168,20 @@ impl CustomerRepository {
     }
 
     /// 统计店铺下的客户总数
-    pub async fn count_by_shop(db: &DatabaseConnection, shop_id: i32) -> Result<i64> {
-        let count = Customers::find()
-            .filter(customers::Column::ShopId.eq(shop_id))
-            .count(db)
-            .await?;
+    pub async fn count_by_shop(db: &DatabaseConnection, shop_id: i32, keyword: Option<&str>) -> Result<i64> {
+        let mut query = Customers::find()
+            .filter(customers::Column::ShopId.eq(shop_id));
+
+        if let Some(kw) = keyword.and_then(|s| if s.trim().is_empty() { None } else { Some(s) }) {
+            query = query.filter(
+                Condition::any()
+                    .add(customers::Column::CustomerName.contains(kw))
+                    .add(customers::Column::CustomerEmail.contains(kw))
+                    .add(customers::Column::CustomerId.contains(kw))
+            );
+        }
+
+        let count = query.count(db).await?;
         Ok(count as i64)
     }
 
@@ -182,11 +191,36 @@ impl CustomerRepository {
         shop_id: i32,
         limit: i64,
         offset: i64,
+        keyword: Option<&str>,
+        sort: Option<&str>,
     ) -> Result<Vec<(customers::Model, Option<sessions::Model>, Option<messages::Model>, i64)>> {
-        // 1. 分页获取客户列表
-        let customers_list = Customers::find()
-            .filter(customers::Column::ShopId.eq(shop_id))
-            .order_by_desc(customers::Column::LastActiveAt)
+        // 1. 分页获取客户列表（可选关键字过滤 + 排序）
+        let mut query = Customers::find()
+            .filter(customers::Column::ShopId.eq(shop_id));
+
+        if let Some(kw) = keyword.and_then(|s| if s.trim().is_empty() { None } else { Some(s) }) {
+            query = query.filter(
+                Condition::any()
+                    .add(customers::Column::CustomerName.contains(kw))
+                    .add(customers::Column::CustomerEmail.contains(kw))
+                    .add(customers::Column::CustomerId.contains(kw))
+            );
+        }
+
+        // 排序：last_active_desc(默认) | name_asc | name_desc
+        match sort.unwrap_or("last_active_desc").to_lowercase().as_str() {
+            "name_asc" => {
+                query = query.order_by_asc(customers::Column::CustomerName);
+            }
+            "name_desc" => {
+                query = query.order_by_desc(customers::Column::CustomerName);
+            }
+            _ => {
+                query = query.order_by_desc(customers::Column::LastActiveAt);
+            }
+        }
+
+        let customers_list = query
             .limit(limit as u64)
             .offset(offset as u64)
             .all(db)

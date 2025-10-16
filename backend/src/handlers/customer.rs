@@ -5,7 +5,6 @@ use axum::{
 use serde::Deserialize;
 
 use crate::{auth::AuthUser, error::AppError, models::*, AppState};
-use serde_json::json;
 
 #[derive(Debug, Deserialize)]
 pub(crate) struct CustomerListQuery {
@@ -13,6 +12,10 @@ pub(crate) struct CustomerListQuery {
     pub limit: Option<i64>,
     #[serde(default, alias = "skip")]
     pub offset: Option<i64>,
+    #[serde(default, alias = "q")]
+    pub keyword: Option<String>,
+    #[serde(default, alias = "order", alias = "sortBy")]
+    pub sort: Option<String>, // 支持: last_active_desc(默认) | name_asc | name_desc
 }
 
 pub async fn get_customers(
@@ -75,7 +78,14 @@ pub async fn get_customers_paged(
 
     let (items_raw, total) = state
         .customer_service
-        .get_customers_overview_paged(user_id, shop_id.try_into().unwrap(), limit, offset)
+        .get_customers_overview_paged(
+            user_id,
+            shop_id.try_into().unwrap(),
+            limit,
+            offset,
+            q.keyword.clone(),
+            q.sort.clone(),
+        )
         .await
         .map_err(|e| {
             let msg = e.to_string();

@@ -29,7 +29,7 @@ pub async fn fetch_shops_with_unread_by_owner(
     owner_id: i64,
 ) -> Result<Vec<ShopWithUnreadCount>> {
     // 兼容旧签名：默认仅活跃店铺 + 前50条
-    fetch_shops_with_unread_by_owner_paged(db, owner_id, true, 50, 0).await
+    fetch_shops_with_unread_by_owner_paged(db, owner_id, true, 50, 0, None).await
 }
 
 pub async fn fetch_shops_with_unread_by_owner_paged(
@@ -38,73 +38,262 @@ pub async fn fetch_shops_with_unread_by_owner_paged(
     only_active: bool,
     limit: i64,
     offset: i64,
+    sort: Option<&str>,
 ) -> Result<Vec<ShopWithUnreadCount>> {
-    let rows = if only_active {
-        sqlx::query_as!(
-            ShopWithUnreadProjection,
-            r#"
-        SELECT 
-            s.id                       AS "id!: i64",
-            s.owner_id                 AS "owner_id!: i64",
-            s.shop_name                AS "shop_name!: String",
-            s.shop_url                 AS "shop_url?: String",
-            s.api_key                  AS "api_key!: String",
-            CASE WHEN s.is_active THEN 1 ELSE 0 END AS "status!: i32",
-            s.created_at               AS "created_at!: chrono::DateTime<chrono::Utc>",
-            s.updated_at               AS "updated_at!: chrono::DateTime<chrono::Utc>",
-            (
-              SELECT COALESCE(SUM(uc.unread_count), 0)
-              FROM unread_counts uc
-              WHERE uc.shop_id = s.id
-            )                          AS "unread_total!: i64"
-        FROM shops s
-        WHERE s.owner_id = ? AND s.is_active = 1
-        ORDER BY (
-              SELECT COALESCE(SUM(uc.unread_count), 0)
-              FROM unread_counts uc
-              WHERE uc.shop_id = s.id
-        ) DESC, s.created_at DESC
-        LIMIT ? OFFSET ?
-        "#,
-            owner_id,
-            limit,
-            offset
-        )
-        .fetch_all(db.pool())
-        .await?
-    } else {
-        sqlx::query_as!(
-            ShopWithUnreadProjection,
-            r#"
-        SELECT 
-            s.id                       AS "id!: i64",
-            s.owner_id                 AS "owner_id!: i64",
-            s.shop_name                AS "shop_name!: String",
-            s.shop_url                 AS "shop_url?: String",
-            s.api_key                  AS "api_key!: String",
-            CASE WHEN s.is_active THEN 1 ELSE 0 END AS "status!: i32",
-            s.created_at               AS "created_at!: chrono::DateTime<chrono::Utc>",
-            s.updated_at               AS "updated_at!: chrono::DateTime<chrono::Utc>",
-            (
-              SELECT COALESCE(SUM(uc.unread_count), 0)
-              FROM unread_counts uc
-              WHERE uc.shop_id = s.id
-            )                          AS "unread_total!: i64"
-        FROM shops s
-        WHERE s.owner_id = ?
-        ORDER BY (
-              SELECT COALESCE(SUM(uc.unread_count), 0)
-              FROM unread_counts uc
-              WHERE uc.shop_id = s.id
-        ) DESC, s.created_at DESC
-        LIMIT ? OFFSET ?
-        "#,
-            owner_id,
-            limit,
-            offset
-        )
-        .fetch_all(db.pool())
-        .await?
+    let sort_key = sort.unwrap_or("unread_desc").to_ascii_lowercase();
+    let rows = match (only_active, sort_key.as_str()) {
+        // created_at_desc
+        (true, "created_at_desc") => {
+            sqlx::query_as!(
+                ShopWithUnreadProjection,
+                r#"
+            SELECT 
+                s.id                       AS "id!: i64",
+                s.owner_id                 AS "owner_id!: i64",
+                s.shop_name                AS "shop_name!: String",
+                s.shop_url                 AS "shop_url?: String",
+                s.api_key                  AS "api_key!: String",
+                CASE WHEN s.is_active THEN 1 ELSE 0 END AS "status!: i32",
+                s.created_at               AS "created_at!: chrono::DateTime<chrono::Utc>",
+                s.updated_at               AS "updated_at!: chrono::DateTime<chrono::Utc>",
+                (
+                  SELECT COALESCE(SUM(uc.unread_count), 0)
+                  FROM unread_counts uc
+                  WHERE uc.shop_id = s.id
+                )                          AS "unread_total!: i64"
+            FROM shops s
+            WHERE s.owner_id = ? AND s.is_active = 1
+            ORDER BY s.created_at DESC
+            LIMIT ? OFFSET ?
+            "#,
+                owner_id,
+                limit,
+                offset
+            )
+            .fetch_all(db.pool())
+            .await?
+        }
+        (false, "created_at_desc") => {
+            sqlx::query_as!(
+                ShopWithUnreadProjection,
+                r#"
+            SELECT 
+                s.id                       AS "id!: i64",
+                s.owner_id                 AS "owner_id!: i64",
+                s.shop_name                AS "shop_name!: String",
+                s.shop_url                 AS "shop_url?: String",
+                s.api_key                  AS "api_key!: String",
+                CASE WHEN s.is_active THEN 1 ELSE 0 END AS "status!: i32",
+                s.created_at               AS "created_at!: chrono::DateTime<chrono::Utc>",
+                s.updated_at               AS "updated_at!: chrono::DateTime<chrono::Utc>",
+                (
+                  SELECT COALESCE(SUM(uc.unread_count), 0)
+                  FROM unread_counts uc
+                  WHERE uc.shop_id = s.id
+                )                          AS "unread_total!: i64"
+            FROM shops s
+            WHERE s.owner_id = ?
+            ORDER BY s.created_at DESC
+            LIMIT ? OFFSET ?
+            "#,
+                owner_id,
+                limit,
+                offset
+            )
+            .fetch_all(db.pool())
+            .await?
+        }
+        // name_asc
+        (true, "name_asc") => {
+            sqlx::query_as!(
+                ShopWithUnreadProjection,
+                r#"
+            SELECT 
+                s.id                       AS "id!: i64",
+                s.owner_id                 AS "owner_id!: i64",
+                s.shop_name                AS "shop_name!: String",
+                s.shop_url                 AS "shop_url?: String",
+                s.api_key                  AS "api_key!: String",
+                CASE WHEN s.is_active THEN 1 ELSE 0 END AS "status!: i32",
+                s.created_at               AS "created_at!: chrono::DateTime<chrono::Utc>",
+                s.updated_at               AS "updated_at!: chrono::DateTime<chrono::Utc>",
+                (
+                  SELECT COALESCE(SUM(uc.unread_count), 0)
+                  FROM unread_counts uc
+                  WHERE uc.shop_id = s.id
+                )                          AS "unread_total!: i64"
+            FROM shops s
+            WHERE s.owner_id = ? AND s.is_active = 1
+            ORDER BY s.shop_name ASC
+            LIMIT ? OFFSET ?
+            "#,
+                owner_id,
+                limit,
+                offset
+            )
+            .fetch_all(db.pool())
+            .await?
+        }
+        (false, "name_asc") => {
+            sqlx::query_as!(
+                ShopWithUnreadProjection,
+                r#"
+            SELECT 
+                s.id                       AS "id!: i64",
+                s.owner_id                 AS "owner_id!: i64",
+                s.shop_name                AS "shop_name!: String",
+                s.shop_url                 AS "shop_url?: String",
+                s.api_key                  AS "api_key!: String",
+                CASE WHEN s.is_active THEN 1 ELSE 0 END AS "status!: i32",
+                s.created_at               AS "created_at!: chrono::DateTime<chrono::Utc>",
+                s.updated_at               AS "updated_at!: chrono::DateTime<chrono::Utc>",
+                (
+                  SELECT COALESCE(SUM(uc.unread_count), 0)
+                  FROM unread_counts uc
+                  WHERE uc.shop_id = s.id
+                )                          AS "unread_total!: i64"
+            FROM shops s
+            WHERE s.owner_id = ?
+            ORDER BY s.shop_name ASC
+            LIMIT ? OFFSET ?
+            "#,
+                owner_id,
+                limit,
+                offset
+            )
+            .fetch_all(db.pool())
+            .await?
+        }
+        // name_desc
+        (true, "name_desc") => {
+            sqlx::query_as!(
+                ShopWithUnreadProjection,
+                r#"
+            SELECT 
+                s.id                       AS "id!: i64",
+                s.owner_id                 AS "owner_id!: i64",
+                s.shop_name                AS "shop_name!: String",
+                s.shop_url                 AS "shop_url?: String",
+                s.api_key                  AS "api_key!: String",
+                CASE WHEN s.is_active THEN 1 ELSE 0 END AS "status!: i32",
+                s.created_at               AS "created_at!: chrono::DateTime<chrono::Utc>",
+                s.updated_at               AS "updated_at!: chrono::DateTime<chrono::Utc>",
+                (
+                  SELECT COALESCE(SUM(uc.unread_count), 0)
+                  FROM unread_counts uc
+                  WHERE uc.shop_id = s.id
+                )                          AS "unread_total!: i64"
+            FROM shops s
+            WHERE s.owner_id = ? AND s.is_active = 1
+            ORDER BY s.shop_name DESC
+            LIMIT ? OFFSET ?
+            "#,
+                owner_id,
+                limit,
+                offset
+            )
+            .fetch_all(db.pool())
+            .await?
+        }
+        (false, "name_desc") => {
+            sqlx::query_as!(
+                ShopWithUnreadProjection,
+                r#"
+            SELECT 
+                s.id                       AS "id!: i64",
+                s.owner_id                 AS "owner_id!: i64",
+                s.shop_name                AS "shop_name!: String",
+                s.shop_url                 AS "shop_url?: String",
+                s.api_key                  AS "api_key!: String",
+                CASE WHEN s.is_active THEN 1 ELSE 0 END AS "status!: i32",
+                s.created_at               AS "created_at!: chrono::DateTime<chrono::Utc>",
+                s.updated_at               AS "updated_at!: chrono::DateTime<chrono::Utc>",
+                (
+                  SELECT COALESCE(SUM(uc.unread_count), 0)
+                  FROM unread_counts uc
+                  WHERE uc.shop_id = s.id
+                )                          AS "unread_total!: i64"
+            FROM shops s
+            WHERE s.owner_id = ?
+            ORDER BY s.shop_name DESC
+            LIMIT ? OFFSET ?
+            "#,
+                owner_id,
+                limit,
+                offset
+            )
+            .fetch_all(db.pool())
+            .await?
+        }
+        // default: unread_desc
+        (true, _) => {
+            sqlx::query_as!(
+                ShopWithUnreadProjection,
+                r#"
+            SELECT 
+                s.id                       AS "id!: i64",
+                s.owner_id                 AS "owner_id!: i64",
+                s.shop_name                AS "shop_name!: String",
+                s.shop_url                 AS "shop_url?: String",
+                s.api_key                  AS "api_key!: String",
+                CASE WHEN s.is_active THEN 1 ELSE 0 END AS "status!: i32",
+                s.created_at               AS "created_at!: chrono::DateTime<chrono::Utc>",
+                s.updated_at               AS "updated_at!: chrono::DateTime<chrono::Utc>",
+                (
+                  SELECT COALESCE(SUM(uc.unread_count), 0)
+                  FROM unread_counts uc
+                  WHERE uc.shop_id = s.id
+                )                          AS "unread_total!: i64"
+            FROM shops s
+            WHERE s.owner_id = ? AND s.is_active = 1
+            ORDER BY (
+                  SELECT COALESCE(SUM(uc.unread_count), 0)
+                  FROM unread_counts uc
+                  WHERE uc.shop_id = s.id
+            ) DESC, s.created_at DESC
+            LIMIT ? OFFSET ?
+            "#,
+                owner_id,
+                limit,
+                offset
+            )
+            .fetch_all(db.pool())
+            .await?
+        }
+        (false, _) => {
+            sqlx::query_as!(
+                ShopWithUnreadProjection,
+                r#"
+            SELECT 
+                s.id                       AS "id!: i64",
+                s.owner_id                 AS "owner_id!: i64",
+                s.shop_name                AS "shop_name!: String",
+                s.shop_url                 AS "shop_url?: String",
+                s.api_key                  AS "api_key!: String",
+                CASE WHEN s.is_active THEN 1 ELSE 0 END AS "status!: i32",
+                s.created_at               AS "created_at!: chrono::DateTime<chrono::Utc>",
+                s.updated_at               AS "updated_at!: chrono::DateTime<chrono::Utc>",
+                (
+                  SELECT COALESCE(SUM(uc.unread_count), 0)
+                  FROM unread_counts uc
+                  WHERE uc.shop_id = s.id
+                )                          AS "unread_total!: i64"
+            FROM shops s
+            WHERE s.owner_id = ?
+            ORDER BY (
+                  SELECT COALESCE(SUM(uc.unread_count), 0)
+                  FROM unread_counts uc
+                  WHERE uc.shop_id = s.id
+            ) DESC, s.created_at DESC
+            LIMIT ? OFFSET ?
+            "#,
+                owner_id,
+                limit,
+                offset
+            )
+            .fetch_all(db.pool())
+            .await?
+        }
     };
 
     let result = rows
@@ -136,7 +325,7 @@ pub async fn fetch_shops_with_unread_by_staff(
     staff_user_id: i64,
 ) -> Result<Vec<ShopWithUnreadCount>> {
     // 兼容旧签名：默认仅活跃店铺 + 前50条
-    fetch_shops_with_unread_by_staff_paged(db, staff_user_id, true, 50, 0).await
+    fetch_shops_with_unread_by_staff_paged(db, staff_user_id, true, 50, 0, None).await
 }
 
 pub async fn fetch_shops_with_unread_by_staff_paged(
@@ -145,75 +334,270 @@ pub async fn fetch_shops_with_unread_by_staff_paged(
     only_active: bool,
     limit: i64,
     offset: i64,
+    sort: Option<&str>,
 ) -> Result<Vec<ShopWithUnreadCount>> {
-    let rows = if only_active {
-        sqlx::query_as!(
-            ShopWithUnreadProjection,
-            r#"
-        SELECT 
-            s.id                       AS "id!: i64",
-            s.owner_id                 AS "owner_id!: i64",
-            s.shop_name                AS "shop_name!: String",
-            s.shop_url                 AS "shop_url?: String",
-            s.api_key                  AS "api_key!: String",
-            CASE WHEN s.is_active THEN 1 ELSE 0 END AS "status!: i32",
-            s.created_at               AS "created_at!: chrono::DateTime<chrono::Utc>",
-            s.updated_at               AS "updated_at!: chrono::DateTime<chrono::Utc>",
-            (
-              SELECT COALESCE(SUM(uc.unread_count), 0)
-              FROM unread_counts uc
-              WHERE uc.shop_id = s.id
-            )                          AS "unread_total!: i64"
-        FROM shop_staffs ss
-        JOIN shops s ON s.id = ss.shop_id
-        WHERE ss.user_id = ? AND s.is_active = 1
-        ORDER BY (
-              SELECT COALESCE(SUM(uc.unread_count), 0)
-              FROM unread_counts uc
-              WHERE uc.shop_id = s.id
-        ) DESC, s.created_at DESC
-        LIMIT ? OFFSET ?
-        "#,
-            staff_user_id,
-            limit,
-            offset
-        )
-        .fetch_all(db.pool())
-        .await?
-    } else {
-        sqlx::query_as!(
-            ShopWithUnreadProjection,
-            r#"
-        SELECT 
-            s.id                       AS "id!: i64",
-            s.owner_id                 AS "owner_id!: i64",
-            s.shop_name                AS "shop_name!: String",
-            s.shop_url                 AS "shop_url?: String",
-            s.api_key                  AS "api_key!: String",
-            CASE WHEN s.is_active THEN 1 ELSE 0 END AS "status!: i32",
-            s.created_at               AS "created_at!: chrono::DateTime<chrono::Utc>",
-            s.updated_at               AS "updated_at!: chrono::DateTime<chrono::Utc>",
-            (
-              SELECT COALESCE(SUM(uc.unread_count), 0)
-              FROM unread_counts uc
-              WHERE uc.shop_id = s.id
-            )                          AS "unread_total!: i64"
-        FROM shop_staffs ss
-        JOIN shops s ON s.id = ss.shop_id
-        WHERE ss.user_id = ?
-        ORDER BY (
-              SELECT COALESCE(SUM(uc.unread_count), 0)
-              FROM unread_counts uc
-              WHERE uc.shop_id = s.id
-        ) DESC, s.created_at DESC
-        LIMIT ? OFFSET ?
-        "#,
-            staff_user_id,
-            limit,
-            offset
-        )
-        .fetch_all(db.pool())
-        .await?
+    let sort_key = sort.unwrap_or("unread_desc").to_ascii_lowercase();
+    let rows = match (only_active, sort_key.as_str()) {
+        // created_at_desc
+        (true, "created_at_desc") => {
+            sqlx::query_as!(
+                ShopWithUnreadProjection,
+                r#"
+            SELECT 
+                s.id                       AS "id!: i64",
+                s.owner_id                 AS "owner_id!: i64",
+                s.shop_name                AS "shop_name!: String",
+                s.shop_url                 AS "shop_url?: String",
+                s.api_key                  AS "api_key!: String",
+                CASE WHEN s.is_active THEN 1 ELSE 0 END AS "status!: i32",
+                s.created_at               AS "created_at!: chrono::DateTime<chrono::Utc>",
+                s.updated_at               AS "updated_at!: chrono::DateTime<chrono::Utc>",
+                (
+                  SELECT COALESCE(SUM(uc.unread_count), 0)
+                  FROM unread_counts uc
+                  WHERE uc.shop_id = s.id
+                )                          AS "unread_total!: i64"
+            FROM shop_staffs ss
+            JOIN shops s ON s.id = ss.shop_id
+            WHERE ss.user_id = ? AND s.is_active = 1
+            ORDER BY s.created_at DESC
+            LIMIT ? OFFSET ?
+            "#,
+                staff_user_id,
+                limit,
+                offset
+            )
+            .fetch_all(db.pool())
+            .await?
+        }
+        (false, "created_at_desc") => {
+            sqlx::query_as!(
+                ShopWithUnreadProjection,
+                r#"
+            SELECT 
+                s.id                       AS "id!: i64",
+                s.owner_id                 AS "owner_id!: i64",
+                s.shop_name                AS "shop_name!: String",
+                s.shop_url                 AS "shop_url?: String",
+                s.api_key                  AS "api_key!: String",
+                CASE WHEN s.is_active THEN 1 ELSE 0 END AS "status!: i32",
+                s.created_at               AS "created_at!: chrono::DateTime<chrono::Utc>",
+                s.updated_at               AS "updated_at!: chrono::DateTime<chrono::Utc>",
+                (
+                  SELECT COALESCE(SUM(uc.unread_count), 0)
+                  FROM unread_counts uc
+                  WHERE uc.shop_id = s.id
+                )                          AS "unread_total!: i64"
+            FROM shop_staffs ss
+            JOIN shops s ON s.id = ss.shop_id
+            WHERE ss.user_id = ?
+            ORDER BY s.created_at DESC
+            LIMIT ? OFFSET ?
+            "#,
+                staff_user_id,
+                limit,
+                offset
+            )
+            .fetch_all(db.pool())
+            .await?
+        }
+        // name_asc
+        (true, "name_asc") => {
+            sqlx::query_as!(
+                ShopWithUnreadProjection,
+                r#"
+            SELECT 
+                s.id                       AS "id!: i64",
+                s.owner_id                 AS "owner_id!: i64",
+                s.shop_name                AS "shop_name!: String",
+                s.shop_url                 AS "shop_url?: String",
+                s.api_key                  AS "api_key!: String",
+                CASE WHEN s.is_active THEN 1 ELSE 0 END AS "status!: i32",
+                s.created_at               AS "created_at!: chrono::DateTime<chrono::Utc>",
+                s.updated_at               AS "updated_at!: chrono::DateTime<chrono::Utc>",
+                (
+                  SELECT COALESCE(SUM(uc.unread_count), 0)
+                  FROM unread_counts uc
+                  WHERE uc.shop_id = s.id
+                )                          AS "unread_total!: i64"
+            FROM shop_staffs ss
+            JOIN shops s ON s.id = ss.shop_id
+            WHERE ss.user_id = ? AND s.is_active = 1
+            ORDER BY s.shop_name ASC
+            LIMIT ? OFFSET ?
+            "#,
+                staff_user_id,
+                limit,
+                offset
+            )
+            .fetch_all(db.pool())
+            .await?
+        }
+        (false, "name_asc") => {
+            sqlx::query_as!(
+                ShopWithUnreadProjection,
+                r#"
+            SELECT 
+                s.id                       AS "id!: i64",
+                s.owner_id                 AS "owner_id!: i64",
+                s.shop_name                AS "shop_name!: String",
+                s.shop_url                 AS "shop_url?: String",
+                s.api_key                  AS "api_key!: String",
+                CASE WHEN s.is_active THEN 1 ELSE 0 END AS "status!: i32",
+                s.created_at               AS "created_at!: chrono::DateTime<chrono::Utc>",
+                s.updated_at               AS "updated_at!: chrono::DateTime<chrono::Utc>",
+                (
+                  SELECT COALESCE(SUM(uc.unread_count), 0)
+                  FROM unread_counts uc
+                  WHERE uc.shop_id = s.id
+                )                          AS "unread_total!: i64"
+            FROM shop_staffs ss
+            JOIN shops s ON s.id = ss.shop_id
+            WHERE ss.user_id = ?
+            ORDER BY s.shop_name ASC
+            LIMIT ? OFFSET ?
+            "#,
+                staff_user_id,
+                limit,
+                offset
+            )
+            .fetch_all(db.pool())
+            .await?
+        }
+        // name_desc
+        (true, "name_desc") => {
+            sqlx::query_as!(
+                ShopWithUnreadProjection,
+                r#"
+            SELECT 
+                s.id                       AS "id!: i64",
+                s.owner_id                 AS "owner_id!: i64",
+                s.shop_name                AS "shop_name!: String",
+                s.shop_url                 AS "shop_url?: String",
+                s.api_key                  AS "api_key!: String",
+                CASE WHEN s.is_active THEN 1 ELSE 0 END AS "status!: i32",
+                s.created_at               AS "created_at!: chrono::DateTime<chrono::Utc>",
+                s.updated_at               AS "updated_at!: chrono::DateTime<chrono::Utc>",
+                (
+                  SELECT COALESCE(SUM(uc.unread_count), 0)
+                  FROM unread_counts uc
+                  WHERE uc.shop_id = s.id
+                )                          AS "unread_total!: i64"
+            FROM shop_staffs ss
+            JOIN shops s ON s.id = ss.shop_id
+            WHERE ss.user_id = ? AND s.is_active = 1
+            ORDER BY s.shop_name DESC
+            LIMIT ? OFFSET ?
+            "#,
+                staff_user_id,
+                limit,
+                offset
+            )
+            .fetch_all(db.pool())
+            .await?
+        }
+        (false, "name_desc") => {
+            sqlx::query_as!(
+                ShopWithUnreadProjection,
+                r#"
+            SELECT 
+                s.id                       AS "id!: i64",
+                s.owner_id                 AS "owner_id!: i64",
+                s.shop_name                AS "shop_name!: String",
+                s.shop_url                 AS "shop_url?: String",
+                s.api_key                  AS "api_key!: String",
+                CASE WHEN s.is_active THEN 1 ELSE 0 END AS "status!: i32",
+                s.created_at               AS "created_at!: chrono::DateTime<chrono::Utc>",
+                s.updated_at               AS "updated_at!: chrono::DateTime<chrono::Utc>",
+                (
+                  SELECT COALESCE(SUM(uc.unread_count), 0)
+                  FROM unread_counts uc
+                  WHERE uc.shop_id = s.id
+                )                          AS "unread_total!: i64"
+            FROM shop_staffs ss
+            JOIN shops s ON s.id = ss.shop_id
+            WHERE ss.user_id = ?
+            ORDER BY s.shop_name DESC
+            LIMIT ? OFFSET ?
+            "#,
+                staff_user_id,
+                limit,
+                offset
+            )
+            .fetch_all(db.pool())
+            .await?
+        }
+        // default: unread_desc
+        (true, _) => {
+            sqlx::query_as!(
+                ShopWithUnreadProjection,
+                r#"
+            SELECT 
+                s.id                       AS "id!: i64",
+                s.owner_id                 AS "owner_id!: i64",
+                s.shop_name                AS "shop_name!: String",
+                s.shop_url                 AS "shop_url?: String",
+                s.api_key                  AS "api_key!: String",
+                CASE WHEN s.is_active THEN 1 ELSE 0 END AS "status!: i32",
+                s.created_at               AS "created_at!: chrono::DateTime<chrono::Utc>",
+                s.updated_at               AS "updated_at!: chrono::DateTime<chrono::Utc>",
+                (
+                  SELECT COALESCE(SUM(uc.unread_count), 0)
+                  FROM unread_counts uc
+                  WHERE uc.shop_id = s.id
+                )                          AS "unread_total!: i64"
+            FROM shop_staffs ss
+            JOIN shops s ON s.id = ss.shop_id
+            WHERE ss.user_id = ? AND s.is_active = 1
+            ORDER BY (
+                  SELECT COALESCE(SUM(uc.unread_count), 0)
+                  FROM unread_counts uc
+                  WHERE uc.shop_id = s.id
+            ) DESC, s.created_at DESC
+            LIMIT ? OFFSET ?
+            "#,
+                staff_user_id,
+                limit,
+                offset
+            )
+            .fetch_all(db.pool())
+            .await?
+        }
+        (false, _) => {
+            sqlx::query_as!(
+                ShopWithUnreadProjection,
+                r#"
+            SELECT 
+                s.id                       AS "id!: i64",
+                s.owner_id                 AS "owner_id!: i64",
+                s.shop_name                AS "shop_name!: String",
+                s.shop_url                 AS "shop_url?: String",
+                s.api_key                  AS "api_key!: String",
+                CASE WHEN s.is_active THEN 1 ELSE 0 END AS "status!: i32",
+                s.created_at               AS "created_at!: chrono::DateTime<chrono::Utc>",
+                s.updated_at               AS "updated_at!: chrono::DateTime<chrono::Utc>",
+                (
+                  SELECT COALESCE(SUM(uc.unread_count), 0)
+                  FROM unread_counts uc
+                  WHERE uc.shop_id = s.id
+                )                          AS "unread_total!: i64"
+            FROM shop_staffs ss
+            JOIN shops s ON s.id = ss.shop_id
+            WHERE ss.user_id = ?
+            ORDER BY (
+                  SELECT COALESCE(SUM(uc.unread_count), 0)
+                  FROM unread_counts uc
+                  WHERE uc.shop_id = s.id
+            ) DESC, s.created_at DESC
+            LIMIT ? OFFSET ?
+            "#,
+                staff_user_id,
+                limit,
+                offset
+            )
+            .fetch_all(db.pool())
+            .await?
+        }
     };
 
     let result = rows

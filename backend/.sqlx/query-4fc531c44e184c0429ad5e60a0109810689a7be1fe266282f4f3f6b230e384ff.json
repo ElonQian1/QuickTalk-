@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "\n        SELECT \n            s.id                       AS \"id!: i64\",\n            s.owner_id                 AS \"owner_id!: i64\",\n            s.shop_name                AS \"shop_name!: String\",\n            s.shop_url                 AS \"shop_url?: String\",\n            s.api_key                  AS \"api_key!: String\",\n            CASE WHEN s.is_active THEN 1 ELSE 0 END AS \"status!: i32\",\n            s.created_at               AS \"created_at!: chrono::DateTime<chrono::Utc>\",\n            s.updated_at               AS \"updated_at!: chrono::DateTime<chrono::Utc>\",\n            (\n              SELECT COALESCE(SUM(uc.unread_count), 0)\n              FROM unread_counts uc\n              WHERE uc.shop_id = s.id\n            )                          AS \"unread_total!: i64\"\n        FROM shop_staffs ss\n        JOIN shops s ON s.id = ss.shop_id\n        WHERE ss.user_id = ?\n        ORDER BY (\n              SELECT COALESCE(SUM(uc.unread_count), 0)\n              FROM unread_counts uc\n              WHERE uc.shop_id = s.id\n        ) DESC, s.created_at DESC\n        LIMIT ? OFFSET ?\n        ",
+  "query": "\n            SELECT \n                s.id                       AS \"id!: i64\",\n                s.owner_id                 AS \"owner_id!: i64\",\n                s.shop_name                AS \"shop_name!: String\",\n                s.shop_url                 AS \"shop_url?: String\",\n                s.api_key                  AS \"api_key!: String\",\n                CASE WHEN s.is_active THEN 1 ELSE 0 END AS \"status!: i32\",\n                s.created_at               AS \"created_at!: chrono::DateTime<chrono::Utc>\",\n                s.updated_at               AS \"updated_at!: chrono::DateTime<chrono::Utc>\",\n                (\n                  SELECT COALESCE(SUM(uc.unread_count), 0)\n                  FROM unread_counts uc\n                  WHERE uc.shop_id = s.id\n                )                          AS \"unread_total!: i64\"\n            FROM shops s\n            WHERE s.owner_id = ? AND s.is_active = 1\n            ORDER BY s.shop_name ASC\n            LIMIT ? OFFSET ?\n            ",
   "describe": {
     "columns": [
       {
@@ -64,5 +64,5 @@
       null
     ]
   },
-  "hash": "4f43636d81941384553cf5f4690db38efad1fdef2f9343d320c00d396f32ada7"
+  "hash": "4fc531c44e184c0429ad5e60a0109810689a7be1fe266282f4f3f6b230e384ff"
 }

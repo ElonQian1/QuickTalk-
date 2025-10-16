@@ -49,10 +49,15 @@
 
 - GET /api/shops/paged
   - 说明: 店主端分页接口，返回 `PageResult<ShopWithUnreadCount>`
-  - 支持查询参数: onlyActive, pageSize(limit), skip(offset)
+  - 支持查询参数: onlyActive, pageSize(limit), skip(offset), sort
+    - sort 可选，默认 `unread_desc`。可选值：
+      - `unread_desc`：按未读总数降序，其次按创建时间降序（默认）
+      - `created_at_desc`：按创建时间降序
+      - `name_asc`：按店铺名升序
+      - `name_desc`：按店铺名降序
 - GET /api/staff/shops/paged
   - 说明: 员工端分页接口，返回 `PageResult<ShopWithUnreadCount>`
-  - 支持查询参数: onlyActive, pageSize(limit), skip(offset)
+  - 支持查询参数: onlyActive, pageSize(limit), skip(offset), sort（取值同上）
 
 返回结构：
 
@@ -73,5 +78,6 @@
 ## 备注
 
 - 未读数 `unread_count` 为真实数据库统计（`unread_counts` 表 `SUM(unread_count)`），并按未读数降序、`created_at` 次序排序。
+- 当未提供 `sort` 时，默认使用 `unread_desc` 排序；可通过 `sort` 指定其他排序方式。
 - 默认仅返回活跃店铺（`is_active = 1`），可通过 `onlyActive=false` 查询全部。
 - SQLx 使用编译期校验（`query_as!` / `query_scalar!`）并维护离线缓存，详见 `backend/.sqlx/README.md`。

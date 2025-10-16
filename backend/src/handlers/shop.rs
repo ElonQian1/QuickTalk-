@@ -18,6 +18,8 @@ pub(crate) struct ShopListQuery {
     pub limit: Option<i64>,
     #[serde(default, alias = "skip")]
     pub offset: Option<i64>,
+    #[serde(default, alias = "order", alias = "sortBy")]
+    pub sort: Option<String>, // 支持: unread_desc(默认) | created_at_desc | name_asc | name_desc
 }
 
 pub async fn get_shops(
@@ -35,7 +37,7 @@ pub async fn get_shops(
     if offset < 0 { offset = 0; }
 
     // 使用真实数据库统计数据（含未读数聚合）
-    match metrics::fetch_shops_with_unread_by_owner_paged(&state.db, user_id, only_active, limit, offset).await {
+    match metrics::fetch_shops_with_unread_by_owner_paged(&state.db, user_id, only_active, limit, offset, q.sort.as_deref()).await {
         Ok(shops) => Ok(Json(shops)),
         Err(e) => {
             error!(error=?e, "查询店铺列表失败");
@@ -96,7 +98,7 @@ pub async fn get_staff_shops(
     if limit > 200 { limit = 200; }
     if offset < 0 { offset = 0; }
 
-    match metrics::fetch_shops_with_unread_by_staff_paged(&state.db, user_id, only_active, limit, offset).await {
+    match metrics::fetch_shops_with_unread_by_staff_paged(&state.db, user_id, only_active, limit, offset, q.sort.as_deref()).await {
         Ok(shops) => Ok(Json(shops)),
         Err(e) => {
             error!(error=?e, "查询员工店铺列表失败");
@@ -127,7 +129,7 @@ pub async fn get_shops_paged(
             error!(error=?e, "统计店铺总数失败");
             AppError::Internal("统计店铺总数失败".to_string())
         })?;
-    let items = metrics::fetch_shops_with_unread_by_owner_paged(&state.db, user_id, only_active, limit, offset)
+    let items = metrics::fetch_shops_with_unread_by_owner_paged(&state.db, user_id, only_active, limit, offset, q.sort.as_deref())
         .await
         .map_err(|e| {
             error!(error=?e, "查询店铺列表失败");
@@ -159,7 +161,7 @@ pub async fn get_staff_shops_paged(
             error!(error=?e, "统计员工店铺总数失败");
             AppError::Internal("统计店铺总数失败".to_string())
         })?;
-    let items = metrics::fetch_shops_with_unread_by_staff_paged(&state.db, user_id, only_active, limit, offset)
+    let items = metrics::fetch_shops_with_unread_by_staff_paged(&state.db, user_id, only_active, limit, offset, q.sort.as_deref())
         .await
         .map_err(|e| {
             error!(error=?e, "查询员工店铺列表失败");

@@ -251,6 +251,8 @@ impl CustomerService {
         shop_id: i32,
         limit: i64,
         offset: i64,
+        keyword: Option<String>,
+        sort: Option<String>,
     ) -> Result<(Vec<(customers::Model, Option<sessions::Model>, Option<messages::Model>, i64)>, i64)> {
         // 权限校验
         let is_member = ShopStaffRepository::is_shop_member(&self.db, shop_id as i64, user_id).await?;
@@ -258,8 +260,17 @@ impl CustomerService {
             anyhow::bail!("access_denied");
         }
 
-        let total = CustomerRepository::count_by_shop(&self.db, shop_id).await?;
-        let items = CustomerRepository::find_with_overview_by_shop_paged(&self.db, shop_id, limit, offset).await?;
+        let kw_ref = keyword.as_deref();
+        let total = CustomerRepository::count_by_shop(&self.db, shop_id, kw_ref).await?;
+        let items = CustomerRepository::find_with_overview_by_shop_paged(
+            &self.db,
+            shop_id,
+            limit,
+            offset,
+            kw_ref,
+            sort.as_deref(),
+        )
+        .await?;
         Ok((items, total))
     }
 
