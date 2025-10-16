@@ -54,9 +54,9 @@ export class ConfigManager {
       candidates.push(manualServerUrl);
     }
     
-    // 2. 您的生产服务器（提高优先级，确保总是被尝试）
-    console.log(`🏭 添加生产服务器: https://43.139.82.12:8443`);
-    candidates.push('https://43.139.82.12:8443');
+    // 2. 生产服务器域名（使用 HTTPS 证书受信任的域名）
+    console.log(`🏭 添加生产服务器: https://elontalk.duckdns.org:8443`);
+    candidates.push('https://elontalk.duckdns.org:8443');
     
     // 3. 尝试从SDK脚本来源动态获取
     const scriptSource = this.getSDKScriptSource();
