@@ -1,0 +1,56 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT \n            id,\n            owner_id,\n            shop_name,\n            shop_url,\n            api_key,\n            is_active,\n            created_at\n        FROM shops\n        WHERE owner_id = ?\n        LIMIT 5\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Int64"
+      },
+      {
+        "name": "owner_id",
+        "ordinal": 1,
+        "type_info": "Int64"
+      },
+      {
+        "name": "shop_name",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "shop_url",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "api_key",
+        "ordinal": 4,
+        "type_info": "Text"
+      },
+      {
+        "name": "is_active",
+        "ordinal": 5,
+        "type_info": "Bool"
+      },
+      {
+        "name": "created_at",
+        "ordinal": 6,
+        "type_info": "Datetime"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true,
+      false,
+      false,
+      true,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "b88c0ba990a3dbff528816df10a73e500cc2f013e126e7db4478d0e13e9664b5"
+}
