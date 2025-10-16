@@ -137,17 +137,24 @@ impl<P: DnsProvider> AcmeClient<P> {
             // Wait for DNS propagation
             let wait_secs = self.dns_provider.propagation_wait_secs();
             tracing::info!("⏳ 等待 DNS 传播 ({} 秒)...", wait_secs);
+            tracing::info!("   TXT 记录: _acme-challenge.{} = {}", domain, &txt_value_base64);
+            tracing::info!("   💡 提示: 您可以在另一个终端验证 TXT 记录:");
+            tracing::info!("      dig _acme-challenge.{} TXT +short", domain);
             sleep(Duration::from_secs(wait_secs)).await;
+
+            // Additional wait for Let's Encrypt validators across different regions
+            tracing::info!("⏳ 额外等待 30 秒以确保全球 DNS 传播...");
+            sleep(Duration::from_secs(30)).await;
 
             // Validate challenge
             tracing::info!("✓ 验证 DNS-01 挑战...");
+            tracing::info!("   挑战 URL: {}", &challenge.url);
             order
                 .set_challenge_ready(&challenge.url)
                 .await
-                .context("验证挑战失败")?;
-
-            // Clear TXT record (optional, best practice)
-            let _ = self.dns_provider.clear_txt_record(&record_name).await;
+                .context("提交挑战验证失败")?;
+            
+            tracing::info!("✅ DNS-01 挑战已提交，等待 Let's Encrypt 验证...");
         }
 
         // 4. Poll order status until ready
@@ -159,25 +166,47 @@ impl<P: DnsProvider> AcmeClient<P> {
             sleep(Duration::from_secs(2)).await;
             order.refresh().await.context("刷新订单状态失败")?;
 
-            match order.state().status {
+            let status = order.state().status;
+            match status {
                 OrderStatus::Ready => {
                     tracing::info!("✅ 订单就绪，准备签发证书");
                     break;
                 }
                 OrderStatus::Invalid => {
-                    anyhow::bail!("ACME 订单失败: {:?}", order.state());
+                    let state = order.state();
+                    tracing::error!("❌ ACME 订单验证失败:");
+                    tracing::error!("   状态: {:?}", state.status);
+                    
+                    // 输出每个授权的详细错误信息
+                    for (i, auth_url) in state.authorizations.iter().enumerate() {
+                        tracing::error!("   授权 {}: {}", i + 1, auth_url);
+                    }
+                    
+                    // 输出错误详情
+                    if let Some(ref error) = state.error {
+                        tracing::error!("   错误类型: {}", error.r#type.as_deref().unwrap_or("unknown"));
+                        tracing::error!("   错误详情: {}", error.detail.as_deref().unwrap_or("无详细信息"));
+                    }
+                    
+                    anyhow::bail!("ACME 订单验证失败，请检查日志获取详细信息");
                 }
                 OrderStatus::Processing => {
-                    tracing::debug!("订单处理中...");
+                    tracing::debug!("订单处理中... (尝试 {}/{})", tries + 1, max_tries);
+                }
+                OrderStatus::Pending => {
+                    tracing::debug!("订单等待验证... (尝试 {}/{})", tries + 1, max_tries);
                 }
                 _ => {
-                    tracing::debug!("订单状态: {:?}", order.state().status);
+                    tracing::debug!("订单状态: {:?} (尝试 {}/{})", status, tries + 1, max_tries);
                 }
             }
 
             tries += 1;
             if tries >= max_tries {
-                anyhow::bail!("等待订单就绪超时");
+                tracing::error!("❌ 等待订单就绪超时 ({}次尝试，共{}秒)", max_tries, max_tries * 2);
+                tracing::error!("   最终状态: {:?}", order.state().status);
+                tracing::error!("   建议: 检查 DNS TXT 记录是否正确设置");
+                anyhow::bail!("等待订单就绪超时，DNS 验证可能失败");
             }
         }
 
@@ -241,6 +270,16 @@ impl<P: DnsProvider> AcmeClient<P> {
             .context("证书链为空")?;
 
         tracing::info!("🎉 证书获取成功！");
+
+        // 9. Clear DNS TXT records (cleanup)
+        for domain in domains {
+            let record_name = format!("_acme-challenge.{}", domain);
+            if let Err(e) = self.dns_provider.clear_txt_record(&record_name).await {
+                tracing::warn!("清除 DNS TXT 记录失败 ({}): {}", record_name, e);
+            } else {
+                tracing::info!("🧹 已清除 DNS TXT 记录: {}", record_name);
+            }
+        }
 
         Ok((cert_chain, private_key_pem))
     }

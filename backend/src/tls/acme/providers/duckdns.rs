@@ -102,7 +102,8 @@ impl DnsProvider for DuckDnsProvider {
     }
 
     fn propagation_wait_secs(&self) -> u64 {
-        // DuckDNS typically propagates very quickly, but wait 60s to be safe
-        60
+        // DuckDNS typically propagates very quickly, but wait 120s for global propagation
+        // Let's Encrypt validators query from multiple geographic locations
+        120
     }
 }

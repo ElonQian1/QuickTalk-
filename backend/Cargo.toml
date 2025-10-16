@@ -42,10 +42,11 @@ instant-acme = { version = "0.7", optional = true }
 rcgen = { version = "0.13", optional = true }
 reqwest = { version = "0.12", features = ["rustls-tls"], default-features = false, optional = true }
 x509-parser = { version = "0.16", optional = true }
+async-trait = { version = "0.1", optional = true }
 
 [features]
 default = ["rustls-tls"]
-https = ["rustls-pemfile", "axum-server", "instant-acme", "rcgen", "reqwest", "x509-parser"]
+https = ["rustls-pemfile", "axum-server", "instant-acme", "rcgen", "reqwest", "x509-parser", "async-trait"]
 rustls-tls = []
 
 # 针对 musl 静态编译优化

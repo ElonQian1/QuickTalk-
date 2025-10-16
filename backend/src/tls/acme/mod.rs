@@ -1,20 +1,28 @@
 // ACME (Let's Encrypt) Complete Implementation
-// Purpose: Automatic certificate issuance and renewal using DNS-01 challenge
-// Input: env-config (email, domains, challenge, duckdns token)
+// Purpose: Automatic certificate issuance and renewal using DNS-01 or HTTP-01 challenge
+// Input: env-config (email, domains, challenge type, provider config)
 // Output: Ensured cert/key files on disk; return whether changed
 // Errors: network failures, rate limits, invalid config
 
 #[cfg(feature = "https")]
 mod client;
 #[cfg(feature = "https")]
+mod http_client;
+#[cfg(feature = "https")]
 mod providers;
+#[cfg(feature = "https")]
+mod http_challenge;
 #[cfg(feature = "https")]
 mod expiry;
 
 #[cfg(feature = "https")]
-pub use client::AcmeClient as AcmeClientImpl;
+pub use client::AcmeClient as DnsAcmeClient;
+#[cfg(feature = "https")]
+pub use http_client::HttpAcmeClient;
 #[cfg(feature = "https")]
 pub use providers::{DnsProvider, DuckDnsProvider};
+#[cfg(feature = "https")]
+pub use http_challenge::{HttpChallengeServer, ChallengeStorage};
 #[cfg(feature = "https")]
 pub use expiry::{check_cert_expiry, needs_renewal};
 
@@ -82,8 +90,9 @@ impl AcmeConfig {
             anyhow::bail!("ACME_DOMAINS 未配置");
         }
 
-        if self.challenge != "dns-01" {
-            anyhow::bail!("当前仅支持 DNS-01 挑战类型");
+        // 支持 dns-01 和 http-01
+        if self.challenge != "dns-01" && self.challenge != "http-01" {
+            anyhow::bail!("ACME_CHALLENGE 必须是 'dns-01' 或 'http-01'");
         }
 
         Ok(())
@@ -95,7 +104,10 @@ pub struct AcmeClient;
 impl AcmeClient {
     /// Ensure certificates exist and are valid long enough; returns true if files were (re)issued
     #[cfg(feature = "https")]
-    pub async fn ensure(cfg: &AcmeConfig, _timeout: Option<Duration>) -> anyhow::Result<bool> {
+    pub async fn ensure(
+        cfg: &AcmeConfig,
+        http_challenge_storage: Option<ChallengeStorage>,
+    ) -> anyhow::Result<bool> {
         use anyhow::Context;
 
         if !cfg.enabled {
@@ -103,6 +115,7 @@ impl AcmeClient {
         }
 
         tracing::info!("🔐 ACME 证书检查启动");
+        tracing::info!("   验证方式: {}", cfg.challenge);
 
         // Validate configuration
         cfg.validate()?;
@@ -117,22 +130,48 @@ impl AcmeClient {
 
         tracing::info!("🔄 开始证书签发/续期流程...");
 
-        // Create DNS provider (only DuckDNS supported for now)
-        let dns_provider = DuckDnsProvider::from_env()
-            .context("创建 DNS provider 失败，请检查 DUCKDNS_DOMAIN 和 DUCKDNS_TOKEN 环境变量")?;
+        // Choose challenge type
+        let (cert_pem, key_pem) = match cfg.challenge.as_str() {
+            "dns-01" => {
+                // DNS-01 Challenge
+                tracing::info!("🌐 使用 DNS-01 验证方式");
+                
+                let dns_provider = DuckDnsProvider::from_env()
+                    .context("创建 DNS provider 失败，请检查 DUCKDNS_DOMAIN 和 DUCKDNS_TOKEN 环境变量")?;
 
-        // Create ACME client
-        let mut acme_client = AcmeClientImpl::new(
-            dns_provider,
-            cfg.directory_url.clone(),
-            cfg.email.clone(),
-        );
+                let mut acme_client = DnsAcmeClient::new(
+                    dns_provider,
+                    cfg.directory_url.clone(),
+                    cfg.email.clone(),
+                );
 
-        // Issue certificate
-        let (cert_pem, key_pem) = acme_client
-            .issue_certificate(&cfg.domains)
-            .await
-            .context("ACME 证书签发失败")?;
+                acme_client
+                    .issue_certificate(&cfg.domains)
+                    .await
+                    .context("ACME DNS-01 证书签发失败")?
+            }
+            "http-01" => {
+                // HTTP-01 Challenge
+                tracing::info!("🌐 使用 HTTP-01 验证方式");
+                
+                let storage = http_challenge_storage
+                    .ok_or_else(|| anyhow::anyhow!("HTTP-01 需要提供 ChallengeStorage"))?;
+
+                let mut acme_client = HttpAcmeClient::new(
+                    storage,
+                    cfg.directory_url.clone(),
+                    cfg.email.clone(),
+                );
+
+                acme_client
+                    .issue_certificate(&cfg.domains)
+                    .await
+                    .context("ACME HTTP-01 证书签发失败")?
+            }
+            _ => {
+                anyhow::bail!("不支持的验证方式: {}", cfg.challenge);
+            }
+        };
 
         // Ensure directory exists
         if let Some(parent) = cfg.cert_path.parent() {
@@ -166,7 +205,10 @@ impl AcmeClient {
 
     /// Fallback for non-https builds
     #[cfg(not(feature = "https"))]
-    pub async fn ensure(_cfg: &AcmeConfig, _timeout: Option<Duration>) -> anyhow::Result<bool> {
+    pub async fn ensure(
+        _cfg: &AcmeConfig,
+        _http_challenge_storage: Option<ChallengeStorage>,
+    ) -> anyhow::Result<bool> {
         Ok(false)
     }
 }
