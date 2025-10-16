@@ -246,6 +246,9 @@ impl From<crate::entities::customers::Model> for Customer {
 
 impl From<crate::entities::messages::Model> for Message {
     fn from(message: crate::entities::messages::Model) -> Self {
+        // 调试日志：打印原始消息内容
+        eprintln!("🔍 转换消息模型: id={}, content='{}'", message.id, message.content);
+        
         // file_url 可能存储在 metadata 中
         let file_url = message.metadata.as_ref()
             .and_then(|m| m.get("file_url"))
@@ -256,17 +259,20 @@ impl From<crate::entities::messages::Model> for Message {
         let sender_id = message.sender_id
             .and_then(|s| s.parse::<i64>().ok());
         
-        Message {
+        let result = Message {
             id: message.id as i64,
             session_id: message.session_id as i64,
             sender_type: message.sender_type,
             sender_id, // 从String解析为i64
-            content: message.content,
+            content: message.content.clone(),
             message_type: message.message_type,
             file_url, // 从 metadata 提取
             status: if message.is_deleted { "deleted".to_string() } else { "active".to_string() },
             created_at: message.created_at.and_utc(),
-        }
+        };
+        
+        eprintln!("✅ 转换后的消息: id={}, content='{}'", result.id, result.content);
+        result
     }
 }
 
