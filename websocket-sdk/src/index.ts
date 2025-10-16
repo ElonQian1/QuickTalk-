@@ -15,6 +15,9 @@ export interface ChatMessage {
 export { VoicePlayer } from './voice-player';
 export { VoiceMessageRenderer } from './voice-message';
 
+// 导出自动更新器
+export { SDKAutoUpdater } from './core/auto-updater';
+
 // WebSocket 消息格式
 export interface WebSocketMessage {
   messageType: string;
@@ -37,6 +40,7 @@ export interface SDKConfig {
   reconnectInterval?: number;
   maxReconnectAttempts?: number;
   autoDetectServer?: boolean; // 是否启用自动服务器检测
+  enableAutoUpdate?: boolean; // 是否启用自动更新
 }
 
 // 服务器配置响应
@@ -88,6 +92,8 @@ export interface StaffStatus {
  * 客服系统 WebSocket SDK
  * 供独立站前端集成使用
  */
+import { SDKAutoUpdater } from './core/auto-updater';
+
 export class CustomerServiceSDK {
   private config: SDKConfig;
   private ws: WebSocket | null = null;
@@ -97,12 +103,15 @@ export class CustomerServiceSDK {
   private isConnecting = false;
   private sessionId: number | null = null;
   private serverConfig: ServerConfig | null = null;
+  private autoUpdater?: SDKAutoUpdater;
+  private readonly version = '2.1.0'; // SDK版本号
 
   constructor(config: SDKConfig) {
     this.config = {
       reconnectInterval: 3000,
       maxReconnectAttempts: 5,
       autoDetectServer: true,
+      enableAutoUpdate: true, // 默认启用自动更新
       ...config,
     };
 
@@ -188,6 +197,9 @@ export class CustomerServiceSDK {
       this.ws.onclose = this.handleClose.bind(this);
       this.ws.onerror = this.handleError.bind(this);
 
+      // 初始化自动更新器
+      this.initializeAutoUpdater();
+
     } catch (error) {
       this.isConnecting = false;
       this.emit('error', { type: 'connection_failed', error });
@@ -209,8 +221,34 @@ export class CustomerServiceSDK {
       this.ws = null;
     }
 
+    // 停止自动更新器
+    if (this.autoUpdater) {
+      this.autoUpdater.stop();
+    }
+
     this.isConnecting = false;
     this.reconnectAttempts = 0;
+  }
+
+  /**
+   * 初始化自动更新器
+   */
+  private initializeAutoUpdater(): void {
+    if (!this.config.enableAutoUpdate || this.autoUpdater) {
+      return;
+    }
+
+    // 从服务器配置中获取服务器URL
+    const serverUrl = this.serverConfig?.serverUrl || this.config.serverUrl;
+    if (!serverUrl) {
+      console.debug('无法初始化自动更新器：缺少服务器URL');
+      return;
+    }
+
+    this.autoUpdater = new SDKAutoUpdater(this.version, serverUrl);
+    this.autoUpdater.start();
+
+    console.log(`🔄 SDK自动更新已启用，当前版本: ${this.version}`);
   }
 
   /**

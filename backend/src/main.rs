@@ -358,7 +358,8 @@ fn create_router(state: AppState) -> Router {
         )
         .route("/api/upload", post(handlers::upload::handle_upload))
         .route("/api/customer/upload", post(handlers::upload::handle_customer_upload))
-        .route("/api/sdk/version", get(handlers::config::get_sdk_version))
+        .route("/api/sdk/version", get(handlers::sdk_version::get_latest_version))
+        .route("/api/sdk/version/:version", get(handlers::sdk_version::get_specific_version))
         .route("/api/config", get(handlers::config::get_server_config))
         .route(
             "/api/dashboard/stats",

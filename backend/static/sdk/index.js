@@ -1,10 +1,13 @@
 // 导出语音相关组件
 export { VoicePlayer } from './voice-player';
 export { VoiceMessageRenderer } from './voice-message';
+// 导出自动更新器
+export { SDKAutoUpdater } from './core/auto-updater';
 /**
  * 客服系统 WebSocket SDK
  * 供独立站前端集成使用
  */
+import { SDKAutoUpdater } from './core/auto-updater';
 export class CustomerServiceSDK {
     constructor(config) {
         this.ws = null;
@@ -14,10 +17,12 @@ export class CustomerServiceSDK {
         this.isConnecting = false;
         this.sessionId = null;
         this.serverConfig = null;
+        this.version = '2.1.0'; // SDK版本号
         this.config = {
             reconnectInterval: 3000,
             maxReconnectAttempts: 5,
             autoDetectServer: true,
+            enableAutoUpdate: true, // 默认启用自动更新
             ...config,
         };
         // 初始化事件监听器映射
@@ -90,6 +95,8 @@ export class CustomerServiceSDK {
             this.ws.onmessage = this.handleMessage.bind(this);
             this.ws.onclose = this.handleClose.bind(this);
             this.ws.onerror = this.handleError.bind(this);
+            // 初始化自动更新器
+            this.initializeAutoUpdater();
         }
         catch (error) {
             this.isConnecting = false;
@@ -109,8 +116,30 @@ export class CustomerServiceSDK {
             this.ws.close();
             this.ws = null;
         }
+        // 停止自动更新器
+        if (this.autoUpdater) {
+            this.autoUpdater.stop();
+        }
         this.isConnecting = false;
         this.reconnectAttempts = 0;
+    }
+    /**
+     * 初始化自动更新器
+     */
+    initializeAutoUpdater() {
+        var _a;
+        if (!this.config.enableAutoUpdate || this.autoUpdater) {
+            return;
+        }
+        // 从服务器配置中获取服务器URL
+        const serverUrl = ((_a = this.serverConfig) === null || _a === void 0 ? void 0 : _a.serverUrl) || this.config.serverUrl;
+        if (!serverUrl) {
+            console.debug('无法初始化自动更新器：缺少服务器URL');
+            return;
+        }
+        this.autoUpdater = new SDKAutoUpdater(this.version, serverUrl);
+        this.autoUpdater.start();
+        console.log(`🔄 SDK自动更新已启用，当前版本: ${this.version}`);
     }
     /**
      * 发送消息

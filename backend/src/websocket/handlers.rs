@@ -32,6 +32,15 @@ pub async fn handle_customer_ws_message(
               incoming.message_type, 
               incoming.content.as_ref().map(|c| &c[..c.len().min(50)]));
     
+    // 🔧 添加详细的消息内容检查
+    eprintln!("📋 [Customer WS] 原始消息详情:");
+    eprintln!("   - message_type: {}", incoming.message_type);
+    eprintln!("   - content: {:?}", incoming.content);
+    eprintln!("   - content长度: {}", incoming.content.as_ref().map(|c| c.len()).unwrap_or(0));
+    eprintln!("   - file_name: {:?}", incoming.file_name);
+    eprintln!("   - file_url: {:?}", incoming.file_url);
+    eprintln!("   - metadata: {:?}", incoming.metadata);
+    
     let meta_ref = incoming.metadata.as_ref();
 
     match incoming.message_type.as_str() {

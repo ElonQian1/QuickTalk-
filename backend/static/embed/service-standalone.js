@@ -253,36 +253,90 @@ class ConfigManager {
     }
     /**
      * 智能服务器地址检测
-     * 优先检测当前域名的标准端口，然后尝试备选方案
+     * 1. 优先使用手动指定的服务器地址
+     * 2. 尝试从SDK脚本来源动态获取
+     * 3. 回退到生产环境默认服务器
+     * 4. 最后尝试本地开发环境
      */
-    detectServerCandidates() {
+    detectServerCandidates(manualServerUrl) {
+        const candidates = [];
+        // 1. 手动指定的服务器地址优先级最高
+        if (manualServerUrl) {
+            console.log(`🎯 使用手动指定的服务器: ${manualServerUrl}`);
+            candidates.push(manualServerUrl);
+        }
+        // 2. 您的生产服务器（提高优先级，确保总是被尝试）
+        console.log(`🏭 添加生产服务器: https://43.139.82.12:8443`);
+        candidates.push('https://43.139.82.12:8443');
+        // 3. 尝试从SDK脚本来源动态获取
+        const scriptSource = this.getSDKScriptSource();
+        if (scriptSource) {
+            console.log(`🔍 检测到SDK脚本来源: ${scriptSource}`);
+            candidates.push(scriptSource);
+        }
+        // 4. 尝试当前页面域名的标准端口
         const currentUrl = window.location;
-        const candidates = [
-            // 优先尝试当前域名的HTTPS标准端口（生产环境）
-            `${currentUrl.protocol}//${currentUrl.hostname}:8443`,
-            // 尝试相同协议和端口
-            `${currentUrl.protocol}//${currentUrl.host}`,
-            // 开发环境备选项 - HTTP/WS 8080端口
-            `${currentUrl.protocol}//${currentUrl.hostname}:8080`,
-            'https://localhost:8080',
-            'http://localhost:8080',
-            'https://127.0.0.1:8080',
-            'http://127.0.0.1:8080'
-        ];
+        if (currentUrl.hostname !== 'localhost' && currentUrl.hostname !== '127.0.0.1') {
+            const domainWithPort = `${currentUrl.protocol}//${currentUrl.hostname}:8443`;
+            const domainDefault = `${currentUrl.protocol}//${currentUrl.host}`;
+            console.log(`🌐 添加当前域名候选: ${domainWithPort}, ${domainDefault}`);
+            candidates.push(domainWithPort, domainDefault);
+        }
+        // 5. 本地开发环境备选项
+        console.log(`🏠 添加本地开发环境候选`);
+        candidates.push('https://localhost:8443', 'http://localhost:8080', 'https://127.0.0.1:8443', 'http://127.0.0.1:8080');
         // 去重处理
-        return Array.from(new Set(candidates));
+        const uniqueCandidates = Array.from(new Set(candidates));
+        console.log(`📋 最终服务器候选列表 (${uniqueCandidates.length}个):`, uniqueCandidates);
+        return uniqueCandidates;
+    }
+    /**
+     * 获取SDK脚本的来源地址
+     */
+    getSDKScriptSource() {
+        try {
+            // 查找当前SDK脚本标签
+            const scripts = document.querySelectorAll('script[src*="service-standalone"], script[src*="quicktalk"], script[src*="customer-service"]');
+            for (let i = 0; i < scripts.length; i++) {
+                const script = scripts[i];
+                const src = script.src;
+                if (src) {
+                    const url = new URL(src);
+                    const baseUrl = `${url.protocol}//${url.host}`;
+                    console.log(`🔍 检测到SDK脚本来源: ${baseUrl}`);
+                    return baseUrl;
+                }
+            }
+            // 备选：查找包含SDK关键词的脚本
+            const allScripts = document.querySelectorAll('script[src]');
+            for (let i = 0; i < allScripts.length; i++) {
+                const script = allScripts[i];
+                const src = script.src;
+                if (src && (src.includes('8443') || src.includes('customer') || src.includes('chat'))) {
+                    const url = new URL(src);
+                    const baseUrl = `${url.protocol}//${url.host}`;
+                    console.log(`🔍 通过关键词检测到可能的服务器: ${baseUrl}`);
+                    return baseUrl;
+                }
+            }
+        }
+        catch (error) {
+            console.warn('🔍 无法检测SDK脚本来源:', error);
+        }
+        return null;
     }
     /**
      * 异步检测可用的服务器地址
      */
-    async findAvailableServer() {
-        // 检查缓存
-        if (this.serverConfigCache &&
+    async findAvailableServer(manualServerUrl) {
+        // 检查缓存（只有在没有手动指定服务器时才使用缓存）
+        if (!manualServerUrl && this.serverConfigCache &&
             (Date.now() - this.lastConfigFetch) < this.configCacheTime) {
             return this.serverConfigCache;
         }
-        const candidates = this.detectServerCandidates();
+        const candidates = this.detectServerCandidates(manualServerUrl);
         const errors = [];
+        console.log(`🔍 开始测试服务器候选地址 (${candidates.length}个):`, candidates);
         for (const url of candidates) {
             try {
                 const config = await this.testServerConnection(url);
@@ -451,6 +505,10 @@ class WebSocketClient {
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 5;
         this.reconnectDelay = 1000;
+        // 心跳机制
+        this.heartbeatInterval = null;
+        this.heartbeatIntervalMs = 30000; // 30秒心跳间隔
+        this.lastPongTime = 0;
         this.shopId = shopId;
         this.configManager = ConfigManager.getInstance();
         this.customerId = customerId || this.generateCustomerId();
@@ -470,14 +528,14 @@ class WebSocketClient {
         }
         this.isConnecting = true;
         try {
-            // 获取服务器配置
+            // 保存初始指定的服务器地址
             if (serverUrl) {
-                // 使用指定的服务器地址
-                this.serverConfig = {
-                    serverUrl,
-                    wsUrl: serverUrl.replace(/^https?/, serverUrl.startsWith('https') ? 'wss' : 'ws'),
-                    version: 'manual'
-                };
+                this.initialServerUrl = serverUrl;
+            }
+            // 获取服务器配置
+            if (this.initialServerUrl) {
+                // 使用指定的服务器地址，但仍然通过智能检测机制验证
+                this.serverConfig = await this.configManager.findAvailableServer(this.initialServerUrl);
             }
             else {
                 // 自动检测服务器
@@ -518,8 +576,11 @@ class WebSocketClient {
                     console.log('✅ WebSocket连接成功');
                     this.isConnecting = false;
                     this.reconnectAttempts = 0;
+                    this.lastPongTime = Date.now();
                     // 发送认证消息
                     this.sendAuthMessage();
+                    // 启动心跳
+                    this.startHeartbeat();
                     // 通知连接成功
                     this.notifyConnect(this.serverConfig);
                     // 开始版本检查
@@ -532,6 +593,7 @@ class WebSocketClient {
                 this.ws.onclose = (event) => {
                     console.log('🔌 WebSocket连接关闭', event.code, event.reason);
                     this.isConnecting = false;
+                    this.stopHeartbeat(); // 停止心跳
                     this.notifyDisconnect();
                     // 如果不是正常关闭，尝试重连
                     if (event.code !== 1000 && this.reconnectAttempts < this.maxReconnectAttempts) {
@@ -580,6 +642,11 @@ class WebSocketClient {
         var _a;
         try {
             const message = JSON.parse(data);
+            // 处理心跳响应
+            if (message.messageType === 'pong') {
+                this.handlePong();
+                return;
+            }
             // 添加调试日志
             console.log('🔍 收到原始WebSocket消息:', {
                 messageType: message.messageType,
@@ -714,7 +781,8 @@ class WebSocketClient {
         console.log(`🔄 ${delay}ms后尝试第${this.reconnectAttempts}次重连...`);
         setTimeout(() => {
             if (this.reconnectAttempts <= this.maxReconnectAttempts) {
-                this.connect();
+                // 重连时使用保存的初始服务器地址
+                this.connect(this.initialServerUrl);
             }
             else {
                 console.error('❌ 达到最大重连次数，停止重连');
@@ -735,6 +803,7 @@ class WebSocketClient {
      * 断开连接
      */
     disconnect() {
+        this.stopHeartbeat(); // 停止心跳
         if (this.ws) {
             this.ws.close(1000, '用户主动断开');
             this.ws = null;
@@ -843,10 +912,53 @@ class WebSocketClient {
         });
     }
     /**
+     * 启动心跳机制
+     */
+    startHeartbeat() {
+        this.stopHeartbeat(); // 确保没有重复的心跳
+        this.heartbeatInterval = setInterval(() => {
+            if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                // 检查是否长时间没有收到pong响应
+                const now = Date.now();
+                if (this.lastPongTime && (now - this.lastPongTime) > this.heartbeatIntervalMs * 2) {
+                    console.warn('💔 心跳超时，主动关闭连接重连');
+                    this.ws.close();
+                    return;
+                }
+                // 发送ping消息
+                console.log('💓 发送心跳 ping');
+                this.ws.send(JSON.stringify({
+                    messageType: 'ping',
+                    timestamp: now
+                }));
+            }
+            else {
+                this.stopHeartbeat();
+            }
+        }, this.heartbeatIntervalMs);
+    }
+    /**
+     * 停止心跳机制
+     */
+    stopHeartbeat() {
+        if (this.heartbeatInterval) {
+            clearInterval(this.heartbeatInterval);
+            this.heartbeatInterval = null;
+        }
+    }
+    /**
+     * 处理pong响应
+     */
+    handlePong() {
+        this.lastPongTime = Date.now();
+        console.log('💓 收到心跳 pong');
+    }
+    /**
      * 清理资源
      */
     cleanup() {
         this.disconnect();
+        this.stopHeartbeat(); // 清理心跳
         this.messageHandlers = [];
         this.connectHandlers = [];
         this.errorHandlers = [];

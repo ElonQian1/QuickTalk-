@@ -9,3 +9,4 @@ pub mod upload;
 pub mod staff;
 pub mod user;
 pub mod session;
+pub mod sdk_version;

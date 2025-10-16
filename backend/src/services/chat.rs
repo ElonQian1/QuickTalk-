@@ -141,12 +141,24 @@ impl<'a> ChatService<'a> {
         sender_id: Option<i64>,
         payload: &MessagePayload,
     ) -> Result<Message> {
-        let content = payload.content.clone().unwrap_or_default();
+        // 🔧 修复：保持原始content，不要将None转为空字符串
+        let content = payload.content.clone().unwrap_or_else(|| {
+            // 只有在真正为None时才使用默认值
+            if payload.message_type == "text" { 
+                String::new() 
+            } else { 
+                payload.file_url.clone().unwrap_or_default() 
+            }
+        });
+        
         let message_type = if payload.message_type.is_empty() {
             "text".to_string()
         } else {
             payload.message_type.clone()
         };
+
+        eprintln!("💾 [persist_message] content='{:?}', message_type={}, file_name={:?}", 
+                  &content, &message_type, &payload.file_name);
 
         let message = crate::repositories::MessageRepository::create(
             &self.state.db_connection,
@@ -157,7 +169,7 @@ impl<'a> ChatService<'a> {
             message_type,
             payload.file_url.clone().unwrap_or_default(),
             payload.file_url.clone(), // file_url
-            None, // file_name - 可能需要从 metadata 或其他地方获取
+            payload.file_name.clone(), // 🔧 修复：使用实际的file_name而不是None
         ).await?;
 
         Ok(message.into())

@@ -50,26 +50,32 @@ export class ConfigManager {
     
     // 1. 手动指定的服务器地址优先级最高
     if (manualServerUrl) {
+      console.log(`🎯 使用手动指定的服务器: ${manualServerUrl}`);
       candidates.push(manualServerUrl);
     }
     
-    // 2. 尝试从SDK脚本来源动态获取
+    // 2. 您的生产服务器（提高优先级，确保总是被尝试）
+    console.log(`🏭 添加生产服务器: https://43.139.82.12:8443`);
+    candidates.push('https://43.139.82.12:8443');
+    
+    // 3. 尝试从SDK脚本来源动态获取
     const scriptSource = this.getSDKScriptSource();
     if (scriptSource) {
+      console.log(`🔍 检测到SDK脚本来源: ${scriptSource}`);
       candidates.push(scriptSource);
     }
     
-    // 3. 尝试当前页面域名的标准端口
+    // 4. 尝试当前页面域名的标准端口
     const currentUrl = window.location;
     if (currentUrl.hostname !== 'localhost' && currentUrl.hostname !== '127.0.0.1') {
-      candidates.push(`${currentUrl.protocol}//${currentUrl.hostname}:8443`);
-      candidates.push(`${currentUrl.protocol}//${currentUrl.host}`);
+      const domainWithPort = `${currentUrl.protocol}//${currentUrl.hostname}:8443`;
+      const domainDefault = `${currentUrl.protocol}//${currentUrl.host}`;
+      console.log(`🌐 添加当前域名候选: ${domainWithPort}, ${domainDefault}`);
+      candidates.push(domainWithPort, domainDefault);
     }
     
-    // 4. 生产环境默认服务器（您的服务器）
-    candidates.push('https://43.139.82.12:8443');
-    
     // 5. 本地开发环境备选项
+    console.log(`🏠 添加本地开发环境候选`);
     candidates.push(
       'https://localhost:8443',
       'http://localhost:8080',
@@ -78,7 +84,9 @@ export class ConfigManager {
     );
 
     // 去重处理
-    return Array.from(new Set(candidates));
+    const uniqueCandidates = Array.from(new Set(candidates));
+    console.log(`📋 最终服务器候选列表 (${uniqueCandidates.length}个):`, uniqueCandidates);
+    return uniqueCandidates;
   }
 
   /**
