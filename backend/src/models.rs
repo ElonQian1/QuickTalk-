@@ -185,6 +185,7 @@ pub struct SendMessageRequest {
     pub content: String,
     pub message_type: Option<String>,
     pub file_url: Option<String>,
+    pub file_name: Option<String>,
 }
 
 impl From<User> for UserPublic {

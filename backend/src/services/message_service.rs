@@ -52,7 +52,15 @@ impl MessageService {
         user_id: i32,
         session_id: i64,
         content: &str,
+        message_type: Option<String>,
+        file_url: Option<String>,
+        file_name: Option<String>,
     ) -> Result<messages::Model> {
+        let message_type = message_type.unwrap_or_else(|| "text".to_string());
+        
+        eprintln!("🔍 send_staff_message - message_type: {}, file_url: {:?}, file_name: {:?}", 
+                  message_type, file_url, file_name);
+        
         // 验证权限和创建消息的逻辑
         let message = MessageRepository::create(
             &self.db,
@@ -60,8 +68,10 @@ impl MessageService {
             "staff".to_string(),
             Some(user_id.to_string()),  // 转换为String
             None, // sender_name
-            "text".to_string(),
+            message_type,
             content.to_string(),
+            file_url,
+            file_name,
         ).await?;
 
         Ok(message)

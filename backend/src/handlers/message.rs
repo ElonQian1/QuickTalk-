@@ -61,8 +61,8 @@ pub async fn send_message(
         .clone()
         .unwrap_or_else(|| "text".to_string());
 
-    eprintln!("🔍 send_message - user_id: {}, session_id: {}, content: {}", 
-              user_id, session_id, &payload.content[..payload.content.len().min(50)]);
+    eprintln!("🔍 send_message - user_id: {}, session_id: {}, content: {}, message_type: {}", 
+              user_id, session_id, &payload.content[..payload.content.len().min(50)], message_type);
 
     match state
         .message_service
@@ -70,6 +70,9 @@ pub async fn send_message(
             user_id.try_into().unwrap(),
             session_id,
             &payload.content,
+            payload.message_type.clone(),
+            payload.file_url.clone(),
+            payload.file_name.clone(),
         )
         .await
     {
@@ -84,9 +87,11 @@ pub async fn send_message(
                 sender_id: Some(user_id),
                 sender_type: Some("staff".to_string()),
                 timestamp: Some(chrono::Utc::now()),
-                metadata: None,
+                metadata: Some(serde_json::json!({
+                    "messageType": message_type,
+                })),
                 file_url: payload.file_url.clone(),
-                file_name: None,
+                file_name: payload.file_name.clone(),
                 file_size: None,
                 media_duration: None,
             };

@@ -16,11 +16,24 @@ impl MessageRepository {
         sender_name: Option<String>,
         message_type: String,
         content: String,
+        file_url: Option<String>,
+        file_name: Option<String>,
     ) -> Result<messages::Model> {
-        eprintln!("🔍 MessageRepository::create - session_id: {}, sender_type: {}, content: {}", 
-                  session_id, sender_type, &content[..content.len().min(50)]);
+        eprintln!("🔍 MessageRepository::create - session_id: {}, sender_type: {}, message_type: {}, content: {}", 
+                  session_id, sender_type, message_type, &content[..content.len().min(50)]);
         
         let now = chrono::Utc::now().naive_utc();
+        
+        // 构建 metadata，包含文件信息
+        let metadata = if file_url.is_some() || file_name.is_some() {
+            Some(serde_json::json!({
+                "file_url": file_url,
+                "file_name": file_name,
+            }))
+        } else {
+            None
+        };
+        
         let message = messages::ActiveModel {
             session_id: Set(session_id),
             sender_type: Set(sender_type),
@@ -28,6 +41,7 @@ impl MessageRepository {
             sender_name: Set(sender_name),
             message_type: Set(message_type),
             content: Set(content),
+            metadata: Set(metadata),
             is_read: Set(false),
             is_deleted: Set(false),
             created_at: Set(now),

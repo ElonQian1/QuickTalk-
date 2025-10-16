@@ -148,15 +148,16 @@ impl<'a> ChatService<'a> {
             payload.message_type.clone()
         };
 
-        // 使用 create_full，确保 content 正确写入内容列，file_url 写入 metadata
-        let message = crate::repositories::MessageRepository::create_full(
+        let message = crate::repositories::MessageRepository::create(
             &self.state.db_connection,
             session.id as i32,
-            sender_type,
-            sender_id.map(|id| id.to_string()),
-            &content,
-            &message_type,
-            payload.file_url.as_deref(),
+            sender_type.to_string(),
+            sender_id.map(|id| id.to_string()),  // 转换为String
+            Some(content),
+            message_type,
+            payload.file_url.clone().unwrap_or_default(),
+            payload.file_url.clone(), // file_url
+            None, // file_name - 可能需要从 metadata 或其他地方获取
         ).await?;
 
         Ok(message.into())
