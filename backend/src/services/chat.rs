@@ -164,12 +164,12 @@ impl<'a> ChatService<'a> {
             &self.state.db_connection,
             session.id as i32,
             sender_type.to_string(),
-            sender_id.map(|id| id as i32),  // 转换 i64 → i32
-            Some(content),
+            sender_id.map(|id| id as i32),
+            None, // sender_name
             message_type,
-            payload.file_url.clone().unwrap_or_default(),
-            payload.file_url.clone(), // file_url
-            payload.file_name.clone(), // 🔧 修复：使用实际的file_name而不是None
+            content, // 修复：正确的参数顺序 - content 是第7个参数
+            payload.file_url.clone(),
+            payload.file_name.clone(),
         ).await?;
 
         Ok(message.into())

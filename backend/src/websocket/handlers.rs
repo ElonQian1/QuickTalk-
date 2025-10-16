@@ -109,6 +109,8 @@ pub async fn handle_customer_ws_message(
         }
         crate::constants::ws_incoming::SEND_MESSAGE => {
             eprintln!("📨 [Customer WS] 处理发送消息请求");
+            eprintln!("🔍 [Customer WS] incoming.content = {:?}", incoming.content);
+            eprintln!("🔍 [Customer WS] incoming.metadata = {:?}", incoming.metadata);
             
             let (cust, sess) = ensure_customer_context(
                 ctx.chat,
