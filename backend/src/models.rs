@@ -173,6 +173,15 @@ pub struct ShopWithUnreadCount {
     pub unread_count: i32,
 }
 
+// 通用分页返回模型
+#[derive(Debug, Serialize)]
+pub struct PageResult<T> {
+    pub items: Vec<T>,
+    pub total: i64,
+    pub limit: i64,
+    pub offset: i64,
+}
+
 #[derive(Debug, Serialize)]
 pub struct CustomerWithSession {
     pub customer: Customer,

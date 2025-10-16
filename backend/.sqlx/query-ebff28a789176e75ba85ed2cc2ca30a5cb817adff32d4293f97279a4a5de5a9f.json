@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT COUNT(*) as \"count!: i64\" FROM shop_staffs ss JOIN shops s ON s.id = ss.shop_id WHERE ss.user_id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "count!: i64",
+        "ordinal": 0,
+        "type_info": "Int"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "ebff28a789176e75ba85ed2cc2ca30a5cb817adff32d4293f97279a4a5de5a9f"
+}

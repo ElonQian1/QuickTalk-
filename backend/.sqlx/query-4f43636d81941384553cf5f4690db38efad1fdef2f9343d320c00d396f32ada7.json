@@ -1,0 +1,68 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT \n            s.id                       AS \"id!: i64\",\n            s.owner_id                 AS \"owner_id!: i64\",\n            s.shop_name                AS \"shop_name!: String\",\n            s.shop_url                 AS \"shop_url?: String\",\n            s.api_key                  AS \"api_key!: String\",\n            CASE WHEN s.is_active THEN 1 ELSE 0 END AS \"status!: i32\",\n            s.created_at               AS \"created_at!: chrono::DateTime<chrono::Utc>\",\n            s.updated_at               AS \"updated_at!: chrono::DateTime<chrono::Utc>\",\n            (\n              SELECT COALESCE(SUM(uc.unread_count), 0)\n              FROM unread_counts uc\n              WHERE uc.shop_id = s.id\n            )                          AS \"unread_total!: i64\"\n        FROM shop_staffs ss\n        JOIN shops s ON s.id = ss.shop_id\n        WHERE ss.user_id = ?\n        ORDER BY (\n              SELECT COALESCE(SUM(uc.unread_count), 0)\n              FROM unread_counts uc\n              WHERE uc.shop_id = s.id\n        ) DESC, s.created_at DESC\n        LIMIT ? OFFSET ?\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!: i64",
+        "ordinal": 0,
+        "type_info": "Int64"
+      },
+      {
+        "name": "owner_id!: i64",
+        "ordinal": 1,
+        "type_info": "Int64"
+      },
+      {
+        "name": "shop_name!: String",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "shop_url?: String",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "api_key!: String",
+        "ordinal": 4,
+        "type_info": "Text"
+      },
+      {
+        "name": "status!: i32",
+        "ordinal": 5,
+        "type_info": "Null"
+      },
+      {
+        "name": "created_at!: chrono::DateTime<chrono::Utc>",
+        "ordinal": 6,
+        "type_info": "Datetime"
+      },
+      {
+        "name": "updated_at!: chrono::DateTime<chrono::Utc>",
+        "ordinal": 7,
+        "type_info": "Datetime"
+      },
+      {
+        "name": "unread_total!: i64",
+        "ordinal": 8,
+        "type_info": "Null"
+      }
+    ],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": [
+      true,
+      false,
+      false,
+      true,
+      false,
+      null,
+      true,
+      true,
+      null
+    ]
+  },
+  "hash": "4f43636d81941384553cf5f4690db38efad1fdef2f9343d320c00d396f32ada7"
+}

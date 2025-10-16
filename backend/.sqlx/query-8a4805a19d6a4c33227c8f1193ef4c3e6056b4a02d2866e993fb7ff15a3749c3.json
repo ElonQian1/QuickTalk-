@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        WITH accessible_shops AS (\n            SELECT id AS shop_id FROM shops WHERE owner_id = ?\n            UNION\n            SELECT shop_id FROM shop_staffs WHERE user_id = ?\n        )\n        SELECT COUNT(*) FROM accessible_shops\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "COUNT(*)",
+        "ordinal": 0,
+        "type_info": "Int"
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "8a4805a19d6a4c33227c8f1193ef4c3e6056b4a02d2866e993fb7ff15a3749c3"
+}

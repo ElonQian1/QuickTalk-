@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT COUNT(*)\n        FROM messages m\n        JOIN sessions se ON m.session_id = se.id\n        WHERE se.shop_id IN (\n            SELECT id FROM shops WHERE owner_id = ?\n            UNION\n            SELECT shop_id FROM shop_staffs WHERE user_id = ?\n        )\n        AND m.created_at >= datetime('now', 'start of month')\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "COUNT(*)",
+        "ordinal": 0,
+        "type_info": "Int"
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "b46d22783bd1bd0fed36b1450b4a4eb6ff263a7301064d75fd4d5d7a4fb68147"
+}

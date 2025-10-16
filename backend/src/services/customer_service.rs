@@ -244,6 +244,25 @@ impl CustomerService {
         CustomerRepository::get_customers_with_sessions(&self.db, shop_id).await
     }
 
+    /// 分页获取客户概览（含最后消息与未读数）
+    pub async fn get_customers_overview_paged(
+        &self,
+        user_id: i64,
+        shop_id: i32,
+        limit: i64,
+        offset: i64,
+    ) -> Result<(Vec<(customers::Model, Option<sessions::Model>, Option<messages::Model>, i64)>, i64)> {
+        // 权限校验
+        let is_member = ShopStaffRepository::is_shop_member(&self.db, shop_id as i64, user_id).await?;
+        if !is_member {
+            anyhow::bail!("access_denied");
+        }
+
+        let total = CustomerRepository::count_by_shop(&self.db, shop_id).await?;
+        let items = CustomerRepository::find_with_overview_by_shop_paged(&self.db, shop_id, limit, offset).await?;
+        Ok((items, total))
+    }
+
     /// Chat Service 需要的方法：创建或更新客户
     pub async fn create_or_update_customer(
         &self,

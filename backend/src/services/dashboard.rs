@@ -28,7 +28,7 @@ pub async fn get_dashboard_stats(db: &Database, user_id: i64) -> Result<Dashboar
 
     // 店铺总数（去重）
     tracing::debug!("开始查询店铺总数，user_id: {}", user_id);
-    let total_shops: i64 = sqlx::query_scalar(
+    let total_shops: i64 = sqlx::query_scalar!(
         r#"
         WITH accessible_shops AS (
             SELECT id AS shop_id FROM shops WHERE owner_id = ?
@@ -37,19 +37,19 @@ pub async fn get_dashboard_stats(db: &Database, user_id: i64) -> Result<Dashboar
         )
         SELECT COUNT(*) FROM accessible_shops
         "#,
+        user_id,
+        user_id
     )
-    .bind(user_id)
-    .bind(user_id)
     .fetch_one(db.pool())
     .await
     .map_err(|e| {
         tracing::error!("查询店铺总数失败: {}", e);
         e
-    })?;
+    })? as i64;
 
     // 活跃客户：近7天在可访问店铺内活跃
     tracing::debug!("开始查询活跃客户数，user_id: {}", user_id);
-    let active_customers: i64 = sqlx::query_scalar(
+    let active_customers: i64 = sqlx::query_scalar!(
         r#"
         WITH accessible_shops AS (
             SELECT id AS shop_id FROM shops WHERE owner_id = ?
@@ -61,20 +61,20 @@ pub async fn get_dashboard_stats(db: &Database, user_id: i64) -> Result<Dashboar
         JOIN accessible_shops a ON c.shop_id = a.shop_id
         WHERE c.last_active_at >= datetime('now','-7 days')
         "#,
+        user_id,
+        user_id
     )
-    .bind(user_id)
-    .bind(user_id)
     .fetch_one(db.pool())
     .await
     .map_err(|e| {
         tracing::error!("查询活跃客户数失败: {}", e);
         e
-    })?;
+    })? as i64;
 
     // 未读消息总数（可访问店铺）
     // 使用子查询代替CTE避免某些SQLite版本的别名问题
     tracing::debug!("开始查询未读消息数，user_id: {}", user_id);
-    let unread_messages: i64 = sqlx::query_scalar(
+    let unread_messages: i64 = sqlx::query_scalar!(
         r#"
         SELECT COALESCE(SUM(unread_count), 0)
         FROM unread_counts
@@ -84,20 +84,21 @@ pub async fn get_dashboard_stats(db: &Database, user_id: i64) -> Result<Dashboar
             SELECT shop_id FROM shop_staffs WHERE user_id = ?
         )
         "#,
+        user_id,
+        user_id
     )
-    .bind(user_id)
-    .bind(user_id)
     .fetch_one(db.pool())
     .await
     .map_err(|e| {
         tracing::error!("查询未读消息数失败: {}", e);
         e
-    })?;
+    })?
+    .unwrap_or(0) as i64;
 
     // 待处理会话：有未读的客户数（可访问店铺内按客户聚合）
     // 使用子查询代替CTE避免某些SQLite版本的别名问题
     tracing::debug!("开始查询待处理会话数，user_id: {}", user_id);
-    let pending_chats: i64 = sqlx::query_scalar(
+    let pending_chats: i64 = sqlx::query_scalar!(
         r#"
         SELECT COUNT(DISTINCT shop_id || '-' || customer_id)
         FROM unread_counts
@@ -108,20 +109,21 @@ pub async fn get_dashboard_stats(db: &Database, user_id: i64) -> Result<Dashboar
             SELECT shop_id FROM shop_staffs WHERE user_id = ?
         )
         "#,
+        user_id,
+        user_id
     )
-    .bind(user_id)
-    .bind(user_id)
     .fetch_one(db.pool())
     .await
     .map_err(|e| {
         tracing::error!("查询待处理会话数失败: {}", e);
         e
-    })?;
+    })?
+    .unwrap_or(0) as i64;
 
     // 今日消息数（可访问店铺）
     // 使用子查询代替CTE
     tracing::debug!("开始查询今日消息数，user_id: {}", user_id);
-    let today_messages: i64 = sqlx::query_scalar(
+    let today_messages: i64 = sqlx::query_scalar!(
         r#"
         SELECT COUNT(*)
         FROM messages m
@@ -133,19 +135,20 @@ pub async fn get_dashboard_stats(db: &Database, user_id: i64) -> Result<Dashboar
         )
         AND date(m.created_at) = date('now')
         "#,
+        user_id,
+        user_id
     )
-    .bind(user_id)
-    .bind(user_id)
     .fetch_one(db.pool())
     .await
     .map_err(|e| {
         tracing::error!("查询今日消息数失败: {}", e);
         e
-    })?;
+    })?
+    .unwrap_or(0) as i64;
 
     // 本周消息数（可访问店铺）
     // 使用子查询代替CTE
-    let week_messages: i64 = sqlx::query_scalar(
+    let week_messages: i64 = sqlx::query_scalar!(
         r#"
         SELECT COUNT(*)
         FROM messages m
@@ -157,15 +160,16 @@ pub async fn get_dashboard_stats(db: &Database, user_id: i64) -> Result<Dashboar
         )
         AND m.created_at >= datetime('now', 'weekday 0', '-6 days')
         "#,
+        user_id,
+        user_id
     )
-    .bind(user_id)
-    .bind(user_id)
     .fetch_one(db.pool())
-    .await?;
+    .await?
+    .unwrap_or(0) as i64;
 
     // 本月消息数（可访问店铺）
     // 使用子查询代替CTE
-    let month_messages: i64 = sqlx::query_scalar(
+    let month_messages: i64 = sqlx::query_scalar!(
         r#"
         SELECT COUNT(*)
         FROM messages m
@@ -177,15 +181,16 @@ pub async fn get_dashboard_stats(db: &Database, user_id: i64) -> Result<Dashboar
         )
         AND m.created_at >= datetime('now', 'start of month')
         "#,
+        user_id,
+        user_id
     )
-    .bind(user_id)
-    .bind(user_id)
     .fetch_one(db.pool())
-    .await?;
+    .await?
+    .unwrap_or(0) as i64;
 
     // 今日活跃客户数（可访问店铺）
     // 使用子查询代替CTE
-    let today_customers: i64 = sqlx::query_scalar(
+    let today_customers: i64 = sqlx::query_scalar!(
         r#"
         SELECT COUNT(DISTINCT se.customer_id)
         FROM messages m
@@ -197,11 +202,12 @@ pub async fn get_dashboard_stats(db: &Database, user_id: i64) -> Result<Dashboar
         )
         AND date(m.created_at) = date('now')
         "#,
+        user_id,
+        user_id
     )
-    .bind(user_id)
-    .bind(user_id)
     .fetch_one(db.pool())
-    .await?;
+    .await?
+    .unwrap_or(0) as i64;
 
     Ok(DashboardStats {
         total_shops,

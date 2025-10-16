@@ -1,3 +1,6 @@
+//! Obsoleted: legacy database layer backup. Intentionally left blank.
+// File content cleared to prevent accidental use.
+
 use anyhow::Result;
 use sqlx::{sqlite::SqlitePoolOptions, Row, SqlitePool};
 use tracing::info;

@@ -79,6 +79,60 @@ async fn test_staff_shops_query_columns() {
 }
 
 #[tokio::test]
+async fn test_count_shops_by_owner_queries() {
+    let database_url = std::env::var("DATABASE_URL")
+        .unwrap_or_else(|_| "sqlite:../服务器数据库/customer_service.db".to_string());
+    let pool = SqlitePool::connect(&database_url).await.expect("Failed to connect to database");
+
+    // only_active = 1
+    let _: i64 = sqlx::query_scalar!(
+        r#"SELECT COUNT(*) as "count!: i64" FROM shops s WHERE s.owner_id = ? AND s.is_active = 1"#,
+        1_i64
+    )
+    .fetch_one(&pool)
+    .await
+    .expect("owner count active query failed");
+
+    // only_active = 0
+    let _: i64 = sqlx::query_scalar!(
+        r#"SELECT COUNT(*) as "count!: i64" FROM shops s WHERE s.owner_id = ?"#,
+        1_i64
+    )
+    .fetch_one(&pool)
+    .await
+    .expect("owner count all query failed");
+
+    pool.close().await;
+}
+
+#[tokio::test]
+async fn test_count_shops_by_staff_queries() {
+    let database_url = std::env::var("DATABASE_URL")
+        .unwrap_or_else(|_| "sqlite:../服务器数据库/customer_service.db".to_string());
+    let pool = SqlitePool::connect(&database_url).await.expect("Failed to connect to database");
+
+    // only_active = 1
+    let _: i64 = sqlx::query_scalar!(
+        r#"SELECT COUNT(*) as "count!: i64" FROM shop_staffs ss JOIN shops s ON s.id = ss.shop_id WHERE ss.user_id = ? AND s.is_active = 1"#,
+        1_i64
+    )
+    .fetch_one(&pool)
+    .await
+    .expect("staff count active query failed");
+
+    // only_active = 0
+    let _: i64 = sqlx::query_scalar!(
+        r#"SELECT COUNT(*) as "count!: i64" FROM shop_staffs ss JOIN shops s ON s.id = ss.shop_id WHERE ss.user_id = ?"#,
+        1_i64
+    )
+    .fetch_one(&pool)
+    .await
+    .expect("staff count all query failed");
+
+    pool.close().await;
+}
+
+#[tokio::test]
 async fn test_wrong_column_name_should_fail() {
     let database_url = std::env::var("DATABASE_URL")
         .unwrap_or_else(|_| "sqlite:../服务器数据库/customer_service.db".to_string());

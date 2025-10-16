@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT COALESCE(SUM(unread_count), 0)\n        FROM unread_counts\n        WHERE shop_id IN (\n            SELECT id FROM shops WHERE owner_id = ?\n            UNION\n            SELECT shop_id FROM shop_staffs WHERE user_id = ?\n        )\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "COALESCE(SUM(unread_count), 0)",
+        "ordinal": 0,
+        "type_info": "Int"
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "cc61ce0eafda91e0b313e9ccda3f5771b3dba27921a533ad8e09945f1bc13f67"
+}

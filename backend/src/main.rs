@@ -317,12 +317,18 @@ fn create_router(state: AppState) -> Router {
         .route("/health", get(|| async { axum::Json(serde_json::json!({"status":"ok"})) }))
         .route("/api/auth/login", post(handlers::auth::login))
         .route("/api/auth/register", post(handlers::auth::register))
-        .route("/api/shops", get(handlers::shop::get_shops))
+    .route("/api/shops", get(handlers::shop::get_shops))
+    .route("/api/shops/paged", get(handlers::shop::get_shops_paged))
         .route("/api/shops", post(handlers::shop::create_shop))
     .route("/api/staff/shops", get(handlers::shop::get_staff_shops))
+        .route("/api/staff/shops/paged", get(handlers::shop::get_staff_shops_paged))
         .route(
             "/api/shops/:shop_id/customers",
             get(handlers::customer::get_customers),
+        )
+        .route(
+            "/api/shops/:shop_id/customers/paged",
+            get(handlers::customer::get_customers_paged),
         )
         .route(
             "/api/shops/:shop_id/customers/:customer_id/read",

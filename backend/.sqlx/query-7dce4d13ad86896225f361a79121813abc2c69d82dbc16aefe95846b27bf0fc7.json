@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT COUNT(DISTINCT se.customer_id)\n        FROM messages m\n        JOIN sessions se ON m.session_id = se.id\n        WHERE se.shop_id IN (\n            SELECT id FROM shops WHERE owner_id = ?\n            UNION\n            SELECT shop_id FROM shop_staffs WHERE user_id = ?\n        )\n        AND date(m.created_at) = date('now')\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "COUNT(DISTINCT se.customer_id)",
+        "ordinal": 0,
+        "type_info": "Int"
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "7dce4d13ad86896225f361a79121813abc2c69d82dbc16aefe95846b27bf0fc7"
+}

@@ -166,6 +166,70 @@ impl CustomerRepository {
         
         Ok(result)
     }
+
+    /// 统计店铺下的客户总数
+    pub async fn count_by_shop(db: &DatabaseConnection, shop_id: i32) -> Result<i64> {
+        let count = Customers::find()
+            .filter(customers::Column::ShopId.eq(shop_id))
+            .count(db)
+            .await?;
+        Ok(count as i64)
+    }
+
+    /// 获取客户概览（分页）
+    pub async fn find_with_overview_by_shop_paged(
+        db: &DatabaseConnection,
+        shop_id: i32,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<(customers::Model, Option<sessions::Model>, Option<messages::Model>, i64)>> {
+        // 1. 分页获取客户列表
+        let customers_list = Customers::find()
+            .filter(customers::Column::ShopId.eq(shop_id))
+            .order_by_desc(customers::Column::LastActiveAt)
+            .limit(limit as u64)
+            .offset(offset as u64)
+            .all(db)
+            .await?;
+
+        let mut result = Vec::with_capacity(customers_list.len());
+
+        for customer in customers_list {
+            // 最新活跃会话
+            let session = Sessions::find()
+                .filter(sessions::Column::ShopId.eq(shop_id))
+                .filter(sessions::Column::CustomerId.eq(customer.id))
+                .filter(sessions::Column::SessionStatus.eq("active"))
+                .order_by_desc(sessions::Column::CreatedAt)
+                .one(db)
+                .await?;
+
+            // 最后一条消息
+            let last_message = if let Some(ref sess) = session {
+                Messages::find()
+                    .filter(messages::Column::SessionId.eq(sess.id))
+                    .filter(messages::Column::IsDeleted.eq(false))
+                    .order_by_desc(messages::Column::CreatedAt)
+                    .one(db)
+                    .await?
+            } else {
+                None
+            };
+
+            // 未读数
+            let unread_count = UnreadCounts::find()
+                .filter(unread_counts::Column::ShopId.eq(shop_id))
+                .filter(unread_counts::Column::CustomerId.eq(customer.id))
+                .one(db)
+                .await?
+                .map(|uc| uc.unread_count as i64)
+                .unwrap_or(0);
+
+            result.push((customer, session, last_message, unread_count));
+        }
+
+        Ok(result)
+    }
     
     /// 阻止客户
     pub async fn block(db: &DatabaseConnection, customer_id: i32) -> Result<()> {

@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT COUNT(DISTINCT shop_id || '-' || customer_id)\n        FROM unread_counts\n        WHERE unread_count > 0\n        AND shop_id IN (\n            SELECT id FROM shops WHERE owner_id = ?\n            UNION\n            SELECT shop_id FROM shop_staffs WHERE user_id = ?\n        )\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "COUNT(DISTINCT shop_id || '-' || customer_id)",
+        "ordinal": 0,
+        "type_info": "Int"
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "99bd0656cf5fb354a289918f924846277c82c1c80b1ad758ae5640cf0364503b"
+}

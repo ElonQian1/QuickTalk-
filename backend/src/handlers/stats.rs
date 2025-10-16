@@ -7,7 +7,7 @@ pub async fn get_dashboard_stats(
     AuthUser { user_id }: AuthUser,
 ) -> Result<Json<dashboard::DashboardStats>, AppError> {
     // 临时错误处理：如果查询失败，返回默认值而不是报错
-    match dashboard::get_dashboard_stats_orm(&state.db_connection, user_id).await {
+    match dashboard::get_dashboard_stats(&state.db, user_id).await {
         Ok(stats) => {
             tracing::info!("✅ 仪表盘统计查询成功");
             Ok(Json(stats))

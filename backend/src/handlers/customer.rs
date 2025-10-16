@@ -1,10 +1,19 @@
 use axum::{
-    extract::{Path, State},
+    extract::{Path, State, Query},
     Json,
 };
+use serde::Deserialize;
 
 use crate::{auth::AuthUser, error::AppError, models::*, AppState};
 use serde_json::json;
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct CustomerListQuery {
+    #[serde(default, alias = "pageSize")]
+    pub limit: Option<i64>,
+    #[serde(default, alias = "skip")]
+    pub offset: Option<i64>,
+}
 
 pub async fn get_customers(
     State(state): State<AppState>,
@@ -49,6 +58,40 @@ pub async fn get_customers(
             }
         }
     }
+}
+
+/// 分页获取客户概览（含最后消息与未读）
+pub async fn get_customers_paged(
+    State(state): State<AppState>,
+    AuthUser { user_id }: AuthUser,
+    Path(shop_id): Path<i64>,
+    Query(q): Query<CustomerListQuery>,
+) -> Result<Json<PageResult<CustomerWithSession>>, AppError> {
+    let mut limit = q.limit.unwrap_or(50);
+    let mut offset = q.offset.unwrap_or(0);
+    if limit <= 0 { limit = 50; }
+    if limit > 200 { limit = 200; }
+    if offset < 0 { offset = 0; }
+
+    let (items_raw, total) = state
+        .customer_service
+        .get_customers_overview_paged(user_id, shop_id.try_into().unwrap(), limit, offset)
+        .await
+        .map_err(|e| {
+            let msg = e.to_string();
+            if msg.contains("access_denied") { AppError::Forbidden } else { AppError::Internal(msg) }
+        })?;
+
+    let items: Vec<CustomerWithSession> = items_raw.into_iter().map(|(customer, session, last_message, unread)| {
+        CustomerWithSession {
+            customer: customer.into(),
+            session: session.map(|s| s.into()),
+            last_message: last_message.map(|m| m.into()),
+            unread_count: unread as i32,
+        }
+    }).collect();
+
+    Ok(Json(PageResult { items, total, limit, offset }))
 }
 
 // 标记为已读：将某店铺下某客户的未读数清零（仅店主可操作）
