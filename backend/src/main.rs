@@ -541,6 +541,8 @@ async fn handle_customer_socket(
                 match serde_json::from_str::<WebSocketIncomingMessage>(&text) {
                     Ok(incoming) => {
                         eprintln!("✅ [Customer WS Loop] 消息解析成功: type={}", incoming.message_type);
+                        eprintln!("📋 [Customer WS Loop] 消息详情: content={:?}, metadata={:?}", 
+                                incoming.content, incoming.metadata);
                         let mut ctx = CustomerWsCtx {
                             state: &state,
                             chat: &chat_service,
