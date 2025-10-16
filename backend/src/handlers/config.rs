@@ -127,6 +127,7 @@ pub async fn get_server_config(
         .map(|h| h.to_string());
     
     // 获取协议信息
+    // 优先检查 X-Forwarded-Proto（代理环境），然后检查端口（8443 = HTTPS）
     let protocol = if headers
         .get("x-forwarded-proto")
         .and_then(|h| h.to_str().ok())
@@ -134,6 +135,16 @@ pub async fn get_server_config(
         .unwrap_or(false)
     {
         "https"
+    } else if server_port == "8443" || server_port == "443" {
+        // 🔒 端口 8443/443 通常表示 HTTPS/TLS 连接
+        "https"
+    } else if let Some(ref host) = host_from_header {
+        // 检查 Host 头中是否包含 HTTPS 端口
+        if host.ends_with(":8443") || host.ends_with(":443") {
+            "https"
+        } else {
+            "http"
+        }
     } else {
         "http"
     };
