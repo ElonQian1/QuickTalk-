@@ -183,7 +183,8 @@ export class ConfigManager {
       return {
         version: config.version || 'unknown',
         serverUrl: url,
-        wsUrl: config.wsUrl || url.replace(/^https?/, url.startsWith('https') ? 'wss' : 'ws'),
+        // 🔒 正确的协议转换：https: -> wss:, http: -> ws:
+        wsUrl: config.wsUrl || url.replace(/^https:/, 'wss:').replace(/^http:/, 'ws:'),
         endpoints: config.endpoints
       };
     } catch (error) {
