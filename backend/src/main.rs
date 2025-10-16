@@ -539,11 +539,14 @@ async fn handle_customer_socket(
         match result {
             Ok(Message::Text(text)) => {
                 eprintln!("📥 [Customer WS Loop] 收到文本消息: {}", &text[..text.len().min(100)]);
+                eprintln!("🔍 [Customer WS Loop] 完整原始JSON: {}", text);
                 match serde_json::from_str::<WebSocketIncomingMessage>(&text) {
                     Ok(incoming) => {
                         eprintln!("✅ [Customer WS Loop] 消息解析成功: type={}", incoming.message_type);
                         eprintln!("📋 [Customer WS Loop] 消息详情: content={:?}, metadata={:?}", 
                                 incoming.content, incoming.metadata);
+                        eprintln!("🎯 [Customer WS Loop] content字段长度: {}", 
+                                incoming.content.as_ref().map(|c| c.len()).unwrap_or(0));
                         let mut ctx = CustomerWsCtx {
                             state: &state,
                             chat: &chat_service,

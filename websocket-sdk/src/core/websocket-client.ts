@@ -193,8 +193,24 @@ export class WebSocketClient {
     if (this.serverConfig.endpoints?.websocket?.customer) {
       wsUrl = `${this.serverConfig.endpoints.websocket.customer}/${this.shopId}/${this.customerId}`;
     } else {
-      const wsBase = this.serverConfig.wsUrl || 
-        this.serverConfig.serverUrl.replace(/^https?/, this.serverConfig.serverUrl.startsWith('https') ? 'wss' : 'ws');
+      // 🔧 修复：在HTTPS页面上强制使用WSS协议
+      const isSecurePage = window.location.protocol === 'https:';
+      let wsBase = this.serverConfig.wsUrl;
+      
+      if (!wsBase) {
+        // 根据页面协议和服务器URL决定WebSocket协议
+        if (isSecurePage || this.serverConfig.serverUrl.startsWith('https')) {
+          wsBase = this.serverConfig.serverUrl.replace(/^https?/, 'wss');
+        } else {
+          wsBase = this.serverConfig.serverUrl.replace(/^https?/, 'ws');
+        }
+      } else {
+        // 如果页面是HTTPS，强制升级到WSS
+        if (isSecurePage && wsBase.startsWith('ws:')) {
+          wsBase = wsBase.replace(/^ws:/, 'wss:');
+        }
+      }
+      
       wsUrl = `${wsBase}/ws/customer/${this.shopId}/${this.customerId}`;
     }
 
