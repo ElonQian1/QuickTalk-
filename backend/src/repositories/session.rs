@@ -24,17 +24,16 @@ impl SessionRepository {
     /// 创建新会话
     pub async fn create(
         db: &DatabaseConnection,
-        session_id: String,
+        _session_id: String,  // 数据库没有这个字段，保留参数以兼容接口
         shop_id: i32,
         customer_id: i32,
     ) -> Result<sessions::Model> {
         let session = sessions::ActiveModel {
             shop_id: Set(shop_id),
             customer_id: Set(customer_id),
-            session_id: Set(Some(session_id)),
-            status: Set("active".to_string()),
-            created_at: Set(chrono::Utc::now().naive_utc()),
-            updated_at: Set(Some(chrono::Utc::now().naive_utc())),
+            session_status: Set(Some("active".to_string())),
+            created_at: Set(Some(chrono::Utc::now().naive_utc())),
+            last_message_at: Set(Some(chrono::Utc::now().naive_utc())),
             ..Default::default()
         };
         
@@ -45,8 +44,8 @@ impl SessionRepository {
     pub async fn find_active_by_shop(db: &DatabaseConnection, shop_id: i32) -> Result<Vec<sessions::Model>> {
         let sessions = Sessions::find()
             .filter(sessions::Column::ShopId.eq(shop_id))
-            .filter(sessions::Column::Status.eq("active"))
-            .order_by_desc(sessions::Column::UpdatedAt)
+            .filter(sessions::Column::SessionStatus.eq("active"))
+            .order_by_desc(sessions::Column::LastMessageAt)
             .all(db)
             .await?;
         Ok(sessions)
@@ -61,7 +60,7 @@ impl SessionRepository {
             .into();
         
         session.staff_id = Set(Some(staff_id));
-        session.updated_at = Set(Some(chrono::Utc::now().naive_utc()));
+        session.last_message_at = Set(Some(chrono::Utc::now().naive_utc()));
         session.update(db).await?;
         
         Ok(())
@@ -75,7 +74,7 @@ impl SessionRepository {
             .ok_or_else(|| anyhow::anyhow!("Session not found"))?
             .into();
         
-        session.updated_at = Set(Some(chrono::Utc::now().naive_utc()));
+        session.last_message_at = Set(Some(chrono::Utc::now().naive_utc()));
         session.update(db).await?;
         
         Ok(())
@@ -100,7 +99,7 @@ impl SessionRepository {
         let session = Sessions::find()
             .filter(sessions::Column::ShopId.eq(shop_id))
             .filter(sessions::Column::CustomerId.eq(customer_id))
-            .filter(sessions::Column::Status.eq("active"))
+            .filter(sessions::Column::SessionStatus.eq("active"))
             .order_by_desc(sessions::Column::CreatedAt)
             .one(db)
             .await?;
@@ -127,7 +126,7 @@ impl SessionRepository {
             .ok_or_else(|| anyhow::anyhow!("Session not found"))?
             .into();
         
-        session.status = Set("closed".to_string());
+        session.session_status = Set(Some("closed".to_string()));
         session.closed_at = Set(Some(chrono::Utc::now().naive_utc()));
         session.update(db).await?;
         
@@ -143,7 +142,7 @@ impl SessionRepository {
             .into();
         
         // 由于表结构不支持priority字段，仅更新时间
-        session.updated_at = Set(Some(chrono::Utc::now().naive_utc()));
+        session.last_message_at = Set(Some(chrono::Utc::now().naive_utc()));
         session.update(db).await?;
         
         Ok(())
@@ -153,8 +152,8 @@ impl SessionRepository {
     pub async fn find_by_staff(db: &DatabaseConnection, staff_id: i32) -> Result<Vec<sessions::Model>> {
         let sessions = Sessions::find()
             .filter(sessions::Column::StaffId.eq(staff_id))
-            .filter(sessions::Column::Status.eq("active"))
-            .order_by_desc(sessions::Column::UpdatedAt)
+            .filter(sessions::Column::SessionStatus.eq("active"))
+            .order_by_desc(sessions::Column::LastMessageAt)
             .all(db)
             .await?;
         Ok(sessions)
@@ -165,7 +164,7 @@ impl SessionRepository {
         let sessions = Sessions::find()
             .filter(sessions::Column::ShopId.eq(shop_id))
             .filter(sessions::Column::StaffId.is_null())
-            .filter(sessions::Column::Status.eq("active"))
+            .filter(sessions::Column::SessionStatus.eq("active"))
             .order_by_desc(sessions::Column::CreatedAt)
             .all(db)
             .await?;

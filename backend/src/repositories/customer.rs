@@ -135,7 +135,7 @@ impl CustomerRepository {
             let session = Sessions::find()
                 .filter(sessions::Column::ShopId.eq(shop_id))
                 .filter(sessions::Column::CustomerId.eq(customer.id))
-                .filter(sessions::Column::Status.eq("active"))
+                .filter(sessions::Column::SessionStatus.eq("active"))
                 .order_by_desc(sessions::Column::CreatedAt)
                 .one(db)
                 .await?;

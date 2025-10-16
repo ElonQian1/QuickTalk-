@@ -10,25 +10,16 @@ pub struct Model {
     pub shop_id: i32,
     pub customer_id: i32,
     
-    // 生产数据库有session_id列（字符串类型）
-    pub session_id: Option<String>,
-    
-    // 生产数据库列名是 "assigned_staff_id"，映射到staff_id字段
-    #[sea_orm(column_name = "assigned_staff_id")]
+    // 🔧 实际数据库列名是 "staff_id" (不是 assigned_staff_id)
     pub staff_id: Option<i32>,
     
-    // 生产数据库列名是 "status"，不是 "session_status"
-    pub status: String,
+    // 🔧 实际数据库列名是 "session_status" (不是 status)
+    pub session_status: Option<String>,
     
-    pub created_at: DateTime,
-    
-    // 生产数据库有updated_at列
-    pub updated_at: Option<DateTime>,
-    
+    pub created_at: Option<DateTime>,
     pub closed_at: Option<DateTime>,
     
-    // 生产数据库没有last_message_at列，标记为ignore
-    #[sea_orm(ignore)]
+    // 实际数据库有这个字段
     pub last_message_at: Option<DateTime>,
 }
 

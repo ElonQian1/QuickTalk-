@@ -220,10 +220,10 @@ impl From<crate::entities::sessions::Model> for Session {
             shop_id: session.shop_id as i64,
             customer_id: session.customer_id as i64,
             staff_id: session.staff_id.map(|id| id as i64),
-            session_status: session.status,
-            created_at: session.created_at.and_utc(),
+            session_status: session.session_status.unwrap_or_else(|| "active".to_string()),
+            created_at: session.created_at.map(|dt| dt.and_utc()).unwrap_or_else(|| chrono::Utc::now()),
             closed_at: session.closed_at.map(|dt| dt.and_utc()),
-            last_message_at: session.last_message_at.unwrap_or(session.created_at).and_utc(),
+            last_message_at: session.last_message_at.map(|dt| dt.and_utc()).unwrap_or_else(|| session.created_at.map(|dt| dt.and_utc()).unwrap_or_else(|| chrono::Utc::now())),
         }
     }
 }
