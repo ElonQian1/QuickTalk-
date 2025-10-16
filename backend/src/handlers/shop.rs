@@ -50,16 +50,7 @@ pub async fn create_shop(
         },
         Err(e) => {
             error!(error=?e, "创建店铺失败");
-            
-            // 根据错误类型返回不同的状态码
-            let error_msg = e.to_string();
-            if error_msg.contains("owner_not_found") {
-                Err(AppError::Unauthorized)
-            } else if error_msg.contains("slug_already_exists") {
-                Err(AppError::BadRequest("店铺名称已存在".to_string()))
-            } else {
-                Err(AppError::Internal("创建店铺失败".to_string()))
-            }
+            Err(AppError::Internal("创建店铺失败".to_string()))
         }
     }
 }

@@ -7,7 +7,7 @@ pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
     
-    #[sea_orm(column_name = "shop_name")]
+    #[sea_orm(column_name = "name")]
     pub shop_name: String,
     
     #[sea_orm(unique)]
@@ -20,7 +20,7 @@ pub struct Model {
     #[sea_orm(ignore)]
     pub website_url: Option<String>,
     pub contact_email: Option<String>,
-    #[sea_orm(column_name = "contact_phone")]
+    #[sea_orm(column_name = "phone")]
     pub contact_phone: Option<String>,
     #[sea_orm(ignore)]
     pub settings: Option<serde_json::Value>,

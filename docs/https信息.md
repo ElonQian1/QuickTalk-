@@ -153,3 +153,35 @@ TLS_DOMAIN=elontalk.duckdns.org
 管理员 邮箱：siwmm@163.com
 
 项目不一定放子opt 项目下
+
+## 🔐 ACME 自动证书签发/续期（内置模块）
+
+为简化生产配置，已集成 ACME 骨架模块，支持在 HTTPS 启动前自动确认证书是否存在、是否需要续期；当检测到启用 ACME 但证书缺失时，目前会给出清晰错误提示（后续将逐步实现全自动签发）。
+
+环境变量（.env）
+
+```
+# 开关与目录
+ACME_ENABLED=true
+ACME_DIRECTORY_URL=https://acme-v02.api.letsencrypt.org/directory   # 正式环境；开发建议使用 staging 目录
+ACME_EMAIL=your-admin@email.com
+ACME_DOMAINS=elontalk.duckdns.org
+ACME_CHALLENGE=dns-01   # 推荐 dns-01，避免 80/443 端口限制
+
+# DuckDNS（dns-01 首选）
+DUCKDNS_DOMAIN=elontalk
+DUCKDNS_TOKEN=your-duckdns-token
+
+# 证书路径（与 TLS_* 保持一致）
+TLS_CERT_PATH=certs/server.crt
+TLS_KEY_PATH=certs/server.key
+
+# 提前续期天数（可选，默认30）
+RENEW_BEFORE_DAYS=30
+```
+
+注意事项
+- 首次接入建议使用 Let’s Encrypt Staging 目录，避免触发配额限制：
+	- ACME_DIRECTORY_URL=https://acme-staging-v02.api.letsencrypt.org/directory
+- 当前为“骨架实现”，若 ACME_ENABLED=true 且未检测到证书，将报错并提示从文档获取证书或配置 DuckDNS 凭据。
+- 一旦颁发成功，证书将写入 TLS_CERT_PATH/TLS_KEY_PATH，并由 HTTPS 服务直接加载。

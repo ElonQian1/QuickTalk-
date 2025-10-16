@@ -1,8 +1,9 @@
 use crate::error::AppError;
 use crate::tls::{CertManager, TlsConfig};
+#[cfg(feature = "https")]
+use crate::tls::acme::{AcmeClient, AcmeConfig};
 use axum::Router;
 use std::net::SocketAddr;
-use tracing::info;
 
 #[cfg(feature = "https")]
 use axum_server::tls_rustls::RustlsConfig;
@@ -22,11 +23,22 @@ impl HttpsServer {
             return Err(AppError::Internal("HTTPS未启用".to_string()));
         }
 
-        info!("🔒 正在启动HTTPS服务器...");
+    tracing::info!("🔒 正在启动HTTPS服务器...");
         self.config.print_info();
 
         // 验证配置
         self.validate_config()?;
+
+        // 如果启用了 ACME，则在加载证书前尝试确保证书存在/未临期
+        let acme_cfg = AcmeConfig::from_env();
+        if acme_cfg.enabled {
+            tracing::info!("🔐 ACME 启用，目录: {}, 挑战: {}", acme_cfg.directory_url, acme_cfg.challenge);
+            if let Err(e) = AcmeClient::ensure(&acme_cfg, None).await {
+                tracing::warn!("ACME 确认证书失败: {}，将继续尝试使用现有证书", e);
+            }
+        } else {
+            tracing::info!("ACME 未启用，跳过自动签发/续期");
+        }
 
         // 使用CertManager确保证书存在（自动生成或验证）
         CertManager::ensure_certificates(
@@ -44,11 +56,11 @@ impl HttpsServer {
 
         let rustls_config = RustlsConfig::from_config(tls_config);
 
-        info!("🚀 HTTPS服务器启动在: https://{}", addr);
-        info!("🔗 可以通过以下地址访问:");
-        info!("   https://localhost:{}", addr.port());
+        tracing::info!("🚀 HTTPS服务器启动在: https://{}", addr);
+        tracing::info!("🔗 可以通过以下地址访问:");
+        tracing::info!("   https://localhost:{}", addr.port());
         if addr.ip().to_string() != "127.0.0.1" && addr.ip().to_string() != "localhost" {
-            info!("   https://{}", addr);
+            tracing::info!("   https://{}", addr);
         }
 
         // 启动HTTPS服务器
@@ -97,6 +109,7 @@ impl HttpsServer {
     }
 
     /// 检查证书健康状态 (生产环境监控)
+    #[allow(dead_code)]
     pub fn check_certificate_health(&self) -> String {
         if !self.config.enabled {
             return "HTTPS未启用".to_string();

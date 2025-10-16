@@ -32,8 +32,8 @@ pub async fn fetch_shops_with_unread_by_owner(
         SELECT 
             s.id,
             s.owner_id,
-            s.shop_name AS shop_name,
-            s.shop_url AS shop_url,
+            s.name AS shop_name,
+            NULL AS shop_url,
             s.api_key,
             CASE WHEN s.is_active THEN 1 ELSE 0 END AS status,
             s.created_at,
@@ -81,8 +81,8 @@ pub async fn fetch_shops_with_unread_by_staff(
         SELECT 
             s.id,
             s.owner_id,
-            s.shop_name AS shop_name,
-            s.shop_url AS shop_url,
+            s.name AS shop_name,
+            NULL AS shop_url,
             s.api_key,
             CASE WHEN s.is_active THEN 1 ELSE 0 END AS status,
             s.created_at,

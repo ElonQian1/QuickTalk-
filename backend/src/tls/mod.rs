@@ -6,19 +6,24 @@
 
 pub mod cert_manager;
 pub mod config;
+#[cfg(feature = "https")]
+pub mod acme;
 
 pub use cert_manager::*;
 pub use config::*;
 
 /// TLS模块版本信息
+#[allow(dead_code)]
 pub const TLS_MODULE_VERSION: &str = "1.0.0";
 
 /// 检查TLS模块是否可用
+#[allow(dead_code)]
 pub fn is_tls_available() -> bool {
     cfg!(feature = "https")
 }
 
 /// 获取TLS模块信息
+#[allow(dead_code)]
 pub fn get_tls_info() -> String {
     format!(
         "TLS模块 v{} - 状态: {}",
