@@ -704,6 +704,14 @@ const ChatPage: React.FC = () => {
   };
 
   const renderMessageContent = (message: Message) => {
+    console.log('🔍 renderMessageContent 收到消息:', {
+      id: message.id,
+      message_type: message.message_type,
+      content: message.content,
+      content_length: message.content?.length,
+      sender_type: message.sender_type
+    });
+    
     switch (message.message_type) {
       case 'image':
         return (
@@ -744,6 +752,7 @@ const ChatPage: React.FC = () => {
           <div>语音消息加载失败</div>
         );
       default:
+        console.log('🎯 渲染文本消息，内容:', message.content);
         // 使用统一的文本格式化组件
         return <MessageText content={message.content} />;
     }

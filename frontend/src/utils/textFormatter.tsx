@@ -95,6 +95,9 @@ export const MessageText: React.FC<MessageTextProps> = ({ content, className }) 
     return null;
   }
   
+  // 临时测试：强制显示内容
+  console.log('✅ MessageText 将渲染内容:', content);
+  
   // 检查是否为纯表情消息
   if (isEmojiOnlyMessage(content)) {
     return (
@@ -106,6 +109,7 @@ export const MessageText: React.FC<MessageTextProps> = ({ content, className }) 
   
   // 格式化文本内容
   const formattedContent = formatMessageContent(content);
+  console.log('🎨 格式化后的内容:', formattedContent);
   
   return (
     <FormattedTextContainer 
