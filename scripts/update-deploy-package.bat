@@ -49,6 +49,19 @@ copy /Y "%PROD_DIR%\server.key" "%DEPLOY_DIR%\certs\server.key" >nul
 
 echo.
 echo ========================================
+echo Verifying Production Files...
+echo ========================================
+call "%ROOT_DIR%\scripts\verify-production-files.bat"
+if errorlevel 1 (
+    echo.
+    echo [ERROR] Production files verification failed!
+    echo Deployment package may be incomplete.
+    pause
+    exit /b 1
+)
+
+echo.
+echo ========================================
 echo Deployment Package Updated Successfully!
 echo ========================================
 echo.

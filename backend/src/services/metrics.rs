@@ -2,6 +2,9 @@
 // Input: owner_id（店主用户ID）
 // Output: Vec<ShopWithUnreadCount>
 // Errors: 数据库查询失败
+//
+// 🔧 重构完成：使用 sqlx::query_as!() 宏实现编译时 SQL 验证
+// ✅ 列名错误会在编译时被发现，而非运行时
 
 use anyhow::Result;
 use sqlx::FromRow;
@@ -11,29 +14,35 @@ use crate::{
     models::{Shop, ShopWithUnreadCount},
 };
 
+// 保留结构体定义，用于 query_as!() 宏的类型映射
+// 📝 注意：SQLite 通过 query_as!() 返回的类型可能是 Option<T>
 #[derive(FromRow)]
 struct ShopWithUnreadProjection {
-    pub id: i64,
-    pub owner_id: i64,
-    pub shop_name: String,
+    pub id: Option<i64>,
+    pub owner_id: Option<i64>,
+    pub shop_name: Option<String>,
     pub shop_url: Option<String>,
-    pub api_key: String,
-    pub status: i32,
-    pub created_at: chrono::DateTime<chrono::Utc>,
-    pub updated_at: chrono::DateTime<chrono::Utc>,
-    pub unread_total: Option<i64>,
+    pub api_key: Option<String>,
+    pub status: Option<i32>,
+    pub created_at: Option<chrono::NaiveDateTime>,  // SQLite 返回 NaiveDateTime
+    pub updated_at: Option<chrono::NaiveDateTime>,
+    pub unread_total: Option<i32>,  // 修改为 i32
 }
 
 pub async fn fetch_shops_with_unread_by_owner(
     db: &Database,
     owner_id: i64,
 ) -> Result<Vec<ShopWithUnreadCount>> {
-    let sql = r#"
+    // ✅ 使用 query_as!() 宏 - 编译时验证 SQL
+    // 如果列名错误（如 s.name 而非 s.shop_name），编译会失败！
+    let rows = sqlx::query_as!(
+        ShopWithUnreadProjection,
+        r#"
         SELECT 
             s.id,
             s.owner_id,
-            s.shop_name AS shop_name,
-            s.shop_url AS shop_url,
+            s.shop_name,
+            s.shop_url,
             s.api_key,
             CASE WHEN s.is_active THEN 1 ELSE 0 END AS status,
             s.created_at,
@@ -42,12 +51,11 @@ pub async fn fetch_shops_with_unread_by_owner(
         FROM shops s
         WHERE s.owner_id = ?
         ORDER BY s.created_at DESC
-    "#;
-
-    let rows = sqlx::query_as::<_, ShopWithUnreadProjection>(sql)
-        .bind(owner_id)
-        .fetch_all(db.pool())
-        .await?;
+        "#,
+        owner_id
+    )
+    .fetch_all(db.pool())
+    .await?;
 
     let result = rows
         .into_iter()
@@ -77,12 +85,16 @@ pub async fn fetch_shops_with_unread_by_staff(
     db: &Database,
     staff_user_id: i64,
 ) -> Result<Vec<ShopWithUnreadCount>> {
-    let sql = r#"
+    // ✅ 使用 query_as!() 宏 - 编译时验证 SQL
+    // 如果表名、列名或 JOIN 条件错误，编译会失败！
+    let rows = sqlx::query_as!(
+        ShopWithUnreadProjection,
+        r#"
         SELECT 
             s.id,
             s.owner_id,
-            s.shop_name AS shop_name,
-            s.shop_url AS shop_url,
+            s.shop_name,
+            s.shop_url,
             s.api_key,
             CASE WHEN s.is_active THEN 1 ELSE 0 END AS status,
             s.created_at,
@@ -92,12 +104,11 @@ pub async fn fetch_shops_with_unread_by_staff(
         JOIN shops s ON s.id = ss.shop_id
         WHERE ss.user_id = ?
         ORDER BY s.created_at DESC
-    "#;
-
-    let rows = sqlx::query_as::<_, ShopWithUnreadProjection>(sql)
-        .bind(staff_user_id)
-        .fetch_all(db.pool())
-        .await?;
+        "#,
+        staff_user_id
+    )
+    .fetch_all(db.pool())
+    .await?;
 
     let result = rows
         .into_iter()

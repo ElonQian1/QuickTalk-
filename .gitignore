@@ -55,10 +55,15 @@ backend/*.pdb
 
 # (可选) 如果需要锁定依赖版本，可取消忽略 Cargo.lock 并提交；当前忽略保持现状。
 
-# Database files
+# Database files (ignore all except production)
 *.db
 *.sqlite
 *.sqlite3
+*.db-shm
+*.db-wal
+
+# IMPORTANT: Production database is tracked
+!服务器数据库/*.db
 
 # Environment files
 .env
@@ -84,7 +89,7 @@ websocket-sdk/build/
 # Uploads (user-generated content)
 backend/static/uploads/
 
-# TLS/SSL certificates (sensitive information)
+# TLS/SSL certificates (ignore all except production)
 backend/certs/
 certs/
 *.crt
@@ -92,6 +97,10 @@ certs/
 *.pem
 *.p12
 *.pfx
+
+# IMPORTANT: Production certificates are tracked
+!服务器数据库/*.crt
+!服务器数据库/*.key
 
 # Examples build outputs (copy of SDK for demo)
 examples/websocket-sdk/dist/

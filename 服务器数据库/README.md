@@ -1,161 +1,97 @@
-# 生产环境文件管理说明
+# ⚠️ 生产环境文件 - 请勿手动修改
 
-## 📁 目录结构
-
-```
-E:\duihua\customer-service-system\
-├── 服务器数据库/              ⭐ 生产环境文件（真实数据）
-│   ├── customer_service.db    # 生产环境数据库
-│   ├── server.crt             # 生产环境 SSL 证书
-│   └── server.key             # 生产环境 SSL 密钥
-│
-├── ubuntu-deploy-ready/       ⭐ 部署包（同步到 Ubuntu）
-│   ├── customer-service-backend
-│   ├── customer_service.db    # 从生产环境同步
-│   ├── certs/
-│   │   ├── server.crt         # 从生产环境同步
-│   │   └── server.key         # 从生产环境同步
-│   └── static/
-│
-└── scripts/
-    ├── update-deploy-package.ps1      # 完整部署包更新
-    └── sync-production-files.ps1      # 仅同步生产文件
-```
-
-## 🚀 使用方法
-
-### 方法 1: 完整更新部署包（推荐）
-
-**用途**: 编译新代码 + 同步生产环境文件
-
-```powershell
-npm run deploy:update
-```
-
-**这个命令会自动：**
-1. ✅ 编译 Rust 后端（Linux HTTPS 版本）
-2. ✅ 编译 React 前端
-3. ✅ 复制所有静态文件和 SDK
-4. ✅ **自动同步生产环境数据库**
-5. ✅ **自动同步生产环境证书和密钥**
-
-### 方法 2: 仅同步生产环境文件
-
-**用途**: 不重新编译，只更新数据库和证书
-
-```powershell
-npm run deploy:sync-production
-```
-
-**这个命令会：**
-1. ✅ 复制生产环境数据库到部署包
-2. ✅ 复制生产环境证书到部署包
-3. ✅ 复制生产环境密钥到部署包
-
-## ⚠️ 重要说明
-
-### 为什么需要这个？
-
-**问题**: 编译时总是使用错误的数据库或证书
-**原因**: 
-- 项目中有多个数据库文件（开发用、测试用）
-- 项目中有多个证书文件（开发证书、测试证书）
-- 编译脚本不知道哪个才是生产环境的
-
-**解决方案**:
-- 所有生产环境的真实文件统一存放在 `服务器数据库/` 目录
-- 使用自动化脚本确保部署包始终使用正确的文件
-
-### 生产环境文件的真实来源
+## 📁 这个文件夹包含什么？
 
 ```
-服务器数据库/customer_service.db  ← 这是真实的生产数据库
-服务器数据库/server.crt           ← 这是真实的 SSL 证书
-服务器数据库/server.key           ← 这是真实的 SSL 密钥
+服务器数据库/
+├── customer_service.db  ← 生产环境数据库（真实用户数据）
+├── server.crt           ← SSL 证书（HTTPS 必需）
+└── server.key           ← SSL 私钥（HTTPS 必需）
 ```
 
-**部署包会自动从这里复制！**
+## 🔒 重要性
 
-## 📝 工作流程
+**这是唯一的生产环境文件来源！**
 
-### 日常开发流程
+- ✅ 部署时自动使用这些文件
+- ✅ Git 跟踪这些文件（保证团队一致性）
+- ✅ 其他位置的数据库都是开发测试用
 
-1. **修改代码**（前端或后端）
+## 🚫 请勿直接编辑
 
-2. **更新部署包**
-   ```powershell
-   npm run deploy:update
-   ```
+**不要手动修改这些文件！** 除非：
+- 更新生产数据库备份
+- 续期/更换 SSL 证书
+- 明确知道自己在做什么
 
-3. **上传到 Ubuntu 服务器**
-   - 上传整个 `ubuntu-deploy-ready` 文件夹到 `/root/`
+## 🤖 自动化使用
 
-4. **在服务器上启动**
-   ```bash
-   cd /root/ubuntu-deploy-ready
-   chmod +x customer-service-backend *.sh
-   ./start.sh
-   ```
+这些文件会被自动脚本使用：
 
-### 仅更新数据库/证书
+```bash
+# 一键构建（自动使用这些文件）
+npm run build:production
 
-如果你只是想更新生产环境的数据库或证书：
+# 仅同步这些文件到部署包
+npm run sync:prod
 
-1. **更新 `服务器数据库/` 目录中的文件**
-   - 替换 `customer_service.db`（新的生产数据库）
-   - 替换 `server.crt` 和 `server.key`（新的证书）
-
-2. **同步到部署包**
-   ```powershell
-   npm run deploy:sync-production
-   ```
-
-3. **上传到服务器**
-
-## 🔍 验证
-
-每次运行脚本后，会自动显示验证信息：
-
-```
-✅ 数据库: customer_service.db - XXX KB - 2025/10/17 1:41:36
-✅ 证书: server.crt - XXX KB - 2025/10/17 1:41:36  
-✅ 密钥: server.key - XXX KB - 2025/10/17 1:41:27
+# 验证这些文件是否正确同步
+scripts\verify-production-files.bat
 ```
 
-确保时间戳是最新的，证明文件已正确更新。
+## 📝 文件说明
 
-## 🎯 最佳实践
+### customer_service.db
+- **类型**: SQLite 数据库
+- **内容**: 用户、店铺、会话、消息等真实数据
+- **大小**: 约 212 KB（会增长）
+- **用途**: 生产环境唯一数据源
 
-1. **永远不要手动复制文件** - 使用脚本自动化
-2. **修改代码后总是运行** `npm run deploy:update`
-3. **生产文件只放在** `服务器数据库/` 目录
-4. **部署前验证** 时间戳和文件大小
-5. **备份重要数据** 在更新前备份生产数据库
+### server.crt
+- **类型**: SSL/TLS 证书
+- **内容**: 公钥证书
+- **大小**: 约 2.80 KB
+- **用途**: HTTPS 加密通信
 
-## 🛠️ 故障排除
+### server.key
+- **类型**: SSL/TLS 私钥
+- **内容**: 私钥（敏感！）
+- **大小**: 约 0.24 KB
+- **安全**: 不要泄露此文件
 
-### 问题：部署后使用的是旧数据库
+## � 更新流程
 
-**解决**:
-```powershell
-npm run deploy:sync-production
+### 更新数据库
+```bash
+# 1. 从服务器下载最新数据库
+scp root@server:/root/ubuntu-deploy-ready/customer_service.db ./服务器数据库/
+
+# 2. 提交到 Git
+git add 服务器数据库/customer_service.db
+git commit -m "Update production database"
 ```
 
-### 问题：HTTPS 证书错误
+### 更新证书
+```bash
+# 1. 将新证书放到这个文件夹
+copy new-server.crt 服务器数据库\server.crt
+copy new-server.key 服务器数据库\server.key
 
-**解决**:
-1. 检查 `服务器数据库/server.crt` 和 `server.key` 是否是正确的
-2. 运行 `npm run deploy:sync-production`
-3. 重新上传到服务器
+# 2. 重新构建部署包
+npm run build:production
 
-### 问题：不确定哪个是生产文件
+# 3. 部署到服务器
+```
 
-**答案**: 只有这三个文件是真实的生产环境文件：
-- `E:\duihua\customer-service-system\服务器数据库\customer_service.db`
-- `E:\duihua\customer-service-system\服务器数据库\server.crt`
-- `E:\duihua\customer-service-system\服务器数据库\server.key`
+## ✅ 验证文件完整性
 
-其他位置的文件都是开发/测试用的。
+```bash
+# 检查文件是否存在且大小正常
+dir 服务器数据库\*.*
+
+# 验证是否正确同步到部署包
+scripts\verify-production-files.bat
+```
 
 ---
 
