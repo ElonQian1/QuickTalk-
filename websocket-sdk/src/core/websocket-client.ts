@@ -125,6 +125,12 @@ export class WebSocketClient {
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
   private reconnectDelay = 1000;
+  private initialServerUrl?: string; // 保存初始指定的服务器地址
+  
+  // 心跳机制
+  private heartbeatInterval: NodeJS.Timeout | null = null;
+  private heartbeatIntervalMs = 30000; // 30秒心跳间隔
+  private lastPongTime = 0;
 
   constructor(shopId: string, customerId?: string) {
     this.shopId = shopId;
@@ -150,14 +156,15 @@ export class WebSocketClient {
     this.isConnecting = true;
 
     try {
-      // 获取服务器配置
+      // 保存初始指定的服务器地址
       if (serverUrl) {
-        // 使用指定的服务器地址
-        this.serverConfig = {
-          serverUrl,
-          wsUrl: serverUrl.replace(/^https?/, serverUrl.startsWith('https') ? 'wss' : 'ws'),
-          version: 'manual'
-        };
+        this.initialServerUrl = serverUrl;
+      }
+
+      // 获取服务器配置
+      if (this.initialServerUrl) {
+        // 使用指定的服务器地址，但仍然通过智能检测机制验证
+        this.serverConfig = await this.configManager.findAvailableServer(this.initialServerUrl);
       } else {
         // 自动检测服务器
         this.serverConfig = await this.configManager.findAvailableServer();
@@ -201,9 +208,13 @@ export class WebSocketClient {
           console.log('✅ WebSocket连接成功');
           this.isConnecting = false;
           this.reconnectAttempts = 0;
+          this.lastPongTime = Date.now();
           
           // 发送认证消息
           this.sendAuthMessage();
+          
+          // 启动心跳
+          this.startHeartbeat();
           
           // 通知连接成功
           this.notifyConnect(this.serverConfig!);
@@ -221,6 +232,7 @@ export class WebSocketClient {
         this.ws.onclose = (event) => {
           console.log('🔌 WebSocket连接关闭', event.code, event.reason);
           this.isConnecting = false;
+          this.stopHeartbeat(); // 停止心跳
           this.notifyDisconnect();
           
           // 如果不是正常关闭，尝试重连
@@ -273,6 +285,12 @@ export class WebSocketClient {
   private handleMessage(data: string): void {
     try {
       const message: WebSocketMessage = JSON.parse(data);
+      
+      // 处理心跳响应
+      if (message.messageType === 'pong') {
+        this.handlePong();
+        return;
+      }
       
       // 添加调试日志
       console.log('🔍 收到原始WebSocket消息:', {
@@ -426,7 +444,8 @@ export class WebSocketClient {
     
     setTimeout(() => {
       if (this.reconnectAttempts <= this.maxReconnectAttempts) {
-        this.connect();
+        // 重连时使用保存的初始服务器地址
+        this.connect(this.initialServerUrl);
       } else {
         console.error('❌ 达到最大重连次数，停止重连');
         this.notifyError(new Error('连接失败，请刷新页面重试'));
@@ -448,6 +467,7 @@ export class WebSocketClient {
    * 断开连接
    */
   disconnect(): void {
+    this.stopHeartbeat(); // 停止心跳
     if (this.ws) {
       this.ws.close(1000, '用户主动断开');
       this.ws = null;
@@ -564,10 +584,57 @@ export class WebSocketClient {
   }
 
   /**
+   * 启动心跳机制
+   */
+  private startHeartbeat(): void {
+    this.stopHeartbeat(); // 确保没有重复的心跳
+    
+    this.heartbeatInterval = setInterval(() => {
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        // 检查是否长时间没有收到pong响应
+        const now = Date.now();
+        if (this.lastPongTime && (now - this.lastPongTime) > this.heartbeatIntervalMs * 2) {
+          console.warn('💔 心跳超时，主动关闭连接重连');
+          this.ws.close();
+          return;
+        }
+        
+        // 发送ping消息
+        console.log('💓 发送心跳 ping');
+        this.ws.send(JSON.stringify({
+          messageType: 'ping',
+          timestamp: now
+        }));
+      } else {
+        this.stopHeartbeat();
+      }
+    }, this.heartbeatIntervalMs);
+  }
+
+  /**
+   * 停止心跳机制
+   */
+  private stopHeartbeat(): void {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
+  }
+
+  /**
+   * 处理pong响应
+   */
+  private handlePong(): void {
+    this.lastPongTime = Date.now();
+    console.log('💓 收到心跳 pong');
+  }
+
+  /**
    * 清理资源
    */
   cleanup(): void {
     this.disconnect();
+    this.stopHeartbeat(); // 清理心跳
     this.messageHandlers = [];
     this.connectHandlers = [];
     this.errorHandlers = [];

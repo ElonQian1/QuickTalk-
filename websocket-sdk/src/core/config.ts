@@ -40,39 +40,99 @@ export class ConfigManager {
 
   /**
    * 智能服务器地址检测
-   * 优先检测当前域名的标准端口，然后尝试备选方案
+   * 1. 优先使用手动指定的服务器地址
+   * 2. 尝试从SDK脚本来源动态获取
+   * 3. 回退到生产环境默认服务器
+   * 4. 最后尝试本地开发环境
    */
-  private detectServerCandidates(): string[] {
+  private detectServerCandidates(manualServerUrl?: string): string[] {
+    const candidates: string[] = [];
+    
+    // 1. 手动指定的服务器地址优先级最高
+    if (manualServerUrl) {
+      candidates.push(manualServerUrl);
+    }
+    
+    // 2. 尝试从SDK脚本来源动态获取
+    const scriptSource = this.getSDKScriptSource();
+    if (scriptSource) {
+      candidates.push(scriptSource);
+    }
+    
+    // 3. 尝试当前页面域名的标准端口
     const currentUrl = window.location;
-    const candidates = [
-      // 优先尝试当前域名的HTTPS标准端口（生产环境）
-      `${currentUrl.protocol}//${currentUrl.hostname}:8443`,
-      // 尝试相同协议和端口
-      `${currentUrl.protocol}//${currentUrl.host}`,
-      // 开发环境备选项 - HTTP/WS 8080端口
-      `${currentUrl.protocol}//${currentUrl.hostname}:8080`,
-      'https://localhost:8080',
+    if (currentUrl.hostname !== 'localhost' && currentUrl.hostname !== '127.0.0.1') {
+      candidates.push(`${currentUrl.protocol}//${currentUrl.hostname}:8443`);
+      candidates.push(`${currentUrl.protocol}//${currentUrl.host}`);
+    }
+    
+    // 4. 生产环境默认服务器（您的服务器）
+    candidates.push('https://43.139.82.12:8443');
+    
+    // 5. 本地开发环境备选项
+    candidates.push(
+      'https://localhost:8443',
       'http://localhost:8080',
-      'https://127.0.0.1:8080',
+      'https://127.0.0.1:8443',
       'http://127.0.0.1:8080'
-    ];
+    );
 
     // 去重处理
     return Array.from(new Set(candidates));
   }
 
   /**
+   * 获取SDK脚本的来源地址
+   */
+  private getSDKScriptSource(): string | null {
+    try {
+      // 查找当前SDK脚本标签
+      const scripts = document.querySelectorAll('script[src*="service-standalone"], script[src*="quicktalk"], script[src*="customer-service"]');
+      
+      for (let i = 0; i < scripts.length; i++) {
+        const script = scripts[i] as HTMLScriptElement;
+        const src = script.src;
+        if (src) {
+          const url = new URL(src);
+          const baseUrl = `${url.protocol}//${url.host}`;
+          console.log(`🔍 检测到SDK脚本来源: ${baseUrl}`);
+          return baseUrl;
+        }
+      }
+      
+      // 备选：查找包含SDK关键词的脚本
+      const allScripts = document.querySelectorAll('script[src]');
+      for (let i = 0; i < allScripts.length; i++) {
+        const script = allScripts[i] as HTMLScriptElement;
+        const src = script.src;
+        if (src && (src.includes('8443') || src.includes('customer') || src.includes('chat'))) {
+          const url = new URL(src);
+          const baseUrl = `${url.protocol}//${url.host}`;
+          console.log(`🔍 通过关键词检测到可能的服务器: ${baseUrl}`);
+          return baseUrl;
+        }
+      }
+    } catch (error) {
+      console.warn('🔍 无法检测SDK脚本来源:', error);
+    }
+    
+    return null;
+  }
+
+  /**
    * 异步检测可用的服务器地址
    */
-  async findAvailableServer(): Promise<ServerConfig> {
-    // 检查缓存
-    if (this.serverConfigCache && 
+  async findAvailableServer(manualServerUrl?: string): Promise<ServerConfig> {
+    // 检查缓存（只有在没有手动指定服务器时才使用缓存）
+    if (!manualServerUrl && this.serverConfigCache && 
         (Date.now() - this.lastConfigFetch) < this.configCacheTime) {
       return this.serverConfigCache;
     }
 
-    const candidates = this.detectServerCandidates();
+    const candidates = this.detectServerCandidates(manualServerUrl);
     const errors: string[] = [];
+
+    console.log(`🔍 开始测试服务器候选地址 (${candidates.length}个):`, candidates);
 
     for (const url of candidates) {
       try {
