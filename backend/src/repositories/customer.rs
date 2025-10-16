@@ -175,8 +175,9 @@ impl CustomerRepository {
             .ok_or_else(|| anyhow::anyhow!("Customer not found"))?
             .into();
         
-        customer.is_online = Set(Some(false)); // 设置为离线
-        customer.updated_at = Set(Some(chrono::Utc::now().naive_utc()));
+        // 数据库使用 status 字段，1=活跃，0=禁用
+        customer.status = Set(Some(0)); // 设置为禁用
+        customer.last_active_at = Set(Some(chrono::Utc::now().naive_utc()));
         customer.update(db).await?;
         
         Ok(())
@@ -190,8 +191,9 @@ impl CustomerRepository {
             .ok_or_else(|| anyhow::anyhow!("Customer not found"))?
             .into();
         
-        customer.is_online = Set(Some(true)); // 设置为在线
-        customer.updated_at = Set(Some(chrono::Utc::now().naive_utc()));
+        // 数据库使用 status 字段，1=活跃，0=禁用
+        customer.status = Set(Some(1)); // 设置为活跃
+        customer.last_active_at = Set(Some(chrono::Utc::now().naive_utc()));
         customer.update(db).await?;
         
         Ok(())
@@ -220,8 +222,8 @@ impl CustomerRepository {
             .filter(customers::Column::ShopId.eq(shop_id))
             .filter(
                 Condition::any()
-                    .add(customers::Column::Name.contains(keyword))
-                    .add(customers::Column::Email.contains(keyword))
+                    .add(customers::Column::CustomerName.contains(keyword))
+                    .add(customers::Column::CustomerEmail.contains(keyword))
                     .add(customers::Column::CustomerId.contains(keyword))
             )
             .order_by_desc(customers::Column::LastActiveAt)
