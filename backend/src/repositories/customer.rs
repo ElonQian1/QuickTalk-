@@ -37,18 +37,18 @@ impl CustomerRepository {
         avatar_url: Option<String>,
     ) -> Result<customers::Model> {
         // 先查找是否存在
-        if let Some(mut existing) = Self::find_by_shop_and_customer_id(db, shop_id, &customer_id).await? {
+        if let Some(existing) = Self::find_by_shop_and_customer_id(db, shop_id, &customer_id).await? {
             // 更新
             let mut customer: customers::ActiveModel = existing.clone().into();
             
             if let Some(n) = name {
-                customer.name = Set(Some(n));
+                customer.customer_name = Set(Some(n));
             }
             if let Some(e) = email {
-                customer.email = Set(Some(e));
+                customer.customer_email = Set(Some(e));
             }
             if let Some(a) = avatar_url {
-                customer.avatar_url = Set(Some(a));
+                customer.customer_avatar = Set(Some(a));
             }
             customer.last_active_at = Set(Some(chrono::Utc::now().naive_utc()));
             
@@ -58,12 +58,12 @@ impl CustomerRepository {
             let customer = customers::ActiveModel {
                 shop_id: Set(shop_id),
                 customer_id: Set(customer_id),
-                name: Set(name),
-                email: Set(email),
-                avatar_url: Set(avatar_url),
-                created_at: Set(Some(chrono::Utc::now().naive_utc())),
+                customer_name: Set(name),
+                customer_email: Set(email),
+                customer_avatar: Set(avatar_url),
+                first_visit_at: Set(Some(chrono::Utc::now().naive_utc())),
                 last_active_at: Set(Some(chrono::Utc::now().naive_utc())),
-                is_online: Set(Some(false)), // 默认离线
+                status: Set(Some(1)), // 默认状态为1（活跃）
                 ..Default::default()
             };
             
