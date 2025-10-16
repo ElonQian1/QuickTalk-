@@ -56,10 +56,8 @@ impl ShopService {
             .await?
             .ok_or_else(|| anyhow::anyhow!("owner_not_found"))?;
         
-        // 2. 验证 slug 是否唯一
-        if ShopRepository::slug_exists(&self.db, &slug).await? {
-            anyhow::bail!("slug_already_exists");
-        }
+        // 2. 生成唯一的 slug
+        let unique_slug = self.generate_unique_slug(&slug).await?;
         
         // 3. 生成 API Key
         let api_key = ShopRepository::generate_api_key();
@@ -68,12 +66,27 @@ impl ShopService {
         let shop = ShopRepository::create(
             &self.db,
             name,
-            slug,
+            unique_slug,
             description,
             owner_id, // 直接传递i32而不是Some(owner_id)
         ).await?;
         
         Ok(shop)
+    }
+    
+    /// 生成唯一的slug
+    /// 
+    /// 如果原始slug已存在，则添加数字后缀 (如: "测试店铺" -> "测试店铺-2")
+    async fn generate_unique_slug(&self, base_slug: &str) -> Result<String> {
+        let mut candidate_slug = base_slug.to_string();
+        let mut counter = 1;
+        
+        while ShopRepository::slug_exists(&self.db, &candidate_slug).await? {
+            counter += 1;
+            candidate_slug = format!("{}-{}", base_slug, counter);
+        }
+        
+        Ok(candidate_slug)
     }
     
     /// 获取用户可访问的所有店铺
