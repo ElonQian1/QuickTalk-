@@ -373,7 +373,8 @@ class ConfigManager {
             return {
                 version: config.version || 'unknown',
                 serverUrl: url,
-                wsUrl: config.wsUrl || url.replace(/^https?/, url.startsWith('https') ? 'wss' : 'ws'),
+                // 🔒 正确的协议转换：https: -> wss:, http: -> ws:
+                wsUrl: config.wsUrl || url.replace(/^https:/, 'wss:').replace(/^http:/, 'ws:'),
                 endpoints: config.endpoints
             };
         }
@@ -558,39 +559,23 @@ class WebSocketClient {
         if (!this.serverConfig) {
             throw new Error('服务器配置未找到');
         }
-        // 构建WebSocket URL，采用降级策略：优先ws://，失败后尝试wss://
+        // 构建WebSocket URL
         let wsUrl;
         if ((_b = (_a = this.serverConfig.endpoints) === null || _a === void 0 ? void 0 : _a.websocket) === null || _b === void 0 ? void 0 : _b.customer) {
             wsUrl = `${this.serverConfig.endpoints.websocket.customer}/${this.shopId}/${this.customerId}`;
         }
         else {
-            let wsBase = this.serverConfig.wsUrl;
-            if (!wsBase) {
-                // 🚀 新策略：优先尝试ws://协议
-                wsBase = this.serverConfig.serverUrl.replace(/^https?/, 'ws');
-            }
+            // 🔒 根据 serverUrl 的协议自动选择 ws:// 或 wss://
+            // HTTPS 页面必须使用 wss://，否则浏览器会阻止混合内容
+            const wsBase = this.serverConfig.wsUrl ||
+                this.serverConfig.serverUrl.replace(/^https:/, 'wss:').replace(/^http:/, 'ws:');
             wsUrl = `${wsBase}/ws/customer/${this.shopId}/${this.customerId}`;
         }
-        console.log(`🔗 优先尝试WebSocket连接: ${wsUrl}`);
-        return this.tryWebSocketConnection(wsUrl);
-    }
-    /**
-     * 尝试WebSocket连接，支持协议降级
-     */
-    async tryWebSocketConnection(wsUrl) {
+        console.log(`🔗 连接WebSocket: ${wsUrl}`);
         return new Promise((resolve, reject) => {
             try {
                 this.ws = new WebSocket(wsUrl);
-                // 设置连接超时
-                const connectionTimeout = setTimeout(() => {
-                    if (this.ws && this.ws.readyState === WebSocket.CONNECTING) {
-                        console.log('⏰ WebSocket连接超时，尝试降级到wss://');
-                        this.ws.close();
-                        this.trySecureConnection().then(resolve).catch(reject);
-                    }
-                }, 5000); // 5秒超时
                 this.ws.onopen = () => {
-                    clearTimeout(connectionTimeout);
                     console.log('✅ WebSocket连接成功');
                     this.isConnecting = false;
                     this.reconnectAttempts = 0;
@@ -609,82 +594,9 @@ class WebSocketClient {
                     this.handleMessage(event.data);
                 };
                 this.ws.onclose = (event) => {
-                    clearTimeout(connectionTimeout);
-                    console.log('🔌 ws://连接关闭', event.code, event.reason);
+                    console.log('🔌 WebSocket连接关闭', event.code, event.reason);
                     this.isConnecting = false;
-                    // ws://连接失败，尝试wss://
-                    if (event.code !== 1000) {
-                        console.log('🔄 ws://连接异常关闭，尝试降级到wss://');
-                        this.trySecureConnection().then(resolve).catch(reject);
-                    }
-                };
-                this.ws.onerror = (error) => {
-                    clearTimeout(connectionTimeout);
-                    console.error('❌ ws://连接错误，尝试降级到wss://');
-                    // 不要立即reject，而是尝试wss://
-                };
-            }
-            catch (error) {
-                this.isConnecting = false;
-                reject(error);
-            }
-        });
-    }
-    /**
-     * 尝试安全连接 (wss://)
-     */
-    async trySecureConnection() {
-        var _a, _b;
-        if (!this.serverConfig) {
-            throw new Error('服务器配置未找到');
-        }
-        // 构建wss://协议的WebSocket URL
-        let wsUrl;
-        if ((_b = (_a = this.serverConfig.endpoints) === null || _a === void 0 ? void 0 : _a.websocket) === null || _b === void 0 ? void 0 : _b.customer) {
-            wsUrl = `${this.serverConfig.endpoints.websocket.customer}/${this.shopId}/${this.customerId}`;
-            // 如果是ws://，替换为wss://
-            if (wsUrl.startsWith('ws:')) {
-                wsUrl = wsUrl.replace(/^ws:/, 'wss:');
-            }
-        }
-        else {
-            let wsBase = this.serverConfig.wsUrl;
-            if (!wsBase) {
-                // 强制使用wss://协议
-                wsBase = this.serverConfig.serverUrl.replace(/^https?/, 'wss');
-            }
-            else {
-                // 确保是wss://协议
-                wsBase = wsBase.replace(/^ws:/, 'wss:');
-            }
-            wsUrl = `${wsBase}/ws/customer/${this.shopId}/${this.customerId}`;
-        }
-        console.log(`🔗 降级尝试wss://连接: ${wsUrl}`);
-        return new Promise((resolve, reject) => {
-            try {
-                this.ws = new WebSocket(wsUrl);
-                this.ws.onopen = () => {
-                    console.log('✅ wss://连接成功');
-                    this.isConnecting = false;
-                    this.reconnectAttempts = 0;
-                    this.lastPongTime = Date.now();
-                    // 发送认证消息
-                    this.sendAuthMessage();
-                    // 启动心跳
-                    this.startHeartbeat();
-                    // 通知连接成功
-                    this.notifyConnect(this.serverConfig);
-                    // 开始版本检查
-                    this.configManager.checkForUpdates(this.serverConfig.serverUrl);
-                    resolve();
-                };
-                this.ws.onmessage = (event) => {
-                    this.handleMessage(event.data);
-                };
-                this.ws.onclose = (event) => {
-                    console.log('🔌 wss://连接关闭', event.code, event.reason);
-                    this.isConnecting = false;
-                    this.stopHeartbeat();
+                    this.stopHeartbeat(); // 停止心跳
                     this.notifyDisconnect();
                     // 如果不是正常关闭，尝试重连
                     if (event.code !== 1000 && this.reconnectAttempts < this.maxReconnectAttempts) {
@@ -692,16 +604,16 @@ class WebSocketClient {
                     }
                 };
                 this.ws.onerror = (error) => {
-                    console.error('❌ wss://连接也失败:', error);
+                    console.error('❌ WebSocket错误:', error);
                     this.isConnecting = false;
-                    this.notifyError(new Error('WebSocket连接失败 (ws:// 和 wss:// 都不可用)'));
+                    this.notifyError(new Error('WebSocket连接错误'));
                     reject(error);
                 };
                 // 连接超时处理
                 setTimeout(() => {
                     if (this.ws && this.ws.readyState === WebSocket.CONNECTING) {
                         this.ws.close();
-                        reject(new Error('wss://连接超时'));
+                        reject(new Error('WebSocket连接超时'));
                     }
                 }, 10000);
             }
