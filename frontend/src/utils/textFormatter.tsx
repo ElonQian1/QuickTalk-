@@ -88,7 +88,12 @@ interface MessageTextProps {
 }
 
 export const MessageText: React.FC<MessageTextProps> = ({ content, className }) => {
-  if (!content) return null;
+  console.log('🔍 MessageText 收到内容:', { content, type: typeof content, length: content?.length });
+  
+  if (!content) {
+    console.log('⚠️ MessageText 内容为空，返回null');
+    return null;
+  }
   
   // 检查是否为纯表情消息
   if (isEmojiOnlyMessage(content)) {
