@@ -205,7 +205,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
     // 如果开启声音，播放测试音
     if (newValue) {
       try {
-        await notificationService.playSound(0.5);
+        await notificationService.playSound(1.0); // 最大音量测试
         toast.success('提示音已启用');
       } catch (error) {
         toast('提示音播放失败，可能需要用户交互后才能播放', { icon: '⚠️' });

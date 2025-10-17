@@ -195,7 +195,7 @@ export const NotificationPermissionBanner: React.FC<NotificationPermissionBanner
     if (result === 'granted') {
       setVisible(false);
       // 播放成功提示音
-      notificationService.playSound(0.5).catch(() => {});
+      notificationService.playSound(0.8).catch(() => {}); // 提高演示音量
     } else if (result === 'denied') {
       setVisible(false);
       // 记录拒绝时间，避免频繁打扰

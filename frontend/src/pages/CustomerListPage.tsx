@@ -11,6 +11,7 @@ import { theme } from '../styles/globalStyles';
 import toast from 'react-hot-toast';
 import { useConversationsStore } from '../stores/conversationsStore';
 import { useNotificationsStore } from '../stores/notificationsStore';
+import { useWSStore } from '../stores/wsStore';
 
 const Container = styled.div`
   height: 100%;
@@ -25,11 +26,13 @@ const CustomerList = styled.div`
   background: ${theme.colors.divider};
 `;
 
-const CustomerCard = styled(Card)`
+const CustomerCard = styled(Card)<{ $hasUnread?: boolean }>`
   padding: ${theme.spacing.md};
   cursor: pointer;
   transition: all 0.2s ease;
   border-radius: 0;
+  background: ${props => props.$hasUnread ? '#fff8f0' : 'white'};
+  border-left: ${props => props.$hasUnread ? `3px solid ${theme.colors.primary}` : '3px solid transparent'};
   
   &:first-child {
     border-top-left-radius: ${theme.borderRadius.medium};
@@ -42,7 +45,7 @@ const CustomerCard = styled(Card)`
   }
   
   &:hover {
-    background: #f8f8f8;
+    background: ${props => props.$hasUnread ? '#fff3e6' : '#f8f8f8'};
   }
   
   &:active {
@@ -119,9 +122,10 @@ const LastMessage = styled.div`
   border-top: 1px solid ${theme.colors.divider};
 `;
 
-const MessageContent = styled.div`
+const MessageContent = styled.div<{ $isUnread?: boolean }>`
   font-size: ${theme.typography.small};
-  color: ${theme.colors.text.secondary};
+  color: ${props => props.$isUnread ? theme.colors.text.primary : theme.colors.text.secondary};
+  font-weight: ${props => props.$isUnread ? 600 : 400};
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -245,6 +249,26 @@ const CustomerListPage: React.FC = () => {
     }
   }, [shopId]);
 
+  // 监听实时消息更新，自动刷新列表
+  useEffect(() => {
+    if (!shopId) return;
+
+    const handleNewMessage = (data: any) => {
+      console.log('📬 客户列表收到新消息:', data);
+      
+      // 刷新客户列表以获取最新消息和未读数
+      fetchCustomers(parseInt(shopId));
+    };
+
+    // 使用 WebSocket store 的监听器
+    const { addMessageListener, removeMessageListener } = useWSStore.getState();
+    addMessageListener(handleNewMessage);
+
+    return () => {
+      removeMessageListener(handleNewMessage);
+    };
+  }, [shopId]);
+
   const fetchCustomers = async (shopId: number) => {
     try {
       const response = await api.get(`/api/shops/${shopId}/customers`);
@@ -252,7 +276,28 @@ const CustomerListPage: React.FC = () => {
       const normalized = payload.map((entry) =>
         normalizeCustomer(entry as ApiCustomer)
       );
-      setCustomers(normalized);
+      
+      // 排序逻辑：新消息置顶
+      // 1. 有未读消息的排在前面
+      // 2. 在同一未读状态下，按最后消息时间倒序（最新的在前）
+      // 3. 没有消息的按最后活跃时间倒序
+      const sorted = normalized.sort((a, b) => {
+        // 优先级1：未读消息数量（降序）
+        const unreadDiff = (b.unread_count || 0) - (a.unread_count || 0);
+        if (unreadDiff !== 0) return unreadDiff;
+        
+        // 优先级2：最后消息时间（降序）
+        const aTime = a.last_message?.created_at || a.session?.last_message_at || a.customer.last_active_at;
+        const bTime = b.last_message?.created_at || b.session?.last_message_at || b.customer.last_active_at;
+        
+        if (aTime && bTime) {
+          return new Date(bTime).getTime() - new Date(aTime).getTime();
+        }
+        
+        return 0;
+      });
+      
+      setCustomers(sorted);
 
       // 初始化通知中心：按会话维度设置未读（若有会话）
       try {
@@ -355,11 +400,14 @@ const CustomerListPage: React.FC = () => {
               return null;
             }
             
+            const hasUnread = (item.unread_count || 0) > 0;
+            
             return (
               <CustomerCard
                 key={item.customer.id}
                 onClick={() => handleCustomerClick(item)}
                 className="fade-in"
+                $hasUnread={hasUnread}
               >
                 <CustomerHeader>
                   <CustomerAvatar $src={item.customer.customer_avatar}>
@@ -367,9 +415,6 @@ const CustomerListPage: React.FC = () => {
                      !item.customer.customer_avatar && 
                      getCustomerAvatar(item.customer)
                     }
-                    {item.unread_count > 0 && (
-                      <Badge count={item.unread_count} />
-                    )}
                   </CustomerAvatar>
                 
                 <CustomerInfo>
@@ -391,14 +436,14 @@ const CustomerListPage: React.FC = () => {
                   </CustomerMeta>
                 </CustomerInfo>
                 
-                {item.unread_count > 0 && (
+                {hasUnread && (
                   <UnreadBadge count={item.unread_count} />
                 )}
               </CustomerHeader>
 
               {item.last_message && (
                 <LastMessage>
-                  <MessageContent>
+                  <MessageContent $isUnread={hasUnread}>
                     {item.last_message.sender_type === 'customer' ? '' : '[我] '}
                     {item.last_message.message_type === 'text' 
                       ? item.last_message.content 

@@ -22,8 +22,31 @@ class AudioNotificationManager {
   private audio: HTMLAudioElement | null = null;
   private isLoaded = false;
   private loadPromise: Promise<void> | null = null;
+  private isActivated = false; // 是否已通过用户交互激活
 
-  constructor(private soundUrl: string) {}
+  constructor(private soundUrl: string) {
+    // 监听用户首次交互，激活音频上下文
+    this.setupUserActivation();
+  }
+
+  /**
+   * 设置用户激活监听
+   */
+  private setupUserActivation(): void {
+    const activate = () => {
+      if (this.isActivated) return;
+      this.isActivated = true;
+      console.log('🎵 音频上下文已激活');
+      // 移除监听器
+      document.removeEventListener('click', activate);
+      document.removeEventListener('keydown', activate);
+      document.removeEventListener('touchstart', activate);
+    };
+
+    document.addEventListener('click', activate, { passive: true });
+    document.addEventListener('keydown', activate, { passive: true });
+    document.addEventListener('touchstart', activate, { passive: true });
+  }
 
   /**
    * 预加载音频文件
@@ -32,26 +55,33 @@ class AudioNotificationManager {
     if (this.isLoaded) return;
     if (this.loadPromise) return this.loadPromise;
 
-    this.loadPromise = new Promise((resolve, reject) => {
+    this.loadPromise = new Promise((resolve) => {
       try {
         this.audio = new Audio(this.soundUrl);
         this.audio.preload = 'auto';
         
         this.audio.addEventListener('canplaythrough', () => {
           this.isLoaded = true;
+          console.log('✅ 提示音加载成功');
           resolve();
         }, { once: true });
 
-        this.audio.addEventListener('error', (e) => {
-          console.error('❌ 音频加载失败:', e);
-          reject(new Error('音频加载失败'));
+        this.audio.addEventListener('error', () => {
+          console.info('ℹ️ 提示音文件未找到，声音功能将被禁用。请参阅 /public/sounds/SOUND_GUIDE.md');
+          this.audio = null;
+          this.isLoaded = false;
+          // 优雅降级：不抛出错误，允许其他通知功能继续工作
+          resolve();
         }, { once: true });
 
         // 强制开始加载
         this.audio.load();
       } catch (error) {
-        console.error('❌ 音频初始化失败:', error);
-        reject(error);
+        console.info('ℹ️ 音频初始化失败，声音功能将被禁用');
+        this.audio = null;
+        this.isLoaded = false;
+        // 优雅降级：不抛出错误
+        resolve();
       }
     });
 
@@ -63,12 +93,20 @@ class AudioNotificationManager {
    */
   async play(volume: number = 0.5): Promise<void> {
     try {
+      // 检查是否已激活
+      if (!this.isActivated) {
+        console.info('ℹ️ 音频未激活，需要用户交互后才能播放声音');
+        return;
+      }
+
       if (!this.isLoaded) {
         await this.preload();
       }
 
       if (!this.audio) {
-        throw new Error('音频对象未初始化');
+        // 音频对象未初始化（文件加载失败），静默跳过
+        console.debug('音频对象未初始化');
+        return;
       }
 
       // 设置音量
@@ -78,15 +116,19 @@ class AudioNotificationManager {
       this.audio.currentTime = 0;
 
       // 播放音频
-      await this.audio.play();
+      const playPromise = this.audio.play();
+      if (playPromise) {
+        await playPromise;
+        console.log('🔊 提示音播放成功');
+      }
     } catch (error) {
       // 处理自动播放策略限制
       if (error instanceof Error && error.name === 'NotAllowedError') {
-        console.warn('⚠️ 浏览器阻止自动播放，需要用户交互后才能播放声音');
+        console.info('ℹ️ 浏览器阻止自动播放，需要用户交互后才能播放声音');
       } else {
-        console.error('❌ 播放提示音失败:', error);
+        console.debug('播放提示音失败:', error);
       }
-      throw error;
+      // 不再抛出错误，静默处理
     }
   }
 
@@ -299,25 +341,52 @@ class NotificationService {
     if (this.initialized) return;
 
     try {
-      // 预加载提示音
+      // 预加载提示音（失败时不影响其他功能）
       await this.audioManager.preload();
-      console.log('✅ 通知服务初始化完成');
       this.initialized = true;
+      console.log('✅ 通知服务初始化完成');
     } catch (error) {
-      console.error('❌ 通知服务初始化失败:', error);
-      // 不抛出错误，允许其他功能继续工作
+      // 即使音频加载失败，仍标记为已初始化，允许震动和浏览器通知继续工作
+      this.initialized = true;
+      console.info('ℹ️ 通知服务部分初始化（音频不可用）');
     }
   }
 
   /**
    * 播放提示音
    */
-  async playSound(volume: number = 0.5): Promise<void> {
+  async playSound(volume: number = 1.0): Promise<void> {
     try {
       await this.audioManager.play(volume);
     } catch (error) {
       // 静默处理，不影响其他功能
       console.debug('提示音播放被阻止或失败');
+    }
+  }
+
+  /**
+   * 测试音频播放功能（用于调试）
+   */
+  async testSound(): Promise<{ success: boolean; error?: string }> {
+    try {
+      console.log('🔊 开始测试音频播放...');
+      console.log('音频文件路径:', '/sounds/notification.mp3');
+      
+      // 检查音频文件是否存在
+      const response = await fetch('/sounds/notification.mp3', { method: 'HEAD' });
+      if (!response.ok) {
+        return { success: false, error: `音频文件不存在 (${response.status})` };
+      }
+      console.log('✅ 音频文件存在');
+
+      // 尝试播放
+      await this.audioManager.play(1.0);
+      console.log('✅ 音频播放成功');
+      return { success: true };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error('❌ 音频播放失败:', errorMsg);
+      return { success: false, error: errorMsg };
     }
   }
 
@@ -393,7 +462,7 @@ class NotificationService {
 
     // 播放声音
     if (playSound) {
-      this.playSound(0.5).catch(() => {
+      this.playSound(1.0).catch(() => { // 最大音量
         // 静默失败
       });
     }

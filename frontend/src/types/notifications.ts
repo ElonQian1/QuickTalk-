@@ -93,6 +93,6 @@ export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
   notifications: true,
   soundEnabled: true,
   vibrationEnabled: true,
-  soundVolume: 0.5,
+  soundVolume: 1.0,
   vibrationPattern: [200],
 };

@@ -140,8 +140,8 @@ export class CustomerServiceSDK {
         notificationsEnabled: true,
         soundEnabled: n.soundEnabled !== false,
         vibrationEnabled: n.vibrationEnabled !== false,
-        soundUrl: n.soundUrl,
-        soundVolume: typeof n.soundVolume === 'number' ? n.soundVolume : 0.5,
+        soundUrl: n.soundUrl || '/static/embed/notification.wav', // 默认使用内置提示音
+        soundVolume: typeof n.soundVolume === 'number' ? n.soundVolume : 0.8, // 提高默认音量到80%
         vibrationPattern: n.vibrationPattern ?? [200],
       });
       this.notification.init().catch(() => {});

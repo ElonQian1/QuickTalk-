@@ -39,7 +39,7 @@ export class CustomerServiceSDK {
                 soundEnabled: n.soundEnabled !== false,
                 vibrationEnabled: n.vibrationEnabled !== false,
                 soundUrl: n.soundUrl || '/static/embed/notification.wav', // 默认使用内置提示音
-                soundVolume: typeof n.soundVolume === 'number' ? n.soundVolume : 0.5,
+                soundVolume: typeof n.soundVolume === 'number' ? n.soundVolume : 0.8, // 提高默认音量到80%
                 vibrationPattern: (_a = n.vibrationPattern) !== null && _a !== void 0 ? _a : [200],
             });
             this.notification.init().catch(() => { });
@@ -358,14 +358,19 @@ export class CustomerServiceSDK {
                     // 仅当客服发来的消息时触发通知
                     if (parsed.senderType === 'staff') {
                         const n = this.config.notification || {};
-                        const showBrowser = n.showBrowserNotification !== false; // 默认展示
+                        const browserEnabled = n.showBrowserNotification !== false; // 默认展示
+                        const preview = n.previewContentEnabled !== false; // 默认展示，除非显式关闭
                         (_d = this.notification) === null || _d === void 0 ? void 0 : _d.notifyNewMessage({
                             title: '客服回复',
-                            body: parsed.messageType === 'text' ? (parsed.content || '') : '收到一条新消息',
+                            body: preview && parsed.messageType === 'text' ? (parsed.content || '') : '收到一条新消息',
                             tag: parsed.sessionId ? `session-${parsed.sessionId}` : undefined,
                             playSound: n.soundEnabled !== false,
                             vibrate: n.vibrationEnabled !== false,
-                            showNotification: showBrowser,
+                            showNotification: browserEnabled,
+                            onClick: (tag) => { try {
+                                window.focus();
+                            }
+                            catch (_a) { } }
                         }).catch(() => { });
                     }
                     break;

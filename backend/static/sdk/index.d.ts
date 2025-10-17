@@ -36,6 +36,7 @@ export interface SDKConfig {
         soundEnabled?: boolean;
         vibrationEnabled?: boolean;
         showBrowserNotification?: boolean;
+        previewContentEnabled?: boolean;
         soundUrl?: string;
         soundVolume?: number;
         vibrationPattern?: number | number[];
