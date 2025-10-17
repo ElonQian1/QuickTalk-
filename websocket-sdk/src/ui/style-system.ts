@@ -161,8 +161,8 @@ export class StyleSystem {
       baseFontSize,
       baseLineHeight: 1.5,
       
-      // FAB按钮尺寸 - 确保足够大以便点击，但不能过大
-      fabSize: Math.max(56, Math.min(120, Math.round(baseFontSize * 3))), // 限制在56-120px之间
+      // FAB按钮尺寸 - 增大尺寸以容纳文案
+      fabSize: Math.max(72, Math.min(140, Math.round(baseFontSize * 4))), // 增大到72-140px之间
       
       // 面板尺寸 - 基于视口大小动态计算，分别处理X/Y维度
       panelWidth: (() => {
@@ -290,9 +290,9 @@ export class StyleSystem {
   position: fixed !important;
   bottom: ${config.spacing.xl}px !important;
   right: ${config.spacing.xl}px !important;
-  width: ${config.fabSize}px !important;
+  min-width: ${Math.round(config.fabSize * 1.8)}px !important;
   height: ${config.fabSize}px !important;
-  border-radius: 50% !important;
+  border-radius: ${Math.round(config.fabSize / 2)}px !important;
   background: linear-gradient(135deg, #07C160 0%, #06A94D 100%) !important;
   border: none !important;
   cursor: pointer !important;
@@ -301,13 +301,33 @@ export class StyleSystem {
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  font-size: ${Math.round(config.fabSize * 0.4)}px !important;
+  gap: ${Math.round(config.fabSize * 0.15)}px !important;
+  font-size: ${Math.round(config.fabSize * 0.3)}px !important;
+  font-weight: 500 !important;
   color: #ffffff !important;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
   transform: scale(1) !important;
   outline: none !important;
   margin: 0 !important;
-  padding: 0 !important;
+  padding: 0 ${Math.round(config.fabSize * 0.3)}px !important;
+}
+
+/* FAB按钮图标 */
+.${this.namespace} .${p}fab .fab-icon {
+  font-size: ${Math.round(config.fabSize * 0.4)}px !important;
+  line-height: 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* FAB按钮文案 */
+.${this.namespace} .${p}fab .fab-text {
+  font-size: ${Math.round(config.fabSize * 0.25)}px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+  white-space: nowrap !important;
+  letter-spacing: 0.5px !important;
 }
 
 /* FAB按钮中的SVG图标 */

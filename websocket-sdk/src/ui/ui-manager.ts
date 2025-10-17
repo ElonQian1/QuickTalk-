@@ -193,8 +193,8 @@ export class UIManager {
     // 创建FAB按钮
     const fab = document.createElement('button');
     fab.className = `${prefix}fab`;
-    // 使用更好看的emoji图标
-    fab.innerHTML = '💬';
+    // 包含图标和文案
+    fab.innerHTML = '<span class="fab-icon">💬</span><span class="fab-text">在线客服</span>';
     fab.title = '打开客服';
     fab.style.pointerEvents = 'auto';
 
