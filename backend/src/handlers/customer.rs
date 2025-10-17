@@ -5,6 +5,7 @@ use axum::{
 use serde::Deserialize;
 
 use crate::{auth::AuthUser, error::AppError, models::*, AppState};
+use crate::services::permissions as perms;
 
 #[derive(Debug, Deserialize)]
 pub(crate) struct CustomerListQuery {
@@ -23,6 +24,13 @@ pub async fn get_customers(
     AuthUser { user_id }: AuthUser,
     Path(shop_id): Path<i64>,
 ) -> Result<Json<Vec<CustomerWithSession>>, AppError> {
+    // SQLx 权限校验（店主或成员）
+    if let Err(e) = perms::ensure_member_or_owner_sqlx(&state.db, user_id, shop_id).await {
+        return match e {
+            AppError::Unauthorized => Err(AppError::Forbidden),
+            other => Err(other),
+        };
+    }
     eprintln!("🔍 get_customers: user_id={}, shop_id={}", user_id, shop_id);
     
     let result = state
@@ -70,6 +78,13 @@ pub async fn get_customers_paged(
     Path(shop_id): Path<i64>,
     Query(q): Query<CustomerListQuery>,
 ) -> Result<Json<PageResult<CustomerWithSession>>, AppError> {
+    // SQLx 权限校验（店主或成员）
+    if let Err(e) = perms::ensure_member_or_owner_sqlx(&state.db, user_id, shop_id).await {
+        return match e {
+            AppError::Unauthorized => Err(AppError::Forbidden),
+            other => Err(other),
+        };
+    }
     let mut limit = q.limit.unwrap_or(50);
     let mut offset = q.offset.unwrap_or(0);
     if limit <= 0 { limit = 50; }
@@ -110,6 +125,13 @@ pub async fn reset_unread(
     AuthUser { user_id }: AuthUser,
     Path((shop_id, customer_id)): Path<(i64, i64)>,
 ) -> Result<Json<serde_json::Value>, AppError> {
+    // SQLx 权限校验（店主或成员）
+    if let Err(e) = perms::ensure_member_or_owner_sqlx(&state.db, user_id, shop_id).await {
+        return match e {
+            AppError::Unauthorized => Err(AppError::Forbidden),
+            other => Err(other),
+        };
+    }
     match state
         .session_service
         .reset_unread_count(user_id, shop_id.try_into().unwrap(), customer_id.try_into().unwrap())
@@ -126,6 +148,13 @@ pub async fn reset_unread_all(
     AuthUser { user_id }: AuthUser,
     Path(shop_id): Path<i64>,
 ) -> Result<Json<serde_json::Value>, AppError> {
+    // SQLx 权限校验（店主或成员）
+    if let Err(e) = perms::ensure_member_or_owner_sqlx(&state.db, user_id, shop_id).await {
+        return match e {
+            AppError::Unauthorized => Err(AppError::Forbidden),
+            other => Err(other),
+        };
+    }
     match state
         .session_service
         .reset_all_unread_in_shop(user_id, shop_id.try_into().unwrap())

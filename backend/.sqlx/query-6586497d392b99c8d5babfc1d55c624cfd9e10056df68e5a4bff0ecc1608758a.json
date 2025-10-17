@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT (\n            (SELECT COUNT(*) FROM shops s WHERE s.id = ? AND s.owner_id = ?) +\n            (SELECT COUNT(*) FROM shop_staffs ss WHERE ss.shop_id = ? AND ss.user_id = ?)\n        ) as \"count!: i64\"\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "count!: i64",
+        "ordinal": 0,
+        "type_info": "Int"
+      }
+    ],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "6586497d392b99c8d5babfc1d55c624cfd9e10056df68e5a4bff0ecc1608758a"
+}

@@ -157,3 +157,101 @@ async fn test_wrong_column_name_should_fail() {
     
     pool.close().await;
 }
+
+#[tokio::test]
+async fn test_shops_sort_created_at_desc_query() {
+    let database_url = std::env::var("DATABASE_URL")
+        .unwrap_or_else(|_| "sqlite:../服务器数据库/customer_service.db".to_string());
+    let pool = SqlitePool::connect(&database_url).await.expect("Failed to connect to database");
+
+    // 模拟 metrics.rs 中 created_at_desc 排序（店主视角 + 仅活跃）
+        let _rows = sqlx::query!(
+        r#"
+        SELECT 
+            s.id,
+            (
+              SELECT COALESCE(SUM(uc.unread_count), 0)
+              FROM unread_counts uc
+              WHERE uc.shop_id = s.id
+                        ) AS "unread_total: i64"
+        FROM shops s
+        WHERE s.owner_id = ? AND s.is_active = 1
+        ORDER BY s.created_at DESC
+        LIMIT ? OFFSET ?
+        "#,
+        1_i64,
+        10_i64,
+        0_i64,
+    )
+    .fetch_all(&pool)
+    .await
+    .expect("created_at_desc query should compile and run");
+
+    pool.close().await;
+}
+
+#[tokio::test]
+async fn test_shops_sort_name_asc_query() {
+    let database_url = std::env::var("DATABASE_URL")
+        .unwrap_or_else(|_| "sqlite:../服务器数据库/customer_service.db".to_string());
+    let pool = SqlitePool::connect(&database_url).await.expect("Failed to connect to database");
+
+    // 模拟 metrics.rs 中 name_asc 排序（员工视角 + 全部）
+        let _rows = sqlx::query!(
+        r#"
+        SELECT 
+            s.id,
+            (
+              SELECT COALESCE(SUM(uc.unread_count), 0)
+              FROM unread_counts uc
+              WHERE uc.shop_id = s.id
+                        ) AS "unread_total: i64"
+        FROM shop_staffs ss
+        JOIN shops s ON s.id = ss.shop_id
+        WHERE ss.user_id = ?
+        ORDER BY s.shop_name ASC
+        LIMIT ? OFFSET ?
+        "#,
+        1_i64,
+        10_i64,
+        0_i64,
+    )
+    .fetch_all(&pool)
+    .await
+    .expect("name_asc query should compile and run");
+
+    pool.close().await;
+}
+
+#[tokio::test]
+async fn test_permissions_queries_compile() {
+    let database_url = std::env::var("DATABASE_URL")
+        .unwrap_or_else(|_| "sqlite:../服务器数据库/customer_service.db".to_string());
+    let pool = SqlitePool::connect(&database_url).await.expect("Failed to connect to database");
+
+    // is_shop_owner_sqlx 对应的 COUNT 查询
+    let _owner_count: i64 = sqlx::query_scalar!(
+        r#"SELECT COUNT(*) as "count!: i64" FROM shops s WHERE s.id = ? AND s.owner_id = ?"#,
+        1_i64,
+        1_i64
+    )
+    .fetch_one(&pool)
+    .await
+    .expect("owner count query should work");
+
+    // is_shop_member_sqlx 对应的组合 COUNT 查询（不依赖 ss.is_active 列）
+    let _member_total: i64 = sqlx::query_scalar!(
+        r#"
+        SELECT (
+            (SELECT COUNT(*) FROM shops s WHERE s.id = ? AND s.owner_id = ?) +
+            (SELECT COUNT(*) FROM shop_staffs ss WHERE ss.shop_id = ? AND ss.user_id = ?)
+        ) as "count!: i64"
+        "#,
+        1_i64, 1_i64, 1_i64, 1_i64
+    )
+    .fetch_one(&pool)
+    .await
+    .expect("member combined count query should work");
+
+    pool.close().await;
+}
