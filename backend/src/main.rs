@@ -189,24 +189,35 @@ async fn main() -> Result<()> {
     info!("🚀 客服系统启动中...");
     
     // 在启动时终止旧进程
+    info!("🔍 检查并终止旧进程...");
     terminate_old_processes().await;
+    info!("✅ 进程检查完成");
 
     // 加载 .env（如果存在）
+    info!("📁 加载环境变量文件 (.env)...");
     let _ = dotenvy::dotenv();
+    info!("✅ .env 文件处理完成");
     
     // 检查是否为开发模式
+    info!("🔍 检查运行模式...");
     let is_dev_mode = std::env::var("NODE_ENV")
         .or_else(|_| std::env::var("RUST_ENV"))
         .map(|v| v.to_lowercase() == "development")
         .unwrap_or(false);
+    info!("ℹ️  is_dev_mode = {}", is_dev_mode);
+    info!("ℹ️  is_dev_mode = {}", is_dev_mode);
     
     // 检查是否强制禁用HTTPS
+    info!("🔍 检查 FORCE_HTTP 设置...");
     let force_http = std::env::var("FORCE_HTTP")
         .map(|v| v.to_lowercase() == "true")
         .unwrap_or(false);
+    info!("ℹ️  force_http = {}", force_http);
     
     // 检查是否显式设置了TLS_MODE
+    info!("🔍 检查 TLS_MODE 设置...");
     let explicit_tls_mode = std::env::var("TLS_MODE").is_ok();
+    info!("ℹ️  explicit_tls_mode = {}", explicit_tls_mode);
     
     if force_http || (is_dev_mode && !explicit_tls_mode) {
         info!("🔓 开发模式: 允许HTTP协议");
@@ -219,21 +230,25 @@ async fn main() -> Result<()> {
         std::env::set_var("ENABLE_HTTP_REDIRECT", "true");
         info!("🔒 生产模式: 强制启用HTTPS");
     }
+    info!("✅ TLS 模式配置完成");
+    
     
     // 初始化数据库
+    info!("🔌 开始初始化数据库连接...");
     let db_url =
         std::env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite:./customer_service.db".to_string());
     
     info!("📦 数据库URL: {}", db_url);
     
     // 🔥 方式1: 使用旧的 sqlx Database（向后兼容）
+    info!("🔌 正在连接 sqlx Database...");
     let db = Database::new(&db_url).await?;
-    
+    info!("✅ sqlx Database 连接成功");
+
     // 🚀 方式2: 使用新的 Sea-ORM Database
     info!("🔌 Initializing Sea-ORM connection...");
     let db_orm = database_orm::Database::new(&db_url).await?;
-    
-    // 🔄 数据库迁移处理 - 支持完全跳过
+    info!("✅ Sea-ORM 连接成功");    // 🔄 数据库迁移处理 - 支持完全跳过
     let skip_migration = std::env::var("DISABLE_MIGRATION")
         .or_else(|_| std::env::var("SKIP_DATABASE_MIGRATION"))
         .or_else(|_| std::env::var("NO_MIGRATION"))
@@ -268,15 +283,20 @@ async fn main() -> Result<()> {
         info!("✅ Database migrations completed successfully");
     }
     
+    info!("🔗 初始化 WebSocket 连接管理器...");
     let connections = Arc::new(Mutex::new(ConnectionManager::new()));
+    info!("✅ 连接管理器初始化完成");
 
     // 创建 Services 实例 - 使用 Sea-ORM DatabaseConnection
+    info!("🏗️  正在创建服务层实例...");
     let user_service = services::UserService::new(db_orm.get_connection().clone());
     let shop_service = services::ShopService::new(db_orm.get_connection().clone());
     let customer_service = services::CustomerService::new(db_orm.get_connection().clone());
     let session_service = services::SessionService::new(db_orm.get_connection().clone());
     let message_service = services::MessageService::new(db_orm.get_connection().clone());
+    info!("✅ 服务层实例创建完成");
 
+    info!("📦 构建应用状态...");
     let state = AppState { 
         db, 
         db_orm: db_orm.clone(),
@@ -295,11 +315,15 @@ async fn main() -> Result<()> {
     // 获取服务器配置
     let server_config = ServerConfig::from_env();
     let tls_config = TlsConfig::from_env();
+    info!("✅ 服务器配置读取完成");
 
     // 打印配置信息
+    info!("📋 打印服务器配置信息...");
     server_config.print_info();
+    info!("✅ 配置信息打印完成");
     
     // 检查是否使用HTTP模式
+    info!("🔍 检查 TLS 模式... (enabled: {})", tls_config.enabled);
     if tls_config.enabled {
         info!("🔒 启动HTTPS服务器");
         
@@ -313,20 +337,35 @@ async fn main() -> Result<()> {
         }
         
         info!("✅ HTTPS配置验证成功");
-        start_https_server(app, &server_config, &tls_config).await?;
+        
+        // 启动服务器并等待
+        info!("🔧 准备启动 HTTPS 服务器...");
+        let result = start_https_server(app, &server_config, &tls_config).await;
+        
+        match result {
+            Ok(_) => {
+                info!("✅ 服务器正常关闭");
+                Ok(())
+            }
+            Err(e) => {
+                error!("❌ 服务器错误: {:?}", e);
+                Err(e)
+            }
+        }
     } else {
         info!("🔓 启动HTTP服务器 (开发模式)");
-        start_http_server(app, &server_config).await?;
+        start_http_server(app, &server_config).await
     }
-
-    Ok(())
 }
 
 /// 创建应用路由
 fn create_router(state: AppState) -> Router {
     Router::new()
         .route("/", get(handlers::static_files::serve_index))
-        .route("/health", get(|| async { axum::Json(serde_json::json!({"status":"ok"})) }))
+        .route("/health", get(|| async { 
+            tracing::info!("📊 健康检查请求收到");
+            axum::Json(serde_json::json!({"status":"ok"})) 
+        }))
         .route("/api/auth/login", post(handlers::auth::login))
         .route("/api/auth/register", post(handlers::auth::register))
     .route("/api/shops", get(handlers::shop::get_shops))
@@ -397,6 +436,25 @@ fn create_router(state: AppState) -> Router {
         .route("/manifest.json", get(handlers::static_files::serve_manifest))
         // 添加通用静态文件路由作为后备
         .fallback(handlers::static_files::serve_spa_fallback)
+        .layer(
+            tower::ServiceBuilder::new()
+                .layer(tower_http::trace::TraceLayer::new_for_http()
+                    .make_span_with(|request: &axum::http::Request<_>| {
+                        tracing::info_span!(
+                            "http_request",
+                            method = %request.method(),
+                            uri = %request.uri(),
+                            version = ?request.version(),
+                        )
+                    })
+                    .on_request(|_request: &axum::http::Request<_>, _span: &tracing::Span| {
+                        tracing::info!("🌐 收到请求");
+                    })
+                    .on_response(|_response: &axum::http::Response<_>, _latency: std::time::Duration, _span: &tracing::Span| {
+                        tracing::info!("✅ 请求完成");
+                    })
+                )
+        )
         .layer(CorsLayer::permissive())
         .with_state(state)
 }
@@ -449,6 +507,8 @@ async fn resolve_shop_id(state: &AppState, shop_ref: &str) -> Result<i64, Respon
 }
 
 async fn handle_staff_socket(socket: WebSocket, state: AppState, user_id: i64) {
+    info!("🔌 开始处理 Staff WebSocket，用户 ID: {}", user_id);
+    
     let (mut sender, mut receiver) = socket.split();
     let (tx, mut rx) = mpsc::unbounded_channel::<Message>();
 
@@ -464,37 +524,47 @@ async fn handle_staff_socket(socket: WebSocket, state: AppState, user_id: i64) {
     let mut connection_id: Option<String> = None;
     let mut active_shop: Option<i64> = None;
 
+    info!("✅ Staff WebSocket 初始化完成，开始监听消息");
+
     while let Some(result) = receiver.next().await {
         match result {
-            Ok(Message::Text(text)) => match serde_json::from_str::<WebSocketIncomingMessage>(&text) {
-                Ok(incoming) => {
-                    if let Err(err) = handle_staff_ws_message(
-                        &state,
-                        &chat_service,
-                        user_id,
-                        &tx,
-                        &mut connection_id,
-                        &mut active_shop,
-                        incoming,
-                    )
-                    .await
-                    {
-                        warn!("Staff WS error: {err:?}");
+            Ok(Message::Text(text)) => {
+                debug!("📨 收到 Staff 文本消息: {}", &text[..text.len().min(100)]);
+                match serde_json::from_str::<WebSocketIncomingMessage>(&text) {
+                    Ok(incoming) => {
+                        debug!("✅ 解析成功，消息类型: {}", incoming.message_type);
+                        if let Err(err) = handle_staff_ws_message(
+                            &state,
+                            &chat_service,
+                            user_id,
+                            &tx,
+                            &mut connection_id,
+                            &mut active_shop,
+                            incoming,
+                        )
+                        .await
+                        {
+                            warn!("⚠️ Staff WS 处理错误: {err:?}");
+                        }
                     }
+                    Err(err) => warn!("❌ 解析 Staff payload 失败: {err}"),
                 }
-                Err(err) => warn!("Invalid staff payload: {err}"),
             },
             Ok(Message::Close(_)) => {
-                info!("Staff connection closed");
+                info!("👋 Staff 连接正常关闭");
                 break;
             }
-            Ok(_) => {}
+            Ok(msg) => {
+                debug!("📬 收到其他类型消息: {:?}", msg);
+            }
             Err(err) => {
-                warn!("Staff connection error: {err}");
+                warn!("❌ Staff 连接错误: {err}");
                 break;
             }
         }
     }
+    
+    info!("🔄 清理 Staff WebSocket 连接");
 
     if let Some(id) = connection_id {
         let mut manager = state.connections.lock().unwrap();
@@ -636,11 +706,17 @@ async fn start_https_server(app: Router, server_config: &ServerConfig, tls_confi
     }
 
     // 启动HTTPS服务器
-    if let Err(e) = https_server.serve(app, https_addr).await {
-        return Err(anyhow::anyhow!("HTTPS服务器启动失败: {:?}", e));
+    info!("📡 正在绑定地址并启动服务器...");
+    match https_server.serve(app, https_addr).await {
+        Ok(_) => {
+            info!("✅ HTTPS服务器正常退出");
+            Ok(())
+        }
+        Err(e) => {
+            error!("❌ HTTPS服务器启动失败: {:?}", e);
+            Err(anyhow::anyhow!("HTTPS服务器启动失败: {:?}", e))
+        }
     }
-    
-    Ok(())
 }
 
 /// 启动HTTP服务器

@@ -1,0 +1,62 @@
+===============================================
+ELonTalk 客服系统 - Ubuntu 部署包
+编译时间: 2025-10-17 14:33
+编译环境: Windows 11 -> Ubuntu 24.04 LTS (x86_64-musl)
+HTTPS支持: 已启用 (Rustls + Let's Encrypt)
+===============================================
+
+📦 部署包内容:
+  ✅ customer-service-backend (11.1MB) - 新编译的后端程序
+  ✅ customer_service.db - 数据库文件
+  ✅ .env.production - 生产环境配置
+  ✅ customer-service.service - systemd服务配置
+  ✅ debug-start.sh - 调试启动脚本
+  ✅ certs/ - HTTPS证书目录
+  ✅ static/ - 前端静态文件
+
+🚀 快速部署步骤（在Ubuntu服务器上执行）:
+
+1. 上传整个文件夹到服务器:
+   scp -r ubuntu-deploy-ready root@43.139.82.12:/root/
+
+2. 登录服务器:
+   ssh root@43.139.82.12
+
+3. 进入部署目录:
+   cd /root/ubuntu-deploy-ready
+
+4. 设置执行权限:
+   chmod +x customer-service-backend
+   chmod +x debug-start.sh
+   chmod +x diagnose-foreground.sh
+
+5. 使用生产环境配置:
+   cp .env.production .env
+
+6. 前台测试运行:
+   ./debug-start.sh
+
+7. 如果测试成功，配置systemd服务:
+   cp customer-service.service /etc/systemd/system/
+   systemctl daemon-reload
+   systemctl enable customer-service
+   systemctl start customer-service
+   systemctl status customer-service
+
+📍 服务访问地址:
+  HTTP:  http://43.139.82.12:8080
+  HTTPS: https://elontalk.duckdns.org:8443
+
+🔧 常用命令:
+  查看日志: journalctl -u customer-service -f
+  重启服务: systemctl restart customer-service
+  停止服务: systemctl stop customer-service
+  检查状态: systemctl status customer-service
+
+⚠️ 注意事项:
+  1. 确保防火墙开放 8080 和 8443 端口
+  2. 证书会自动通过 Let's Encrypt 申请（DNS-01验证）
+  3. 数据库使用 Sea-ORM 自动迁移
+  4. 部署路径必须是 /root/ubuntu-deploy-ready
+
+===============================================

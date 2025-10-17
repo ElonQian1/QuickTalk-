@@ -64,12 +64,50 @@ impl HttpsServer {
         }
 
         // 启动HTTPS服务器
-        axum_server::bind_rustls(addr, rustls_config)
-            .serve(app.into_make_service_with_connect_info::<SocketAddr>())
-            .await
-            .map_err(|e| AppError::Internal(format!("HTTPS服务器运行失败: {}", e)))?;
-
-        Ok(())
+        tracing::info!("🔧 正在绑定 HTTPS 服务器到地址: {}", addr);
+        
+        // 设置 panic hook
+        let default_panic = std::panic::take_hook();
+        std::panic::set_hook(Box::new(move |panic_info| {
+            tracing::error!("🚨 服务器 PANIC: {:?}", panic_info);
+            default_panic(panic_info);
+        }));
+        
+        let server = axum_server::bind_rustls(addr, rustls_config)
+            .serve(app.into_make_service_with_connect_info::<SocketAddr>());
+        
+        tracing::info!("✅ HTTPS 服务器已绑定，开始监听请求...");
+        tracing::info!("💡 按 Ctrl+C 停止服务器");
+        
+        // 创建 Ctrl+C 处理器
+        let ctrl_c = async {
+            tokio::signal::ctrl_c()
+                .await
+                .expect("failed to install Ctrl+C handler");
+            tracing::info!("🛑 收到 Ctrl+C 信号，正在关闭服务器...");
+        };
+        
+        // 使用 select! 同时等待服务器和信号
+        tracing::info!("🎯 进入服务器主循环...");
+        tokio::select! {
+            result = server => {
+                tracing::warn!("⚠️  服务器 future 完成了！这不应该发生...");
+                match result {
+                    Ok(_) => {
+                        tracing::error!("❌ HTTPS 服务器意外退出 (没有错误)");
+                        Err(AppError::Internal("HTTPS服务器意外退出".to_string()))
+                    }
+                    Err(e) => {
+                        tracing::error!("❌ HTTPS 服务器错误: {:?}", e);
+                        Err(AppError::Internal(format!("HTTPS服务器运行失败: {}", e)))
+                    }
+                }
+            }
+            _ = ctrl_c => {
+                tracing::info!("✅ 服务器优雅关闭");
+                Ok(())
+            }
+        }
     }
 
     #[cfg(not(feature = "https"))]

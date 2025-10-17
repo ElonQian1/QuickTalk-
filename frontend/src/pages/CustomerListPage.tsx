@@ -254,12 +254,29 @@ const CustomerListPage: React.FC = () => {
       );
       setCustomers(normalized);
 
+      // 初始化通知中心：按会话维度设置未读（若有会话）
+      try {
+        const notif = useNotificationsStore.getState();
+        normalized.forEach((item) => {
+          const sid = item.session?.id;
+          if (sid) notif.setSessionUnread(sid, item.unread_count || 0, shopId);
+        });
+      } catch {}
+
       // 进入该店铺客户列表后，批量标记为已读（一次请求）
       const hasUnread = normalized.some(c => (c.unread_count || 0) > 0);
       if (hasUnread) {
         api.post(`/api/shops/${shopId}/customers/read_all`).finally(() => {
           resetShopUnread(shopId);
-          try { resetShopUnreadNotif(shopId); } catch {}
+          try {
+            resetShopUnreadNotif(shopId);
+            const notif = useNotificationsStore.getState();
+            // 同步清除当前列表中所有会话的未读
+            normalized.forEach((item) => {
+              const sid = item.session?.id;
+              if (sid) notif.resetSessionUnread(sid, shopId);
+            });
+          } catch {}
         });
       }
     } catch (error) {

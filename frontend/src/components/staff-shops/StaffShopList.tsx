@@ -5,6 +5,7 @@ import { FiUsers, FiGlobe, FiSettings } from 'react-icons/fi';
 import { listStaffShops, ShopItem } from '../../services/shops';
 import { ShopManageModal } from '../shops';
 import { useAuthStore } from '../../stores/authStore';
+import { useNotificationsStore } from '../../stores/notificationsStore';
 
 const Container = styled.div`
   padding: ${theme.spacing.md};
@@ -65,6 +66,7 @@ const StaffShopList: React.FC = () => {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState<ShopItem | undefined>();
   const { user } = useAuthStore();
+  const byShop = useNotificationsStore(state => state.byShop);
 
   useEffect(() => {
     listStaffShops().then(setShops).catch(() => {
@@ -96,7 +98,7 @@ const StaffShopList: React.FC = () => {
                 </div>
               </Info>
               <div style={{ display:'flex', gap:8 }}>
-                <Badge>未读 {s.unread_count}</Badge>
+                <Badge>未读 {byShop[s.id] ?? s.unread_count ?? 0}</Badge>
                 <Button size="small" variant="secondary" onClick={() => openManage(s)}>
                   <FiSettings style={{ marginRight: 4 }} /> 管理
                 </Button>

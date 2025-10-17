@@ -4,6 +4,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { FiHome, FiMessageCircle, FiUser, FiShoppingBag } from 'react-icons/fi';
 import { theme } from '../../styles/globalStyles';
 import { Badge } from '../../styles/globalStyles';
+import { useNotificationsStore } from '../../stores/notificationsStore';
+import { useConversationsStore } from '../../stores/conversationsStore';
 
 const TabBarContainer = styled.div`
   position: fixed;
@@ -93,13 +95,15 @@ interface TabItemType {
   badge?: number;
 }
 
-interface BottomTabBarProps {
-  unreadCount?: number;
-}
+interface BottomTabBarProps { unreadCount?: number }
 
-const BottomTabBar: React.FC<BottomTabBarProps> = ({ unreadCount = 0 }) => {
+const BottomTabBar: React.FC<BottomTabBarProps> = ({ unreadCount }) => {
   const location = useLocation();
   const navigate = useNavigate();
+  // 当未传入 props 时，优先读取通知中心的总未读，回退到旧 store
+  const totalUnreadNotif = useNotificationsStore(state => state.totalUnread);
+  const totalUnreadLegacy = useConversationsStore(state => state.totalUnread);
+  const badge = typeof unreadCount === 'number' ? unreadCount : (totalUnreadNotif || totalUnreadLegacy || 0);
 
   const tabs: TabItemType[] = [
     {
@@ -113,7 +117,7 @@ const BottomTabBar: React.FC<BottomTabBarProps> = ({ unreadCount = 0 }) => {
       label: '消息',
       icon: FiMessageCircle,
       path: '/messages',
-      badge: unreadCount,
+      badge,
     },
     {
       key: 'shops',
