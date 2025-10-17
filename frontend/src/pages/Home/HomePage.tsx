@@ -5,6 +5,7 @@ import { FiMessageSquare, FiUsers, FiTrendingUp, FiShoppingBag, FiClock, FiRefre
 import { useAuthStore } from '../../stores/authStore';
 import { theme } from '../../styles/globalStyles';
 import { useConversationsStore } from '../../stores/conversationsStore';
+import { useNotificationsStore } from '../../stores/notificationsStore';
 import { StatsGrid, StatData } from '../../components/Dashboard';
 import { useDashboardStats } from '../../hooks/useDashboardStats';
 import { formatTime } from '../../utils/statsUtils';
@@ -149,7 +150,8 @@ const ActionDesc = styled.div`
 const HomePage: React.FC = () => {
   const { user } = useAuthStore();
   const navigate = useNavigate();
-  const totalUnread = useConversationsStore(state => state.totalUnread);
+  const totalUnreadNotif = useNotificationsStore(state => state.totalUnread);
+  const totalUnreadLegacy = useConversationsStore(state => state.totalUnread);
   
   // 使用自定义hook获取统计数据
   const { stats, isLoading, isRefreshing, refreshStats, lastUpdated } = useDashboardStats({
@@ -191,8 +193,8 @@ const HomePage: React.FC = () => {
   const statsData: StatData[] = [
     {
       icon: FiMessageSquare,
-      value: totalUnread || stats.totalMessages,
-  label: '今日消息总数',
+      value: (totalUnreadNotif || totalUnreadLegacy || 0) || stats.totalMessages,
+      label: '今日消息总数',
       color: '#00d4aa'
     },
     {

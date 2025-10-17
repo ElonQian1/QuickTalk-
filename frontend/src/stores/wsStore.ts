@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { staffSocket } from '../config/ws';
 import { useAuthStore } from './authStore';
 import { useConversationsStore } from './conversationsStore';
+import { useNotificationsStore } from './notificationsStore';
+import { normalizeWSMessage, makeDedupKey } from '../utils/wsEvents';
 
 type WSStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 
@@ -95,18 +97,13 @@ export const useWSStore = create<WSState>((set, get) => ({
     ws.onmessage = (ev: MessageEvent) => {
       try {
         const data = JSON.parse(ev.data);
-        const type = data.messageType as string;
-        console.log('🔄 wsStore接收到消息:', { type, data });
+        const n = normalizeWSMessage(data);
+        console.log('🔄 wsStore接收到消息(规范化):', n);
         
         // 事件级去重：仅针对 new_message，避免重复广播/重连叠加
-        if (type === 'new_message') {
+        if (n.type === 'new_message') {
           const now = Date.now();
-          const sess = data.session_id || data.sessionId || '';
-          const senderType = data.sender_type || data.senderType || '';
-          const content = data.content || '';
-          const fileUrl = data.file_url || data.fileUrl || '';
-          const fileName = data.file_name || data.fileName || '';
-          const key = `${sess}|${senderType}|${content}|${fileUrl}|${fileName}`;
+          const key = makeDedupKey(n);
           const cache = get().dedupCache;
           // 清理过期项（>10s）
           for (const k in cache) {
@@ -126,23 +123,31 @@ export const useWSStore = create<WSState>((set, get) => ({
         
         currentState.messageListeners.forEach((listener, index) => {
           try {
-            console.log(`📤 分发消息给监听器 ${index}:`, data);
-            listener(data);
+            console.log(`📤 分发消息给监听器 ${index}:`, n.raw);
+            listener(n.raw);
           } catch (error) {
             console.error(`❌ 监听器 ${index} 处理失败:`, error);
           }
         });
         
         // 分发到全局会话 store
-        if (type === 'new_message') {
+        if (n.type === 'new_message') {
           // 仅客户发来的消息计入未读
-          const senderType = (data.senderType || data.sender_type) as string | undefined;
-          const shopId = currentState.activeShopId;
-          console.log('📊 更新未读计数:', { shopId, senderType });
+          const senderType = n.senderType as string | undefined;
+          const shopId = currentState.activeShopId ?? n.shopId;
+          const sessionId = n.sessionId;
+          console.log('📊 更新未读计数:', { shopId, senderType, sessionId });
           if (shopId && senderType === 'customer') {
             useConversationsStore.getState().incrementUnread(shopId, 1);
+            // 新的通知中心也并行更新（按会话维度更精细）
+            if (sessionId) {
+              useNotificationsStore.getState().incrementSessionUnread(sessionId, 1, shopId);
+            } else {
+              // 没有会话ID时，仅按店铺维度 +1，避免覆盖其他店铺统计
+              useNotificationsStore.getState().incrementShopUnread(shopId, 1);
+            }
           }
-        } else if (type === 'typing') {
+        } else if (n.type === 'typing') {
           // typing 事件可在未来用于 UI 提示，这里暂不处理
         }
       } catch (e) {

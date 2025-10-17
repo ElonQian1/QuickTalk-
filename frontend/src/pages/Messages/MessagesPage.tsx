@@ -10,6 +10,7 @@ import { theme } from '../../styles/globalStyles';
 import toast from 'react-hot-toast';
 import { useConversationsStore } from '../../stores/conversationsStore';
 import { useWSStore } from '../../stores/wsStore';
+import { useNotificationsStore } from '../../stores/notificationsStore';
 
 const Container = styled.div`
   padding: ${theme.spacing.md};
@@ -48,6 +49,7 @@ const MessagesPage: React.FC = () => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const unreads = useConversationsStore(state => state.unreads);
+  const notifByShop = useNotificationsStore(state => state.byShop);
   const navigate = useNavigate();
   const { connect, addMessageListener, removeMessageListener } = useWSStore();
   // 稳定的 WS 监听器：仅更新消息中心所需的未读与最后一条消息
@@ -99,8 +101,14 @@ const MessagesPage: React.FC = () => {
 
       // 统计数据在页面顶部卡片已移除，故不再计算聚合统计
 
-      // 初始化全局 unread store（shopId -> unread）
-      useConversationsStore.getState().setManyUnreads(conversationData.map((c) => ({ shopId: c.shop.id, count: c.unread_count })));
+      // 初始化全局 unread store（shopId -> unread）：旧 store 与新通知中心并行
+      const initItems = conversationData.map((c) => ({ shopId: c.shop.id, count: c.unread_count }));
+      useConversationsStore.getState().setManyUnreads(initItems);
+      // 新通知中心（按店铺维度）
+      try {
+        const notif = (await import('../../stores/notificationsStore')).useNotificationsStore;
+        notif.getState().setManyShopUnreads(initItems);
+      } catch {}
 
     } catch (error) {
       console.error('Error fetching conversations:', error);
@@ -140,7 +148,11 @@ const MessagesPage: React.FC = () => {
       ) : (
         <ConversationList>
           {conversations.map((conversation) => {
-            const unreadFromStore = unreads[conversation.shop.id] ?? conversation.unread_count;
+            const unreadFromNotif = notifByShop[conversation.shop.id];
+            const unreadFromStore =
+              (typeof unreadFromNotif === 'number' ? unreadFromNotif : undefined) ??
+              unreads[conversation.shop.id] ??
+              conversation.unread_count;
             return (
               <ModularConversationCard
                 key={conversation.shop.id}

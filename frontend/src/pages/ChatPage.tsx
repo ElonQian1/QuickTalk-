@@ -14,6 +14,7 @@ import EmojiButton from '../components/EmojiButton';
 import { MessageText } from '../utils/textFormatter';
 import { useWSStore } from '../stores/wsStore';
 import { listStaffShops } from '../services/shops';
+import { useNotificationsStore } from '../stores/notificationsStore';
 import { EmptyState as UIEmptyState, EmptyIcon, EmptyTitle, EmptyDescription } from '../components/UI/EmptyState';
 
 const Container = styled.div`
@@ -283,6 +284,7 @@ const ChatPage: React.FC = () => {
   const [uploading, setUploading] = useState(false);
   const [userShopId, setUserShopId] = useState<string | null>(null);
   const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
+  const resetSessionUnread = useNotificationsStore(state => state.resetSessionUnread);
   // const [isTyping, setIsTyping] = useState(false); // 未来可接入实时输入指示
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -459,6 +461,21 @@ const ChatPage: React.FC = () => {
       });
       
       setMessages(response.data);
+
+      // 获取会话元信息以执行已读同步（需要 shop_id 和 customer_id）
+      try {
+        const meta = await api.get(`/api/sessions/${sessionId}`);
+        const shopId = meta.data?.shop_id as number | undefined;
+        const customerId = meta.data?.customer_id as number | undefined;
+        if (shopId && customerId) {
+          // 调用后端清除该客户在该店铺的未读
+          api.post(`/api/shops/${shopId}/customers/${customerId}/read`).finally(() => {
+            try { resetSessionUnread(sessionId, shopId); } catch {}
+          });
+        }
+      } catch (e) {
+        console.warn('获取会话元信息失败，跳过前端未读同步', e);
+      }
     } catch (error) {
       toast.error('获取消息失败');
       console.error('Error fetching messages:', error);

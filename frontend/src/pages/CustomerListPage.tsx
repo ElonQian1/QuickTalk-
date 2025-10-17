@@ -10,6 +10,7 @@ import { EmptyState, EmptyIcon, EmptyTitle, EmptyDescription } from '../componen
 import { theme } from '../styles/globalStyles';
 import toast from 'react-hot-toast';
 import { useConversationsStore } from '../stores/conversationsStore';
+import { useNotificationsStore } from '../stores/notificationsStore';
 
 const Container = styled.div`
   height: 100%;
@@ -236,6 +237,7 @@ const CustomerListPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const resetShopUnread = useConversationsStore(state => state.resetShopUnread);
+  const resetShopUnreadNotif = useNotificationsStore(state => state.resetShopUnread);
 
   useEffect(() => {
     if (shopId) {
@@ -257,6 +259,7 @@ const CustomerListPage: React.FC = () => {
       if (hasUnread) {
         api.post(`/api/shops/${shopId}/customers/read_all`).finally(() => {
           resetShopUnread(shopId);
+          try { resetShopUnreadNotif(shopId); } catch {}
         });
       }
     } catch (error) {

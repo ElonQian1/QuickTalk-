@@ -7,8 +7,7 @@ pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
     
-    // 真实数据库列为 shop_name，而非 name
-    #[sea_orm(column_name = "shop_name")]
+    #[sea_orm(column_name = "name")]
     pub shop_name: String,
     
     #[sea_orm(unique)]
@@ -16,19 +15,17 @@ pub struct Model {
     
     pub api_key: String,
     pub description: Option<String>,
-    // 数据库存在 logo_url / website_url / settings
+    #[sea_orm(ignore)]
     pub logo_url: Option<String>,
+    #[sea_orm(ignore)]
     pub website_url: Option<String>,
     pub contact_email: Option<String>,
-    // 真实数据库列为 contact_phone
-    #[sea_orm(column_name = "contact_phone")]
+    #[sea_orm(column_name = "phone")]
     pub contact_phone: Option<String>,
-    pub settings: Option<String>,
+    #[sea_orm(ignore)]
+    pub settings: Option<serde_json::Value>,
     pub is_active: bool,
     pub owner_id: Option<i32>,
-    #[sea_orm(column_name = "shop_url")]
-    pub shop_url: Option<String>,
-    pub status: Option<i32>,
     pub created_at: DateTime,
     pub updated_at: DateTime,
 }

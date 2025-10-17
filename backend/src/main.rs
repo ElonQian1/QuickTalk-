@@ -108,12 +108,18 @@ async fn terminate_old_processes() {
             Ok(output) => {
                 if !output.stdout.is_empty() {
                     let pids = String::from_utf8_lossy(&output.stdout);
-                    for pid in pids.trim().lines() {
-                        info!("🔄 终止占用8443端口的进程: {}", pid);
-                        let _ = std::process::Command::new("kill")
-                            .arg("-9")
-                            .arg(pid)
-                            .output();
+                    for pid_str in pids.trim().lines() {
+                        if let Ok(pid) = pid_str.trim().parse::<u32>() {
+                            if pid != current_pid {
+                                info!("🔄 终止占用8443端口的进程: {}", pid);
+                                let _ = std::process::Command::new("kill")
+                                    .arg("-9")
+                                    .arg(&pid.to_string())
+                                    .output();
+                            } else {
+                                info!("🔒 跳过当前进程: {} (端口8443)", pid);
+                            }
+                        }
                     }
                 }
             }
@@ -130,12 +136,18 @@ async fn terminate_old_processes() {
             Ok(output) => {
                 if !output.stdout.is_empty() {
                     let pids = String::from_utf8_lossy(&output.stdout);
-                    for pid in pids.trim().lines() {
-                        info!("🔄 终止占用8080端口的进程: {}", pid);
-                        let _ = std::process::Command::new("kill")
-                            .arg("-9")
-                            .arg(pid)
-                            .output();
+                    for pid_str in pids.trim().lines() {
+                        if let Ok(pid) = pid_str.trim().parse::<u32>() {
+                            if pid != current_pid {
+                                info!("🔄 终止占用8080端口的进程: {}", pid);
+                                let _ = std::process::Command::new("kill")
+                                    .arg("-9")
+                                    .arg(&pid.to_string())
+                                    .output();
+                            } else {
+                                info!("🔒 跳过当前进程: {} (端口8080)", pid);
+                            }
+                        }
                     }
                 }
             }
