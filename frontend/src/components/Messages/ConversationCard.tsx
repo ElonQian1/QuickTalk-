@@ -3,6 +3,8 @@ import styled from 'styled-components';
 import { FiMessageCircle, FiClock, FiUsers } from 'react-icons/fi';
 import { Card, Badge } from '../../styles/globalStyles';
 import { theme } from '../../styles/globalStyles';
+import { formatBadgeCount } from '../../utils/format';
+import { formatRelativeTime, formatMessagePreview } from '../../utils/display';
 
 const StyledConversationCard = styled(Card)`
   padding: ${theme.spacing.md};
@@ -111,27 +113,6 @@ export const ConversationCard: React.FC<ConversationCardProps> = ({
   lastMessage,
   onClick
 }) => {
-  const formatTime = (timestamp: string) => {
-    try {
-      const date = new Date(timestamp);
-      const now = new Date();
-      const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
-      
-      if (diffInMinutes < 1) {
-        return '刚刚';
-      } else if (diffInMinutes < 60) {
-        return `${diffInMinutes}分钟前`;
-      } else if (diffInMinutes < 1440) {
-        return `${Math.floor(diffInMinutes / 60)}小时前`;
-      } else {
-        const days = Math.floor(diffInMinutes / 1440);
-        return `${days}天前`;
-      }
-    } catch (error) {
-      return '未知';
-    }
-  };
-
   return (
     <StyledConversationCard onClick={onClick}>
       <ConversationHeader>
@@ -145,9 +126,7 @@ export const ConversationCard: React.FC<ConversationCardProps> = ({
               <FiUsers size={12} />
               {customerCount} 个客户
             </span>
-            {unreadCount > 0 && (
-              <UnreadBadge>{unreadCount}</UnreadBadge>
-            )}
+            {(() => { const t = formatBadgeCount(unreadCount); return t ? (<UnreadBadge>{t}</UnreadBadge>) : null; })()}
           </ConversationMeta>
         </ConversationInfo>
       </ConversationHeader>
@@ -155,12 +134,12 @@ export const ConversationCard: React.FC<ConversationCardProps> = ({
       {lastMessage && (
         <LastMessage>
           <MessageContent>
-            {lastMessage.sender_type === 'customer' ? '客户' : '客服'}: {lastMessage.content}
+            {lastMessage.sender_type === 'customer' ? '客户' : '客服'}: {formatMessagePreview(lastMessage as any)}
           </MessageContent>
           <MessageTime>
             <span>
               <FiClock size={12} />
-              {formatTime(lastMessage.created_at)}
+              {formatRelativeTime(lastMessage.created_at)}
             </span>
             {lastMessage.sender_type === 'customer' && (
               <span>

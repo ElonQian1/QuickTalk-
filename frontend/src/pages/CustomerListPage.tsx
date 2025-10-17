@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import styled from 'styled-components';
 import { useParams, useNavigate } from 'react-router-dom';
 import { FiClock } from 'react-icons/fi';
@@ -12,6 +12,9 @@ import toast from 'react-hot-toast';
 import { useConversationsStore } from '../stores/conversationsStore';
 import { useNotificationsStore } from '../stores/notificationsStore';
 import { useWSStore } from '../stores/wsStore';
+import { sortCustomers as sortCustomersUtil } from '../utils/sort';
+import { formatBadgeCount } from '../utils/format';
+import { formatRelativeTime, formatMessagePreview } from '../utils/display';
 
 const Container = styled.div`
   height: 100%;
@@ -58,6 +61,13 @@ const CustomerHeader = styled.div`
   align-items: center;
   gap: ${theme.spacing.md};
   margin-bottom: ${theme.spacing.sm};
+`;
+
+const AvatarWrapper = styled.div`
+  position: relative;
+  width: ${theme.spacing.xxl};
+  height: ${theme.spacing.xxl};
+  flex-shrink: 0;
 `;
 
 const CustomerAvatar = styled.div<{ $src?: string }>`
@@ -140,7 +150,13 @@ const MessageTime = styled.div`
   justify-content: space-between;
 `;
 
-const UnreadBadge = styled(Badge)`
+// 头像角红点（绝对定位）
+const UnreadDot = styled(Badge)`
+  /* 保持默认 absolute：定位在头像右上角 */
+`;
+
+// 右侧数量徽标（静态定位，放在 Header 尾部）
+const UnreadCount = styled(Badge)`
   position: static;
   margin-left: auto;
 `;
@@ -242,6 +258,9 @@ const CustomerListPage: React.FC = () => {
   const navigate = useNavigate();
   const resetShopUnread = useConversationsStore(state => state.resetShopUnread);
   const resetShopUnreadNotif = useNotificationsStore(state => state.resetShopUnread);
+  const refreshTimerRef = useRef<number | undefined>(undefined);
+
+  const sortCustomers = (list: CustomerWithSession[]) => sortCustomersUtil(list);
 
   useEffect(() => {
     if (shopId) {
@@ -255,9 +274,54 @@ const CustomerListPage: React.FC = () => {
 
     const handleNewMessage = (data: any) => {
       console.log('📬 客户列表收到新消息:', data);
-      
-      // 刷新客户列表以获取最新消息和未读数
-      fetchCustomers(parseInt(shopId));
+      try {
+        // 仅在是新消息且来自客户时触发刷新
+        const isNewMsg = data?.messageType === 'new_message';
+        const fromCustomer = (data?.sender_type || data?.senderType) === 'customer';
+        if (!isNewMsg || !fromCustomer) return;
+      } catch {}
+
+      // 本地乐观更新：提升当前会话卡片未读 + 最新消息，并立即重排
+      try {
+        const sid = data?.session_id || data?.sessionId;
+        if (sid) {
+          setCustomers(prev => {
+            let touched = false;
+            const updated = prev.map(item => {
+              if (item.session?.id && item.session.id.toString() === sid.toString()) {
+                touched = true;
+                const nextUnread = (item.unread_count || 0) + 1;
+                const msgType = data?.metadata?.messageType || 'text';
+                const createdAt = data?.timestamp || new Date().toISOString();
+                const preview: Message = {
+                  id: Date.now(),
+                  content: data?.content || (msgType === 'image' ? '[图片]' : msgType === 'file' ? '[文件]' : ''),
+                  message_type: msgType,
+                  sender_type: 'customer',
+                  created_at: createdAt,
+                } as any;
+                return {
+                  ...item,
+                  unread_count: nextUnread,
+                  last_message: preview,
+                  session: item.session ? { ...item.session, last_message_at: createdAt } : item.session,
+                };
+              }
+              return item;
+            });
+            return touched ? sortCustomers(updated) : prev;
+          });
+        }
+      } catch {}
+
+      // 轻微防抖，合并短时间内的多次刷新
+      if (refreshTimerRef.current) {
+        window.clearTimeout(refreshTimerRef.current);
+      }
+      refreshTimerRef.current = window.setTimeout(() => {
+        // 刷新客户列表以获取最新消息和未读数
+        fetchCustomers(parseInt(shopId));
+      }, 400) as unknown as number;
     };
 
     // 使用 WebSocket store 的监听器
@@ -277,27 +341,7 @@ const CustomerListPage: React.FC = () => {
         normalizeCustomer(entry as ApiCustomer)
       );
       
-      // 排序逻辑：新消息置顶
-      // 1. 有未读消息的排在前面
-      // 2. 在同一未读状态下，按最后消息时间倒序（最新的在前）
-      // 3. 没有消息的按最后活跃时间倒序
-      const sorted = normalized.sort((a, b) => {
-        // 优先级1：未读消息数量（降序）
-        const unreadDiff = (b.unread_count || 0) - (a.unread_count || 0);
-        if (unreadDiff !== 0) return unreadDiff;
-        
-        // 优先级2：最后消息时间（降序）
-        const aTime = a.last_message?.created_at || a.session?.last_message_at || a.customer.last_active_at;
-        const bTime = b.last_message?.created_at || b.session?.last_message_at || b.customer.last_active_at;
-        
-        if (aTime && bTime) {
-          return new Date(bTime).getTime() - new Date(aTime).getTime();
-        }
-        
-        return 0;
-      });
-      
-      setCustomers(sorted);
+  setCustomers(sortCustomers(normalized));
 
       // 初始化通知中心：按会话维度设置未读（若有会话）
       try {
@@ -307,23 +351,6 @@ const CustomerListPage: React.FC = () => {
           if (sid) notif.setSessionUnread(sid, item.unread_count || 0, shopId);
         });
       } catch {}
-
-      // 进入该店铺客户列表后，批量标记为已读（一次请求）
-      const hasUnread = normalized.some(c => (c.unread_count || 0) > 0);
-      if (hasUnread) {
-        api.post(`/api/shops/${shopId}/customers/read_all`).finally(() => {
-          resetShopUnread(shopId);
-          try {
-            resetShopUnreadNotif(shopId);
-            const notif = useNotificationsStore.getState();
-            // 同步清除当前列表中所有会话的未读
-            normalized.forEach((item) => {
-              const sid = item.session?.id;
-              if (sid) notif.resetSessionUnread(sid, shopId);
-            });
-          } catch {}
-        });
-      }
     } catch (error) {
       toast.error('获取客户列表失败');
       console.error('Error fetching customers:', error);
@@ -341,25 +368,7 @@ const CustomerListPage: React.FC = () => {
     }
   };
 
-  const formatLastActiveTime = (timestamp: string) => {
-    try {
-      const date = new Date(timestamp);
-      const now = new Date();
-      const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
-      
-      if (diffInMinutes < 1) {
-        return '刚刚';
-      } else if (diffInMinutes < 60) {
-        return `${diffInMinutes}分钟前`;
-      } else if (diffInMinutes < 1440) { // 24 hours
-        return `${Math.floor(diffInMinutes / 60)}小时前`;
-      } else {
-        return format(date, 'MM/dd HH:mm', { locale: zhCN });
-      }
-    } catch (error) {
-      return '未知';
-    }
-  };
+  const formatLastActiveTime = (timestamp: string) => formatRelativeTime(timestamp);
 
   const getCustomerDisplayName = (customer: Customer) => {
     return customer.customer_name || customer.customer_email || `用户${customer.customer_id.slice(-4)}`;
@@ -373,6 +382,26 @@ const CustomerListPage: React.FC = () => {
     const name = getCustomerDisplayName(customer);
     return name.charAt(0).toUpperCase();
   };
+
+  // 监听会话已读事件：进入会话后清零对应客户的未读（即时反馈）
+  useEffect(() => {
+    const handler = (e: Event) => {
+      try {
+        const detail = (e as CustomEvent).detail as { shopId?: number; sessionId?: number; customerId?: number };
+        if (!detail) return;
+        setCustomers(prev => sortCustomers(prev.map(item => {
+          const matchBySession = detail.sessionId && item.session?.id === detail.sessionId;
+          const matchByCustomer = detail.customerId && item.customer?.id === detail.customerId;
+          if (matchBySession || matchByCustomer) {
+            return { ...item, unread_count: 0 };
+          }
+          return item;
+        })));
+      } catch {}
+    };
+    window.addEventListener('session-read', handler as EventListener);
+    return () => window.removeEventListener('session-read', handler as EventListener);
+  }, []);
 
   if (loading) {
     return (
@@ -410,12 +439,15 @@ const CustomerListPage: React.FC = () => {
                 $hasUnread={hasUnread}
               >
                 <CustomerHeader>
-                  <CustomerAvatar $src={item.customer.customer_avatar}>
+                  <AvatarWrapper>
+                    <CustomerAvatar $src={item.customer.customer_avatar}>
                     {typeof getCustomerAvatar(item.customer) === 'string' && 
                      !item.customer.customer_avatar && 
                      getCustomerAvatar(item.customer)
                     }
-                  </CustomerAvatar>
+                    </CustomerAvatar>
+                    {hasUnread && (<UnreadDot dot />)}
+                  </AvatarWrapper>
                 
                 <CustomerInfo>
                   <CustomerName>
@@ -436,19 +468,14 @@ const CustomerListPage: React.FC = () => {
                   </CustomerMeta>
                 </CustomerInfo>
                 
-                {hasUnread && (
-                  <UnreadBadge count={item.unread_count} />
-                )}
+                {(() => { const t = formatBadgeCount(item.unread_count); return t ? (<UnreadCount>{t}</UnreadCount>) : null; })()}
               </CustomerHeader>
 
               {item.last_message && (
                 <LastMessage>
                   <MessageContent $isUnread={hasUnread}>
                     {item.last_message.sender_type === 'customer' ? '' : '[我] '}
-                    {item.last_message.message_type === 'text' 
-                      ? item.last_message.content 
-                      : `[${item.last_message.message_type === 'image' ? '图片' : '文件'}]`
-                    }
+                    {formatMessagePreview(item.last_message as any)}
                   </MessageContent>
                   
                   <MessageTime>

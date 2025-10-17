@@ -12,6 +12,7 @@ import { ProfilePage } from './pages/Profile';
 import { HomePage } from './pages/Home';
 import { StatisticsPage } from './pages/Statistics';
 import { useAuthStore } from './stores/authStore';
+import GlobalWSBootstrap from './components/GlobalWSBootstrap';
 
 function App() {
   const { isAuthenticated, hydrated } = useAuthStore();
@@ -37,6 +38,7 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <GlobalStyles />
+      <GlobalWSBootstrap />
       <Layout>
         <Routes>
           <Route path="/" element={<Navigate to="/home" replace />} />

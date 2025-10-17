@@ -1,6 +1,7 @@
 import { api } from '../../config/api';
 import { normalizeShopsList } from '../../utils/normalize';
 import { listStaffShops } from '../../services/shops';
+import { sortConversations } from '../../utils/sort';
 
 export interface Shop {
   id: number;
@@ -54,7 +55,20 @@ export async function loadConversationsForMessagesPage(): Promise<Conversation[]
         const customersRes = await api.get(`/api/shops/${shop.id}/customers`);
         const customers = customersRes.data as any[];
         const unreadCount = customers.reduce((total: number, c: any) => total + (c.unread_count || 0), 0);
-        const lastMessage = customers.length > 0 && customers[0].last_message ? customers[0].last_message : null;
+
+        // 计算该店铺的最近活跃时间与对应的最后一条消息
+        let latestTs = 0;
+        let latestMsg: { content: string; created_at: string; sender_type: string } | null = null;
+        for (const c of customers) {
+          const tStr = c?.last_message?.created_at || c?.session?.last_message_at || c?.customer?.last_active_at;
+          if (!tStr) continue;
+          const t = new Date(tStr).getTime();
+          if (t > latestTs) {
+            latestTs = t;
+            latestMsg = c?.last_message ?? null;
+          }
+        }
+        const lastMessage = latestMsg;
         return {
           shop: { ...shop, unread_count: unreadCount },
           customer_count: customers.length,
@@ -72,8 +86,8 @@ export async function loadConversationsForMessagesPage(): Promise<Conversation[]
     })
   );
 
-  // 排序：按未读降序，其次客户数降序
-  conversationData.sort((a, b) => (b.unread_count - a.unread_count) || (b.customer_count - a.customer_count));
+  // 排序：按未读降序；其次按最近活跃时间（last_message.created_at 或 0）降序；再按客户数降序
+  conversationData.sort((a, b) => sortConversations([a, b])[0] === a ? -1 : 1);
 
   return conversationData;
 }

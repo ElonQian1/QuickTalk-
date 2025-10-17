@@ -287,7 +287,7 @@ const ChatPage: React.FC = () => {
   const [uploading, setUploading] = useState(false);
   const [userShopId, setUserShopId] = useState<string | null>(null);
   const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
-  const resetSessionUnread = useNotificationsStore(state => state.resetSessionUnread);
+  // 仅在卡片层级清零：不直接操作聚合未读统计，避免影响底部导航
   // const [isTyping, setIsTyping] = useState(false); // 未来可接入实时输入指示
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -481,7 +481,13 @@ const ChatPage: React.FC = () => {
         if (shopId && customerId) {
           // 调用后端清除该客户在该店铺的未读
           api.post(`/api/shops/${shopId}/customers/${customerId}/read`).finally(() => {
-            try { resetSessionUnread(sessionId, shopId); } catch {}
+            try {
+              // 向全局广播“该会话已读”，客户列表页据此即时清除该卡片红点
+              const ev = new CustomEvent('session-read', {
+                detail: { shopId, sessionId, customerId },
+              });
+              window.dispatchEvent(ev);
+            } catch {}
           });
         }
       } catch (e) {

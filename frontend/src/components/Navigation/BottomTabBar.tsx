@@ -6,6 +6,7 @@ import { theme } from '../../styles/globalStyles';
 import { Badge } from '../../styles/globalStyles';
 import { useNotificationsStore } from '../../stores/notificationsStore';
 import { useConversationsStore } from '../../stores/conversationsStore';
+import { formatBadgeCount } from '../../utils/format';
 
 const TabBarContainer = styled.div`
   position: fixed;
@@ -166,7 +167,7 @@ const BottomTabBar: React.FC<BottomTabBarProps> = ({ unreadCount }) => {
             <TabIcon active={isActive}>
               <Icon />
               {tab.badge && tab.badge > 0 && (
-                <NotificationBadge count={tab.badge} />
+                <NotificationBadge>{formatBadgeCount(tab.badge)}</NotificationBadge>
               )}
             </TabIcon>
             <TabLabel active={isActive}>{tab.label}</TabLabel>

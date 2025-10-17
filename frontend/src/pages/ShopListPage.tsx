@@ -4,13 +4,14 @@ import { FiPlus, FiGlobe } from 'react-icons/fi';
 import { api } from '../config/api';
 import { listStaffShops } from '../services/shops';
 import { normalizeShopsList } from '../utils/normalize';
-import { Button, Card, LoadingSpinner } from '../styles/globalStyles';
+import { Button, Card, LoadingSpinner, Badge } from '../styles/globalStyles';
 import { EmptyState, EmptyIcon, EmptyTitle, EmptyDescription } from '../components/UI';
 import { ShopManageButton, ShopManageModal } from '../components/shops';
 import { theme } from '../styles/globalStyles';
 import toast from 'react-hot-toast';
 import CreateShopModal from '../components/CreateShopModal';
-import { useWSStore } from '../stores/wsStore';
+import { useNotificationsStore } from '../stores/notificationsStore';
+import { formatBadgeCount } from '../utils/format';
 
 const Container = styled.div`
   padding: ${theme.spacing.md};
@@ -57,6 +58,12 @@ const ShopCard = styled(Card)<{ $role?: 'owner' | 'staff' }>`
   &:active {
     transform: translateY(0);
   }
+`;
+
+const ShopUnreadBadge = styled(Badge)`
+  position: absolute;
+  top: 8px;
+  right: 8px;
 `;
 
 const ShopHeader = styled.div`
@@ -146,6 +153,7 @@ const ShopListPage: React.FC = () => {
   const [manageOpen, setManageOpen] = useState(false);
   const [activeShop, setActiveShop] = useState<Shop | undefined>();
   const [initialTab, setInitialTab] = useState<'info' | 'staff' | 'apiKey'>('info');
+  const byShop = useNotificationsStore(state => state.byShop);
 
   useEffect(() => {
     fetchShops();
@@ -176,12 +184,14 @@ const ShopListPage: React.FC = () => {
       for (const item of [...ownerNormalized, ...staffNormalized]) {
         if (!map.has(item.id)) map.set(item.id, item);
       }
-      const merged = Array.from(map.values()).sort((a, b) => (new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+      // 先按未读降序，再按创建时间降序（后续可替换为活跃时间）
+      const merged = Array.from(map.values()).sort((a, b) => {
+        const ua = byShop[a.id] || 0;
+        const ub = byShop[b.id] || 0;
+        if (ub !== ua) return ub - ua;
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
       setShops(merged);
-      // 自动连接到第一个店铺的 staff WS（如存在）
-      if (merged.length > 0 && merged[0].id) {
-        useWSStore.getState().connect(merged[0].id);
-      }
     } catch (error) {
       toast.error('获取店铺列表失败');
       console.error('Error fetching shops:', error);
@@ -258,6 +268,7 @@ const ShopListPage: React.FC = () => {
                   <ShopIcon style={{ position: 'relative' }} $role={shop.my_role}>
                     🏪
                   </ShopIcon>
+                  {(() => { const t = formatBadgeCount(byShop[shop.id]); return t ? (<ShopUnreadBadge>{t}</ShopUnreadBadge>) : null; })()}
 
                   <ShopInfo>
                     <ShopName>
