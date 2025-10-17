@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { FiChevronLeft } from 'react-icons/fi';
+import { useSettingsStore } from '../../../stores/settingsStore';
+import { notificationService } from '../../../services/notificationService';
+import toast from 'react-hot-toast';
 
 const Container = styled.div`
   position: fixed;
@@ -157,66 +160,124 @@ interface SettingsModalProps {
 }
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
-  const [settings, setSettings] = useState({
-    notifications: true,
-    soundEnabled: true,
-    vibrationEnabled: true,
-    autoReply: false,
-    darkMode: false,
-    language: 'zh-CN',
-    fontSize: 'medium'
-  });
+  // 从 settingsStore 获取设置
+  const notifications = useSettingsStore((state) => state.notifications);
+  const soundEnabled = useSettingsStore((state) => state.soundEnabled);
+  const vibrationEnabled = useSettingsStore((state) => state.vibrationEnabled);
+  const autoReply = useSettingsStore((state) => state.autoReply);
+  const darkMode = useSettingsStore((state) => state.darkMode);
+  
+  // 获取设置操作方法
+  const toggleNotifications = useSettingsStore((state) => state.toggleNotifications);
+  const toggleSound = useSettingsStore((state) => state.toggleSound);
+  const toggleVibration = useSettingsStore((state) => state.toggleVibration);
+  const toggleAutoReply = useSettingsStore((state) => state.toggleAutoReply);
+  const toggleDarkMode = useSettingsStore((state) => state.toggleDarkMode);
 
   if (!isOpen) return null;
 
-  const toggleSetting = (key: keyof typeof settings) => {
-    setSettings(prev => ({
-      ...prev,
-      [key]: !prev[key]
-    }));
+  // 处理通知开关切换
+  const handleNotificationsToggle = async () => {
+    const newValue = !notifications;
+    toggleNotifications();
+    
+    // 如果要开启通知，检查浏览器权限
+    if (newValue) {
+      const permission = notificationService.getNotificationPermission();
+      if (permission === 'default') {
+        const result = await notificationService.requestNotificationPermission();
+        if (result === 'denied') {
+          toast.error('通知权限被拒绝，请在浏览器设置中允许通知');
+        } else if (result === 'granted') {
+          toast.success('通知权限已授予');
+        }
+      }
+    }
+  };
+
+  // 处理声音开关切换
+  const handleSoundToggle = async () => {
+    const newValue = !soundEnabled;
+    toggleSound();
+    
+    // 如果开启声音，播放测试音
+    if (newValue) {
+      try {
+        await notificationService.playSound(0.5);
+        toast.success('提示音已启用');
+      } catch (error) {
+        toast('提示音播放失败，可能需要用户交互后才能播放', { icon: '⚠️' });
+      }
+    }
+  };
+
+  // 处理震动开关切换
+  const handleVibrationToggle = () => {
+    const newValue = !vibrationEnabled;
+    toggleVibration();
+    
+    // 如果开启震动，测试震动
+    if (newValue) {
+      const success = notificationService.vibrate([200]);
+      if (success) {
+        toast.success('振动已启用');
+      } else {
+        toast('当前设备不支持振动功能', { icon: 'ℹ️' });
+      }
+    }
   };
 
   const notificationSettings = [
     {
-      key: 'notifications' as const,
+      key: 'notifications',
       icon: '🔔',
       color: '#ffc107',
       title: '推送通知',
-      description: '接收新消息通知'
+      description: '接收新消息通知',
+      value: notifications,
+      onChange: handleNotificationsToggle,
     },
     {
-      key: 'soundEnabled' as const,
+      key: 'soundEnabled',
       icon: '🔊',
       color: '#17a2b8',
       title: '消息提示音',
-      description: '新消息时播放提示音'
+      description: '新消息时播放提示音',
+      value: soundEnabled,
+      onChange: handleSoundToggle,
     },
     {
-      key: 'vibrationEnabled' as const,
+      key: 'vibrationEnabled',
       icon: '📳',
       color: '#6f42c1',
       title: '振动提醒',
-      description: '新消息时设备振动'
+      description: '新消息时设备振动',
+      value: vibrationEnabled,
+      onChange: handleVibrationToggle,
     }
   ];
 
   const chatSettings = [
     {
-      key: 'autoReply' as const,
+      key: 'autoReply',
       icon: '🤖',
       color: '#28a745',
       title: '自动回复',
-      description: '离线时自动回复客户消息'
+      description: '离线时自动回复客户消息',
+      value: autoReply,
+      onChange: toggleAutoReply,
     }
   ];
 
   const displaySettings = [
     {
-      key: 'darkMode' as const,
+      key: 'darkMode',
       icon: '🌙',
       color: '#495057',
       title: '深色模式',
-      description: '使用深色主题'
+      description: '使用深色主题',
+      value: darkMode,
+      onChange: toggleDarkMode,
     }
   ];
 
@@ -258,11 +319,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   ];
 
   const renderSwitchItem = (item: {
-    key: keyof typeof settings;
+    key: string;
     icon: string;
     color: string;
     title: string;
     description: string;
+    value: boolean;
+    onChange: () => void;
   }) => (
     <SettingItem key={item.key}>
       <SettingLeft>
@@ -275,8 +338,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
         </SettingContent>
       </SettingLeft>
       <Switch 
-        active={settings[item.key] as boolean}
-        onClick={() => toggleSetting(item.key)}
+        active={item.value}
+        onClick={item.onChange}
       />
     </SettingItem>
   );

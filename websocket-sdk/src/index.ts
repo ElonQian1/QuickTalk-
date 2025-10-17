@@ -16,7 +16,8 @@ export { VoicePlayer } from './voice-player';
 export { VoiceMessageRenderer } from './voice-message';
 
 // 导出自动更新器
-export { SDKAutoUpdater } from './core/auto-updater';
+import { SDKAutoUpdater } from './core/auto-updater';
+import { createSDKNotificationService, SDKNotificationService } from './modules/notification/notification-service';
 
 // WebSocket 消息格式
 export interface WebSocketMessage {
@@ -41,6 +42,16 @@ export interface SDKConfig {
   maxReconnectAttempts?: number;
   autoDetectServer?: boolean; // 是否启用自动服务器检测
   enableAutoUpdate?: boolean; // 是否启用自动更新
+  // 可选：通知配置（默认开启，如不希望启用可将 enabled 置为 false）
+  notification?: {
+    enabled?: boolean;
+    soundEnabled?: boolean;
+    vibrationEnabled?: boolean;
+    showBrowserNotification?: boolean;
+    soundUrl?: string;
+    soundVolume?: number; // 0-1
+    vibrationPattern?: number | number[];
+  };
 }
 
 // 服务器配置响应
@@ -92,7 +103,6 @@ export interface StaffStatus {
  * 客服系统 WebSocket SDK
  * 供独立站前端集成使用
  */
-import { SDKAutoUpdater } from './core/auto-updater';
 
 export class CustomerServiceSDK {
   private config: SDKConfig;
@@ -105,6 +115,7 @@ export class CustomerServiceSDK {
   private serverConfig: ServerConfig | null = null;
   private autoUpdater?: SDKAutoUpdater;
   private readonly version = '2.1.0'; // SDK版本号
+  private notification?: SDKNotificationService;
 
   constructor(config: SDKConfig) {
     this.config = {
@@ -119,6 +130,21 @@ export class CustomerServiceSDK {
     ['connected', 'disconnected', 'message', 'typing', 'error', 'reconnecting', 'staffOnline', 'staffOffline'].forEach(eventType => {
       this.eventListeners.set(eventType as EventType, []);
     });
+
+    // 初始化通知服务（默认启用，可通过 config.notification.enabled 关闭）
+    const n = this.config.notification || {};
+    const enabled = n.enabled !== false; // 默认 true
+    if (enabled) {
+      this.notification = createSDKNotificationService({
+        notificationsEnabled: true,
+        soundEnabled: n.soundEnabled !== false,
+        vibrationEnabled: n.vibrationEnabled !== false,
+        soundUrl: n.soundUrl,
+        soundVolume: typeof n.soundVolume === 'number' ? n.soundVolume : 0.5,
+        vibrationPattern: n.vibrationPattern ?? [200],
+      });
+      this.notification.init().catch(() => {});
+    }
   }
 
   /**
@@ -193,12 +219,14 @@ export class CustomerServiceSDK {
       this.ws = new WebSocket(wsUrl);
 
       this.ws.onopen = this.handleOpen.bind(this);
-      this.ws.onmessage = this.handleMessage.bind(this);
+  this.ws.onmessage = this.handleMessage.bind(this);
       this.ws.onclose = this.handleClose.bind(this);
       this.ws.onerror = this.handleError.bind(this);
 
       // 初始化自动更新器
-      this.initializeAutoUpdater();
+  this.initializeAutoUpdater();
+  // 确保通知服务初始化（若启用）
+  await this.notification?.init();
 
     } catch (error) {
       this.isConnecting = false;
@@ -463,7 +491,7 @@ export class CustomerServiceSDK {
           break;
           
         case 'new_message':
-          this.emit('message', {
+          const parsed = {
             id: message.metadata?.id,
             content: message.content,
             messageType: message.metadata?.messageType || 'text',
@@ -472,7 +500,22 @@ export class CustomerServiceSDK {
             timestamp: message.timestamp ? new Date(message.timestamp) : new Date(),
             sessionId: message.sessionId,
             fileUrl: message.metadata?.fileUrl,
-          } as ChatMessage);
+          } as ChatMessage;
+          this.emit('message', parsed);
+
+          // 仅当客服发来的消息时触发通知
+          if (parsed.senderType === 'staff') {
+            const n = this.config.notification || {};
+            const showBrowser = n.showBrowserNotification !== false; // 默认展示
+            this.notification?.notifyNewMessage({
+              title: '客服回复',
+              body: parsed.messageType === 'text' ? (parsed.content || '') : '收到一条新消息',
+              tag: parsed.sessionId ? `session-${parsed.sessionId}` : undefined,
+              playSound: n.soundEnabled !== false,
+              vibrate: n.vibrationEnabled !== false,
+              showNotification: showBrowser,
+            }).catch(() => {});
+          }
           break;
           
         case 'typing':

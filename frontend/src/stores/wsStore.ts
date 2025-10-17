@@ -4,6 +4,8 @@ import { useAuthStore } from './authStore';
 import { useConversationsStore } from './conversationsStore';
 import { useNotificationsStore } from './notificationsStore';
 import { normalizeWSMessage, makeDedupKey } from '../utils/wsEvents';
+import { notificationService } from '../services/notificationService';
+import { shouldNotify } from './settingsStore';
 
 type WSStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 
@@ -146,6 +148,21 @@ export const useWSStore = create<WSState>((set, get) => ({
               // 没有会话ID时，仅按店铺维度 +1，避免覆盖其他店铺统计
               useNotificationsStore.getState().incrementShopUnread(shopId, 1);
             }
+
+            // 🔔 触发通知提示（声音、震动、浏览器通知）
+            const notifySettings = shouldNotify();
+            notificationService.notifyNewMessage({
+              playSound: notifySettings.shouldPlaySound,
+              vibrate: notifySettings.shouldVibrate,
+              showNotification: notifySettings.shouldShowNotification,
+              senderName: '新消息', // 可以从消息数据中获取客户名称
+              messageContent: n.content as string | undefined,
+              shopId,
+              sessionId,
+            }).catch((error) => {
+              // 静默处理通知错误，不影响消息接收
+              console.debug('通知触发失败:', error);
+            });
           }
         } else if (n.type === 'typing') {
           // typing 事件可在未来用于 UI 提示，这里暂不处理
