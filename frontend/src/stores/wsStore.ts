@@ -5,7 +5,8 @@ import { useConversationsStore } from './conversationsStore';
 import { useNotificationsStore } from './notificationsStore';
 import { normalizeWSMessage, makeDedupKey } from '../utils/wsEvents';
 import { notificationService } from '../services/notificationService';
-import { shouldNotify } from './settingsStore';
+import { useUIStore } from './uiStore';
+import { shouldNotify, useSettingsStore } from './settingsStore';
 
 type WSStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 
@@ -150,19 +151,36 @@ export const useWSStore = create<WSState>((set, get) => ({
             }
 
             // 🔔 触发通知提示（声音、震动、浏览器通知）
-            const notifySettings = shouldNotify();
-            notificationService.notifyNewMessage({
-              playSound: notifySettings.shouldPlaySound,
-              vibrate: notifySettings.shouldVibrate,
-              showNotification: notifySettings.shouldShowNotification,
-              senderName: '新消息', // 可以从消息数据中获取客户名称
-              messageContent: n.content as string | undefined,
-              shopId,
-              sessionId,
-            }).catch((error) => {
-              // 静默处理通知错误，不影响消息接收
-              console.debug('通知触发失败:', error);
-            });
+            // 抑制逻辑：若当前页面可见且活跃会话正是该会话，则不提醒
+            const activeSessionId = useUIStore.getState().activeSessionId;
+            const isPageVisible = typeof document !== 'undefined' && document.visibilityState === 'visible';
+            const shouldSuppress = isPageVisible && !!sessionId && activeSessionId === sessionId;
+
+            if (!shouldSuppress) {
+              const notifySettings = shouldNotify();
+              const preview = useSettingsStore.getState().messagePreview;
+              notificationService.notifyNewMessage({
+                playSound: notifySettings.shouldPlaySound,
+                vibrate: notifySettings.shouldVibrate,
+                showNotification: notifySettings.shouldShowNotification,
+                senderName: '新消息', // 可以从消息数据中获取客户名称
+                messageContent: preview ? (n.content as string | undefined) : '收到一条新消息',
+                shopId,
+                sessionId,
+                onClick: ({ shopId: sId, sessionId: sessId }) => {
+                  try { window.focus(); } catch {}
+                  try {
+                    const ev = new CustomEvent('open-session', { detail: { shopId: sId, sessionId: sessId } });
+                    window.dispatchEvent(ev);
+                  } catch (e) {
+                    console.debug('派发会话打开事件失败', e);
+                  }
+                },
+              }).catch((error) => {
+                // 静默处理通知错误，不影响消息接收
+                console.debug('通知触发失败:', error);
+              });
+            }
           }
         } else if (n.type === 'typing') {
           // typing 事件可在未来用于 UI 提示，这里暂不处理

@@ -181,6 +181,20 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     };
   }, [menuOpen]);
 
+  // 监听来自通知点击的“打开会话”事件
+  useEffect(() => {
+    const handler = (e: Event) => {
+      try {
+        const detail = (e as CustomEvent).detail as { shopId?: number; sessionId?: number } | undefined;
+        if (detail?.sessionId) {
+          navigate(`/chat/${detail.sessionId}`);
+        }
+      } catch {}
+    };
+    window.addEventListener('open-session', handler as EventListener);
+    return () => window.removeEventListener('open-session', handler as EventListener);
+  }, [navigate]);
+
   return (
     <LayoutContainer>
       <Header>

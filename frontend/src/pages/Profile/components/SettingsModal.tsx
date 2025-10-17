@@ -164,6 +164,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   const notifications = useSettingsStore((state) => state.notifications);
   const soundEnabled = useSettingsStore((state) => state.soundEnabled);
   const vibrationEnabled = useSettingsStore((state) => state.vibrationEnabled);
+  const messagePreview = useSettingsStore((state) => state.messagePreview);
   const autoReply = useSettingsStore((state) => state.autoReply);
   const darkMode = useSettingsStore((state) => state.darkMode);
   
@@ -171,6 +172,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   const toggleNotifications = useSettingsStore((state) => state.toggleNotifications);
   const toggleSound = useSettingsStore((state) => state.toggleSound);
   const toggleVibration = useSettingsStore((state) => state.toggleVibration);
+  const toggleMessagePreview = useSettingsStore((state) => state.toggleMessagePreview);
   const toggleAutoReply = useSettingsStore((state) => state.toggleAutoReply);
   const toggleDarkMode = useSettingsStore((state) => state.toggleDarkMode);
 
@@ -254,7 +256,16 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
       description: '新消息时设备振动',
       value: vibrationEnabled,
       onChange: handleVibrationToggle,
-    }
+    },
+    {
+      key: 'messagePreview',
+      icon: '👁️',
+      color: '#20c997',
+      title: '显示消息内容',
+      description: '在系统通知中显示消息正文（关闭以保护隐私）',
+      value: messagePreview,
+      onChange: toggleMessagePreview,
+    },
   ];
 
   const chatSettings = [

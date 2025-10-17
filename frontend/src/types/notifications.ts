@@ -42,6 +42,8 @@ export interface NotificationOptions {
   silent?: boolean;
   /** 附加数据 */
   data?: any;
+  /** 点击通知时回调（可用于聚焦窗口/定位会话） */
+  onClick?: (payload: { notification: Notification; data?: any }) => void;
 }
 
 /**
@@ -62,6 +64,8 @@ export interface MessageNotificationOptions {
   shopId?: number;
   /** 会话ID */
   sessionId?: number;
+  /** 点击通知时回调（例如聚焦并跳转到会话） */
+  onClick?: (payload: { shopId?: number; sessionId?: number }) => void;
 }
 
 /**

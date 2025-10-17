@@ -166,11 +166,16 @@ class VibrationManager {
  * 封装 Notification API
  */
 class BrowserNotificationManager {
+  private registry: Map<string, Set<Notification>> = new Map();
+
   /**
    * 检查通知API是否可用
    */
   isSupported(): boolean {
-    return 'Notification' in window;
+    const hasAPI = 'Notification' in window;
+    // 仅在 https 或 localhost 下允许浏览器通知
+    const isSecure = window?.location?.protocol === 'https:' || window?.location?.hostname === 'localhost';
+    return hasAPI && isSecure;
   }
 
   /**
@@ -225,6 +230,30 @@ class BrowserNotificationManager {
         silent: options.silent,
         data: options.data,
       });
+      // 维护实例注册表（用于后续按 tag 关闭）
+      if (options.tag) {
+        const set = this.registry.get(options.tag) || new Set<Notification>();
+        set.add(notification);
+        this.registry.set(options.tag, set);
+        notification.onclose = () => {
+          const s = this.registry.get(options.tag!);
+          if (s) {
+            s.delete(notification);
+            if (s.size === 0) this.registry.delete(options.tag!);
+          }
+        };
+      }
+
+      // 点击回调
+      if (options.onClick) {
+        notification.onclick = (ev) => {
+          try {
+            window?.focus?.();
+          } catch {}
+          options.onClick!({ notification, data: options.data });
+          try { notification.close(); } catch {}
+        };
+      }
 
       return notification;
     } catch (error) {
@@ -237,9 +266,10 @@ class BrowserNotificationManager {
    * 关闭所有通知（通过tag）
    */
   async closeByTag(tag: string): Promise<void> {
-    // Notification API 没有直接的方法关闭指定tag的通知
-    // 这里只是提供接口，实际需要保存notification实例来关闭
-    console.warn('⚠️ 关闭通知需要保存notification实例');
+    const set = this.registry.get(tag);
+    if (!set) return;
+    set.forEach((n) => { try { n.close(); } catch {} });
+    this.registry.delete(tag);
   }
 }
 
@@ -252,6 +282,8 @@ class NotificationService {
   private vibrationManager: VibrationManager;
   private browserNotificationManager: BrowserNotificationManager;
   private initialized = false;
+  private lastNotifyAt = 0;
+  private minNotifyIntervalMs = 2000; // 节流：两秒内只提醒一次
 
   constructor() {
     // 初始化提示音管理器（使用 public 目录下的音频文件）
@@ -337,7 +369,27 @@ class NotificationService {
       messageContent = '',
       shopId,
       sessionId,
+      onClick,
     } = options;
+
+    // 节流控制：两秒内合并提醒
+    const now = Date.now();
+    if (now - this.lastNotifyAt < this.minNotifyIntervalMs) {
+      // 仍允许更新浏览器通知内容（可选：合并未读数），此处简化为跳过声音/震动
+      if (showNotification) {
+        await this.showNotification({
+          title: senderName,
+          body: messageContent,
+          icon: '/logo192.svg',
+          tag: sessionId ? `session-${sessionId}` : `shop-${shopId}`,
+          requireInteraction: false,
+          data: { shopId, sessionId },
+          onClick: onClick ? () => onClick({ shopId, sessionId }) : undefined,
+        });
+      }
+      return;
+    }
+    this.lastNotifyAt = now;
 
     // 播放声音
     if (playSound) {
@@ -360,6 +412,7 @@ class NotificationService {
         tag: sessionId ? `session-${sessionId}` : `shop-${shopId}`,
         requireInteraction: false,
         data: { shopId, sessionId },
+        onClick: onClick ? ({}) => onClick({ shopId, sessionId }) : undefined,
       });
     }
   }
@@ -383,6 +436,17 @@ class NotificationService {
     this.audioManager.destroy();
     this.vibrationManager.cancel();
     this.initialized = false;
+  }
+
+  /**
+   * 根据 tag 关闭系统通知（例如进入某会话后清理该会话残留通知）
+   */
+  async closeByTag(tag: string): Promise<void> {
+    try {
+      await this.browserNotificationManager.closeByTag(tag);
+    } catch (e) {
+      console.debug('关闭通知失败(可忽略):', e);
+    }
   }
 }
 

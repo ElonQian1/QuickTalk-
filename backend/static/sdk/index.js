@@ -2,14 +2,15 @@
 export { VoicePlayer } from './voice-player';
 export { VoiceMessageRenderer } from './voice-message';
 // 导出自动更新器
-export { SDKAutoUpdater } from './core/auto-updater';
+import { SDKAutoUpdater } from './core/auto-updater';
+import { createSDKNotificationService } from './modules/notification/notification-service';
 /**
  * 客服系统 WebSocket SDK
  * 供独立站前端集成使用
  */
-import { SDKAutoUpdater } from './core/auto-updater';
 export class CustomerServiceSDK {
     constructor(config) {
+        var _a;
         this.ws = null;
         this.eventListeners = new Map();
         this.reconnectAttempts = 0;
@@ -29,6 +30,20 @@ export class CustomerServiceSDK {
         ['connected', 'disconnected', 'message', 'typing', 'error', 'reconnecting', 'staffOnline', 'staffOffline'].forEach(eventType => {
             this.eventListeners.set(eventType, []);
         });
+        // 初始化通知服务（默认启用，可通过 config.notification.enabled 关闭）
+        const n = this.config.notification || {};
+        const enabled = n.enabled !== false; // 默认 true
+        if (enabled) {
+            this.notification = createSDKNotificationService({
+                notificationsEnabled: true,
+                soundEnabled: n.soundEnabled !== false,
+                vibrationEnabled: n.vibrationEnabled !== false,
+                soundUrl: n.soundUrl || '/static/embed/notification.wav', // 默认使用内置提示音
+                soundVolume: typeof n.soundVolume === 'number' ? n.soundVolume : 0.5,
+                vibrationPattern: (_a = n.vibrationPattern) !== null && _a !== void 0 ? _a : [200],
+            });
+            this.notification.init().catch(() => { });
+        }
     }
     /**
      * 自动检测可用的服务器地址
@@ -84,6 +99,7 @@ export class CustomerServiceSDK {
      * 连接到服务器
      */
     async connect() {
+        var _a;
         if (this.isConnecting || (this.ws && this.ws.readyState === WebSocket.OPEN)) {
             return;
         }
@@ -97,6 +113,8 @@ export class CustomerServiceSDK {
             this.ws.onerror = this.handleError.bind(this);
             // 初始化自动更新器
             this.initializeAutoUpdater();
+            // 确保通知服务初始化（若启用）
+            await ((_a = this.notification) === null || _a === void 0 ? void 0 : _a.init());
         }
         catch (error) {
             this.isConnecting = false;
@@ -318,7 +336,7 @@ export class CustomerServiceSDK {
         this.emit('connected');
     }
     handleMessage(event) {
-        var _a, _b, _c, _d, _e;
+        var _a, _b, _c, _d, _e, _f;
         try {
             const message = JSON.parse(event.data);
             switch (message.messageType) {
@@ -326,7 +344,7 @@ export class CustomerServiceSDK {
                     this.sessionId = message.sessionId || null;
                     break;
                 case 'new_message':
-                    this.emit('message', {
+                    const parsed = {
                         id: (_a = message.metadata) === null || _a === void 0 ? void 0 : _a.id,
                         content: message.content,
                         messageType: ((_b = message.metadata) === null || _b === void 0 ? void 0 : _b.messageType) || 'text',
@@ -335,16 +353,30 @@ export class CustomerServiceSDK {
                         timestamp: message.timestamp ? new Date(message.timestamp) : new Date(),
                         sessionId: message.sessionId,
                         fileUrl: (_c = message.metadata) === null || _c === void 0 ? void 0 : _c.fileUrl,
-                    });
+                    };
+                    this.emit('message', parsed);
+                    // 仅当客服发来的消息时触发通知
+                    if (parsed.senderType === 'staff') {
+                        const n = this.config.notification || {};
+                        const showBrowser = n.showBrowserNotification !== false; // 默认展示
+                        (_d = this.notification) === null || _d === void 0 ? void 0 : _d.notifyNewMessage({
+                            title: '客服回复',
+                            body: parsed.messageType === 'text' ? (parsed.content || '') : '收到一条新消息',
+                            tag: parsed.sessionId ? `session-${parsed.sessionId}` : undefined,
+                            playSound: n.soundEnabled !== false,
+                            vibrate: n.vibrationEnabled !== false,
+                            showNotification: showBrowser,
+                        }).catch(() => { });
+                    }
                     break;
                 case 'typing':
                     this.emit('typing', {
-                        isTyping: (_d = message.metadata) === null || _d === void 0 ? void 0 : _d.isTyping,
+                        isTyping: (_e = message.metadata) === null || _e === void 0 ? void 0 : _e.isTyping,
                         senderId: message.senderId,
                     });
                     break;
                 case 'staff_status':
-                    if ((_e = message.metadata) === null || _e === void 0 ? void 0 : _e.isOnline) {
+                    if ((_f = message.metadata) === null || _f === void 0 ? void 0 : _f.isOnline) {
                         this.emit('staffOnline', message.metadata);
                     }
                     else {

@@ -48,6 +48,7 @@ export interface SDKConfig {
     soundEnabled?: boolean;
     vibrationEnabled?: boolean;
     showBrowserNotification?: boolean;
+    previewContentEnabled?: boolean;
     soundUrl?: string;
     soundVolume?: number; // 0-1
     vibrationPattern?: number | number[];
@@ -506,14 +507,16 @@ export class CustomerServiceSDK {
           // 仅当客服发来的消息时触发通知
           if (parsed.senderType === 'staff') {
             const n = this.config.notification || {};
-            const showBrowser = n.showBrowserNotification !== false; // 默认展示
+            const browserEnabled = n.showBrowserNotification !== false; // 默认展示
+            const preview = n.previewContentEnabled !== false; // 默认展示，除非显式关闭
             this.notification?.notifyNewMessage({
               title: '客服回复',
-              body: parsed.messageType === 'text' ? (parsed.content || '') : '收到一条新消息',
+              body: preview && parsed.messageType === 'text' ? (parsed.content || '') : '收到一条新消息',
               tag: parsed.sessionId ? `session-${parsed.sessionId}` : undefined,
               playSound: n.soundEnabled !== false,
               vibrate: n.vibrationEnabled !== false,
-              showNotification: showBrowser,
+              showNotification: browserEnabled,
+              onClick: (tag) => { try { window.focus(); } catch {} }
             }).catch(() => {});
           }
           break;

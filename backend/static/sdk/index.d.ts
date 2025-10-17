@@ -11,7 +11,6 @@ export interface ChatMessage {
 }
 export { VoicePlayer } from './voice-player';
 export { VoiceMessageRenderer } from './voice-message';
-export { SDKAutoUpdater } from './core/auto-updater';
 export interface WebSocketMessage {
     messageType: string;
     content?: string;
@@ -32,6 +31,15 @@ export interface SDKConfig {
     maxReconnectAttempts?: number;
     autoDetectServer?: boolean;
     enableAutoUpdate?: boolean;
+    notification?: {
+        enabled?: boolean;
+        soundEnabled?: boolean;
+        vibrationEnabled?: boolean;
+        showBrowserNotification?: boolean;
+        soundUrl?: string;
+        soundVolume?: number;
+        vibrationPattern?: number | number[];
+    };
 }
 export interface ServerConfig {
     version: string;
@@ -62,6 +70,10 @@ export interface StaffStatus {
     isOnline: boolean;
     lastSeen?: Date;
 }
+/**
+ * 客服系统 WebSocket SDK
+ * 供独立站前端集成使用
+ */
 export declare class CustomerServiceSDK {
     private config;
     private ws;
@@ -73,6 +85,7 @@ export declare class CustomerServiceSDK {
     private serverConfig;
     private autoUpdater?;
     private readonly version;
+    private notification?;
     constructor(config: SDKConfig);
     /**
      * 自动检测可用的服务器地址

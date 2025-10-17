@@ -25,6 +25,7 @@ export interface MessageNotifyOptions {
   playSound?: boolean;
   vibrate?: boolean;
   showNotification?: boolean;
+  onClick?: (tag?: string) => void;
 }
 
 class AudioNotificationManager {
@@ -100,7 +101,11 @@ class VibrationManager {
 }
 
 class BrowserNotificationManager {
-  isSupported(): boolean { return typeof Notification !== 'undefined'; }
+  isSupported(): boolean {
+    const hasAPI = typeof Notification !== 'undefined';
+    const isSecure = typeof window !== 'undefined' && (window.location.protocol === 'https:' || window.location.hostname === 'localhost');
+    return hasAPI && isSecure;
+  }
   getPermission(): NotificationPermissionState {
     if (!this.isSupported()) return 'denied';
     return Notification.permission as NotificationPermissionState;
@@ -110,11 +115,15 @@ class BrowserNotificationManager {
     try { return await Notification.requestPermission() as NotificationPermissionState; }
     catch { return 'denied'; }
   }
-  async show(title: string, body?: string, tag?: string): Promise<Notification | null> {
+  async show(title: string, body?: string, tag?: string, onClick?: (tag?: string) => void): Promise<Notification | null> {
     if (!this.isSupported()) return null;
     if (this.getPermission() !== 'granted') return null;
     try {
-      return new Notification(title, { body, tag });
+      const n = new Notification(title, { body, tag });
+      if (onClick) {
+        n.onclick = () => { try { window.focus(); } catch {}; onClick(tag); try { n.close(); } catch {}; };
+      }
+      return n;
     } catch {
       return null;
     }
@@ -125,6 +134,8 @@ export class SDKNotificationService {
   private audio = new AudioNotificationManager();
   private vibration = new VibrationManager();
   private browser = new BrowserNotificationManager();
+  private lastNotifyAt = 0;
+  private minNotifyIntervalMs = 2000;
   private cfg: Required<SDKNotificationConfig> = {
     notificationsEnabled: true,
     soundEnabled: true,
@@ -168,19 +179,28 @@ export class SDKNotificationService {
     const vibrate = options?.vibrate ?? this.cfg.vibrationEnabled;
     const showNotification = options?.showNotification ?? true;
 
+    const now = Date.now();
+    const throttled = now - this.lastNotifyAt < this.minNotifyIntervalMs;
+    if (!throttled) this.lastNotifyAt = now;
+
     if (playSound) {
-      await this.audio.play(this.cfg.soundVolume);
+      // 节流下仍允许播放一次轻提示（此处简单：节流时跳过声音，避免抖动）
+      if (!throttled) {
+        await this.audio.play(this.cfg.soundVolume);
+      }
     }
 
     if (vibrate) {
-      this.vibration.vibrate(this.cfg.vibrationPattern);
+      if (!throttled) {
+        this.vibration.vibrate(this.cfg.vibrationPattern);
+      }
     }
 
     if (showNotification) {
       const title = options?.title || '新消息';
       const body = options?.body || undefined;
       const tag = options?.tag || undefined;
-      await this.browser.show(title, body, tag);
+      await this.browser.show(title, body, tag, options?.onClick);
     }
   }
 }

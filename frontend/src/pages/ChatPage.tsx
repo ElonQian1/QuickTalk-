@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import styled from 'styled-components';
 import { useParams } from 'react-router-dom';
+import { useUIStore } from '../stores/uiStore';
+import { notificationService } from '../services/notificationService';
 import { FiSend, FiImage, FiPaperclip, FiFile, FiMic } from 'react-icons/fi';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
@@ -276,6 +278,7 @@ const normalizeMediaUrl = (url?: string) => {
 
 const ChatPage: React.FC = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
+  const { setActiveSessionId } = useUIStore();
   const { socket, connect, addMessageListener, removeMessageListener } = useWSStore();
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
@@ -354,6 +357,14 @@ const ChatPage: React.FC = () => {
     if (sessionId) {
       fetchMessages(parseInt(sessionId));
     }
+    // 标记当前活跃会话，供通知抑制判断
+    const sidNum = sessionId ? parseInt(sessionId) : undefined;
+    setActiveSessionId(sidNum);
+    // 进入该会话时，关闭该会话相关的系统通知
+    if (sidNum) {
+      notificationService.closeByTag(`session-${sidNum}`).catch(() => {});
+    }
+    return () => setActiveSessionId(undefined);
   }, [sessionId]);
 
   useEffect(() => {
