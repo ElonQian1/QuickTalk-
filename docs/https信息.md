@@ -1,9 +1,37 @@
-# ELonTalk 客服系统 - 生产环境部署总结
+# ELonTalk 客服系统 - 完整生产部署指南
 
-我的项目都部署在 /root/ubuntu-deploy-ready/
-不要 帮我采用任何/opt的路径
-我就已经是管理员身份登录到Ubuntu服务器了
- 我的项目 采用 Sea-ORM 架构  自动部署数据库
+## 🎯 部署架构
+
+- **部署路径**: `/root/ubuntu-deploy-ready/` (固定，管理员权限)
+- **数据库**: Sea-ORM 自动迁移 SQLite
+- **证书管理**: ACME 自动申请/续期 (Let's Encrypt)
+- **服务器映射**: 本地 `E:\duihua\customer-service-system\ubuntu-deploy-ready` ↔ Ubuntu `/root/ubuntu-deploy-ready/`
+
+## ⚠️ 重要提示：智能更新部署
+
+**问题**: 每次编译/上传都会重置服务器配置和证书  
+**解决**: 使用智能部署脚本，自动备份和恢复关键文件
+
+### 🔧 部署流程
+```bash
+# 1. 上传整个 ubuntu-deploy-ready 文件夹到服务器
+scp -r ubuntu-deploy-ready/ root@43.139.82.12:/root/
+
+# 2. 使用智能部署脚本（推荐）
+cd /root/ubuntu-deploy-ready
+chmod +x 智能更新部署.sh
+./智能更新部署.sh
+
+# 3. 或使用原始启动脚本
+./start.sh
+```
+
+**智能部署功能**:
+- ✅ 自动备份现有证书和数据库
+- ✅ 更新后端程序和前端文件  
+- ✅ 智能合并配置文件
+- ✅ 保留生产环境 ACME 设置
+- ✅ 恢复数据完整性
 
 
 ## 📋 服务器信息

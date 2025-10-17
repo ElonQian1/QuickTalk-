@@ -1,11 +1,15 @@
-# Rust 交叉编译精简指南 - Windows 到 Ubuntu (包含HTTPS)
-核心：
-cargo zigbuild --release --target x86_64-unknown-linux-musl --features https
+# Rust 交叉编译精简指南 - Windows 到 Ubuntu (完整HTTPS + 智能部署)
+
+## 🎯 核心命令
+```bash
+cd backend && cargo zigbuild --release --target x86_64-unknown-linux-musl --features https
+```
 
 > **目标**: 在 Windows 11 环境下交叉编译 Rust 项目到 Ubuntu 24.04 LTS  
-> **结果**: 8.3MB 静态链接 Linux 二进制文件，零依赖部署，支持HTTPS  
-> **验证时间**: 2025年10月13日  
-> **编译时间**: ~12秒 (HTTPS版本)
+> **结果**: 11.1MB 静态链接 Linux 二进制文件，零依赖部署，完整HTTPS支持  
+> **更新时间**: 2025年10月17日  
+> **编译时间**: ~1分50秒 (完整HTTPS + ACME版本)  
+> **部署方式**: 智能部署脚本，保护现有配置
 
 ## 🎯 核心问题与解决方案
 
@@ -134,16 +138,20 @@ failed to find tool "x86_64-linux-musl-gcc"
 ### 错误：证书相关
 生产环境HTTPS需要有效证书，建议使用 Let's Encrypt。
 
-## 📊 性能数据
+## 📊 性能数据 (最新)
 
-| 版本 | 编译时间 | 二进制大小 | 功能 |
-|------|----------|------------|------|
-| HTTP版本 | ~8秒 | 6MB | 基础功能 |
-| HTTPS版本 | ~12秒 | 8.3MB | 完整HTTPS支持 |
+| 版本 | 编译时间 | 二进制大小 | 功能 | 状态 |
+|------|----------|------------|------|------|
+| HTTP版本 | ~30秒 | 8MB | 基础功能 | 🟡 测试用 |
+| HTTPS版本 | ~1分50秒 | 11.1MB | 完整HTTPS + ACME | ✅ 生产推荐 |
 
-- **依赖**: 零系统依赖（静态链接）
+### 📋 完整功能清单
+- **零系统依赖**: 静态链接 musl + bundled SQLite
+- **完整HTTPS**: Rustls TLS 实现 + ACME 自动证书
+- **数据库**: Sea-ORM 自动迁移
+- **前端集成**: React SPA + 静态文件服务
+- **WebSocket**: 实时通信支持
 - **兼容性**: Ubuntu 16.04+ (glibc 2.17+)
-- **TLS实现**: Rustls (纯Rust，内存安全)
 
 ## 🎯 核心原理
 
@@ -175,20 +183,29 @@ cargo zigbuild --release --target x86_64-unknown-linux-musl
 cargo zigbuild --release --target x86_64-unknown-linux-musl --features https
 ```
 
-### 生产部署：
+### 🚀 智能生产部署：
 ```bash
-# Ubuntu 服务器上
+# 1. 上传部署包到Ubuntu
+scp -r ubuntu-deploy-ready/ root@43.139.82.12:/root/
+
+# 2. 智能部署（推荐，保护现有配置）
+cd /root/ubuntu-deploy-ready
+chmod +x 智能更新部署.sh
+./智能更新部署.sh
+
+# 3. 传统部署（会覆盖配置）
 chmod +x customer-service-backend
-
-# HTTP 模式（端口 8080）
-HTTPS_ENABLED=false ./customer-service-backend
-
-# HTTPS 模式（端口 8443，需要证书）
-HTTPS_ENABLED=true TLS_CERT_PATH=certs/server.crt TLS_KEY_PATH=certs/server.key ./customer-service-backend
+./start.sh
 ```
 
-**总用时**: 约 2 分钟（不含下载时间）  
-**核心优势**: 支持完整HTTPS功能，零依赖部署！
+### 🎯 部署结果
+- **HTTPS访问**: https://elontalk.duckdns.org:8443 🔒
+- **HTTP备用**: http://43.139.82.12:8080
+- **自动证书**: Let's Encrypt 生产环境
+- **数据保护**: 智能备份和恢复
+
+**总部署时间**: 约 3-5 分钟（含证书申请）  
+**核心优势**: 完整HTTPS自动化 + 配置保护 + 零依赖部署！
 
 ---
 *最新验证时间：2025年10月13日 - HTTPS功能交叉编译测试通过*
