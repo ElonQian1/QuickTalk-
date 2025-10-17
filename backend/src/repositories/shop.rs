@@ -218,7 +218,10 @@ impl ShopRepository {
     
     /// 检查 slug 是否存在
     pub async fn slug_exists(db: &DatabaseConnection, slug: &str) -> Result<bool> {
+        // 仅选择主键列，避免 COUNT 包装子查询时选择到不存在的历史列（如 phone）
         let count = Shops::find()
+            .select_only()
+            .column(shops::Column::Id)
             .filter(shops::Column::Slug.eq(slug))
             .count(db)
             .await?;
