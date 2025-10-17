@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT owner_id as \"owner_id: i64\" FROM shops WHERE id = ? LIMIT 1",
+  "describe": {
+    "columns": [
+      {
+        "name": "owner_id: i64",
+        "ordinal": 0,
+        "type_info": "Int64"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "b16a2cf499842b1f1443c85d8627b5efe4cc4641be3d46e7d6017357bcbb3df2"
+}

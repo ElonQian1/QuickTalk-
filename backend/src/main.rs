@@ -488,7 +488,19 @@ async fn websocket_handler_customer(
 }
 
 async fn resolve_shop_id(state: &AppState, shop_ref: &str) -> Result<i64, Response> {
-    match services::shop_utils::resolve_shop_id(&state.db_connection, shop_ref).await {
+    // 允许直接传入数字 ID
+    if let Ok(id) = shop_ref.parse::<i64>() {
+        return Ok(id);
+    }
+
+    // 使用 SQLx 运行时查询通过 api_key 查找
+    match sqlx::query_scalar::<_, i64>(
+        "SELECT id FROM shops WHERE api_key = ? LIMIT 1"
+    )
+    .bind(shop_ref)
+    .fetch_optional(state.db.pool())
+    .await
+    {
         Ok(Some(id)) => Ok(id),
         Ok(None) => Err((
             StatusCode::NOT_FOUND,

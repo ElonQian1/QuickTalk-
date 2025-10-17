@@ -278,15 +278,11 @@ impl SessionService {
     /// Handler 需要的方法：重置客户未读计数
     pub async fn reset_unread_count(
         &self,
-        user_id: i64,
+    _user_id: i64,
         shop_id: i32,
         customer_id: i32,
     ) -> Result<()> {
-        // 验证用户权限
-        if !ShopStaffRepository::is_shop_member(&self.db, shop_id as i64, user_id).await? {
-            anyhow::bail!("access_denied");
-        }
-
+        // 权限已由 handler 层使用 SQLx 校验，这里不再重复检查，避免触发不兼容的 Sea-ORM 查询
         // 重置未读计数 (通过 SessionRepository)
         SessionRepository::reset_customer_unread_count(&self.db, shop_id, customer_id).await
     }
@@ -294,14 +290,10 @@ impl SessionService {
     /// Handler 需要的方法：重置店铺所有未读计数
     pub async fn reset_all_unread_in_shop(
         &self,
-        user_id: i64,
+    _user_id: i64,
         shop_id: i32,
     ) -> Result<()> {
-        // 验证用户权限
-        if !ShopStaffRepository::is_shop_member(&self.db, shop_id as i64, user_id).await? {
-            anyhow::bail!("access_denied");
-        }
-
+        // 权限已由 handler 层使用 SQLx 校验，这里不再重复检查
         // 重置店铺所有未读计数
         SessionRepository::reset_all_unread_in_shop(&self.db, shop_id).await
     }

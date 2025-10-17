@@ -344,19 +344,22 @@ pub async fn handle_upload(
 ) -> Result<Json<UploadResponse>, AppError> {
     let upload_data = parse_multipart(multipart).await?;
     
-    // 多租户校验：仅店主可上传该店铺相关文件
-    if let Some(shop) = state
-        .shop_service
-        .get_shop_by_id(upload_data.shop_id as i32)
-        .await
-        .map_err(|_| AppError::Internal("查询店铺失败".to_string()))?
-    {
-        match shop.owner_id {
-            Some(owner_id) if owner_id == user_id as i32 => {},
-            _ => return Err(AppError::Unauthorized),
-        }
-    } else {
-        return Err(AppError::NotFound);
+    // 多租户校验：仅店主可上传该店铺相关文件（使用 SQLx 避免 Sea-ORM 列映射问题）
+    let shop_owner = sqlx::query!(
+        r#"SELECT owner_id as "owner_id: i64" FROM shops WHERE id = ? LIMIT 1"#,
+        upload_data.shop_id
+    )
+    .fetch_optional(state.db.pool())
+    .await
+    .map_err(|e| {
+        tracing::error!("查询店铺失败: {}", e);
+        AppError::Internal("查询店铺失败".to_string())
+    })?;
+    
+    match shop_owner {
+        Some(row) if row.owner_id == user_id as i64 => {},
+        Some(_) => return Err(AppError::Unauthorized),
+        None => return Err(AppError::NotFound),
     }
     
     let generated_name = save_file(&upload_data).await?;
@@ -395,40 +398,36 @@ pub async fn handle_customer_upload(
     let upload_data = parse_customer_multipart(multipart).await?;
     tracing::info!("解析上传数据成功: api_key={}, original_name={}", upload_data.api_key, upload_data.original_name);
     
-    // 根据 shopId 或 API Key 查找店铺
-    let shop = if upload_data.api_key.chars().all(|c| c.is_ascii_digit()) {
+    // 根据 shopId 或 API Key 查找店铺（使用 SQLx 避免 Sea-ORM 列映射问题）
+    let shop_id: i64 = if upload_data.api_key.chars().all(|c| c.is_ascii_digit()) {
         // 如果是纯数字，当作店铺ID处理
-        let shop_id: i64 = upload_data.api_key.parse()
-            .map_err(|_| AppError::BadRequest("无效的店铺ID".to_string()))?;
-        state
-            .shop_service
-            .get_shop_by_id(shop_id as i32)
-            .await
-            .map_err(|e| {
-                tracing::error!("查询店铺失败: {}", e);
-                AppError::Internal("查询店铺失败".to_string())
-            })?
-            .ok_or_else(|| {
-                tracing::error!("未找到店铺: shop_id={}", shop_id);
-                AppError::NotFound
-            })?
+        upload_data.api_key.parse::<i64>()
+            .map_err(|_| AppError::BadRequest("无效的店铺ID".to_string()))?
     } else {
-        // 否则当作API key处理
-        crate::repositories::ShopRepository::find_by_api_key(&state.db_connection, &upload_data.api_key)
-            .await
-            .map_err(|e| {
-                tracing::error!("查询店铺失败: {}", e);
-                AppError::Internal("查询店铺失败".to_string())
-            })?
-            .ok_or_else(|| {
+        // 否则当作API key处理，用 SQLx 查询
+        let shop_id_opt = sqlx::query_scalar!(
+            r#"SELECT id FROM shops WHERE api_key = ? LIMIT 1"#,
+            upload_data.api_key
+        )
+        .fetch_optional(state.db.pool())
+        .await
+        .map_err(|e| {
+            tracing::error!("查询店铺失败: {}", e);
+            AppError::Internal("查询店铺失败".to_string())
+        })?;
+        
+        match shop_id_opt {
+            Some(Some(id)) => id,
+            _ => {
                 tracing::error!("未找到店铺: api_key={}", upload_data.api_key);
-                AppError::NotFound
-            })?
+                return Err(AppError::NotFound);
+            }
+        }
     };
     
-    tracing::info!("找到店铺: id={}, name={}", shop.id, shop.shop_name);
+    tracing::info!("找到店铺: id={}", shop_id);
 
-    let generated_name = save_file_with_shop_id(shop.id.into(), &upload_data.data, &upload_data.original_name, &upload_data.content_type).await?;
+    let generated_name = save_file_with_shop_id(shop_id, &upload_data.data, &upload_data.original_name, &upload_data.content_type).await?;
     
     // 动态检测协议并构建完整的服务器URL
     let protocol = detect_protocol(&headers);
@@ -439,7 +438,7 @@ pub async fn handle_customer_upload(
     } else {
         format!("{}://{}:{}", protocol, server_host, server_port)
     };
-    let url = format!("{}/static/uploads/{}/{}", base_url, shop.id, generated_name);
+    let url = format!("{}/static/uploads/{}/{}", base_url, shop_id, generated_name);
     
     tracing::info!("文件保存成功: url={}", url);
 
@@ -450,7 +449,7 @@ pub async fn handle_customer_upload(
         file_size: upload_data.data.len() as i64,
         message_type: upload_data.message_type,
         content_type: upload_data.content_type,
-        shop_id: shop.id.into(),
+        shop_id,
         customer_code: upload_data.customer_code,
     }))
 }

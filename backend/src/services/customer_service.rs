@@ -227,18 +227,8 @@ impl CustomerService {
         user_id: i64,
         shop_id: i32,
     ) -> Result<Vec<(customers::Model, Option<sessions::Model>)>> {
-        eprintln!("🔐 验证权限: user_id={}, shop_id={}", user_id, shop_id);
-        
-        // 验证用户是否有权限访问该店铺
-        let is_member = ShopStaffRepository::is_shop_member(&self.db, shop_id as i64, user_id).await?;
-        eprintln!("🔐 权限验证结果: is_member={}", is_member);
-        
-        if !is_member {
-            eprintln!("❌ 权限不足: 用户{}不是店铺{}的成员", user_id, shop_id);
-            anyhow::bail!("access_denied");
-        }
-
-        eprintln!("✅ 权限验证通过，开始查询客户列表");
+        // 权限已在 handler 层通过 SQLx 校验，这里不再重复校验，避免 Sea-ORM 访问不兼容的 shops 列
+        eprintln!("✅ 开始查询客户列表 (handler 已完成权限校验)");
         
         // 获取该店铺的所有客户及其最新会话
         CustomerRepository::get_customers_with_sessions(&self.db, shop_id).await
@@ -254,11 +244,7 @@ impl CustomerService {
         keyword: Option<String>,
         sort: Option<String>,
     ) -> Result<(Vec<(customers::Model, Option<sessions::Model>, Option<messages::Model>, i64)>, i64)> {
-        // 权限校验
-        let is_member = ShopStaffRepository::is_shop_member(&self.db, shop_id as i64, user_id).await?;
-        if !is_member {
-            anyhow::bail!("access_denied");
-        }
+        // 权限已在 handler 层通过 SQLx 校验，这里不再重复校验
 
         let kw_ref = keyword.as_deref();
         let total = CustomerRepository::count_by_shop(&self.db, shop_id, kw_ref).await?;

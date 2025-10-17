@@ -5,6 +5,7 @@ use axum::{
 use serde::Deserialize;
 
 use crate::{auth::AuthUser, error::AppError, models::*, services::chat::ChatService, AppState};
+use crate::services::permissions as perms;
 
 #[derive(Deserialize)]
 pub struct PageQuery {
@@ -18,6 +19,17 @@ pub async fn get_messages(
     Path(session_id): Path<i64>,
     Query(p): Query<PageQuery>,
 ) -> Result<Json<Vec<Message>>, AppError> {
+    // SQLx 权限校验：根据 session_id 解析 shop_id，再判定是否为店主或成员
+    let session = crate::repositories::SessionRepository::find_by_id(&state.db_connection, session_id as i32)
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))?
+        .ok_or(AppError::NotFound)?;
+    if let Err(e) = perms::ensure_member_or_owner_sqlx(&state.db, user_id, session.shop_id as i64).await {
+        return match e {
+            AppError::Unauthorized => Err(AppError::Forbidden),
+            other => Err(other),
+        };
+    }
     let limit = p.limit.unwrap_or(50);
     let offset = p.offset.unwrap_or(0);
 
@@ -56,6 +68,17 @@ pub async fn send_message(
     AuthUser { user_id }: AuthUser,
     Json(payload): Json<SendMessageRequest>,
 ) -> Result<Json<Message>, AppError> {
+    // SQLx 权限校验：解析会话所属店铺，验证是否成员/店主
+    let session = crate::repositories::SessionRepository::find_by_id(&state.db_connection, session_id as i32)
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))?
+        .ok_or(AppError::NotFound)?;
+    if let Err(e) = perms::ensure_member_or_owner_sqlx(&state.db, user_id, session.shop_id as i64).await {
+        return match e {
+            AppError::Unauthorized => Err(AppError::Forbidden),
+            other => Err(other),
+        };
+    }
     let message_type = payload
         .message_type
         .clone()
