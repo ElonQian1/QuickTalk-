@@ -1,85 +1,114 @@
 #!/bin/bash
+
 # ELonTalk 客服系统 - 生产环境启动脚本
 # 部署路径: /root/ubuntu-deploy-ready/
-# 配置文件: .env.production
+# 功能: 启动 HTTPS 服务器 (Let's Encrypt Production 证书)
 
 set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
 
 echo "=========================================="
 echo "  ELonTalk 客服系统 - 生产环境启动"
 echo "=========================================="
+echo "部署路径: $SCRIPT_DIR"
+echo "启动时间: $(date '+%Y-%m-%d %H:%M:%S')"
+echo ""
 
-# 切换到项目目录
-cd /root/ubuntu-deploy-ready
-
-# 设置执行权限
-echo "🔧 设置执行权限..."
-chmod +x customer-service-backend
-
-# 停止旧进程（如果存在）
-echo "🛑 停止旧进程..."
-pkill -f customer-service-backend || echo "   无运行中的进程"
-
-# 检查生产环境配置
-if [ ! -f .env.production ]; then
-    echo "❌ 错误: .env.production 文件不存在！"
+# 检查环境文件
+if [ ! -f ".env" ]; then
+    echo "❌ 错误: .env 文件不存在"
     exit 1
 fi
 
-# 备份当前 .env（如果存在）
-if [ -f .env ]; then
-    echo "📦 备份现有 .env..."
-    cp .env .env.backup.$(date +%Y%m%d_%H%M%S)
+# 加载环境变量
+set -a
+source .env
+set +a
+
+echo "✓ 环境配置已加载"
+echo "  - 数据库: $DATABASE_URL"
+echo "  - HTTP端口: $SERVER_PORT"
+echo "  - HTTPS端口: $TLS_PORT"
+echo "  - 域名: $TLS_DOMAIN"
+echo "  - ACME模式: ${ACME_DIRECTORY_URL##*/directory}"
+echo ""
+
+# 检查后端程序
+if [ ! -f "customer-service-backend" ]; then
+    echo "❌ 错误: 后端程序不存在"
+    exit 1
 fi
 
-# 使用生产环境配置
-echo "🔐 应用生产环境配置..."
-cp .env.production .env
+# 确保可执行权限
+chmod +x customer-service-backend
+echo "✓ 后端程序已设置可执行权限"
 
-# 检查证书（HTTPS 必需）
-echo "🔒 检查 HTTPS 证书..."
-if [ ! -d certs ]; then
-    echo "   创建证书目录..."
-    mkdir -p certs
+# 检查静态文件
+if [ ! -d "static" ]; then
+    echo "⚠️  警告: static 文件夹不存在，前端功能可能不可用"
+else
+    echo "✓ 前端静态文件已就绪"
 fi
 
-if [ ! -f certs/server.crt ] || [ ! -f certs/server.key ]; then
-    echo "⚠️  警告: HTTPS 证书不存在，将使用 ACME 自动申请"
-    echo "   首次启动可能需要几分钟..."
+# 创建证书目录
+mkdir -p certs
+echo "✓ 证书目录已创建"
+
+# 检查防火墙配置
+echo ""
+echo "检查防火墙配置..."
+if command -v ufw >/dev/null 2>&1; then
+    if ufw status | grep -q "Status: active"; then
+        echo "  防火墙状态: 已启用"
+        ufw status | grep -E "8080|8443|22"
+    else
+        echo "  防火墙状态: 未启用"
+    fi
 fi
 
-# 检查数据库
-echo "💾 检查数据库..."
-if [ ! -f customer_service.db ]; then
-    echo "   数据库文件不存在，将自动创建并初始化"
-fi
+# 启动服务器
+echo ""
+echo "=========================================="
+echo "  正在启动生产服务器..."
+echo "=========================================="
+echo ""
+echo "🚀 HTTP 访问: http://43.139.82.12:$SERVER_PORT"
+echo "🔒 HTTPS 访问: https://$TLS_DOMAIN:$TLS_PORT"
+echo ""
+echo "📝 日志输出:"
+echo "------------------------------------------"
 
-# 启动服务（后台运行）
-echo "🚀 启动生产服务（HTTPS 模式）..."
-nohup ./customer-service-backend > logs/app.log 2>&1 &
-APP_PID=$!
+# 使用 nohup 后台运行
+nohup ./customer-service-backend > server.log 2>&1 &
+SERVER_PID=$!
 
-echo "   进程 PID: $APP_PID"
+echo "✓ 服务器已启动 (PID: $SERVER_PID)"
+echo "  查看实时日志: tail -f server.log"
+echo "  停止服务器: kill $SERVER_PID"
+echo ""
 
-# 等待服务启动
-echo "⏳ 等待服务启动..."
-sleep 5
+# 保存 PID 到文件
+echo $SERVER_PID > server.pid
+echo "✓ PID 已保存到 server.pid"
 
-# 检查进程是否运行
-if ps -p $APP_PID > /dev/null; then
-    echo "✅ 服务启动成功！"
+# 等待几秒钟，检查服务器是否正常启动
+sleep 3
+
+if ps -p $SERVER_PID > /dev/null; then
     echo ""
     echo "=========================================="
-    echo "  服务信息"
+    echo "  ✅ 服务器启动成功！"
     echo "=========================================="
-    echo "📍 HTTPS 地址: https://elontalk.duckdns.org:8443"
-    echo "📍 HTTP 地址:  http://43.139.82.12:8080"
-    echo "🔧 进程 ID:    $APP_PID"
-    echo "📊 查看日志:   tail -f logs/app.log"
-    echo "🛑 停止服务:   kill $APP_PID"
-    echo "=========================================="
+    echo ""
+    tail -n 20 server.log
 else
-    echo "❌ 服务启动失败！"
-    echo "查看日志: tail -n 50 logs/app.log"
+    echo ""
+    echo "=========================================="
+    echo "  ❌ 服务器启动失败！"
+    echo "=========================================="
+    echo ""
+    tail -n 50 server.log
     exit 1
 fi

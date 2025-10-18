@@ -362,8 +362,9 @@ pub async fn fetch_shops_overview_by_owner_paged(
             GROUP BY uc.shop_id
         ),
         per_shop_last AS (
+            -- 注意：不依赖 sessions.last_message_at，兼容老库
             SELECT s.id AS shop_id,
-                   MAX(COALESCE(m.created_at, sess.last_message_at, c.last_active_at)) AS last_activity,
+                   MAX(COALESCE(m.created_at, c.last_active_at, sess.created_at)) AS last_activity,
                    MAX(m.created_at) AS last_msg_created_at
             FROM shops s
             LEFT JOIN sessions sess ON sess.shop_id = s.id
@@ -396,6 +397,10 @@ pub async fn fetch_shops_overview_by_owner_paged(
         LEFT JOIN per_shop_unread u ON u.shop_id = s.id
         LEFT JOIN per_shop_last l ON l.shop_id = s.id
         LEFT JOIN per_shop_last_msg lm ON lm.last_msg_created_at = l.last_msg_created_at
+             AND EXISTS (
+                 SELECT 1 FROM sessions sess2
+                 WHERE sess2.id = lm.session_id AND sess2.shop_id = s.id
+             )
         WHERE s.owner_id = ? {active_filter}
         {order_tail}
         LIMIT ? OFFSET ?
@@ -462,8 +467,9 @@ pub async fn fetch_shops_overview_by_staff_paged(
             GROUP BY uc.shop_id
         ),
         per_shop_last AS (
+            -- 注意：不依赖 sessions.last_message_at，兼容老库
             SELECT s.id AS shop_id,
-                   MAX(COALESCE(m.created_at, sess.last_message_at, c.last_active_at)) AS last_activity,
+                   MAX(COALESCE(m.created_at, c.last_active_at, sess.created_at)) AS last_activity,
                    MAX(m.created_at) AS last_msg_created_at
             FROM shops s
             LEFT JOIN shop_staffs ss ON ss.shop_id = s.id
@@ -499,6 +505,10 @@ pub async fn fetch_shops_overview_by_staff_paged(
         LEFT JOIN per_shop_unread u ON u.shop_id = s.id
         LEFT JOIN per_shop_last l ON l.shop_id = s.id
         LEFT JOIN per_shop_last_msg lm ON lm.last_msg_created_at = l.last_msg_created_at
+             AND EXISTS (
+                 SELECT 1 FROM sessions sess2
+                 WHERE sess2.id = lm.session_id AND sess2.shop_id = s.id
+             )
         WHERE ss.user_id = ? {active_filter}
         {order_tail}
         LIMIT ? OFFSET ?

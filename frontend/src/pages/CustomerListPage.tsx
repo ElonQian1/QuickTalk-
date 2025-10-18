@@ -359,14 +359,7 @@ const CustomerListPage: React.FC = () => {
       
   setCustomers(sortCustomers(normalized));
 
-      // 初始化通知中心：按会话维度设置未读（若有会话）
-      try {
-        const notif = useNotificationsStore.getState();
-        normalized.forEach((item) => {
-          const sid = item.session?.id;
-          if (sid) notif.setSessionUnread(sid, item.unread_count || 0, shopId);
-        });
-      } catch {}
+      // 注意：进入客户列表仅展示数据，不改动全局未读统计，避免“进入列表即清零/重写”的错觉。
     } catch (error) {
       toast.error('获取客户列表失败');
       console.error('Error fetching customers:', error);
