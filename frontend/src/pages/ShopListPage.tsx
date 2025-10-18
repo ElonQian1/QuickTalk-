@@ -439,6 +439,13 @@ const ShopListPage: React.FC = () => {
                       {shop.shop_name}
                       {isStaff && <RolePill>员工</RolePill>}
                     </ShopName>
+                    {shop.shop_url && (
+                      <ShopUrl>
+                        <FiGlobe />
+                        {shop.shop_url.replace(/^https?:\/\//, '')}
+                      </ShopUrl>
+                    )}
+                    {/* 最近一条消息预览（来自 convByShop 快照）*/}
                     {(() => {
                       const conv = convByShop[shop.id];
                       const lm = conv?.last_message;
@@ -449,7 +456,7 @@ const ShopListPage: React.FC = () => {
                             {hasPreview ? (formatMessagePreview(lm as any) || '消息') : '暂无消息'}
                           </MessageContent>
                           <MessageTime>
-                            {formatRelativeTime(lm?.created_at || shop.last_activity || shop.created_at)}
+                            {formatRelativeTime(lm?.created_at || shop.created_at)}
                           </MessageTime>
                         </LastMessage>
                       );
