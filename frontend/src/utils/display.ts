@@ -34,3 +34,36 @@ export function formatMessagePreview(msg?: MessageLike | null): string {
   if (content) return content;
   return '[消息]';
 }
+
+// 客户信息类型（与后端 Customer 模型对应）
+type CustomerInfo = {
+  customer_id?: string;
+  customer_name?: string | null;
+  customer_email?: string | null;
+};
+
+/**
+ * 获取客户显示名称（统一的命名规则）
+ * 优先级：customer_name > customer_email > 用户{customer_id后4位}
+ */
+export function getCustomerDisplayName(customer?: CustomerInfo | null): string {
+  if (!customer) return '未知客户';
+  
+  // 优先显示客户名称
+  if (customer.customer_name?.trim()) {
+    return customer.customer_name.trim();
+  }
+  
+  // 其次显示邮箱
+  if (customer.customer_email?.trim()) {
+    return customer.customer_email.trim();
+  }
+  
+  // 最后使用 customer_id 的后4位
+  if (customer.customer_id) {
+    const id = customer.customer_id;
+    return `用户${id.slice(-Math.min(4, id.length))}`;
+  }
+  
+  return '未知客户';
+}

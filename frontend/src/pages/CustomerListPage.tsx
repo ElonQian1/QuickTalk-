@@ -14,7 +14,7 @@ import { useNotificationsStore } from '../stores/notificationsStore';
 import { useWSStore } from '../stores/wsStore';
 import { sortCustomers as sortCustomersUtil } from '../utils/sort';
 import { formatBadgeCount } from '../utils/format';
-import { formatRelativeTime, formatMessagePreview } from '../utils/display';
+import { formatRelativeTime, formatMessagePreview, getCustomerDisplayName } from '../utils/display';
 
 const Container = styled.div`
   height: 100%;
@@ -379,10 +379,6 @@ const CustomerListPage: React.FC = () => {
 
   const formatLastActiveTime = (timestamp: string) => formatRelativeTime(timestamp);
 
-  const getCustomerDisplayName = (customer: Customer) => {
-    return customer.customer_name || customer.customer_email || `用户${customer.customer_id.slice(-4)}`;
-  };
-
   const getCustomerAvatar = (customer: Customer) => {
     if (customer.customer_avatar) {
       return customer.customer_avatar;
@@ -486,12 +482,12 @@ const CustomerListPage: React.FC = () => {
               <LastMessage>
                 <MessageContent $isUnread={hasUnread}>
                   {item.last_message
-                    ? `${item.last_message.sender_type === 'customer' ? '' : '[我] '}${formatMessagePreview(item.last_message as any)}`
+                    ? `${item.last_message.sender_type === 'customer' ? '' : '[我] '}${formatMessagePreview(item.last_message as any) || '消息'}`
                     : '暂无消息'}
                 </MessageContent>
                 <MessageTime>
-                  {formatLastActiveTime(
-                    (item.last_message?.created_at) || (item.session?.last_message_at || item.customer.last_active_at)
+                  {formatRelativeTime(
+                    item.last_message?.created_at || item.session?.last_message_at || item.customer.last_active_at
                   )}
                 </MessageTime>
               </LastMessage>

@@ -45,7 +45,6 @@ const ShopList = styled.div`
 
 const ShopCard = styled(Card)<{ $role?: 'owner' | 'staff' }>`
   padding: ${theme.spacing.md};
-  cursor: pointer;
   transition: all 0.2s ease;
   position: relative;
 
@@ -55,15 +54,6 @@ const ShopCard = styled(Card)<{ $role?: 'owner' | 'staff' }>`
     background: #f6f8ff; /* 略带蓝灰底色，区分 owner */
     border: 1px dashed ${theme.colors.border};
   `}
-  
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  }
-  
-  &:active {
-    transform: translateY(0);
-  }
 `;
 
 const ShopUnreadBadge = styled(Badge)`
@@ -433,7 +423,6 @@ const ShopListPage: React.FC = () => {
                 key={shop.id ?? `${shop.shop_name}-${shop.api_key || 'no-key'}`}
                 className="fade-in"
                 $role={shop.my_role}
-                onClick={() => navigate(`/shops/${shop.id}/customers`)}
               >
                 <ShopHeader>
                   <ShopIcon style={{ position: 'relative' }} $role={shop.my_role}>

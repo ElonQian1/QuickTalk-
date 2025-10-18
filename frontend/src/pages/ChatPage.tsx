@@ -18,6 +18,7 @@ import { MessageText } from '../utils/textFormatter';
 import { useWSStore } from '../stores/wsStore';
 import { listStaffShops } from '../services/shops';
 import { EmptyState as UIEmptyState, EmptyIcon, EmptyTitle, EmptyDescription } from '../components/UI/EmptyState';
+import { getCustomerDisplayName } from '../utils/display';
 
 const Container = styled.div`
   display: flex;
@@ -479,9 +480,17 @@ const ChatPage: React.FC = () => {
         const meta = await api.get(`/api/sessions/${sessionId}`);
         const shopId = meta.data?.shop_id as number | undefined;
         const customerId = meta.data?.customer_id as number | undefined;
-        if (customerId) {
-          setHeaderCustomerId(String(customerId));
+        const customer = meta.data?.customer; // 获取完整客户对象
+        
+        // 使用统一的客户名称显示逻辑（与客户列表页面保持一致）
+        if (customer) {
+          const displayName = getCustomerDisplayName(customer);
+          setHeaderCustomerId(displayName);
+        } else if (customerId) {
+          // 降级处理：如果没有客户对象，显示数据库ID
+          setHeaderCustomerId(`客户（${customerId}）`);
         }
+        
         if (shopId && customerId) {
           // 调用后端清除该客户在该店铺的未读
           api.post(`/api/shops/${shopId}/customers/${customerId}/read`).finally(() => {
@@ -850,7 +859,7 @@ const ChatPage: React.FC = () => {
       <ChatHeader>
         <Avatar size={40}>👤</Avatar>
         <CustomerInfo>
-          <CustomerName>客户{headerCustomerId ? `（${headerCustomerId}）` : ''}</CustomerName>
+          <CustomerName>{headerCustomerId || '未知客户'}</CustomerName>
           <CustomerStatus online={true}>在线</CustomerStatus>
         </CustomerInfo>
       </ChatHeader>

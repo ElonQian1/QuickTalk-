@@ -195,3 +195,6 @@ reports/
 .vscode/settings.json
 .vscode/launch.json
 .vscode/extensions.json
+
+# 部署二进制文件（太大，不提交到 Git）
+ubuntu-deploy-ready/customer-service-backend
