@@ -207,7 +207,8 @@ const ShopListPage: React.FC = () => {
       try {
         const t = data?.messageType || data?.message_type;
         if (t !== 'new_message') return;
-        const shopId: number | undefined = data?.metadata?.shopId || data?.metadata?.shop_id;
+        const activeShopId = (() => { try { return useWSStore.getState().activeShopId; } catch { return undefined; } })();
+        const shopId: number | undefined = data?.metadata?.shopId || data?.metadata?.shop_id || activeShopId;
         if (!shopId) return;
         const senderType = data?.sender_type || data?.senderType || 'customer';
         const createdAt = data?.timestamp || new Date().toISOString();
