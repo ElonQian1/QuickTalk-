@@ -1,99 +1,101 @@
 #!/bin/bash
-# ELonTalk 客服系统 - 生产环境快速启动脚本
-# 部署路径: /root/ubuntu-deploy-ready/
+
+# QuickTalk 客服系统 - 生产环境启动脚本
+# 部署路径: /root/ubuntu-deploy-ready
+# 启用 HTTPS 和 Sea-ORM 自动迁移
 
 set -e
 
-echo "=========================================="
-echo "  ELonTalk 客服系统 - 生产环境启动"
-echo "=========================================="
+echo "========================================"
+echo "  QuickTalk 客服系统 - 生产环境启动"
+echo "========================================"
+echo ""
 
-# 确保在正确的目录
+# 切换到部署目录
 cd /root/ubuntu-deploy-ready
 
-# 设置权限
-echo "🔧 设置执行权限..."
+# 检查后端程序
+if [ ! -f "customer-service-backend" ]; then
+    echo "❌ 错误: 后端程序不存在"
+    exit 1
+fi
+
+# 赋予执行权限
 chmod +x customer-service-backend
 
-# 复制生产环境配置
-echo "🔐 加载生产环境配置..."
-if [ -f .env.production ]; then
-    cp .env.production .env
-    echo "✅ 生产环境配置已加载"
+# 加载环境变量
+if [ -f ".env.production" ]; then
+    export $(cat .env.production | grep -v '^#' | xargs)
+    echo "✅ 已加载生产环境配置"
 else
-    echo "⚠️  警告: .env.production 文件不存在"
+    echo "⚠️  警告: .env.production 不存在，使用默认配置"
 fi
 
-# 检查证书目录
-if [ ! -d "certs" ]; then
-    echo "📁 创建证书目录..."
-    mkdir -p certs
+# 设置必要的环境变量
+export DATABASE_URL="sqlite:customer_service.db"
+export RUST_LOG="info"
+export SERVER_HOST="0.0.0.0"
+export SERVER_PORT="8080"
+export HTTPS_PORT="8443"
+export ENABLE_HTTPS="true"
+export TLS_CERT_PATH="certs/server.crt"
+export TLS_KEY_PATH="certs/server.key"
+export STATIC_DIR="static"
+
+# 检查证书文件
+if [ ! -f "certs/server.crt" ] || [ ! -f "certs/server.key" ]; then
+    echo "⚠️  警告: HTTPS 证书文件不完整"
+    echo "   请确保以下文件存在:"
+    echo "   - certs/server.crt"
+    echo "   - certs/server.key"
 fi
 
-# 检查数据库
-if [ ! -f customer_service.db ]; then
-    echo "💾 数据库文件不存在，程序将自动创建和迁移"
+# 检查静态文件目录
+if [ ! -d "static" ]; then
+    echo "⚠️  警告: 静态文件目录不存在"
+    mkdir -p static
 fi
 
-# 显示配置信息
 echo ""
-echo "=========================================="
-echo "  配置信息"
-echo "=========================================="
-echo "📍 域名: elontalk.duckdns.org"
-echo "🔒 HTTPS端口: 8443"
-echo "📧 管理员邮箱: siwmm@163.com"
-echo "🏢 工作目录: $(pwd)"
-echo "=========================================="
+echo "📋 配置信息:"
+echo "   - 数据库: $DATABASE_URL"
+echo "   - HTTP 端口: $SERVER_PORT"
+echo "   - HTTPS 端口: $HTTPS_PORT"
+echo "   - HTTPS 状态: $ENABLE_HTTPS"
+echo "   - 静态文件: $STATIC_DIR"
+echo "   - 证书路径: $TLS_CERT_PATH"
 echo ""
 
-# 询问启动方式
-echo "请选择启动方式:"
-echo "  1) 前台运行 (可查看日志，Ctrl+C停止)"
-echo "  2) 后台运行 (nohup方式)"
-echo "  3) systemd服务 (推荐生产环境)"
-read -p "请输入选项 [1-3]: " choice
+# 停止旧进程
+if pgrep -f "customer-service-backend" > /dev/null; then
+    echo "🛑 停止旧进程..."
+    pkill -9 -f "customer-service-backend" || true
+    sleep 2
+fi
 
-case $choice in
-    1)
-        echo "🚀 前台启动服务..."
-        echo ""
-        ./customer-service-backend
-        ;;
-    2)
-        echo "🚀 后台启动服务..."
-        nohup ./customer-service-backend > customer-service.log 2>&1 &
-        echo "✅ 服务已在后台启动"
-        echo "📊 查看日志: tail -f customer-service.log"
-        echo "🛑 停止服务: pkill -f customer-service-backend"
-        ;;
-    3)
-        echo "🚀 使用 systemd 启动服务..."
-        if [ -f customer-service.service ]; then
-            cp customer-service.service /etc/systemd/system/
-            systemctl daemon-reload
-            systemctl enable customer-service.service
-            systemctl restart customer-service.service
-            sleep 2
-            systemctl status customer-service.service --no-pager
-            echo ""
-            echo "✅ systemd 服务已启动"
-            echo "📊 查看日志: journalctl -u customer-service.service -f"
-        else
-            echo "❌ customer-service.service 文件不存在"
-            exit 1
-        fi
-        ;;
-    *)
-        echo "❌ 无效选项"
-        exit 1
-        ;;
-esac
-
+# 启动服务器
+echo "🚀 启动服务器..."
 echo ""
 echo "=========================================="
-echo "  访问地址"
+echo "  服务器已启动"
 echo "=========================================="
-echo "🌐 HTTPS: https://elontalk.duckdns.org:8443"
-echo "🌐 HTTP:  http://43.139.82.12:8080"
-echo "=========================================="
+echo ""
+echo "🌐 访问地址:"
+echo "   HTTP:  http://43.139.82.12:$SERVER_PORT"
+echo "   HTTPS: https://elontalk.duckdns.org:$HTTPS_PORT"
+echo ""
+echo "📝 查看日志:"
+echo "   tail -f /root/ubuntu-deploy-ready/server.log"
+echo ""
+echo "🛑 停止服务:"
+echo "   pkill -f customer-service-backend"
+echo ""
+
+# 启动服务器（后台运行）
+nohup ./customer-service-backend > server.log 2>&1 &
+
+echo "✅ 服务器已在后台启动 (PID: $!)"
+echo ""
+echo "提示: 使用以下命令查看实时日志:"
+echo "   tail -f server.log"
+echo ""
