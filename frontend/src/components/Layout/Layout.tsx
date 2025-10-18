@@ -99,11 +99,13 @@ const DropdownItem = styled.button`
   }
 `;
 
-const Content = styled.main`
+const Content = styled.main<{ withBottomBar?: boolean }>`
   flex: 1;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  /* 为避免被固定底部导航遮挡，预留内边距 */
+  padding-bottom: ${props => props.withBottomBar ? '72px' : '0'};
 `;
 
 interface LayoutProps {
@@ -228,7 +230,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         </HeaderRight>
       </Header>
       
-      <Content>
+      <Content withBottomBar={showBottomNav}>
         {children}
       </Content>
       
