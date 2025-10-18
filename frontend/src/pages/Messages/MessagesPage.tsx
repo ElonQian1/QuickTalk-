@@ -130,14 +130,8 @@ const MessagesPage: React.FC = () => {
 
       // 统计数据在页面顶部卡片已移除，故不再计算聚合统计
 
-      // 初始化全局 unread store（shopId -> unread）：旧 store 与新通知中心并行
-  const initItems = conversationData.map((c) => ({ shopId: c.shop.id, count: c.unread_count }));
-      useConversationsStore.getState().setManyUnreads(initItems);
-      // 新通知中心（按店铺维度）
-      try {
-        const notif = (await import('../../stores/notificationsStore')).useNotificationsStore;
-        notif.getState().setManyShopUnreads(initItems);
-      } catch {}
+      // 注意：不要在进入消息中心时覆盖全局未读统计，以免产生“点开即清零”的错觉
+      // 初始化工作交由 GlobalWSBootstrap 完成；此处仅维护本页列表快照
 
     } catch (error) {
       console.error('Error fetching conversations:', error);

@@ -1,52 +1,58 @@
-# Ubuntu HTTPS 部署说明
-生成时间: 2025-10-17 15:25:06
+# ELonTalk 客服系统 - Ubuntu 部署说明
 
-## 文件清单
+## ✅ 部署包已准备就绪 (2025-10-18 更新)
 
-### 后端程序
-- customer-service-backend (10.71 MB) - 最新编译，支持 HTTPS
+**位置**: E:\duihua\customer-service-system\ubuntu-deploy-ready
 
-### 证书文件
-- certs/server.crt - SSL证书
-- certs/server.key - 私钥
+**包含内容**:
+- ✅ 后端程序: customer-service-backend (10.74 MB, 新编译 2025-10-18 13:44:51)
+- ✅ 前端文件: static/ 目录 (15 个文件, 2.55 MB)
+- ✅ 生产配置: .env.production (HTTPS + ACME 自动证书)
+- ✅ 启动脚本: start-production.sh
+- ✅ 证书目录: certs/
 
-### 前端静态文件
-- static/ (11个文件, 2.22 MB)
+**总大小**: 13.6 MB (50 个文件)
 
-### 配置文件
-- .env - 基础配置
-- .env.production - 生产环境配置（推荐）
-- .env.staging - 测试环境配置
+---
 
-### 服务配置
-- customer-service.service - systemd 服务文件
+## 🚀 快速部署
 
-## 部署步骤
+### 方法一：自动上传（推荐）
+.\upload-to-ubuntu.ps1
 
-1. 上传整个文件夹到服务器: /root/ubuntu-deploy-ready/
+### 方法二：手动上传
+scp -r ubuntu-deploy-ready root@43.139.82.12:/root/
 
-2. 设置执行权限:
-   chmod +x /root/ubuntu-deploy-ready/customer-service-backend
+---
 
-3. 使用生产配置启动:
-   cd /root/ubuntu-deploy-ready
-   cp .env.production .env
-   ./customer-service-backend
+## 📋 服务器启动
 
-4. 或配置为系统服务:
-   cp customer-service.service /etc/systemd/system/
-   systemctl daemon-reload
-   systemctl enable customer-service
-   systemctl start customer-service
+1. SSH 登录: ssh root@43.139.82.12
+2. 进入目录: cd /root/ubuntu-deploy-ready
+3. 启动服务: chmod +x start-production.sh && ./start-production.sh
 
-## HTTPS 访问
+---
 
-服务启动后访问: https://elontalk.duckdns.org:8443
+## 🌐 访问地址
 
-## 注意事项
+- HTTPS: https://elontalk.duckdns.org:8443
+- HTTP:  http://43.139.82.12:8080
 
-- 后端编译时间: 2025-10-17 15:24
-- 支持 ACME 自动证书续期
-- 使用 Sea-ORM 自动数据库迁移
-- 零系统依赖（静态编译）
+---
+
+## �� 管理命令
+
+查看日志: tail -f logs/app.log
+停止服务: pkill -f customer-service-backend
+重启服务: ./start-production.sh
+
+---
+
+## 📝 重要说明
+
+✅ 后端已重新编译（包含最新代码）
+✅ 前端已重新构建（最新UI）
+✅ HTTPS 自动证书（Let's Encrypt）
+✅ Sea-ORM 自动数据库迁移
+✅ 部署路径: /root/ubuntu-deploy-ready/
 
