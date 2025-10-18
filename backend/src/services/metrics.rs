@@ -351,7 +351,7 @@ pub async fn fetch_shops_overview_by_owner_paged(
         "name_asc" => (if only_active { "AND s.is_active = 1" } else { "" }, "ORDER BY s.shop_name ASC"),
         "name_desc" => (if only_active { "AND s.is_active = 1" } else { "" }, "ORDER BY s.shop_name DESC"),
         _ => (if only_active { "AND s.is_active = 1" } else { "" },
-              "ORDER BY unread_total DESC, COALESCE(last_msg_created_at, s.created_at) DESC"),
+              "ORDER BY unread_total DESC, COALESCE(l.last_msg_created_at, s.created_at) DESC"),
     };
 
     let sql = format!(
@@ -456,7 +456,7 @@ pub async fn fetch_shops_overview_by_staff_paged(
         "name_asc" => (if only_active { "AND s.is_active = 1" } else { "" }, "ORDER BY s.shop_name ASC"),
         "name_desc" => (if only_active { "AND s.is_active = 1" } else { "" }, "ORDER BY s.shop_name DESC"),
         _ => (if only_active { "AND s.is_active = 1" } else { "" },
-              "ORDER BY unread_total DESC, COALESCE(last_msg_created_at, s.created_at) DESC"),
+              "ORDER BY unread_total DESC, COALESCE(l.last_msg_created_at, s.created_at) DESC"),
     };
 
     let sql = format!(
