@@ -1,114 +1,99 @@
 #!/bin/bash
-
-# ELonTalk 客服系统 - 生产环境启动脚本
+# ELonTalk 客服系统 - 生产环境快速启动脚本
 # 部署路径: /root/ubuntu-deploy-ready/
-# 功能: 启动 HTTPS 服务器 (Let's Encrypt Production 证书)
 
 set -e
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
 
 echo "=========================================="
 echo "  ELonTalk 客服系统 - 生产环境启动"
 echo "=========================================="
-echo "部署路径: $SCRIPT_DIR"
-echo "启动时间: $(date '+%Y-%m-%d %H:%M:%S')"
-echo ""
 
-# 检查环境文件
-if [ ! -f ".env" ]; then
-    echo "❌ 错误: .env 文件不存在"
-    exit 1
-fi
+# 确保在正确的目录
+cd /root/ubuntu-deploy-ready
 
-# 加载环境变量
-set -a
-source .env
-set +a
-
-echo "✓ 环境配置已加载"
-echo "  - 数据库: $DATABASE_URL"
-echo "  - HTTP端口: $SERVER_PORT"
-echo "  - HTTPS端口: $TLS_PORT"
-echo "  - 域名: $TLS_DOMAIN"
-echo "  - ACME模式: ${ACME_DIRECTORY_URL##*/directory}"
-echo ""
-
-# 检查后端程序
-if [ ! -f "customer-service-backend" ]; then
-    echo "❌ 错误: 后端程序不存在"
-    exit 1
-fi
-
-# 确保可执行权限
+# 设置权限
+echo "🔧 设置执行权限..."
 chmod +x customer-service-backend
-echo "✓ 后端程序已设置可执行权限"
 
-# 检查静态文件
-if [ ! -d "static" ]; then
-    echo "⚠️  警告: static 文件夹不存在，前端功能可能不可用"
+# 复制生产环境配置
+echo "🔐 加载生产环境配置..."
+if [ -f .env.production ]; then
+    cp .env.production .env
+    echo "✅ 生产环境配置已加载"
 else
-    echo "✓ 前端静态文件已就绪"
+    echo "⚠️  警告: .env.production 文件不存在"
 fi
 
-# 创建证书目录
-mkdir -p certs
-echo "✓ 证书目录已创建"
-
-# 检查防火墙配置
-echo ""
-echo "检查防火墙配置..."
-if command -v ufw >/dev/null 2>&1; then
-    if ufw status | grep -q "Status: active"; then
-        echo "  防火墙状态: 已启用"
-        ufw status | grep -E "8080|8443|22"
-    else
-        echo "  防火墙状态: 未启用"
-    fi
+# 检查证书目录
+if [ ! -d "certs" ]; then
+    echo "📁 创建证书目录..."
+    mkdir -p certs
 fi
 
-# 启动服务器
+# 检查数据库
+if [ ! -f customer_service.db ]; then
+    echo "💾 数据库文件不存在，程序将自动创建和迁移"
+fi
+
+# 显示配置信息
 echo ""
 echo "=========================================="
-echo "  正在启动生产服务器..."
+echo "  配置信息"
+echo "=========================================="
+echo "📍 域名: elontalk.duckdns.org"
+echo "🔒 HTTPS端口: 8443"
+echo "📧 管理员邮箱: siwmm@163.com"
+echo "🏢 工作目录: $(pwd)"
 echo "=========================================="
 echo ""
-echo "🚀 HTTP 访问: http://43.139.82.12:$SERVER_PORT"
-echo "🔒 HTTPS 访问: https://$TLS_DOMAIN:$TLS_PORT"
+
+# 询问启动方式
+echo "请选择启动方式:"
+echo "  1) 前台运行 (可查看日志，Ctrl+C停止)"
+echo "  2) 后台运行 (nohup方式)"
+echo "  3) systemd服务 (推荐生产环境)"
+read -p "请输入选项 [1-3]: " choice
+
+case $choice in
+    1)
+        echo "🚀 前台启动服务..."
+        echo ""
+        ./customer-service-backend
+        ;;
+    2)
+        echo "🚀 后台启动服务..."
+        nohup ./customer-service-backend > customer-service.log 2>&1 &
+        echo "✅ 服务已在后台启动"
+        echo "📊 查看日志: tail -f customer-service.log"
+        echo "🛑 停止服务: pkill -f customer-service-backend"
+        ;;
+    3)
+        echo "🚀 使用 systemd 启动服务..."
+        if [ -f customer-service.service ]; then
+            cp customer-service.service /etc/systemd/system/
+            systemctl daemon-reload
+            systemctl enable customer-service.service
+            systemctl restart customer-service.service
+            sleep 2
+            systemctl status customer-service.service --no-pager
+            echo ""
+            echo "✅ systemd 服务已启动"
+            echo "📊 查看日志: journalctl -u customer-service.service -f"
+        else
+            echo "❌ customer-service.service 文件不存在"
+            exit 1
+        fi
+        ;;
+    *)
+        echo "❌ 无效选项"
+        exit 1
+        ;;
+esac
+
 echo ""
-echo "📝 日志输出:"
-echo "------------------------------------------"
-
-# 使用 nohup 后台运行
-nohup ./customer-service-backend > server.log 2>&1 &
-SERVER_PID=$!
-
-echo "✓ 服务器已启动 (PID: $SERVER_PID)"
-echo "  查看实时日志: tail -f server.log"
-echo "  停止服务器: kill $SERVER_PID"
-echo ""
-
-# 保存 PID 到文件
-echo $SERVER_PID > server.pid
-echo "✓ PID 已保存到 server.pid"
-
-# 等待几秒钟，检查服务器是否正常启动
-sleep 3
-
-if ps -p $SERVER_PID > /dev/null; then
-    echo ""
-    echo "=========================================="
-    echo "  ✅ 服务器启动成功！"
-    echo "=========================================="
-    echo ""
-    tail -n 20 server.log
-else
-    echo ""
-    echo "=========================================="
-    echo "  ❌ 服务器启动失败！"
-    echo "=========================================="
-    echo ""
-    tail -n 50 server.log
-    exit 1
-fi
+echo "=========================================="
+echo "  访问地址"
+echo "=========================================="
+echo "🌐 HTTPS: https://elontalk.duckdns.org:8443"
+echo "🌐 HTTP:  http://43.139.82.12:8080"
+echo "=========================================="
