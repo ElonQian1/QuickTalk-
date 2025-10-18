@@ -173,6 +173,26 @@ pub struct ShopWithUnreadCount {
     pub unread_count: i32,
 }
 
+// 简化的消息摘要，用于店铺列表中的“最后一条消息”
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MessageSummary {
+    pub content: String,
+    pub message_type: String,
+    pub sender_type: String,
+    pub created_at: DateTime<Utc>,
+}
+
+// 扩展的店铺聚合：在未读统计基础上，增加 last_activity 与 last_message
+#[derive(Debug, Serialize)]
+pub struct ShopWithOverview {
+    pub shop: Shop,
+    pub unread_count: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_activity: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_message: Option<MessageSummary>,
+}
+
 // 通用分页返回模型
 #[derive(Debug, Serialize)]
 pub struct PageResult<T> {

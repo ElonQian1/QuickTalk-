@@ -90,10 +90,6 @@ const MessageTime = styled.div`
   justify-content: space-between;
 `;
 
-const UnreadBadge = styled(Badge)`
-  position: static;
-  margin-left: auto;
-`;
 
 const TopRightBadge = styled(Badge)`
   position: absolute;
@@ -134,7 +130,6 @@ export const ConversationCard: React.FC<ConversationCardProps> = ({
               <FiUsers size={12} />
               {customerCount} 个客户
             </span>
-            {(() => { const t = formatBadgeCount(unreadCount); return t ? (<UnreadBadge>{t}</UnreadBadge>) : null; })()}
           </ConversationMeta>
         </ConversationInfo>
       </ConversationHeader>

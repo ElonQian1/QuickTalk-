@@ -5,6 +5,7 @@ use tracing::error;
 
 use crate::{models::*, AppState};
 use crate::services::metrics;
+use crate::models::ShopWithOverview;
 
 // Purpose: 店主查看自己店铺列表（含未读汇总），支持分页与仅活跃筛选
 // Input: Query { only_active: Option<bool>, limit: Option<i64>, offset: Option<i64> }, AuthUser
@@ -41,6 +42,28 @@ pub async fn get_shops(
         Ok(shops) => Ok(Json(shops)),
         Err(e) => {
             error!(error=?e, "查询店铺列表失败");
+            Err(AppError::Internal("获取店铺失败".to_string()))
+        }
+    }
+}
+
+// 新增：返回包含 last_activity 与 last_message 的店铺列表（店主）
+pub async fn get_shops_overview(
+    State(state): State<AppState>,
+    AuthUser { user_id }: AuthUser,
+    Query(q): Query<ShopListQuery>,
+) -> Result<Json<Vec<ShopWithOverview>>, AppError> {
+    let only_active = q.only_active.unwrap_or(true);
+    let mut limit = q.limit.unwrap_or(50);
+    let mut offset = q.offset.unwrap_or(0);
+    if limit <= 0 { limit = 50; }
+    if limit > 200 { limit = 200; }
+    if offset < 0 { offset = 0; }
+
+    match metrics::fetch_shops_overview_by_owner_paged(&state.db, user_id, only_active, limit, offset, q.sort.as_deref()).await {
+        Ok(shops) => Ok(Json(shops)),
+        Err(e) => {
+            error!(error=?e, "查询店铺概览失败");
             Err(AppError::Internal("获取店铺失败".to_string()))
         }
     }
@@ -102,6 +125,28 @@ pub async fn get_staff_shops(
         Ok(shops) => Ok(Json(shops)),
         Err(e) => {
             error!(error=?e, "查询员工店铺列表失败");
+            Err(AppError::Internal("获取店铺失败".to_string()))
+        }
+    }
+}
+
+// 新增：返回包含 last_activity 与 last_message 的员工店铺列表
+pub async fn get_staff_shops_overview(
+    State(state): State<AppState>,
+    AuthUser { user_id }: AuthUser,
+    Query(q): Query<ShopListQuery>,
+) -> Result<Json<Vec<ShopWithOverview>>, AppError> {
+    let only_active = q.only_active.unwrap_or(true);
+    let mut limit = q.limit.unwrap_or(50);
+    let mut offset = q.offset.unwrap_or(0);
+    if limit <= 0 { limit = 50; }
+    if limit > 200 { limit = 200; }
+    if offset < 0 { offset = 0; }
+
+    match metrics::fetch_shops_overview_by_staff_paged(&state.db, user_id, only_active, limit, offset, q.sort.as_deref()).await {
+        Ok(shops) => Ok(Json(shops)),
+        Err(e) => {
+            error!(error=?e, "查询员工店铺概览失败");
             Err(AppError::Internal("获取店铺失败".to_string()))
         }
     }

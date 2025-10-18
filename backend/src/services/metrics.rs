@@ -8,7 +8,7 @@ use sqlx::FromRow;
 
 use crate::{
     database::Database,
-    models::{Shop, ShopWithUnreadCount},
+    models::{Shop, ShopWithUnreadCount, ShopWithOverview, MessageSummary},
 };
 
 #[derive(FromRow)]
@@ -22,6 +22,24 @@ struct ShopWithUnreadProjection {
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub updated_at: chrono::DateTime<chrono::Utc>,
     pub unread_total: Option<i64>,
+}
+
+#[derive(FromRow)]
+struct ShopOverviewProjection {
+    pub id: i64,
+    pub owner_id: i64,
+    pub shop_name: String,
+    pub shop_url: Option<String>,
+    pub api_key: String,
+    pub status: i32,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
+    pub unread_total: Option<i64>,
+    pub last_activity: Option<chrono::DateTime<chrono::Utc>>,
+    pub last_msg_content: Option<String>,
+    pub last_msg_type: Option<String>,
+    pub last_msg_sender: Option<String>,
+    pub last_msg_created_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 pub async fn fetch_shops_with_unread_by_owner(
@@ -310,6 +328,207 @@ pub async fn fetch_shops_with_unread_by_owner_paged(
                 updated_at: row.updated_at,
             },
             unread_count: (row.unread_total.unwrap_or(0)) as i32,
+        })
+        .collect();
+
+    Ok(result)
+}
+
+// 新增：返回带 last_activity 与 last_message 的店铺概览
+pub async fn fetch_shops_overview_by_owner_paged(
+    db: &Database,
+    owner_id: i64,
+    only_active: bool,
+    limit: i64,
+    offset: i64,
+    sort: Option<&str>,
+) -> Result<Vec<ShopWithOverview>> {
+    let sort_key = sort.unwrap_or("unread_desc").to_ascii_lowercase();
+    let (active_filter, order_tail) = match sort_key.as_str() {
+        "created_at_desc" => (if only_active { "AND s.is_active = 1" } else { "" }, "ORDER BY s.created_at DESC"),
+        "name_asc" => (if only_active { "AND s.is_active = 1" } else { "" }, "ORDER BY s.shop_name ASC"),
+        "name_desc" => (if only_active { "AND s.is_active = 1" } else { "" }, "ORDER BY s.shop_name DESC"),
+        _ => (if only_active { "AND s.is_active = 1" } else { "" },
+              "ORDER BY unread_total DESC, COALESCE(last_msg_created_at, s.created_at) DESC"),
+    };
+
+    let sql = format!(
+        r#"
+        WITH per_shop_unread AS (
+            SELECT uc.shop_id, COALESCE(SUM(uc.unread_count), 0) AS unread_total
+            FROM unread_counts uc
+            GROUP BY uc.shop_id
+        ),
+        per_shop_last AS (
+            SELECT s.id AS shop_id,
+                   MAX(COALESCE(m.created_at, sess.last_message_at, c.last_active_at)) AS last_activity,
+                   MAX(m.created_at) AS last_msg_created_at
+            FROM shops s
+            LEFT JOIN sessions sess ON sess.shop_id = s.id
+            LEFT JOIN customers c ON c.shop_id = s.id
+            LEFT JOIN messages m ON m.session_id = sess.id
+            GROUP BY s.id
+        ),
+        per_shop_last_msg AS (
+            SELECT m1.session_id, m1.content AS last_msg_content, m1.message_type AS last_msg_type,
+                   m1.sender_type AS last_msg_sender, m1.created_at AS last_msg_created_at
+            FROM messages m1
+            JOIN (
+                SELECT m.session_id, MAX(m.created_at) AS max_created
+                FROM messages m
+                GROUP BY m.session_id
+            ) mm ON mm.session_id = m1.session_id AND mm.max_created = m1.created_at
+        )
+        SELECT 
+            s.id, s.owner_id, s.shop_name, s.shop_url, s.api_key,
+            CASE WHEN s.is_active THEN 1 ELSE 0 END AS status,
+            s.created_at, s.updated_at,
+            COALESCE(u.unread_total, 0) AS unread_total,
+            l.last_activity,
+            lm.last_msg_content,
+            lm.last_msg_type,
+            lm.last_msg_sender,
+            l.last_msg_created_at
+        FROM shops s
+        LEFT JOIN per_shop_unread u ON u.shop_id = s.id
+        LEFT JOIN per_shop_last l ON l.shop_id = s.id
+        LEFT JOIN per_shop_last_msg lm ON lm.last_msg_created_at = l.last_msg_created_at
+        WHERE s.owner_id = ? {active_filter}
+        {order_tail}
+        LIMIT ? OFFSET ?
+        "#
+    );
+
+    let rows: Vec<ShopOverviewProjection> = sqlx::query_as(&sql)
+        .bind(owner_id)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(db.pool())
+        .await?;
+
+    let result = rows
+        .into_iter()
+        .map(|row| ShopWithOverview {
+            shop: Shop {
+                id: row.id,
+                owner_id: row.owner_id,
+                shop_name: row.shop_name,
+                shop_url: row.shop_url,
+                api_key: row.api_key,
+                status: row.status,
+                created_at: row.created_at,
+                updated_at: row.updated_at,
+            },
+            unread_count: (row.unread_total.unwrap_or(0)) as i32,
+            last_activity: row.last_activity,
+            last_message: row.last_msg_created_at.map(|ts| MessageSummary {
+                content: row.last_msg_content.unwrap_or_default(),
+                message_type: row.last_msg_type.unwrap_or_else(|| "text".to_string()),
+                sender_type: row.last_msg_sender.unwrap_or_else(|| "customer".to_string()),
+                created_at: ts,
+            }),
+        })
+        .collect();
+
+    Ok(result)
+}
+
+pub async fn fetch_shops_overview_by_staff_paged(
+    db: &Database,
+    staff_user_id: i64,
+    only_active: bool,
+    limit: i64,
+    offset: i64,
+    sort: Option<&str>,
+) -> Result<Vec<ShopWithOverview>> {
+    let sort_key = sort.unwrap_or("unread_desc").to_ascii_lowercase();
+    let (active_filter, order_tail) = match sort_key.as_str() {
+        "created_at_desc" => (if only_active { "AND s.is_active = 1" } else { "" }, "ORDER BY s.created_at DESC"),
+        "name_asc" => (if only_active { "AND s.is_active = 1" } else { "" }, "ORDER BY s.shop_name ASC"),
+        "name_desc" => (if only_active { "AND s.is_active = 1" } else { "" }, "ORDER BY s.shop_name DESC"),
+        _ => (if only_active { "AND s.is_active = 1" } else { "" },
+              "ORDER BY unread_total DESC, COALESCE(last_msg_created_at, s.created_at) DESC"),
+    };
+
+    let sql = format!(
+        r#"
+        WITH per_shop_unread AS (
+            SELECT uc.shop_id, COALESCE(SUM(uc.unread_count), 0) AS unread_total
+            FROM unread_counts uc
+            GROUP BY uc.shop_id
+        ),
+        per_shop_last AS (
+            SELECT s.id AS shop_id,
+                   MAX(COALESCE(m.created_at, sess.last_message_at, c.last_active_at)) AS last_activity,
+                   MAX(m.created_at) AS last_msg_created_at
+            FROM shops s
+            LEFT JOIN shop_staffs ss ON ss.shop_id = s.id
+            LEFT JOIN sessions sess ON sess.shop_id = s.id
+            LEFT JOIN customers c ON c.shop_id = s.id
+            LEFT JOIN messages m ON m.session_id = sess.id
+            WHERE ss.user_id = ?
+            GROUP BY s.id
+        ),
+        per_shop_last_msg AS (
+            SELECT m1.session_id, m1.content AS last_msg_content, m1.message_type AS last_msg_type,
+                   m1.sender_type AS last_msg_sender, m1.created_at AS last_msg_created_at
+            FROM messages m1
+            JOIN (
+                SELECT m.session_id, MAX(m.created_at) AS max_created
+                FROM messages m
+                GROUP BY m.session_id
+            ) mm ON mm.session_id = m1.session_id AND mm.max_created = m1.created_at
+        )
+        SELECT 
+            s.id, s.owner_id, s.shop_name, s.shop_url, s.api_key,
+            CASE WHEN s.is_active THEN 1 ELSE 0 END AS status,
+            s.created_at, s.updated_at,
+            COALESCE(u.unread_total, 0) AS unread_total,
+            l.last_activity,
+            lm.last_msg_content,
+            lm.last_msg_type,
+            lm.last_msg_sender,
+            l.last_msg_created_at
+        FROM shops s
+        JOIN shop_staffs ss ON ss.shop_id = s.id
+        LEFT JOIN per_shop_unread u ON u.shop_id = s.id
+        LEFT JOIN per_shop_last l ON l.shop_id = s.id
+        LEFT JOIN per_shop_last_msg lm ON lm.last_msg_created_at = l.last_msg_created_at
+        WHERE ss.user_id = ? {active_filter}
+        {order_tail}
+        LIMIT ? OFFSET ?
+        "#
+    );
+
+    let rows: Vec<ShopOverviewProjection> = sqlx::query_as(&sql)
+        .bind(staff_user_id)
+        .bind(staff_user_id)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(db.pool())
+        .await?;
+
+    let result = rows
+        .into_iter()
+        .map(|row| ShopWithOverview {
+            shop: Shop {
+                id: row.id,
+                owner_id: row.owner_id,
+                shop_name: row.shop_name,
+                shop_url: row.shop_url,
+                api_key: row.api_key,
+                status: row.status,
+                created_at: row.created_at,
+                updated_at: row.updated_at,
+            },
+            unread_count: (row.unread_total.unwrap_or(0)) as i32,
+            last_activity: row.last_activity,
+            last_message: row.last_msg_created_at.map(|ts| MessageSummary {
+                content: row.last_msg_content.unwrap_or_default(),
+                message_type: row.last_msg_type.unwrap_or_else(|| "text".to_string()),
+                sender_type: row.last_msg_sender.unwrap_or_else(|| "customer".to_string()),
+                created_at: ts,
+            }),
         })
         .collect();
 
