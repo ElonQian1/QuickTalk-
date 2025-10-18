@@ -18,6 +18,9 @@ import { useNavigate } from 'react-router-dom';
 import { loadConversationsForMessagesPage, Conversation } from '../modules/messages/conversations';
 import { useWSStore } from '../stores/wsStore';
 import { sortShopsWithState } from '../utils/sort';
+// 🆕 适配器：支持新旧Store切换
+import { useShopsData, useCreateShop } from '../hooks/useShopsAdapter';
+import { featureFlags } from '../stores/config/featureFlags';
 
 const Container = styled.div`
   padding: ${theme.spacing.md};
@@ -163,22 +166,39 @@ interface Shop {
 
 const ShopListPage: React.FC = () => {
   const navigate = useNavigate();
+  
+  // 🆕 使用适配器：自动根据Feature Flag选择新旧Store
+  const { 
+    shops: adaptedShops, 
+    loading: adaptedLoading, 
+    error: adaptedError,
+    convByShop: adaptedConvByShop,
+    reload: reloadShops 
+  } = useShopsData();
+  const { createShop: adaptedCreateShop, creating } = useCreateShop();
+  
+  // 保留旧逻辑（仅在未启用新Store时使用）
   const [shops, setShops] = useState<Shop[]>([]);
   const [loading, setLoading] = useState(true);
+  const [convByShop, setConvByShop] = useState<Record<number, Conversation>>({});
+  const [usedOverview, setUsedOverview] = useState(false);
+  
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  // 移除店铺点击跳转：改为仅通过“管理”按钮操作。
   const [manageOpen, setManageOpen] = useState(false);
   const [activeShop, setActiveShop] = useState<Shop | undefined>();
   const [initialTab, setInitialTab] = useState<'info' | 'staff' | 'apiKey'>('info');
   const byShop = useNotificationsStore(state => state.byShop);
   const { addMessageListener, removeMessageListener } = useWSStore();
 
-  // shopId -> 会话快照（未读与最近消息）
-  const [convByShop, setConvByShop] = useState<Record<number, Conversation>>({});
-  const [usedOverview, setUsedOverview] = useState(false);
+  // 🎯 根据Feature Flag选择数据源
+  const finalShops = featureFlags.USE_NEW_SHOPS_STORE ? adaptedShops : shops;
+  const finalLoading = featureFlags.USE_NEW_SHOPS_STORE ? adaptedLoading : loading;
+  const finalConvByShop = featureFlags.USE_NEW_SHOPS_STORE ? adaptedConvByShop : convByShop;
 
   useEffect(() => {
-    fetchShops();
+    if (!featureFlags.USE_NEW_SHOPS_STORE) {
+      fetchShops();
+    }
   }, []);
 
   // 加载会话汇总（回退方案）：仅在未使用 overview 成功时调用
@@ -370,21 +390,34 @@ const ShopListPage: React.FC = () => {
 
   const createShop = async (shopName: string, shopUrl?: string) => {
     try {
-      const response = await api.post('/api/shops', {
-        shop_name: shopName,
-        shop_url: shopUrl,
-      });
-      
-      setShops([response.data, ...shops]);
-      toast.success('店铺创建成功');
+      // 🆕 使用适配器创建店铺
+      if (featureFlags.USE_NEW_SHOPS_STORE) {
+        console.log('🆕 使用新Store创建店铺');
+        await adaptedCreateShop({
+          name: shopName,
+          slug: shopUrl || `shop-${Date.now()}`
+        });
+        await reloadShops();
+        toast.success('店铺创建成功');
+      } else {
+        // 🔙 旧逻辑
+        console.log('🔙 使用旧逻辑创建店铺');
+        const response = await api.post('/api/shops', {
+          shop_name: shopName,
+          shop_url: shopUrl,
+        });
+        
+        setShops([response.data, ...shops]);
+        toast.success('店铺创建成功');
+      }
     } catch (error) {
       toast.error('创建店铺失败');
       console.error('Error creating shop:', error);
-      throw error; // 重新抛出错误，让模态框知道创建失败
+      throw error;
     }
   };
 
-  if (loading) {
+  if (finalLoading) {
     return (
       <Container>
         <LoadingContainer>
@@ -408,7 +441,7 @@ const ShopListPage: React.FC = () => {
         </Button>
       </Header>
 
-      {shops.length === 0 ? (
+      {finalShops.length === 0 ? (
         <EmptyState>
           <EmptyIcon>🏪</EmptyIcon>
           <EmptyTitle>还没有店铺</EmptyTitle>
@@ -416,7 +449,7 @@ const ShopListPage: React.FC = () => {
         </EmptyState>
       ) : (
         <ShopList>
-          {shops.map((shop) => {
+          {finalShops.map((shop) => {
             const isStaff = shop.my_role === 'staff';
             return (
               <ShopCard
@@ -447,7 +480,7 @@ const ShopListPage: React.FC = () => {
                     )}
                     {/* 最近一条消息预览（来自 convByShop 快照）*/}
                     {(() => {
-                      const conv = convByShop[shop.id];
+                      const conv = finalConvByShop[shop.id];
                       const lm = conv?.last_message;
                       const hasPreview = !!lm;
                       return (

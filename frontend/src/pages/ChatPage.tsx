@@ -19,6 +19,9 @@ import { useWSStore } from '../stores/wsStore';
 import { listStaffShops } from '../services/shops';
 import { EmptyState as UIEmptyState, EmptyIcon, EmptyTitle, EmptyDescription } from '../components/UI/EmptyState';
 import { getCustomerDisplayName } from '../utils/display';
+// 🆕 适配器：支持新旧Store切换
+import { useMessagesData, useMessageWebSocketUpdates } from '../hooks/useMessagesAdapter';
+import { featureFlags } from '../stores/config/featureFlags';
 
 const Container = styled.div`
   display: flex;
@@ -282,20 +285,49 @@ const ChatPage: React.FC = () => {
   const [headerCustomerId, setHeaderCustomerId] = useState<string | undefined>(undefined);
   const { setActiveSessionId } = useUIStore();
   const { socket, connect, addMessageListener, removeMessageListener } = useWSStore();
+  
+  // 🆕 使用适配器：自动根据Feature Flag选择新旧Store
+  const sessionIdNum = sessionId ? parseInt(sessionId) : null;
+  const { 
+    messages: adaptedMessages, 
+    loading: adaptedLoading, 
+    error: adaptedError,
+    sendMessage: sendMessageAdapter,
+    addMessage: addMessageAdapter
+  } = useMessagesData(sessionIdNum);
+  
+  // 保留旧逻辑（仅在未启用新Store时使用）
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // 🎯 根据Feature Flag选择数据源
+  // 转换适配器消息为ChatPage的Message类型
+  const finalMessages: Message[] = featureFlags.USE_NEW_MESSAGES_STORE 
+    ? adaptedMessages.map(m => ({
+        id: m.id,
+        session_id: m.session_id,
+        sender_type: m.sender_type,
+        sender_id: m.sender_id as any, // 类型兼容性转换
+        content: m.message, // 适配器字段是message，这里是content
+        message_type: 'text' as const,
+        created_at: m.created_at,
+      } as Message))
+    : messages;
+  const finalLoading = featureFlags.USE_NEW_MESSAGES_STORE ? adaptedLoading : loading;
+  
   const [inputValue, setInputValue] = useState('');
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [userShopId, setUserShopId] = useState<string | null>(null);
   const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
-  // 仅在卡片层级清零：不直接操作聚合未读统计，避免影响底部导航
-  // const [isTyping, setIsTyping] = useState(false); // 未来可接入实时输入指示
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // 🆕 启用WebSocket实时接收消息（新Store）
+  useMessageWebSocketUpdates(sessionIdNum, addMessageAdapter);
   
   // 稳定 WS 监听器：用 ref 持有最新处理逻辑，避免因依赖变更频繁移除/添加
   const wsHandlerRef = useRef<(data: any) => void>(() => {});
@@ -542,41 +574,50 @@ const ChatPage: React.FC = () => {
 
   const handleSendMessage = async () => {
     const content = inputValue.trim();
-    if (!content || sending) return;
+    if (!content || sending || !sessionId) return;
 
     setSending(true);
     
     try {
-      await api.post(`/api/sessions/${sessionId}/messages`, {
-        content,
-        message_type: 'text',
-      });
+      // 🆕 使用适配器发送消息（支持乐观更新）
+      if (featureFlags.USE_NEW_MESSAGES_STORE) {
+        console.log('🆕 使用新Store发送消息');
+        const userId = localStorage.getItem('auth_user_id') || 'unknown';
+        await sendMessageAdapter(content, userId);
+      } else {
+        // 🔙 旧逻辑
+        console.log('🔙 使用旧逻辑发送消息');
+        await api.post(`/api/sessions/${sessionId}/messages`, {
+          content,
+          message_type: 'text',
+        });
 
-      // 乐观回显：但先做一次去重，防止 WS 比 POST 返回更快导致重复
-      setMessages(prev => {
-        const now = Date.now();
-        const exists = prev.some(msg =>
-          msg.sender_type === 'staff' &&
-          msg.content === content &&
-          Math.abs(new Date(msg.created_at).getTime() - now) < 5000
-        );
-        if (exists) return prev;
-        return [
-          ...prev,
-          {
-            id: Date.now(),
-            session_id: Number(sessionId),
-            sender_type: 'staff',
-            sender_id: undefined,
-            content,
-            message_type: 'text',
-            file_url: undefined,
-            file_name: undefined,
-            status: 'sent',
-            created_at: new Date().toISOString(),
-          },
-        ];
-      });
+        // 乐观回显：但先做一次去重，防止 WS 比 POST 返回更快导致重复
+        setMessages(prev => {
+          const now = Date.now();
+          const exists = prev.some(msg =>
+            msg.sender_type === 'staff' &&
+            msg.content === content &&
+            Math.abs(new Date(msg.created_at).getTime() - now) < 5000
+          );
+          if (exists) return prev;
+          return [
+            ...prev,
+            {
+              id: Date.now(),
+              session_id: Number(sessionId),
+              sender_type: 'staff',
+              sender_id: undefined,
+              content,
+              message_type: 'text',
+              file_url: undefined,
+              file_name: undefined,
+              status: 'sent',
+              created_at: new Date().toISOString(),
+            },
+          ];
+        });
+      }
 
       setInputValue('');
       
@@ -844,7 +885,7 @@ const ChatPage: React.FC = () => {
     return grouped;
   };
 
-  if (loading) {
+  if (finalLoading) {
     return (
       <Container>
         <LoadingContainer>
@@ -865,14 +906,14 @@ const ChatPage: React.FC = () => {
       </ChatHeader>
 
       <MessagesContainer>
-        {messages.length === 0 ? (
+        {finalMessages.length === 0 ? (
           <UIEmptyState>
             <EmptyIcon>💬</EmptyIcon>
             <EmptyTitle>开始对话</EmptyTitle>
             <EmptyDescription>发送消息开始与客户的对话</EmptyDescription>
           </UIEmptyState>
         ) : (
-          groupMessagesByTime(messages).map((item, index) => {
+          groupMessagesByTime(finalMessages).map((item, index) => {
             if ('type' in item && item.type === 'time') {
               return (
                 <div key={`time-${index}`} style={{ 

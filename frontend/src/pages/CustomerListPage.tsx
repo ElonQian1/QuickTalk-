@@ -15,6 +15,9 @@ import { useWSStore } from '../stores/wsStore';
 import { sortCustomers as sortCustomersUtil } from '../utils/sort';
 import { formatBadgeCount } from '../utils/format';
 import { formatRelativeTime, formatMessagePreview, getCustomerDisplayName } from '../utils/display';
+// 🆕 适配器：支持新旧Store切换
+import { useCustomersData, useCustomerWebSocketUpdates } from '../hooks/useCustomersAdapter';
+import { featureFlags } from '../stores/config/featureFlags';
 
 const Container = styled.div`
   height: 100%;
@@ -253,16 +256,38 @@ const normalizeCustomer = (entry: ApiCustomer): CustomerWithSession => {
 
 const CustomerListPage: React.FC = () => {
   const { shopId } = useParams<{ shopId: string }>();
+  const navigate = useNavigate();
+  const notifGetSessionUnread = useNotificationsStore(state => state.getSessionUnread);
+
+  // 🆕 使用适配器：自动根据Feature Flag选择新旧Store
+  const { 
+    customers: adaptedCustomers, 
+    loading: adaptedLoading, 
+    error: adaptedError,
+    reload: reloadCustomers,
+    updateCustomer: updateCustomerAdapter
+  } = useCustomersData(shopId ? parseInt(shopId) : null);
+  
+  // 保留旧逻辑（仅在未启用新Store时使用）
   const [customers, setCustomers] = useState<CustomerWithSession[]>([]);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
-  // 重要：不在进入客户列表或点击店铺时批量清零店铺未读；仅在进入具体会话时清零会话维度
-  const notifGetSessionUnread = useNotificationsStore(state => state.getSessionUnread);
+
+  // 🎯 根据Feature Flag选择数据源
+  const finalCustomers = featureFlags.USE_NEW_CUSTOMERS_STORE 
+    ? adaptedCustomers.map(c => normalizeCustomer(c as any))
+    : customers;
+  const finalLoading = featureFlags.USE_NEW_CUSTOMERS_STORE ? adaptedLoading : loading;
 
   const sortCustomers = (list: CustomerWithSession[]) => sortCustomersUtil(list);
 
+  // 🆕 启用WebSocket实时更新（新Store）
+  useCustomerWebSocketUpdates(
+    shopId ? parseInt(shopId) : null,
+    updateCustomerAdapter
+  );
+
   useEffect(() => {
-    if (shopId) {
+    if (shopId && !featureFlags.USE_NEW_CUSTOMERS_STORE) {
       fetchCustomers(parseInt(shopId));
     }
   }, [shopId]);
@@ -405,7 +430,7 @@ const CustomerListPage: React.FC = () => {
     return () => window.removeEventListener('session-read', handler as EventListener);
   }, []);
 
-  if (loading) {
+  if (finalLoading) {
     return (
       <Container>
         <LoadingContainer>
@@ -417,7 +442,7 @@ const CustomerListPage: React.FC = () => {
 
   return (
     <Container>
-      {customers.length === 0 ? (
+      {finalCustomers.length === 0 ? (
         <EmptyState>
           <EmptyIcon>👥</EmptyIcon>
           <EmptyTitle>暂无客户</EmptyTitle>
@@ -425,7 +450,7 @@ const CustomerListPage: React.FC = () => {
         </EmptyState>
       ) : (
         <CustomerList>
-          {customers.map((item) => {
+          {finalCustomers.map((item) => {
             // 安全检查，防止 undefined 错误
             if (!item || !item.customer) {
               return null;
