@@ -11,6 +11,7 @@ const StyledConversationCard = styled(Card)`
   cursor: pointer;
   transition: all 0.2s ease;
   border-radius: 0;
+  position: relative;
   
   &:hover {
     background: #f8f8f8;
@@ -94,6 +95,12 @@ const UnreadBadge = styled(Badge)`
   margin-left: auto;
 `;
 
+const TopRightBadge = styled(Badge)`
+  position: absolute;
+  top: 8px;
+  right: 8px;
+`;
+
 interface ConversationCardProps {
   shopName: string;
   customerCount: number;
@@ -115,6 +122,7 @@ export const ConversationCard: React.FC<ConversationCardProps> = ({
 }) => {
   return (
     <StyledConversationCard onClick={onClick}>
+      {(() => { const t = formatBadgeCount(unreadCount); return t ? (<TopRightBadge>{t}</TopRightBadge>) : null; })()}
       <ConversationHeader>
         <ConversationAvatar>
           {shopName.charAt(0)}

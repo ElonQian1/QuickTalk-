@@ -471,18 +471,18 @@ const CustomerListPage: React.FC = () => {
                 {(() => { const t = formatBadgeCount(item.unread_count); return t ? (<UnreadCount>{t}</UnreadCount>) : null; })()}
               </CustomerHeader>
 
-              {item.last_message && (
-                <LastMessage>
-                  <MessageContent $isUnread={hasUnread}>
-                    {item.last_message.sender_type === 'customer' ? '' : '[我] '}
-                    {formatMessagePreview(item.last_message as any)}
-                  </MessageContent>
-                  
-                  <MessageTime>
-                    {formatLastActiveTime(item.last_message.created_at)}
-                  </MessageTime>
-                </LastMessage>
-              )}
+              <LastMessage>
+                <MessageContent $isUnread={hasUnread}>
+                  {item.last_message
+                    ? `${item.last_message.sender_type === 'customer' ? '' : '[我] '}${formatMessagePreview(item.last_message as any)}`
+                    : '暂无消息'}
+                </MessageContent>
+                <MessageTime>
+                  {formatLastActiveTime(
+                    (item.last_message?.created_at) || (item.session?.last_message_at || item.customer.last_active_at)
+                  )}
+                </MessageTime>
+              </LastMessage>
             </CustomerCard>
             );
           })}
