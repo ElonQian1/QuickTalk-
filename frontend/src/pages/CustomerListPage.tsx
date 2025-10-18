@@ -258,6 +258,7 @@ const CustomerListPage: React.FC = () => {
   const navigate = useNavigate();
   const resetShopUnread = useConversationsStore(state => state.resetShopUnread);
   const resetShopUnreadNotif = useNotificationsStore(state => state.resetShopUnread);
+  const notifGetSessionUnread = useNotificationsStore(state => state.getSessionUnread);
   const refreshTimerRef = useRef<number | undefined>(undefined);
 
   const sortCustomers = (list: CustomerWithSession[]) => sortCustomersUtil(list);
@@ -429,7 +430,10 @@ const CustomerListPage: React.FC = () => {
               return null;
             }
             
-            const hasUnread = (item.unread_count || 0) > 0;
+            const sessionId = item.session?.id;
+            const unreadFromNotif = sessionId ? notifGetSessionUnread(sessionId) : undefined;
+            const mergedUnread = (typeof unreadFromNotif === 'number' ? unreadFromNotif : item.unread_count || 0);
+            const hasUnread = mergedUnread > 0;
             
             return (
               <CustomerCard
@@ -446,7 +450,7 @@ const CustomerListPage: React.FC = () => {
                      getCustomerAvatar(item.customer)
                     }
                     </CustomerAvatar>
-                    {hasUnread && (<UnreadDot dot />)}
+                    {hasUnread && (<UnreadDot dot count={mergedUnread} />)}
                   </AvatarWrapper>
                 
                 <CustomerInfo>
@@ -468,7 +472,7 @@ const CustomerListPage: React.FC = () => {
                   </CustomerMeta>
                 </CustomerInfo>
                 
-                {(() => { const t = formatBadgeCount(item.unread_count); return t ? (<UnreadCount>{t}</UnreadCount>) : null; })()}
+                {(() => { const t = formatBadgeCount(mergedUnread); return t ? (<UnreadCount count={mergedUnread}>{t}</UnreadCount>) : null; })()}
               </CustomerHeader>
 
               <LastMessage>

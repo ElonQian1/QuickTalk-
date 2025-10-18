@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import styled from 'styled-components';
 import { FiPlus, FiGlobe } from 'react-icons/fi';
 import { api } from '../config/api';
@@ -12,6 +12,10 @@ import toast from 'react-hot-toast';
 import CreateShopModal from '../components/CreateShopModal';
 import { useNotificationsStore } from '../stores/notificationsStore';
 import { formatBadgeCount } from '../utils/format';
+import { formatRelativeTime, formatMessagePreview } from '../utils/display';
+import { useNavigate } from 'react-router-dom';
+import { loadConversationsForMessagesPage, Conversation } from '../modules/messages/conversations';
+import { useWSStore } from '../stores/wsStore';
 
 const Container = styled.div`
   padding: ${theme.spacing.md};
@@ -126,6 +130,24 @@ const ShopUrl = styled.p`
   white-space: nowrap;
 `;
 
+const LastMessage = styled.div`
+  margin-top: ${theme.spacing.sm};
+`;
+
+const MessageContent = styled.div`
+  font-size: ${theme.typography.small};
+  color: ${theme.colors.text.secondary};
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-bottom: ${theme.spacing.micro};
+`;
+
+const MessageTime = styled.div`
+  font-size: ${theme.typography.caption};
+  color: ${theme.colors.text.placeholder};
+`;
+
 // 统计区域移除，改为右上角管理按钮。保留命名占位可在未来扩展（例如显示订单统计）。
 
 const LoadingContainer = styled.div`
@@ -146,6 +168,7 @@ interface Shop {
 }
 
 const ShopListPage: React.FC = () => {
+  const navigate = useNavigate();
   const [shops, setShops] = useState<Shop[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -154,10 +177,57 @@ const ShopListPage: React.FC = () => {
   const [activeShop, setActiveShop] = useState<Shop | undefined>();
   const [initialTab, setInitialTab] = useState<'info' | 'staff' | 'apiKey'>('info');
   const byShop = useNotificationsStore(state => state.byShop);
+  const { addMessageListener, removeMessageListener } = useWSStore();
+
+  // shopId -> 会话快照（未读与最近消息）
+  const [convByShop, setConvByShop] = useState<Record<number, Conversation>>({});
 
   useEffect(() => {
     fetchShops();
   }, []);
+
+  // 加载会话汇总，获得每个店铺的 last_message 与 unread_count
+  useEffect(() => {
+    const run = async () => {
+      try {
+        const list = await loadConversationsForMessagesPage();
+        const map: Record<number, Conversation> = {};
+        for (const c of list) map[c.shop.id] = c;
+        setConvByShop(map);
+      } catch (e) {
+        console.debug('加载会话汇总失败（忽略）：', e);
+      }
+    };
+    run();
+  }, []);
+
+  // 监听 WS：更新对应店铺的未读与最近消息
+  useEffect(() => {
+    const listener = (data: any) => {
+      try {
+        const t = data?.messageType || data?.message_type;
+        if (t !== 'new_message') return;
+        const shopId: number | undefined = data?.metadata?.shopId || data?.metadata?.shop_id;
+        if (!shopId) return;
+        const senderType = data?.sender_type || data?.senderType || 'customer';
+        const createdAt = data?.timestamp || new Date().toISOString();
+        const content = data?.content || '';
+        setConvByShop(prev => {
+          const old = prev[shopId];
+          const unread = (old?.unread_count || 0) + (senderType === 'customer' ? 1 : 0);
+          const next: Conversation = {
+            shop: old?.shop || { id: shopId, shop_name: String(shopId) },
+            customer_count: old?.customer_count || 0,
+            unread_count: unread,
+            last_message: { content, created_at: createdAt, sender_type: senderType },
+          };
+          return { ...prev, [shopId]: next };
+        });
+      } catch {}
+    };
+    addMessageListener(listener);
+    return () => removeMessageListener(listener);
+  }, [addMessageListener, removeMessageListener]);
 
   const fetchShops = async () => {
     try {
@@ -186,10 +256,12 @@ const ShopListPage: React.FC = () => {
       }
       // 先按未读降序，再按创建时间降序（后续可替换为活跃时间）
       const merged = Array.from(map.values()).sort((a, b) => {
-        const ua = byShop[a.id] || 0;
-        const ub = byShop[b.id] || 0;
+        const ua = byShop[a.id] ?? convByShop[a.id]?.unread_count ?? 0;
+        const ub = byShop[b.id] ?? convByShop[b.id]?.unread_count ?? 0;
         if (ub !== ua) return ub - ua;
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        const at = convByShop[a.id]?.last_message?.created_at || a.created_at;
+        const bt = convByShop[b.id]?.last_message?.created_at || b.created_at;
+        return new Date(bt).getTime() - new Date(at).getTime();
       });
       setShops(merged);
     } catch (error) {
@@ -263,12 +335,21 @@ const ShopListPage: React.FC = () => {
           {shops.map((shop) => {
             const isStaff = shop.my_role === 'staff';
             return (
-              <ShopCard key={shop.id ?? `${shop.shop_name}-${shop.api_key || 'no-key'}`} className="fade-in" $role={shop.my_role}>
+              <ShopCard
+                key={shop.id ?? `${shop.shop_name}-${shop.api_key || 'no-key'}`}
+                className="fade-in"
+                $role={shop.my_role}
+                onClick={() => navigate(`/shops/${shop.id}/customers`)}
+              >
                 <ShopHeader>
                   <ShopIcon style={{ position: 'relative' }} $role={shop.my_role}>
                     🏪
                   </ShopIcon>
-                  {(() => { const t = formatBadgeCount(byShop[shop.id]); return t ? (<ShopUnreadBadge>{t}</ShopUnreadBadge>) : null; })()}
+                  {(() => {
+                    const unread = (byShop[shop.id] ?? convByShop[shop.id]?.unread_count) || 0;
+                    const t = formatBadgeCount(unread);
+                    return t ? (<ShopUnreadBadge count={unread}>{t}</ShopUnreadBadge>) : null;
+                  })()}
 
                   <ShopInfo>
                     <ShopName>
@@ -281,6 +362,22 @@ const ShopListPage: React.FC = () => {
                         {shop.shop_url.replace(/^https?:\/\//, '')}
                       </ShopUrl>
                     )}
+                    {/* 最近一条消息预览（来自 convByShop 快照）*/}
+                    {(() => {
+                      const conv = convByShop[shop.id];
+                      const lm = conv?.last_message;
+                      const hasPreview = !!lm;
+                      return (
+                        <LastMessage>
+                          <MessageContent>
+                            {hasPreview ? (formatMessagePreview(lm as any) || '消息') : '暂无消息'}
+                          </MessageContent>
+                          <MessageTime>
+                            {formatRelativeTime(lm?.created_at || shop.created_at)}
+                          </MessageTime>
+                        </LastMessage>
+                      );
+                    })()}
                   </ShopInfo>
 
                   <div>

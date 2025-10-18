@@ -23,8 +23,10 @@ const TabBarContainer = styled.div`
   z-index: 1050;
   box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
   pointer-events: auto; /* 确保可以接收点击事件 */
-  /* 桌面端同样展示底部导航，便于大屏操作 */
-  /* 若未来需要切换为侧边栏，可在此处按断点切换 */
+  
+  @media (min-width: ${theme.breakpoints.tablet}) {
+    display: none; /* 在平板和桌面端隐藏 */
+  }
 `;
 
 const TabItem = styled.button<{ active?: boolean }>`
@@ -165,7 +167,7 @@ const BottomTabBar: React.FC<BottomTabBarProps> = ({ unreadCount }) => {
             <TabIcon active={isActive}>
               <Icon />
               {tab.badge && tab.badge > 0 && (
-                <NotificationBadge>{formatBadgeCount(tab.badge)}</NotificationBadge>
+                <NotificationBadge count={tab.badge}>{formatBadgeCount(tab.badge)}</NotificationBadge>
               )}
             </TabIcon>
             <TabLabel active={isActive}>{tab.label}</TabLabel>
