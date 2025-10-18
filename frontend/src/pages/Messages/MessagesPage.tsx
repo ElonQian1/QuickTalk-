@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { useNavigate } from 'react-router-dom';
 import { loadConversationsForMessagesPage, Conversation } from '../../modules/messages/conversations';
+import { listOwnerShopsOverview, listStaffShopsOverview } from '../../services/overview';
 import { ConversationCard as ModularConversationCard } from '../../components/Messages';
 import { EmptyState, EmptyIcon, EmptyTitle, EmptyDescription } from '../../components/UI';
 import { api } from '../../config/api';
@@ -93,13 +94,44 @@ const MessagesPage: React.FC = () => {
 
   const fetchConversations = async () => {
     try {
-      const conversationData = await loadConversationsForMessagesPage();
+      // 优先使用后端 overview 接口；失败时回退到旧聚合
+      let conversationData: Conversation[] | null = null;
+      try {
+        const [owner, staff] = await Promise.allSettled([
+          listOwnerShopsOverview(),
+          listStaffShopsOverview(),
+        ]);
+        const all = [
+          ...(owner.status === 'fulfilled' ? owner.value : []),
+          ...(staff.status === 'fulfilled' ? staff.value : []),
+        ];
+        if (all.length > 0) {
+          // 映射为 Conversation 形状
+          conversationData = all.reduce<Conversation[]>((acc, it) => {
+            acc.push({
+              shop: { id: it.shop.id, shop_name: it.shop.shop_name, unread_count: it.unread_count },
+              customer_count: it.customer_count,
+              last_message: it.last_message ? {
+                content: it.last_message.content,
+                created_at: it.last_message.created_at,
+                sender_type: it.last_message.sender_type,
+              } : null,
+              unread_count: it.unread_count,
+            });
+            return acc;
+          }, []);
+        }
+      } catch {}
+
+      if (!conversationData) {
+        conversationData = await loadConversationsForMessagesPage();
+      }
       setConversations(conversationData);
 
       // 统计数据在页面顶部卡片已移除，故不再计算聚合统计
 
       // 初始化全局 unread store（shopId -> unread）：旧 store 与新通知中心并行
-      const initItems = conversationData.map((c) => ({ shopId: c.shop.id, count: c.unread_count }));
+  const initItems = conversationData.map((c) => ({ shopId: c.shop.id, count: c.unread_count }));
       useConversationsStore.getState().setManyUnreads(initItems);
       // 新通知中心（按店铺维度）
       try {

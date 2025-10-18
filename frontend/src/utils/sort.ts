@@ -43,3 +43,32 @@ export function sortConversations<T extends ConversationLike>(list: T[]): T[] {
     return (b.customer_count || 0) - (a.customer_count || 0);
   });
 }
+
+// Shop 列表排序（结合通知中心与会话快照）：
+// 未读（byShop 优先，否则 convMap.unread_count）降序 ->
+// 最近时间（convMap.last_message.created_at | shop.last_activity | shop.created_at）降序
+export type ShopForSort = {
+  id: number;
+  created_at?: string | null;
+  last_activity?: string | null;
+};
+
+type ConvMapValueLike = {
+  unread_count?: number;
+  last_message?: { created_at?: string | null } | null;
+};
+
+export function sortShopsWithState<
+  S extends ShopForSort,
+  C extends Record<number, ConvMapValueLike>,
+  U extends Record<number, number | undefined>
+>(shops: S[], convMap: C, byShop: U): S[] {
+  return [...shops].sort((a, b) => {
+    const ua = (byShop[a.id] ?? convMap[a.id]?.unread_count) || 0;
+    const ub = (byShop[b.id] ?? convMap[b.id]?.unread_count) || 0;
+    if (ub !== ua) return ub - ua;
+    const at = toTs(convMap[a.id]?.last_message?.created_at) || toTs(a.last_activity) || toTs(a.created_at);
+    const bt = toTs(convMap[b.id]?.last_message?.created_at) || toTs(b.last_activity) || toTs(b.created_at);
+    return bt - at;
+  });
+}

@@ -40,6 +40,7 @@ struct ShopOverviewProjection {
     pub last_msg_type: Option<String>,
     pub last_msg_sender: Option<String>,
     pub last_msg_created_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub customer_count: Option<i64>,
 }
 
 pub async fn fetch_shops_with_unread_by_owner(
@@ -388,7 +389,8 @@ pub async fn fetch_shops_overview_by_owner_paged(
             lm.last_msg_content,
             lm.last_msg_type,
             lm.last_msg_sender,
-            l.last_msg_created_at
+            l.last_msg_created_at,
+            (SELECT COUNT(*) FROM customers c WHERE c.shop_id = s.id) AS customer_count
         FROM shops s
         LEFT JOIN per_shop_unread u ON u.shop_id = s.id
         LEFT JOIN per_shop_last l ON l.shop_id = s.id
@@ -427,6 +429,7 @@ pub async fn fetch_shops_overview_by_owner_paged(
                 sender_type: row.last_msg_sender.unwrap_or_else(|| "customer".to_string()),
                 created_at: ts,
             }),
+            customer_count: row.customer_count.unwrap_or(0),
         })
         .collect();
 
@@ -488,7 +491,8 @@ pub async fn fetch_shops_overview_by_staff_paged(
             lm.last_msg_content,
             lm.last_msg_type,
             lm.last_msg_sender,
-            l.last_msg_created_at
+            l.last_msg_created_at,
+            (SELECT COUNT(*) FROM customers c WHERE c.shop_id = s.id) AS customer_count
         FROM shops s
         JOIN shop_staffs ss ON ss.shop_id = s.id
         LEFT JOIN per_shop_unread u ON u.shop_id = s.id
@@ -529,6 +533,7 @@ pub async fn fetch_shops_overview_by_staff_paged(
                 sender_type: row.last_msg_sender.unwrap_or_else(|| "customer".to_string()),
                 created_at: ts,
             }),
+            customer_count: row.customer_count.unwrap_or(0),
         })
         .collect();
 

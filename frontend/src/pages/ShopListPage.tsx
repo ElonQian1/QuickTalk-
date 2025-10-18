@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import { FiPlus, FiGlobe } from 'react-icons/fi';
 import { api } from '../config/api';
 import { listStaffShops } from '../services/shops';
+import { listOwnerShopsOverview, listStaffShopsOverview, ShopOverview } from '../services/overview';
 import { normalizeShopsList } from '../utils/normalize';
 import { Button, Card, LoadingSpinner, Badge } from '../styles/globalStyles';
 import { EmptyState, EmptyIcon, EmptyTitle, EmptyDescription } from '../components/UI';
@@ -16,6 +17,7 @@ import { formatRelativeTime, formatMessagePreview } from '../utils/display';
 import { useNavigate } from 'react-router-dom';
 import { loadConversationsForMessagesPage, Conversation } from '../modules/messages/conversations';
 import { useWSStore } from '../stores/wsStore';
+import { sortShopsWithState } from '../utils/sort';
 
 const Container = styled.div`
   padding: ${theme.spacing.md};
@@ -165,6 +167,8 @@ interface Shop {
   created_at: string;
   unread_count?: number; // 仍获取但不显示
   my_role?: 'owner' | 'staff';
+  last_activity?: string | null;
+  customer_count?: number;
 }
 
 const ShopListPage: React.FC = () => {
@@ -181,13 +185,15 @@ const ShopListPage: React.FC = () => {
 
   // shopId -> 会话快照（未读与最近消息）
   const [convByShop, setConvByShop] = useState<Record<number, Conversation>>({});
+  const [usedOverview, setUsedOverview] = useState(false);
 
   useEffect(() => {
     fetchShops();
   }, []);
 
-  // 加载会话汇总，获得每个店铺的 last_message 与 unread_count
+  // 加载会话汇总（回退方案）：仅在未使用 overview 成功时调用
   useEffect(() => {
+    if (usedOverview) return;
     const run = async () => {
       try {
         const list = await loadConversationsForMessagesPage();
@@ -199,7 +205,7 @@ const ShopListPage: React.FC = () => {
       }
     };
     run();
-  }, []);
+  }, [usedOverview]);
 
   // 监听 WS：更新对应店铺的未读与最近消息
   useEffect(() => {
@@ -222,7 +228,10 @@ const ShopListPage: React.FC = () => {
             unread_count: unread,
             last_message: { content, created_at: createdAt, sender_type: senderType },
           };
-          return { ...prev, [shopId]: next };
+          const nextMap = { ...prev, [shopId]: next };
+          // 收到新消息后按最新状态重新排序
+          setShops(prevShops => sortShopsWithState(prevShops, nextMap, byShop));
+          return nextMap;
         });
       } catch {}
     };
@@ -232,42 +241,126 @@ const ShopListPage: React.FC = () => {
 
   const fetchShops = async () => {
     try {
-      // 同时获取“我拥有的店铺”和“我作为员工加入的店铺”，合并展示
-      const [ownerRes, staffList] = await Promise.all([
-        api.get('/api/shops'),
-        listStaffShops().catch(() => []),
+      // 优先使用 overview 接口，失败时回退到旧接口
+      const [ownerOverview, staffOverview] = await Promise.all([
+        listOwnerShopsOverview().catch(() => [] as ShopOverview[]),
+        listStaffShopsOverview().catch(() => [] as ShopOverview[]),
       ]);
 
-      const ownerNormalized = (normalizeShopsList(ownerRes.data) as Shop[])
-        .map(s => ({ ...s, my_role: 'owner' as const }));
+      if ((ownerOverview?.length || 0) + (staffOverview?.length || 0) > 0) {
+        const convMap: Record<number, Conversation> = {};
+        const map = new Map<number, Shop>();
+        // owner
+        for (const item of ownerOverview) {
+          const s = item.shop;
+          map.set(s.id, {
+            id: s.id,
+            shop_name: s.shop_name,
+            shop_url: s.shop_url || undefined,
+            api_key: s.api_key,
+            created_at: s.created_at,
+            my_role: 'owner',
+            last_activity: item.last_activity ?? null,
+            customer_count: item.customer_count,
+          });
+          convMap[s.id] = {
+            shop: { id: s.id, shop_name: s.shop_name },
+            customer_count: item.customer_count,
+            unread_count: item.unread_count ?? 0,
+            last_message: item.last_message
+              ? { content: item.last_message.content, created_at: item.last_message.created_at, sender_type: item.last_message.sender_type }
+              : undefined,
+          } as Conversation;
+        }
+        // staff
+        for (const item of staffOverview) {
+          const s = item.shop;
+          if (!map.has(s.id)) {
+            map.set(s.id, {
+              id: s.id,
+              shop_name: s.shop_name,
+              shop_url: s.shop_url || undefined,
+              api_key: s.api_key,
+              created_at: s.created_at,
+              my_role: 'staff',
+              last_activity: item.last_activity ?? null,
+              customer_count: item.customer_count,
+            });
+          }
+          convMap[s.id] = {
+            shop: { id: s.id, shop_name: s.shop_name },
+            customer_count: item.customer_count,
+            unread_count: item.unread_count ?? 0,
+            last_message: item.last_message
+              ? { content: item.last_message.content, created_at: item.last_message.created_at, sender_type: item.last_message.sender_type }
+              : undefined,
+          } as Conversation;
+        }
 
-      const staffNormalized: Shop[] = (staffList || []).map(s => ({
-        id: s.id,
-        shop_name: s.shop_name,
-        shop_url: s.shop_url || undefined,
-        api_key: s.api_key,
-        created_at: s.created_at,
-        unread_count: s.unread_count,
-        my_role: 'staff' as const,
-      }));
-
-      const map = new Map<number, Shop>();
-      for (const item of [...ownerNormalized, ...staffNormalized]) {
-        if (!map.has(item.id)) map.set(item.id, item);
+        setConvByShop(convMap);
+        const merged = sortShopsWithState(Array.from(map.values()), convMap, byShop);
+        setShops(merged);
+        setUsedOverview(true);
+      } else {
+        // 回退到旧接口
+        const [ownerRes, staffList] = await Promise.all([
+          api.get('/api/shops'),
+          listStaffShops().catch(() => []),
+        ]);
+  
+        const ownerNormalized = (normalizeShopsList(ownerRes.data) as Shop[])
+          .map(s => ({ ...s, my_role: 'owner' as const }));
+  
+        const staffNormalized: Shop[] = (staffList || []).map(s => ({
+          id: s.id,
+          shop_name: s.shop_name,
+          shop_url: s.shop_url || undefined,
+          api_key: s.api_key,
+          created_at: s.created_at,
+          unread_count: s.unread_count,
+          my_role: 'staff' as const,
+        }));
+  
+        const map = new Map<number, Shop>();
+        for (const item of [...ownerNormalized, ...staffNormalized]) {
+          if (!map.has(item.id)) map.set(item.id, item);
+        }
+        const merged = sortShopsWithState(Array.from(map.values()), convByShop, byShop);
+        setShops(merged);
+        setUsedOverview(false);
       }
-      // 先按未读降序，再按创建时间降序（后续可替换为活跃时间）
-      const merged = Array.from(map.values()).sort((a, b) => {
-        const ua = byShop[a.id] ?? convByShop[a.id]?.unread_count ?? 0;
-        const ub = byShop[b.id] ?? convByShop[b.id]?.unread_count ?? 0;
-        if (ub !== ua) return ub - ua;
-        const at = convByShop[a.id]?.last_message?.created_at || a.created_at;
-        const bt = convByShop[b.id]?.last_message?.created_at || b.created_at;
-        return new Date(bt).getTime() - new Date(at).getTime();
-      });
-      setShops(merged);
     } catch (error) {
-      toast.error('获取店铺列表失败');
-      console.error('Error fetching shops:', error);
+      // 回退路径（overview 整体失败）
+      try {
+        const [ownerRes, staffList] = await Promise.all([
+          api.get('/api/shops'),
+          listStaffShops().catch(() => []),
+        ]);
+
+        const ownerNormalized = (normalizeShopsList(ownerRes.data) as Shop[])
+          .map(s => ({ ...s, my_role: 'owner' as const }));
+
+        const staffNormalized: Shop[] = (staffList || []).map(s => ({
+          id: s.id,
+          shop_name: s.shop_name,
+          shop_url: s.shop_url || undefined,
+          api_key: s.api_key,
+          created_at: s.created_at,
+          unread_count: s.unread_count,
+          my_role: 'staff' as const,
+        }));
+
+        const map = new Map<number, Shop>();
+        for (const item of [...ownerNormalized, ...staffNormalized]) {
+          if (!map.has(item.id)) map.set(item.id, item);
+        }
+        const merged = sortShopsWithState(Array.from(map.values()), convByShop, byShop);
+        setShops(merged);
+        setUsedOverview(false);
+      } catch (e2) {
+        toast.error('获取店铺列表失败');
+        console.error('Error fetching shops:', error, e2);
+      }
     } finally {
       setLoading(false);
     }
@@ -357,13 +450,6 @@ const ShopListPage: React.FC = () => {
                       {shop.shop_name}
                       {isStaff && <RolePill>员工</RolePill>}
                     </ShopName>
-                    {shop.shop_url && (
-                      <ShopUrl>
-                        <FiGlobe />
-                        {shop.shop_url.replace(/^https?:\/\//, '')}
-                      </ShopUrl>
-                    )}
-                    {/* 最近一条消息预览（来自 convByShop 快照）*/}
                     {(() => {
                       const conv = convByShop[shop.id];
                       const lm = conv?.last_message;
@@ -374,7 +460,7 @@ const ShopListPage: React.FC = () => {
                             {hasPreview ? (formatMessagePreview(lm as any) || '消息') : '暂无消息'}
                           </MessageContent>
                           <MessageTime>
-                            {formatRelativeTime(lm?.created_at || shop.created_at)}
+                            {formatRelativeTime(lm?.created_at || shop.last_activity || shop.created_at)}
                           </MessageTime>
                         </LastMessage>
                       );

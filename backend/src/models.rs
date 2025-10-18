@@ -191,6 +191,7 @@ pub struct ShopWithOverview {
     pub last_activity: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_message: Option<MessageSummary>,
+    pub customer_count: i64,
 }
 
 // 通用分页返回模型
