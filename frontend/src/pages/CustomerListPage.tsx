@@ -275,15 +275,22 @@ const CustomerListPage: React.FC = () => {
     const handleNewMessage = (data: any) => {
       console.log('📬 客户列表收到新消息:', data);
       try {
+        // 仅处理当前店铺的消息
+        const msgShopId = data?.metadata?.shopId || data?.metadata?.shop_id || data?.shop_id;
+        if (shopId && Number(msgShopId) !== Number(shopId)) return;
+      } catch {}
+
+      try {
         // 仅在是新消息且来自客户时触发刷新
-        const isNewMsg = data?.messageType === 'new_message';
+        const t = data?.messageType || data?.message_type;
+        const isNewMsg = t === 'new_message';
         const fromCustomer = (data?.sender_type || data?.senderType) === 'customer';
         if (!isNewMsg || !fromCustomer) return;
       } catch {}
 
       // 本地乐观更新：提升当前会话卡片未读 + 最新消息，并立即重排
       try {
-        const sid = data?.session_id || data?.sessionId;
+        const sid = data?.session_id || data?.sessionId || data?.metadata?.sessionId;
         if (sid) {
           setCustomers(prev => {
             let touched = false;
@@ -291,11 +298,15 @@ const CustomerListPage: React.FC = () => {
               if (item.session?.id && item.session.id.toString() === sid.toString()) {
                 touched = true;
                 const nextUnread = (item.unread_count || 0) + 1;
-                const msgType = data?.metadata?.messageType || 'text';
-                const createdAt = data?.timestamp || new Date().toISOString();
+                const msgType = data?.message_type || data?.messageType || data?.metadata?.messageType || 'text';
+                const createdAt = data?.timestamp || data?.created_at || new Date().toISOString();
+                const rawContent = data?.content;
+                const content = rawContent && String(rawContent).trim().length > 0
+                  ? rawContent
+                  : (msgType === 'image' ? '[图片]' : msgType === 'file' ? '[文件]' : '');
                 const preview: Message = {
                   id: Date.now(),
-                  content: data?.content || (msgType === 'image' ? '[图片]' : msgType === 'file' ? '[文件]' : ''),
+                  content,
                   message_type: msgType,
                   sender_type: 'customer',
                   created_at: createdAt,
@@ -309,7 +320,12 @@ const CustomerListPage: React.FC = () => {
               }
               return item;
             });
-            return touched ? sortCustomers(updated) : prev;
+            if (!touched) {
+              // 未命中现有卡片：立即回源刷新以“秒级插入”新会话
+              try { if (shopId) fetchCustomers(parseInt(shopId)); } catch {}
+              return prev;
+            }
+            return sortCustomers(updated);
           });
         }
       } catch {}

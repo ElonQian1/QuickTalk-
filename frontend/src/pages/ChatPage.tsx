@@ -278,6 +278,7 @@ const normalizeMediaUrl = (url?: string) => {
 
 const ChatPage: React.FC = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
+  const [headerCustomerId, setHeaderCustomerId] = useState<string | undefined>(undefined);
   const { setActiveSessionId } = useUIStore();
   const { socket, connect, addMessageListener, removeMessageListener } = useWSStore();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -478,6 +479,9 @@ const ChatPage: React.FC = () => {
         const meta = await api.get(`/api/sessions/${sessionId}`);
         const shopId = meta.data?.shop_id as number | undefined;
         const customerId = meta.data?.customer_id as number | undefined;
+        if (customerId) {
+          setHeaderCustomerId(String(customerId));
+        }
         if (shopId && customerId) {
           // 调用后端清除该客户在该店铺的未读
           api.post(`/api/shops/${shopId}/customers/${customerId}/read`).finally(() => {
@@ -646,7 +650,6 @@ const ChatPage: React.FC = () => {
     }
 
     setUploading(true);
-
     try {
       const formData = new FormData();
       formData.append('file', file);
@@ -847,7 +850,7 @@ const ChatPage: React.FC = () => {
       <ChatHeader>
         <Avatar size={40}>👤</Avatar>
         <CustomerInfo>
-          <CustomerName>客户</CustomerName>
+          <CustomerName>客户{headerCustomerId ? `（${headerCustomerId}）` : ''}</CustomerName>
           <CustomerStatus online={true}>在线</CustomerStatus>
         </CustomerInfo>
       </ChatHeader>
