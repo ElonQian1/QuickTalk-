@@ -258,7 +258,6 @@ const CustomerListPage: React.FC = () => {
   const navigate = useNavigate();
   // 重要：不在进入客户列表或点击店铺时批量清零店铺未读；仅在进入具体会话时清零会话维度
   const notifGetSessionUnread = useNotificationsStore(state => state.getSessionUnread);
-  const refreshTimerRef = useRef<number | undefined>(undefined);
 
   const sortCustomers = (list: CustomerWithSession[]) => sortCustomersUtil(list);
 
@@ -321,7 +320,7 @@ const CustomerListPage: React.FC = () => {
               return item;
             });
             if (!touched) {
-              // 未命中现有卡片：立即回源刷新以“秒级插入”新会话
+              // 未命中现有卡片：立即回源刷新以"秒级插入"新会话
               try { if (shopId) fetchCustomers(parseInt(shopId)); } catch {}
               return prev;
             }
@@ -330,14 +329,12 @@ const CustomerListPage: React.FC = () => {
         }
       } catch {}
 
-      // 轻微防抖，合并短时间内的多次刷新
-      if (refreshTimerRef.current) {
-        window.clearTimeout(refreshTimerRef.current);
-      }
-      refreshTimerRef.current = window.setTimeout(() => {
-        // 刷新客户列表以获取最新消息和未读数
-        fetchCustomers(parseInt(shopId));
-      }, 400) as unknown as number;
+      // 🔧 修复：移除延迟刷新定时器，完全依赖 WebSocket 实时更新
+      // 避免 API 返回的旧数据覆盖 WebSocket 的实时更新
+      // 理由：
+      // 1. 后端已修复：发送消息时自动更新 customer.last_active_at
+      // 2. API 已完善：返回完整的 last_message 和 unread_count
+      // 3. WebSocket 实时更新足够准确，不需要额外的 API 轮询
     };
 
     // 使用 WebSocket store 的监听器

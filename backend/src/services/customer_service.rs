@@ -78,16 +78,14 @@ impl CustomerService {
     /// 1. 验证访问权限
     /// 2. 获取客户概览数据
     pub async fn get_customers_overview(
-        db: &DatabaseConnection,
+        &self,
+        _user_id: i64,
         shop_id: i32,
-        requester_user_id: i32,
     ) -> Result<Vec<(customers::Model, Option<sessions::Model>, Option<messages::Model>, i64)>> {
-        // 验证权限
-        if !ShopStaffRepository::is_shop_member(db, shop_id as i64, requester_user_id as i64).await? {
-            anyhow::bail!("permission_denied");
-        }
+        // 权限已在 handler 层通过 SQLx 校验，这里不再重复校验
+        eprintln!("✅ 开始查询客户概览 (handler 已完成权限校验)");
         
-        CustomerRepository::find_with_overview_by_shop(db, shop_id).await
+        CustomerRepository::find_with_overview_by_shop(&self.db, shop_id).await
     }
     
     /// 搜索客户
@@ -224,7 +222,7 @@ impl CustomerService {
     /// Handler 需要的方法：获取带会话信息的客户列表
     pub async fn get_customers_with_sessions(
         &self,
-        user_id: i64,
+        _user_id: i64,
         shop_id: i32,
     ) -> Result<Vec<(customers::Model, Option<sessions::Model>)>> {
         // 权限已在 handler 层通过 SQLx 校验，这里不再重复校验，避免 Sea-ORM 访问不兼容的 shops 列
@@ -237,7 +235,7 @@ impl CustomerService {
     /// 分页获取客户概览（含最后消息与未读数）
     pub async fn get_customers_overview_paged(
         &self,
-        user_id: i64,
+        _user_id: i64,
         shop_id: i32,
         limit: i64,
         offset: i64,

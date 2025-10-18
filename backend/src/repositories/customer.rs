@@ -55,6 +55,8 @@ impl CustomerRepository {
             Ok(customer.update(db).await?)
         } else {
             // 创建新客户
+            // 🔧 修复：新客户创建时不设置 last_active_at，避免"新客户永远排在最前面"
+            // last_active_at 只在客户真正活跃（发送消息）时才更新
             let customer = customers::ActiveModel {
                 shop_id: Set(shop_id),
                 customer_id: Set(customer_id),
@@ -62,7 +64,7 @@ impl CustomerRepository {
                 customer_email: Set(email),
                 customer_avatar: Set(avatar_url),
                 first_visit_at: Set(Some(chrono::Utc::now().naive_utc())),
-                last_active_at: Set(Some(chrono::Utc::now().naive_utc())),
+                last_active_at: Set(None), // 修改：新客户不设置活跃时间，等待首次消息
                 status: Set(Some(1)), // 默认状态为1（活跃）
                 ..Default::default()
             };
@@ -86,12 +88,25 @@ impl CustomerRepository {
         use crate::entities::{customers, sessions};
         use sea_orm::*;
         
+        // 🔧 修复：使用 NULLS LAST 排序，将没有活跃时间的新客户排在最后
         let results = Customers::find()
             .find_also_related(Sessions)
             .filter(customers::Column::ShopId.eq(shop_id))
             .order_by_desc(customers::Column::LastActiveAt)
             .all(db)
             .await?;
+        
+        // 手动排序：NULL 值（未活跃客户）排在最后
+        let mut results = results;
+        results.sort_by(|a, b| {
+            match (&a.0.last_active_at, &b.0.last_active_at) {
+                (Some(a_time), Some(b_time)) => b_time.cmp(a_time), // 都有值：降序
+                (Some(_), None) => std::cmp::Ordering::Less,         // a 有值，b 没有：a 在前
+                (None, Some(_)) => std::cmp::Ordering::Greater,      // a 没有，b 有值：b 在前
+                (None, None) => std::cmp::Ordering::Equal,           // 都没有：相等
+            }
+        });
+        
         Ok(results)
     }
     
@@ -121,11 +136,21 @@ impl CustomerRepository {
         shop_id: i32,
     ) -> Result<Vec<(customers::Model, Option<sessions::Model>, Option<messages::Model>, i64)>> {
         // 1. 获取店铺的所有客户
-        let customers_list = Customers::find()
+        let mut customers_list = Customers::find()
             .filter(customers::Column::ShopId.eq(shop_id))
             .order_by_desc(customers::Column::LastActiveAt)
             .all(db)
             .await?;
+        
+        // 🔧 修复：手动排序，将 NULL 值（未活跃客户）排在最后
+        customers_list.sort_by(|a, b| {
+            match (&a.last_active_at, &b.last_active_at) {
+                (Some(a_time), Some(b_time)) => b_time.cmp(a_time),
+                (Some(_), None) => std::cmp::Ordering::Less,
+                (None, Some(_)) => std::cmp::Ordering::Greater,
+                (None, None) => std::cmp::Ordering::Equal,
+            }
+        });
         
         let mut result = Vec::new();
         

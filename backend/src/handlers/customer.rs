@@ -33,42 +33,38 @@ pub async fn get_customers(
     }
     eprintln!("🔍 get_customers: user_id={}, shop_id={}", user_id, shop_id);
     
-    let result = state
+    // 🔧 修复：使用完整的客户概览查询（包含 last_message 和 unread_count）
+    let customers_raw = state
         .customer_service
-        .get_customers_with_sessions(user_id, shop_id.try_into().unwrap())
-        .await;
-    
-    match result {
-        Ok(customers) => {
-            eprintln!("✅ 查询到 {} 个客户", customers.len());
-            // 将 (customers::Model, Option<sessions::Model>) 转换为 CustomerWithSession
-            let customer_sessions: Vec<CustomerWithSession> = customers
-                .into_iter()
-                .map(|(customer, session)| {
-                    eprintln!("📝 转换客户: id={}, customer_id={}", customer.id, customer.customer_id);
-                    CustomerWithSession {
-                        customer: customer.into(),
-                        session: session.map(|s| s.into()),
-                        last_message: None, // TODO: 根据需要查询最后一条消息
-                        unread_count: 0,    // TODO: 根据需要查询未读数
-                    }
-                })
-                .collect();
-            eprintln!("✅ 成功转换 {} 个客户响应", customer_sessions.len());
-            Ok(Json(customer_sessions))
-        },
-        Err(e) => {
-            let error_msg = e.to_string();
-            eprintln!("❌ get_customers错误: {}", error_msg);
-            
-            // 根据错误类型返回不同的HTTP状态码
-            if error_msg.contains("access_denied") || error_msg.contains("permission_denied") {
-                Err(AppError::Forbidden)
+        .get_customers_overview(user_id, shop_id.try_into().unwrap())
+        .await
+        .map_err(|e| {
+            let msg = e.to_string();
+            eprintln!("❌ get_customers错误: {}", msg);
+            if msg.contains("access_denied") || msg.contains("permission_denied") {
+                AppError::Forbidden
             } else {
-                Err(AppError::Internal(error_msg))
+                AppError::Internal(msg)
             }
-        }
-    }
+        })?;
+    
+    eprintln!("✅ 查询到 {} 个客户（含完整信息）", customers_raw.len());
+    
+    // 将 (customers::Model, Option<sessions::Model>, Option<messages::Model>, i64) 转换为 CustomerWithSession
+    let customer_sessions: Vec<CustomerWithSession> = customers_raw
+        .into_iter()
+        .map(|(customer, session, last_message, unread)| {
+            CustomerWithSession {
+                customer: customer.into(),
+                session: session.map(|s| s.into()),
+                last_message: last_message.map(|m| m.into()),
+                unread_count: unread as i32,
+            }
+        })
+        .collect();
+    
+    eprintln!("✅ 成功转换 {} 个客户响应", customer_sessions.len());
+    Ok(Json(customer_sessions))
 }
 
 /// 分页获取客户概览（含最后消息与未读）

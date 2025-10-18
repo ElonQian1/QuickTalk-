@@ -86,6 +86,14 @@ impl<'a> ChatService<'a> {
             .persist_message(session, "customer", Some(customer.id), &payload)
             .await?;
 
+        // 🔧 修复：客户发送消息时更新活跃时间
+        if let Err(e) = crate::repositories::CustomerRepository::update_last_active(
+            &self.state.db_connection,
+            customer.id as i32,
+        ).await {
+            eprintln!("⚠️ 更新客户活跃时间失败: {:?}", e);
+        }
+
         // TODO: 修复unread_counts表schema后启用
         // crate::repositories::UnreadCountRepository::update_unread_count(
         //     &self.state.db_connection,
@@ -115,6 +123,14 @@ impl<'a> ChatService<'a> {
         let persisted = self
             .persist_message(session, "staff", Some(staff_id), &payload)
             .await?;
+
+        // 🔧 修复：客服回复时也更新客户活跃时间（表示会话仍在活跃）
+        if let Err(e) = crate::repositories::CustomerRepository::update_last_active(
+            &self.state.db_connection,
+            customer.id as i32,
+        ).await {
+            eprintln!("⚠️ 更新客户活跃时间失败: {:?}", e);
+        }
 
         // TODO: 修复unread_counts表schema后启用
         // crate::repositories::UnreadCountRepository::reset_unread_count(
