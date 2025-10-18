@@ -104,7 +104,7 @@ const BottomTabBar: React.FC<BottomTabBarProps> = ({ unreadCount }) => {
   // 当未传入 props 时，优先读取通知中心的总未读，回退到旧 store
   const totalUnreadNotif = useNotificationsStore(state => state.totalUnread);
   const totalUnreadLegacy = useConversationsStore(state => state.totalUnread);
-  const badge = typeof unreadCount === 'number' ? unreadCount : (totalUnreadNotif || totalUnreadLegacy || 0);
+  const badge = typeof unreadCount === 'number' ? unreadCount : ((totalUnreadNotif ?? totalUnreadLegacy) ?? 0);
 
   const tabs: TabItemType[] = [
     {

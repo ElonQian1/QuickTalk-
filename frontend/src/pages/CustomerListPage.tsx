@@ -256,8 +256,7 @@ const CustomerListPage: React.FC = () => {
   const [customers, setCustomers] = useState<CustomerWithSession[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  const resetShopUnread = useConversationsStore(state => state.resetShopUnread);
-  const resetShopUnreadNotif = useNotificationsStore(state => state.resetShopUnread);
+  // 重要：不在进入客户列表或点击店铺时批量清零店铺未读；仅在进入具体会话时清零会话维度
   const notifGetSessionUnread = useNotificationsStore(state => state.getSessionUnread);
   const refreshTimerRef = useRef<number | undefined>(undefined);
 

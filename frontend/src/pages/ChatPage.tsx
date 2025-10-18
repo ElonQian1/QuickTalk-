@@ -5,6 +5,7 @@ import { useUIStore } from '../stores/uiStore';
 import { notificationService } from '../services/notificationService';
 import { FiSend, FiImage, FiPaperclip, FiFile, FiMic } from 'react-icons/fi';
 import { format } from 'date-fns';
+import { useNotificationsStore } from '../stores/notificationsStore';
 import { zhCN } from 'date-fns/locale';
 import { api } from '../config/api';
 import { Avatar, LoadingSpinner } from '../styles/globalStyles';
@@ -16,7 +17,6 @@ import EmojiButton from '../components/EmojiButton';
 import { MessageText } from '../utils/textFormatter';
 import { useWSStore } from '../stores/wsStore';
 import { listStaffShops } from '../services/shops';
-import { useNotificationsStore } from '../stores/notificationsStore';
 import { EmptyState as UIEmptyState, EmptyIcon, EmptyTitle, EmptyDescription } from '../components/UI/EmptyState';
 
 const Container = styled.div`
@@ -487,6 +487,11 @@ const ChatPage: React.FC = () => {
                 detail: { shopId, sessionId, customerId },
               });
               window.dispatchEvent(ev);
+              // 同步通知中心：会话级清零（会自动扣减该店铺与总未读）
+              try {
+                const resetter = useNotificationsStore.getState().resetSessionUnread;
+                resetter(Number(sessionId), Number(shopId));
+              } catch {}
             } catch {}
           });
         }
